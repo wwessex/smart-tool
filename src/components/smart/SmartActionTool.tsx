@@ -19,7 +19,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles } from 'lucide-react';
+import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 
 type Mode = 'now' | 'future';
@@ -44,6 +45,7 @@ interface FutureForm {
 
 export function SmartActionTool() {
   const { toast } = useToast();
+  const { theme, setTheme } = useTheme();
   const storage = useSmartStorage();
   const today = todayISO();
 
@@ -384,7 +386,15 @@ export function SmartActionTool() {
               <p className="text-xs text-muted-foreground">by William Wessex</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              aria-label="Toggle dark mode"
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </Button>
             <Dialog open={guidanceOpen} onOpenChange={setGuidanceOpen}>
               <DialogTrigger asChild>
                 <Button variant="ghost" size="sm"><HelpCircle className="w-4 h-4 mr-1" /> Guidance</Button>
