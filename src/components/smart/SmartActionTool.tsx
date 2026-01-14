@@ -374,20 +374,25 @@ export function SmartActionTool() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20 text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Subtle gradient overlay */}
+      <div className="fixed inset-0 gradient-subtle opacity-50 pointer-events-none" />
+      
       {/* Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-background/80 border-b border-border/50">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-emerald-500 flex items-center justify-center text-white font-black text-lg">
+      <header className="sticky top-0 z-50 backdrop-blur-xl bg-background/90 border-b border-border shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl gradient-primary flex items-center justify-center text-white font-black text-xl shadow-glow">
               S
             </div>
             <div>
-              <h1 className="font-extrabold text-lg tracking-tight">SMART Action Support Tool</h1>
+              <h1 className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                SMART Action Support Tool
+              </h1>
               <p className="text-xs text-muted-foreground">by William Wessex</p>
             </div>
           </div>
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-1 items-center">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" aria-label="Toggle theme">
@@ -503,22 +508,28 @@ export function SmartActionTool() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        <div className="grid lg:grid-cols-2 gap-6">
+      <main className="relative max-w-7xl mx-auto px-4 py-8">
+        <div className="grid lg:grid-cols-2 gap-8">
           {/* Left Panel - Form */}
-          <div className="bg-card/50 backdrop-blur border rounded-2xl p-5 space-y-5">
+          <div className="bg-card border border-border/50 rounded-2xl p-6 space-y-6 shadow-soft animate-fade-in">
             {/* Tabs */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 p-1 bg-muted rounded-full">
               <Button
-                variant={mode === 'now' ? 'default' : 'outline'}
-                className={cn("rounded-full", mode === 'now' && "bg-violet-600 hover:bg-violet-700")}
+                variant="ghost"
+                className={cn(
+                  "flex-1 rounded-full transition-all duration-200",
+                  mode === 'now' && "bg-primary text-primary-foreground shadow-md hover:bg-primary/90"
+                )}
                 onClick={() => { setMode('now'); setShowValidation(false); }}
               >
                 Barrier to action now
               </Button>
               <Button
-                variant={mode === 'future' ? 'default' : 'outline'}
-                className={cn("rounded-full", mode === 'future' && "bg-violet-600 hover:bg-violet-700")}
+                variant="ghost"
+                className={cn(
+                  "flex-1 rounded-full transition-all duration-200",
+                  mode === 'future' && "bg-primary text-primary-foreground shadow-md hover:bg-primary/90"
+                )}
                 onClick={() => { setMode('future'); setShowValidation(false); }}
               >
                 Task-based
@@ -569,11 +580,13 @@ export function SmartActionTool() {
                   <p className="text-xs text-muted-foreground">Tip: you can type your own barrier if it isn't listed.</p>
                 </div>
 
-                {/* Advisor Assist */}
-                <div className="border rounded-xl p-4 bg-background/50 space-y-3">
+                <div className="border border-primary/20 rounded-xl p-4 gradient-subtle space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-sm">Advisor assist</span>
-                    <Button size="sm" onClick={handleAIDraft} className="bg-violet-600 hover:bg-violet-700">
+                    <span className="font-semibold text-sm flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-primary" />
+                      Advisor assist
+                    </span>
+                    <Button size="sm" onClick={handleAIDraft} className="bg-primary hover:bg-primary/90 shadow-md">
                       <Sparkles className="w-3 h-3 mr-1" /> AI draft
                     </Button>
                   </div>
@@ -581,7 +594,7 @@ export function SmartActionTool() {
                     value={suggestQuery}
                     onChange={e => setSuggestQuery(e.target.value)}
                     placeholder="Filter suggestions (optional)…"
-                    className="text-sm"
+                    className="text-sm bg-background/80"
                   />
                   {/* BUG FIX #3: Added proper styling for suggestion chips */}
                   <div className="flex flex-wrap gap-2">
@@ -590,10 +603,10 @@ export function SmartActionTool() {
                         key={i}
                         type="button"
                         onClick={() => handleInsertSuggestion(s)}
-                        className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-full border border-border bg-secondary/50 hover:bg-secondary transition-colors"
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-full border border-primary/30 bg-background hover:bg-primary/10 hover:border-primary/50 transition-all duration-200"
                       >
                         <span>{s.title}</span>
-                        <span className="text-xs opacity-70 px-2 py-0.5 rounded-full border">insert</span>
+                        <span className="text-xs text-primary px-2 py-0.5 rounded-full bg-primary/10">insert</span>
                       </button>
                     ))}
                   </div>
@@ -691,10 +704,13 @@ export function SmartActionTool() {
                 </div>
 
                 {/* Advisor Assist - Task-based */}
-                <div className="border rounded-xl p-4 bg-background/50 space-y-3">
+                <div className="border border-primary/20 rounded-xl p-4 gradient-subtle space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-sm">Advisor assist</span>
-                    <Button size="sm" onClick={handleAIDraft} className="bg-violet-600 hover:bg-violet-700">
+                    <span className="font-semibold text-sm flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-primary" />
+                      Advisor assist
+                    </span>
+                    <Button size="sm" onClick={handleAIDraft} className="bg-primary hover:bg-primary/90 shadow-md">
                       <Sparkles className="w-3 h-3 mr-1" /> AI draft
                     </Button>
                   </div>
@@ -705,10 +721,10 @@ export function SmartActionTool() {
                         key={i}
                         type="button"
                         onClick={() => handleInsertSuggestion(s)}
-                        className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-full border border-border bg-secondary/50 hover:bg-secondary transition-colors"
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-full border border-primary/30 bg-background hover:bg-primary/10 hover:border-primary/50 transition-all duration-200"
                       >
                         <span>{s.title}</span>
-                        <span className="text-xs opacity-70 px-2 py-0.5 rounded-full border">insert</span>
+                        <span className="text-xs text-primary px-2 py-0.5 rounded-full bg-primary/10">insert</span>
                       </button>
                     ))}
                   </div>
@@ -742,42 +758,50 @@ export function SmartActionTool() {
             )}
 
             {/* Actions */}
-            <div className="flex flex-wrap gap-2 pt-2">
-              <Button onClick={() => generateOutput(true)} className="bg-violet-600 hover:bg-violet-700">Generate action</Button>
+            <div className="flex flex-wrap gap-3 pt-4 border-t border-border/50">
+              <Button onClick={() => generateOutput(true)} className="bg-primary hover:bg-primary/90 shadow-md">
+                Generate action
+              </Button>
               <Button variant="outline" onClick={handleClear}>Clear</Button>
               <div className="flex-1" />
-              <Button variant="ghost" onClick={handleSave}><History className="w-4 h-4 mr-1" /> Save to history</Button>
+              <Button variant="ghost" onClick={handleSave}>
+                <History className="w-4 h-4 mr-1" /> Save to history
+              </Button>
             </div>
           </div>
 
           {/* Right Panel - Output & History */}
-          <div className="bg-card/50 backdrop-blur border rounded-2xl p-5 space-y-5">
+          <div className="bg-card border border-border/50 rounded-2xl p-6 space-y-6 shadow-soft animate-fade-in" style={{ animationDelay: '0.1s' }}>
             <div className="flex items-end justify-between gap-4">
               <div>
-                <h2 className="font-bold">Generated action</h2>
-                <p className="text-xs text-muted-foreground">Proofread before pasting into ICONI.</p>
+                <h2 className="font-bold text-lg">Generated action</h2>
+                <p className="text-xs text-muted-foreground">Proofread before pasting into important documents.</p>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" onClick={handleCopy}><Copy className="w-4 h-4 mr-1" /> Copy</Button>
-                <Button size="sm" variant="ghost" onClick={handleDownload}><Download className="w-4 h-4 mr-1" /> .txt</Button>
+                <Button size="sm" onClick={handleCopy} className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm">
+                  <Copy className="w-4 h-4 mr-1" /> Copy
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleDownload}>
+                  <Download className="w-4 h-4 mr-1" /> .txt
+                </Button>
               </div>
             </div>
 
             <div className={cn(
-              "min-h-[120px] p-4 rounded-xl border border-dashed bg-background/50 whitespace-pre-wrap leading-relaxed transition-colors",
-              copied && "animate-pulse bg-green-500/10"
+              "min-h-[140px] p-5 rounded-xl border-2 border-dashed border-border bg-muted/30 whitespace-pre-wrap leading-relaxed transition-all duration-300",
+              copied && "border-accent bg-accent/10 shadow-glow"
             )}>
               {output || <span className="text-muted-foreground">Generated action will appear here…</span>}
             </div>
 
             {/* History */}
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="flex items-center justify-between gap-4 flex-wrap">
-                <h2 className="font-bold">History</h2>
+                <h2 className="font-bold text-lg">History</h2>
                 <div className="flex gap-2 flex-wrap">
-                  <Button size="sm" variant="ghost" onClick={handleExport}>Export</Button>
+                  <Button size="sm" variant="outline" onClick={handleExport}>Export</Button>
                   <label className="cursor-pointer">
-                    <Button size="sm" variant="ghost" asChild><span>Import</span></Button>
+                    <Button size="sm" variant="outline" asChild><span>Import</span></Button>
                     <input type="file" accept="application/json" className="hidden" onChange={handleImport} />
                   </label>
                   <Button size="sm" variant="destructive" onClick={() => {
@@ -796,21 +820,33 @@ export function SmartActionTool() {
                 className="text-sm"
               />
 
-              <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+              <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
                 {filteredHistory.length === 0 ? (
-                  <div className="p-4 rounded-lg border text-sm text-muted-foreground">
-                    {historySearch ? 'No matching items found.' : 'No saved items yet.'}
+                  <div className="p-6 rounded-xl border-2 border-dashed text-sm text-muted-foreground text-center">
+                    {historySearch ? 'No matching items found.' : 'No saved items yet. Generate and save actions to build your history.'}
                   </div>
                 ) : (
-                  filteredHistory.map(h => (
-                    <div key={h.id} className="p-3 rounded-lg border bg-background/50 space-y-2">
-                      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                        <span>{h.mode === 'now' ? 'Barrier to action' : 'Task-based'}</span>
-                        <span>•</span>
-                        <span>{new Date(h.createdAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</span>
-                        {h.meta.forename && <><span>•</span><span>Name: {h.meta.forename}</span></>}
+                  filteredHistory.map((h, index) => (
+                    <div 
+                      key={h.id} 
+                      className="p-4 rounded-xl border border-border/50 bg-muted/30 space-y-3 hover:border-primary/30 transition-colors animate-slide-in"
+                      style={{ animationDelay: `${index * 0.05}s` }}
+                    >
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        <span className={cn(
+                          "px-2 py-0.5 rounded-full font-medium",
+                          h.mode === 'now' ? "bg-primary/10 text-primary" : "bg-accent/10 text-accent"
+                        )}>
+                          {h.mode === 'now' ? 'Barrier to action' : 'Task-based'}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {new Date(h.createdAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
+                        </span>
+                        {h.meta.forename && (
+                          <span className="text-muted-foreground">• {h.meta.forename}</span>
+                        )}
                       </div>
-                      <p className="text-sm whitespace-pre-wrap">{h.text}</p>
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{h.text}</p>
                       <div className="flex gap-2">
                         <Button size="sm" variant="outline" onClick={() => handleEditHistory(h)}>
                           <Edit className="w-3 h-3 mr-1" /> Edit
@@ -821,7 +857,7 @@ export function SmartActionTool() {
                         }}>
                           <Copy className="w-3 h-3" />
                         </Button>
-                        <Button size="sm" variant="destructive" onClick={() => {
+                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => {
                           storage.deleteFromHistory(h.id);
                           toast({ title: 'Deleted' });
                         }}>
