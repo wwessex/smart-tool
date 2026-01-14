@@ -513,10 +513,10 @@ export function SmartActionTool() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+    <>
       {/* Subtle gradient overlay */}
       <motion.div 
-        className="fixed inset-0 gradient-subtle opacity-50 pointer-events-none"
+        className="fixed inset-0 gradient-subtle opacity-50 pointer-events-none z-0"
         initial={{ opacity: 0 }}
         animate={{ opacity: 0.5 }}
         transition={{ duration: 1 }}
@@ -1156,6 +1156,6 @@ export function SmartActionTool() {
           </motion.div>
         </motion.div>
       </main>
-    </div>
+    </>
   );
 }
