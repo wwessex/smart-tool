@@ -113,8 +113,14 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  html {
+    height: 100%;
+    overflow-x: hidden;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
+    min-height: 100%;
   }
 }
 
