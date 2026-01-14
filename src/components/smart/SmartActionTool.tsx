@@ -54,7 +54,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor } from 'lucide-react';
+import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -145,7 +145,18 @@ export function SmartActionTool() {
   const [guidanceOpen, setGuidanceOpen] = useState(false);
   const [settingsBarriers, setSettingsBarriers] = useState('');
   const [settingsTimescales, setSettingsTimescales] = useState('');
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
+  const [isLandscape, setIsLandscape] = useState(false);
 
+  // Detect landscape orientation
+  useEffect(() => {
+    const checkOrientation = () => {
+      setIsLandscape(window.innerHeight < 600 && window.innerWidth > window.innerHeight);
+    };
+    checkOrientation();
+    window.addEventListener('resize', checkOrientation);
+    return () => window.removeEventListener('resize', checkOrientation);
+  }, []);
   // BUG FIX #1: Validate future date - must be today or later
   const futureDateError = useMemo(() => {
     if (!futureForm.date) return '';
@@ -518,31 +529,64 @@ export function SmartActionTool() {
         animate={{ y: 0 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
       >
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className={cn(
+          "max-w-7xl mx-auto px-4 flex items-center justify-between transition-all duration-200",
+          isLandscape && headerCollapsed ? "py-1" : isLandscape ? "py-2" : "py-4"
+        )}>
           <motion.div 
-            className="flex items-center gap-4"
+            className="flex items-center gap-3"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
           >
             <motion.div 
-              className="w-11 h-11 rounded-xl gradient-primary flex items-center justify-center text-white font-black text-xl shadow-glow"
+              className={cn(
+                "rounded-xl gradient-primary flex items-center justify-center text-white font-black shadow-glow transition-all duration-200",
+                isLandscape && headerCollapsed ? "w-7 h-7 text-sm" : isLandscape ? "w-8 h-8 text-base" : "w-11 h-11 text-xl"
+              )}
               whileHover={{ scale: 1.1, rotate: 5 }}
               whileTap={{ scale: 0.95 }}
             >
               S
             </motion.div>
-            <div>
-              <h1 className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                SMART Action Support Tool
-              </h1>
-              <p className="text-xs text-muted-foreground">by William Wessex</p>
-            </div>
+            <AnimatePresence mode="wait">
+              {!(isLandscape && headerCollapsed) && (
+                <motion.div
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: "auto" }}
+                  exit={{ opacity: 0, width: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <h1 className={cn(
+                    "font-extrabold tracking-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent whitespace-nowrap",
+                    isLandscape ? "text-base" : "text-xl"
+                  )}>
+                    SMART Action Support Tool
+                  </h1>
+                  {!isLandscape && <p className="text-xs text-muted-foreground">by William Wessex</p>}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
+          
           <div className="flex gap-1 items-center">
+            {/* Collapse toggle - only show in landscape */}
+            {isLandscape && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setHeaderCollapsed(!headerCollapsed)}
+                aria-label={headerCollapsed ? "Expand header" : "Collapse header"}
+                className="px-2"
+              >
+                {headerCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+              </Button>
+            )}
+            
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" aria-label="Toggle theme">
+                <Button variant="ghost" size="sm" aria-label="Toggle theme" className={isLandscape ? "px-2" : ""}>
                   {theme === 'dark' ? <Moon className="w-4 h-4" /> : theme === 'light' ? <Sun className="w-4 h-4" /> : <Monitor className="w-4 h-4" />}
                 </Button>
               </DropdownMenuTrigger>
@@ -558,9 +602,13 @@ export function SmartActionTool() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            
             <Dialog open={guidanceOpen} onOpenChange={setGuidanceOpen}>
               <DialogTrigger asChild>
-                <Button variant="ghost" size="sm"><HelpCircle className="w-4 h-4 mr-1" /> Guidance</Button>
+                <Button variant="ghost" size="sm" className={isLandscape ? "px-2" : ""}>
+                  <HelpCircle className="w-4 h-4" />
+                  {!isLandscape && <span className="ml-1">Guidance</span>}
+                </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
@@ -591,7 +639,10 @@ export function SmartActionTool() {
               }
             }}>
               <DialogTrigger asChild>
-                <Button variant="ghost" size="sm"><Settings className="w-4 h-4 mr-1" /> Settings</Button>
+                <Button variant="ghost" size="sm" className={isLandscape ? "px-2" : ""}>
+                  <Settings className="w-4 h-4" />
+                  {!isLandscape && <span className="ml-1">Settings</span>}
+                </Button>
               </DialogTrigger>
               <DialogContent className="max-w-3xl">
                 <DialogHeader>
