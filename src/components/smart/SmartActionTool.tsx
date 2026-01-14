@@ -55,6 +55,7 @@ import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, 
 import { useTheme } from 'next-themes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { ComboboxInput } from './ComboboxInput';
 
 // Animation variants
 const fadeInUp = {
@@ -695,16 +696,14 @@ export function SmartActionTool() {
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">What identified barrier needs to be addressed?</label>
-                  <Input
+                  <ComboboxInput
                     value={nowForm.barrier}
-                    onChange={e => setNowForm(prev => ({ ...prev, barrier: e.target.value }))}
+                    onChange={(value) => setNowForm(prev => ({ ...prev, barrier: value }))}
+                    options={storage.barriers}
                     placeholder="Select or type your own…"
-                    list="barrier-list"
+                    emptyMessage="No barriers found."
                     className={getFieldClass(!!nowForm.barrier.trim())}
                   />
-                  <datalist id="barrier-list">
-                    {storage.barriers.map(b => <option key={b} value={b} />)}
-                  </datalist>
                   <p className="text-xs text-muted-foreground">Tip: you can type your own barrier if it isn't listed.</p>
                 </div>
 
