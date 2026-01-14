@@ -231,16 +231,16 @@ export function buildFutureOutput(
   const formattedTask = task.trim().replace(/\s+/g, " ");
   const formattedOutcome = formatTaskOutcome(forename, rawOutcome);
 
-  // FIX: Only add outcome sentence if there's actual content
+  // Structure: "As discussed and agreed, on [date], [name] will attend [task]. [Outcome]. Reviewed in [timescale]."
   const parts = [
     `${BUILDER_TASK.p1} ${formattedDate}, ${forename} ${BUILDER_TASK.p2} ${formattedTask}.`
   ];
   
   if (formattedOutcome) {
-    parts.push(`${BUILDER_TASK.p3} ${formattedOutcome}.`);
+    parts.push(`${formattedOutcome}.`);
   }
   
-  parts.push(`${BUILDER_TASK.p4} ${timescale}.`);
+  parts.push(`${BUILDER_TASK.p3} ${timescale}.`);
 
   return parts.join(" ");
 }

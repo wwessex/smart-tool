@@ -49,10 +49,9 @@ export const BUILDER_NOW = {
 };
 
 export const BUILDER_TASK = {
-  p1: "On",
+  p1: "As discussed and agreed, on",
   p2: "will attend",
-  p3: "As discussed and agreed,",
-  p4: "This will be reviewed in our next meeting in"
+  p3: "This will be reviewed in our next meeting in"
 };
 
 export const GUIDANCE = [
