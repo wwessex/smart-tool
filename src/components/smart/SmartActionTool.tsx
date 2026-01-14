@@ -709,26 +709,26 @@ export function SmartActionTool() {
                 exit={{ opacity: 0, x: 20 }}
                 transition={{ duration: 0.3 }}
               >
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2 min-w-0">
                     <label className="text-sm font-medium text-muted-foreground">During our meeting on…</label>
                     <Input
                       type="date"
                       value={nowForm.date}
                       onChange={e => setNowForm(prev => ({ ...prev, date: e.target.value }))}
                       max={today}
-                      className={getFieldClass(!!nowForm.date)}
+                      className={cn("w-full", getFieldClass(!!nowForm.date))}
                     />
                     {nowDateWarning && <p className="text-xs text-amber-500">{nowDateWarning}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 min-w-0">
                     <label className="text-sm font-medium text-muted-foreground">Participant forename</label>
                     <Input
                       value={nowForm.forename}
                       onChange={e => setNowForm(prev => ({ ...prev, forename: e.target.value }))}
                       placeholder="e.g. John"
                       list="recent-names"
-                      className={getFieldClass(!!nowForm.forename.trim())}
+                      className={cn("w-full", getFieldClass(!!nowForm.forename.trim()))}
                     />
                     <datalist id="recent-names">
                       {storage.recentNames.map(n => <option key={n} value={n} />)}
@@ -844,27 +844,27 @@ export function SmartActionTool() {
               >
                 <p className="text-sm text-muted-foreground">Schedule a future task, event, or activity for the participant.</p>
                 
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2 min-w-0">
                     <label className="text-sm font-medium text-muted-foreground">Scheduled date</label>
                     <Input
                       type="date"
                       value={futureForm.date}
                       onChange={e => setFutureForm(prev => ({ ...prev, date: e.target.value }))}
                       min={today}
-                      className={getFieldClass(!!futureForm.date && !futureDateError)}
+                      className={cn("w-full", getFieldClass(!!futureForm.date && !futureDateError))}
                     />
                     {/* BUG FIX #1: Show error for past dates */}
                     {futureDateError && <p className="text-xs text-destructive">{futureDateError}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 min-w-0">
                     <label className="text-sm font-medium text-muted-foreground">Participant forename</label>
                     <Input
                       value={futureForm.forename}
                       onChange={e => setFutureForm(prev => ({ ...prev, forename: e.target.value }))}
                       placeholder="e.g. John"
                       list="recent-names"
-                      className={getFieldClass(!!futureForm.forename.trim())}
+                      className={cn("w-full", getFieldClass(!!futureForm.forename.trim()))}
                     />
                   </div>
                 </div>
