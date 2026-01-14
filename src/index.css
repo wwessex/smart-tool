@@ -140,11 +140,6 @@ All colors MUST be HSL.
 
 /* Landscape optimizations for mobile/tablet devices */
 @media (orientation: landscape) and (max-height: 600px) {
-  /* Reduce overall spacing */
-  .landscape-compact {
-    @apply py-2 px-3;
-  }
-  
   /* Smaller text in landscape */
   body {
     font-size: 14px;
@@ -152,29 +147,14 @@ All colors MUST be HSL.
   
   /* Reduce header padding */
   header {
-    @apply py-2;
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
   }
   
-  /* Reduce form spacing */
-  .space-y-6 {
-    --tw-space-y-reverse: 0;
-    margin-top: calc(1rem * calc(1 - var(--tw-space-y-reverse)));
-    margin-bottom: calc(1rem * var(--tw-space-y-reverse));
-  }
-  
-  .space-y-4 {
-    --tw-space-y-reverse: 0;
-    margin-top: calc(0.625rem * calc(1 - var(--tw-space-y-reverse)));
-    margin-bottom: calc(0.625rem * var(--tw-space-y-reverse));
-  }
-  
-  /* Reduce padding on cards */
-  .p-6 {
+  /* Reduce padding on cards - more specific selector */
+  .bg-card.p-6,
+  .rounded-2xl.p-6 {
     padding: 1rem;
-  }
-  
-  .p-4 {
-    padding: 0.625rem;
   }
   
   /* Smaller labels */
@@ -183,21 +163,37 @@ All colors MUST be HSL.
   }
   
   /* Smaller inputs */
-  input, textarea, select, button {
+  input, textarea, select {
     font-size: 0.875rem;
+    padding-top: 0.375rem;
+    padding-bottom: 0.375rem;
   }
   
-  /* Reduce gap in grids */
-  .gap-8 {
-    gap: 1rem;
-  }
-  
-  .gap-4 {
-    gap: 0.5rem;
+  button {
+    font-size: 0.875rem;
   }
   
   /* Smaller main padding */
   main {
-    @apply py-4;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+  
+  /* Force single column on small landscape to prevent overlap */
+  .grid.grid-cols-1.md\\:grid-cols-2 {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Reduce vertical spacing between form sections */
+  .space-y-6 > * + * {
+    margin-top: 1rem;
+  }
+  
+  .space-y-4 > * + * {
+    margin-top: 0.625rem;
+  }
+  
+  .space-y-2 > * + * {
+    margin-top: 0.375rem;
   }
 }
