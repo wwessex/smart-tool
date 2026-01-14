@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { z } from 'zod';
 import { useSmartStorage, HistoryItem } from '@/hooks/useSmartStorage';
 import { 
   todayISO, 
@@ -13,6 +14,36 @@ import {
   parseTimescaleToTargetISO,
   formatDDMMMYY
 } from '@/lib/smart-utils';
+
+// Zod schemas for import validation
+const HistoryItemMetaSchema = z.object({
+  date: z.string().max(50),
+  forename: z.string().max(100),
+  barrier: z.string().max(200),
+  timescale: z.string().max(50),
+  action: z.string().max(2000).optional(),
+  responsible: z.string().max(100).optional(),
+  help: z.string().max(2000).optional(),
+  reason: z.string().max(2000).optional()
+});
+
+const HistoryItemSchema = z.object({
+  id: z.string().max(100),
+  mode: z.enum(['now', 'future']),
+  createdAt: z.string().max(50),
+  text: z.string().max(5000),
+  meta: HistoryItemMetaSchema
+});
+
+const ImportSchema = z.object({
+  version: z.number().optional(),
+  exportedAt: z.string().optional(),
+  history: z.array(HistoryItemSchema).max(100).optional(),
+  barriers: z.array(z.string().max(200)).max(50).optional(),
+  timescales: z.array(z.string().max(50)).max(20).optional()
+});
+
+type ValidatedImport = z.infer<typeof ImportSchema>;
 import { GUIDANCE } from '@/lib/smart-data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -388,14 +419,34 @@ export function SmartActionTool() {
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
+    // File size check (max 2MB)
+    const MAX_FILE_SIZE = 2 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      toast({ title: 'File too large', description: 'Maximum file size is 2MB.', variant: 'destructive' });
+      e.target.value = '';
+      return;
+    }
+    
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const data = JSON.parse(String(reader.result || '{}'));
-        storage.importData(data);
+        const rawData = JSON.parse(String(reader.result || '{}'));
+        // Validate against schema
+        const validated = ImportSchema.parse(rawData);
+        // Cast to expected import type after validation
+        storage.importData({
+          history: validated.history as HistoryItem[] | undefined,
+          barriers: validated.barriers,
+          timescales: validated.timescales
+        });
         toast({ title: 'Imported', description: 'Data imported successfully.' });
-      } catch {
-        toast({ title: 'Import failed', description: 'Invalid file format.', variant: 'destructive' });
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          toast({ title: 'Invalid data', description: 'Import file contains invalid or malformed data.', variant: 'destructive' });
+        } else {
+          toast({ title: 'Import failed', description: 'Invalid file format.', variant: 'destructive' });
+        }
       }
     };
     reader.readAsText(file);
