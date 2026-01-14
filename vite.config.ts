@@ -9,8 +9,8 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   
   return {
-    // Use VITE_BASE_PATH env var, fallback to './' for relative paths
-    base: env.VITE_BASE_PATH || './',
+    // Always use relative paths for portable static builds
+    base: './',
     server: {
       host: "::",
       port: 8080,
