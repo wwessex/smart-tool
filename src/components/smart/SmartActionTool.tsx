@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useSmartStorage, HistoryItem } from '@/hooks/useSmartStorage';
 import { 
   todayISO, 
@@ -23,6 +24,39 @@ import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, 
 import { useTheme } from 'next-themes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+
+// Animation variants
+const fadeInUp = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -10 }
+};
+
+const staggerContainer = {
+  animate: {
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const scaleIn = {
+  initial: { opacity: 0, scale: 0.95 },
+  animate: { opacity: 1, scale: 1 },
+  exit: { opacity: 0, scale: 0.95 }
+};
+
+const slideInLeft = {
+  initial: { opacity: 0, x: -20 },
+  animate: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: 20 }
+};
+
+const slideInRight = {
+  initial: { opacity: 0, x: 20 },
+  animate: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: -20 }
+};
 
 type Mode = 'now' | 'future';
 
@@ -374,24 +408,43 @@ export function SmartActionTool() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground overflow-hidden">
       {/* Subtle gradient overlay */}
-      <div className="fixed inset-0 gradient-subtle opacity-50 pointer-events-none" />
+      <motion.div 
+        className="fixed inset-0 gradient-subtle opacity-50 pointer-events-none"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 0.5 }}
+        transition={{ duration: 1 }}
+      />
       
       {/* Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-background/90 border-b border-border shadow-sm">
+      <motion.header 
+        className="sticky top-0 z-50 backdrop-blur-xl bg-background/90 border-b border-border shadow-sm"
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      >
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-11 h-11 rounded-xl gradient-primary flex items-center justify-center text-white font-black text-xl shadow-glow">
+          <motion.div 
+            className="flex items-center gap-4"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <motion.div 
+              className="w-11 h-11 rounded-xl gradient-primary flex items-center justify-center text-white font-black text-xl shadow-glow"
+              whileHover={{ scale: 1.1, rotate: 5 }}
+              whileTap={{ scale: 0.95 }}
+            >
               S
-            </div>
+            </motion.div>
             <div>
               <h1 className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                 SMART Action Support Tool
               </h1>
               <p className="text-xs text-muted-foreground">by William Wessex</p>
             </div>
-          </div>
+          </motion.div>
           <div className="flex gap-1 items-center">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -506,19 +559,35 @@ export function SmartActionTool() {
             </Dialog>
           </div>
         </div>
-      </header>
+      </motion.header>
 
       <main className="relative max-w-7xl mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-2 gap-8">
+        <motion.div 
+          className="grid lg:grid-cols-2 gap-8"
+          variants={staggerContainer}
+          initial="initial"
+          animate="animate"
+        >
           {/* Left Panel - Form */}
-          <div className="bg-card border border-border/50 rounded-2xl p-6 space-y-6 shadow-soft animate-fade-in">
+          <motion.div 
+            className="bg-card border border-border/50 rounded-2xl p-6 space-y-6 shadow-soft"
+            variants={slideInLeft}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+          >
             {/* Tabs */}
-            <div className="flex gap-2 p-1 bg-muted rounded-full">
+            <div className="flex gap-2 p-1 bg-muted rounded-full relative">
+              <motion.div
+                className="absolute inset-y-1 rounded-full bg-primary shadow-md"
+                layoutId="activeTab"
+                style={{ width: 'calc(50% - 4px)' }}
+                animate={{ x: mode === 'now' ? 4 : 'calc(100% + 4px)' }}
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              />
               <Button
                 variant="ghost"
                 className={cn(
-                  "flex-1 rounded-full transition-all duration-200",
-                  mode === 'now' && "bg-primary text-primary-foreground shadow-md hover:bg-primary/90"
+                  "flex-1 rounded-full transition-colors duration-200 relative z-10",
+                  mode === 'now' && "text-primary-foreground hover:bg-transparent"
                 )}
                 onClick={() => { setMode('now'); setShowValidation(false); }}
               >
@@ -527,8 +596,8 @@ export function SmartActionTool() {
               <Button
                 variant="ghost"
                 className={cn(
-                  "flex-1 rounded-full transition-all duration-200",
-                  mode === 'future' && "bg-primary text-primary-foreground shadow-md hover:bg-primary/90"
+                  "flex-1 rounded-full transition-colors duration-200 relative z-10",
+                  mode === 'future' && "text-primary-foreground hover:bg-transparent"
                 )}
                 onClick={() => { setMode('future'); setShowValidation(false); }}
               >
@@ -536,8 +605,16 @@ export function SmartActionTool() {
               </Button>
             </div>
 
+            <AnimatePresence mode="wait">
             {mode === 'now' ? (
-              <div className="space-y-4">
+              <motion.div 
+                key="now-form"
+                className="space-y-4"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.3 }}
+              >
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-muted-foreground">During our meeting on…</label>
@@ -599,15 +676,20 @@ export function SmartActionTool() {
                   {/* BUG FIX #3: Added proper styling for suggestion chips */}
                   <div className="flex flex-wrap gap-2">
                     {suggestions.map((s, i) => (
-                      <button
+                      <motion.button
                         key={i}
                         type="button"
                         onClick={() => handleInsertSuggestion(s)}
-                        className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-full border border-primary/30 bg-background hover:bg-primary/10 hover:border-primary/50 transition-all duration-200"
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-full border border-primary/30 bg-background hover:bg-primary/10 hover:border-primary/50 transition-colors"
+                        whileHover={{ scale: 1.05, y: -2 }}
+                        whileTap={{ scale: 0.95 }}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: i * 0.03 }}
                       >
                         <span>{s.title}</span>
                         <span className="text-xs text-primary px-2 py-0.5 rounded-full bg-primary/10">insert</span>
-                      </button>
+                      </motion.button>
                     ))}
                   </div>
                 </div>
@@ -660,9 +742,16 @@ export function SmartActionTool() {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
+              </motion.div>
             ) : (
-              <div className="space-y-4">
+              <motion.div 
+                key="future-form"
+                className="space-y-4"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
+              >
                 <p className="text-sm text-muted-foreground">Schedule a future task, event, or activity for the participant.</p>
                 
                 <div className="grid sm:grid-cols-2 gap-4">
@@ -717,15 +806,20 @@ export function SmartActionTool() {
                   {/* BUG FIX #3: Added proper styling for task-based suggestion buttons */}
                   <div className="flex flex-wrap gap-2">
                     {suggestions.map((s, i) => (
-                      <button
+                      <motion.button
                         key={i}
                         type="button"
                         onClick={() => handleInsertSuggestion(s)}
-                        className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-full border border-primary/30 bg-background hover:bg-primary/10 hover:border-primary/50 transition-all duration-200"
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-full border border-primary/30 bg-background hover:bg-primary/10 hover:border-primary/50 transition-colors"
+                        whileHover={{ scale: 1.05, y: -2 }}
+                        whileTap={{ scale: 0.95 }}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: i * 0.03 }}
                       >
                         <span>{s.title}</span>
                         <span className="text-xs text-primary px-2 py-0.5 rounded-full bg-primary/10">insert</span>
-                      </button>
+                      </motion.button>
                     ))}
                   </div>
                 </div>
@@ -754,45 +848,73 @@ export function SmartActionTool() {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
+              </motion.div>
             )}
+            </AnimatePresence>
 
             {/* Actions */}
-            <div className="flex flex-wrap gap-3 pt-4 border-t border-border/50">
-              <Button onClick={() => generateOutput(true)} className="bg-primary hover:bg-primary/90 shadow-md">
-                Generate action
-              </Button>
-              <Button variant="outline" onClick={handleClear}>Clear</Button>
+            <motion.div 
+              className="flex flex-wrap gap-3 pt-4 border-t border-border/50"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+            >
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Button onClick={() => generateOutput(true)} className="bg-primary hover:bg-primary/90 shadow-md">
+                  Generate action
+                </Button>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Button variant="outline" onClick={handleClear}>Clear</Button>
+              </motion.div>
               <div className="flex-1" />
-              <Button variant="ghost" onClick={handleSave}>
-                <History className="w-4 h-4 mr-1" /> Save to history
-              </Button>
-            </div>
-          </div>
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Button variant="ghost" onClick={handleSave}>
+                  <History className="w-4 h-4 mr-1" /> Save to history
+                </Button>
+              </motion.div>
+            </motion.div>
+          </motion.div>
 
           {/* Right Panel - Output & History */}
-          <div className="bg-card border border-border/50 rounded-2xl p-6 space-y-6 shadow-soft animate-fade-in" style={{ animationDelay: '0.1s' }}>
+          <motion.div 
+            className="bg-card border border-border/50 rounded-2xl p-6 space-y-6 shadow-soft"
+            variants={slideInRight}
+            transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
+          >
             <div className="flex items-end justify-between gap-4">
               <div>
                 <h2 className="font-bold text-lg">Generated action</h2>
                 <p className="text-xs text-muted-foreground">Proofread before pasting into important documents.</p>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" onClick={handleCopy} className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm">
-                  <Copy className="w-4 h-4 mr-1" /> Copy
-                </Button>
-                <Button size="sm" variant="outline" onClick={handleDownload}>
-                  <Download className="w-4 h-4 mr-1" /> .txt
-                </Button>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button size="sm" onClick={handleCopy} className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm">
+                    <Copy className="w-4 h-4 mr-1" /> Copy
+                  </Button>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button size="sm" variant="outline" onClick={handleDownload}>
+                    <Download className="w-4 h-4 mr-1" /> .txt
+                  </Button>
+                </motion.div>
               </div>
             </div>
 
-            <div className={cn(
-              "min-h-[140px] p-5 rounded-xl border-2 border-dashed border-border bg-muted/30 whitespace-pre-wrap leading-relaxed transition-all duration-300",
-              copied && "border-accent bg-accent/10 shadow-glow"
-            )}>
-              {output || <span className="text-muted-foreground">Generated action will appear here…</span>}
-            </div>
+            <AnimatePresence mode="wait">
+              <motion.div 
+                key={output || 'empty'}
+                className={cn(
+                  "min-h-[140px] p-5 rounded-xl border-2 border-dashed border-border bg-muted/30 whitespace-pre-wrap leading-relaxed",
+                  copied && "border-accent bg-accent/10 shadow-glow"
+                )}
+                initial={{ opacity: 0.5, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.2 }}
+              >
+                {output || <span className="text-muted-foreground">Generated action will appear here…</span>}
+              </motion.div>
+            </AnimatePresence>
 
             {/* History */}
             <div className="space-y-4">
@@ -869,8 +991,8 @@ export function SmartActionTool() {
                 )}
               </div>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </main>
     </div>
   );
