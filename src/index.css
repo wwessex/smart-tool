@@ -179,9 +179,9 @@ All colors MUST be HSL.
     padding-bottom: 1rem;
   }
   
-  /* Force single column on small landscape to prevent overlap */
-  .grid.grid-cols-1.md\\:grid-cols-2 {
-    grid-template-columns: 1fr !important;
+  /* Ensure flex gap works in landscape */
+  .flex.gap-4 {
+    gap: 1rem !important;
   }
   
   /* Reduce vertical spacing between form sections */
