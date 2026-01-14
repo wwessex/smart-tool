@@ -5,8 +5,22 @@ const STORAGE = {
   barriers: "smartTool.barriers",
   timescales: "smartTool.timescales",
   history: "smartTool.history",
-  recentNames: "smartTool.recentNames"
+  recentNames: "smartTool.recentNames",
+  templates: "smartTool.templates"
 };
+
+export interface ActionTemplate {
+  id: string;
+  name: string;
+  mode: 'now' | 'future';
+  createdAt: string;
+  barrier?: string;
+  action?: string;
+  responsible?: string;
+  help?: string;
+  task?: string;
+  outcome?: string;
+}
 
 export interface HistoryItem {
   id: string;
@@ -45,6 +59,7 @@ export function useSmartStorage() {
   const [timescales, setTimescales] = useState<string[]>(() => loadList(STORAGE.timescales, DEFAULT_TIMESCALES));
   const [history, setHistory] = useState<HistoryItem[]>(() => loadList(STORAGE.history, []));
   const [recentNames, setRecentNames] = useState<string[]>(() => loadList(STORAGE.recentNames, []));
+  const [templates, setTemplates] = useState<ActionTemplate[]>(() => loadList(STORAGE.templates, []));
 
   const updateBarriers = useCallback((newBarriers: string[]) => {
     setBarriers(newBarriers);
@@ -98,7 +113,7 @@ export function useSmartStorage() {
     });
   }, []);
 
-  const importData = useCallback((data: { history?: HistoryItem[]; barriers?: string[]; timescales?: string[] }) => {
+  const importData = useCallback((data: { history?: HistoryItem[]; barriers?: string[]; timescales?: string[]; templates?: ActionTemplate[] }) => {
     if (Array.isArray(data.history)) {
       setHistory(data.history);
       localStorage.setItem(STORAGE.history, JSON.stringify(data.history));
@@ -111,6 +126,39 @@ export function useSmartStorage() {
       setTimescales(data.timescales);
       saveList(STORAGE.timescales, data.timescales);
     }
+    if (Array.isArray(data.templates)) {
+      setTemplates(data.templates);
+      saveList(STORAGE.templates, data.templates);
+    }
+  }, []);
+
+  const addTemplate = useCallback((template: Omit<ActionTemplate, 'id' | 'createdAt'>) => {
+    const newTemplate: ActionTemplate = {
+      ...template,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+    };
+    setTemplates(prev => {
+      const updated = [newTemplate, ...prev].slice(0, 50); // Max 50 templates
+      saveList(STORAGE.templates, updated);
+      return updated;
+    });
+  }, []);
+
+  const deleteTemplate = useCallback((id: string) => {
+    setTemplates(prev => {
+      const updated = prev.filter(t => t.id !== id);
+      saveList(STORAGE.templates, updated);
+      return updated;
+    });
+  }, []);
+
+  const updateTemplate = useCallback((id: string, updates: Partial<ActionTemplate>) => {
+    setTemplates(prev => {
+      const updated = prev.map(t => t.id === id ? { ...t, ...updates } : t);
+      saveList(STORAGE.templates, updated);
+      return updated;
+    });
   }, []);
 
   return {
@@ -118,6 +166,7 @@ export function useSmartStorage() {
     timescales,
     history,
     recentNames,
+    templates,
     updateBarriers,
     resetBarriers,
     updateTimescales,
@@ -126,6 +175,9 @@ export function useSmartStorage() {
     deleteFromHistory,
     clearHistory,
     addRecentName,
-    importData
+    importData,
+    addTemplate,
+    deleteTemplate,
+    updateTemplate
   };
 }

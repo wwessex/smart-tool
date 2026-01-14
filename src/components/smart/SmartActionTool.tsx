@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { z } from 'zod';
-import { useSmartStorage, HistoryItem } from '@/hooks/useSmartStorage';
+import { useSmartStorage, HistoryItem, ActionTemplate } from '@/hooks/useSmartStorage';
 import { 
   todayISO, 
   buildNowOutput, 
@@ -14,6 +14,9 @@ import {
   parseTimescaleToTargetISO,
   formatDDMMMYY
 } from '@/lib/smart-utils';
+import { checkSmart, SmartCheck } from '@/lib/smart-checker';
+import { SmartChecklist } from './SmartChecklist';
+import { TemplateLibrary } from './TemplateLibrary';
 
 // Zod schemas for import validation
 const HistoryItemMetaSchema = z.object({
@@ -402,6 +405,45 @@ export function SmartActionTool() {
       h.meta.barrier?.toLowerCase().includes(q)
     );
   }, [storage.history, historySearch]);
+
+  // SMART Check - auto-detect elements in real-time
+  const smartCheck = useMemo((): SmartCheck => {
+    if (!output.trim()) {
+      return {
+        specific: { met: false, confidence: 'low', reason: 'Generate an action first' },
+        measurable: { met: false, confidence: 'low', reason: 'Add dates or quantities' },
+        achievable: { met: false, confidence: 'low', reason: 'Show agreement' },
+        relevant: { met: false, confidence: 'low', reason: 'Link to barrier' },
+        timeBound: { met: false, confidence: 'low', reason: 'Add review date' },
+        overallScore: 0,
+      };
+    }
+    
+    const meta = mode === 'now' 
+      ? { forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, date: nowForm.date }
+      : { forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, date: futureForm.date };
+    
+    return checkSmart(output, meta);
+  }, [output, mode, nowForm, futureForm]);
+
+  // Handle template insertion
+  const handleInsertTemplate = useCallback((template: ActionTemplate) => {
+    if (template.mode === 'now') {
+      setNowForm(prev => ({
+        ...prev,
+        barrier: template.barrier || prev.barrier,
+        action: template.action || prev.action,
+        responsible: template.responsible || prev.responsible,
+        help: template.help || prev.help,
+      }));
+    } else {
+      setFutureForm(prev => ({
+        ...prev,
+        task: template.task || prev.task,
+        outcome: template.outcome || prev.outcome,
+      }));
+    }
+  }, []);
 
   const handleExport = () => {
     const payload = { version: 1, exportedAt: new Date().toISOString(), history: storage.history, barriers: storage.barriers, timescales: storage.timescales };
@@ -916,11 +958,29 @@ export function SmartActionTool() {
                 <Button variant="outline" onClick={handleClear}>Clear</Button>
               </motion.div>
               <div className="flex-1" />
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <Button variant="ghost" onClick={handleSave}>
-                  <History className="w-4 h-4 mr-1" /> Save to history
-                </Button>
-              </motion.div>
+              <TemplateLibrary
+                templates={storage.templates}
+                onSaveTemplate={storage.addTemplate}
+                onDeleteTemplate={storage.deleteTemplate}
+                onInsertTemplate={handleInsertTemplate}
+                currentMode={mode}
+                currentForm={mode === 'now' 
+                  ? { barrier: nowForm.barrier, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
+                  : { task: futureForm.task, outcome: futureForm.outcome }
+                }
+              />
+            </motion.div>
+            
+            {/* Save to history - separate row */}
+            <motion.div 
+              className="flex justify-end"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.35 }}
+            >
+              <Button variant="ghost" onClick={handleSave}>
+                <History className="w-4 h-4 mr-1" /> Save to history
+              </Button>
             </motion.div>
           </motion.div>
 
@@ -963,6 +1023,9 @@ export function SmartActionTool() {
                 {output || <span className="text-muted-foreground">Generated action will appear here…</span>}
               </motion.div>
             </AnimatePresence>
+
+            {/* SMART Checklist */}
+            <SmartChecklist check={smartCheck} />
 
             {/* History */}
             <div className="space-y-4">
