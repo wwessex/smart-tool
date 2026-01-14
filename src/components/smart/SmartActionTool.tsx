@@ -760,7 +760,7 @@ export function SmartActionTool() {
                 exit={{ opacity: 0, x: 20 }}
                 transition={{ duration: 0.3 }}
               >
-                <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+                <div className="flex flex-col gap-4 sm:flex-row" style={{ gap: '1.5rem' }}>
                   <div className="space-y-2 shrink-0" style={{ width: 'clamp(140px, 40%, 220px)' }}>
                     <label className="text-sm font-medium text-muted-foreground">During our meeting on…</label>
                     <Input
@@ -895,7 +895,7 @@ export function SmartActionTool() {
               >
                 <p className="text-sm text-muted-foreground">Schedule a future task, event, or activity for the participant.</p>
                 
-                <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+                <div className="flex flex-col gap-4 sm:flex-row" style={{ gap: '1.5rem' }}>
                   <div className="space-y-2 shrink-0" style={{ width: 'clamp(140px, 40%, 220px)' }}>
                     <label className="text-sm font-medium text-muted-foreground">Scheduled date</label>
                     <Input
