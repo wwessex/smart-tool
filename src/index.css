@@ -131,3 +131,67 @@ All colors MUST be HSL.
     box-shadow: var(--shadow-glow);
   }
 }
+
+/* Landscape optimizations for mobile/tablet devices */
+@media (orientation: landscape) and (max-height: 600px) {
+  /* Reduce overall spacing */
+  .landscape-compact {
+    @apply py-2 px-3;
+  }
+  
+  /* Smaller text in landscape */
+  body {
+    font-size: 14px;
+  }
+  
+  /* Reduce header padding */
+  header {
+    @apply py-2;
+  }
+  
+  /* Reduce form spacing */
+  .space-y-6 {
+    --tw-space-y-reverse: 0;
+    margin-top: calc(1rem * calc(1 - var(--tw-space-y-reverse)));
+    margin-bottom: calc(1rem * var(--tw-space-y-reverse));
+  }
+  
+  .space-y-4 {
+    --tw-space-y-reverse: 0;
+    margin-top: calc(0.625rem * calc(1 - var(--tw-space-y-reverse)));
+    margin-bottom: calc(0.625rem * var(--tw-space-y-reverse));
+  }
+  
+  /* Reduce padding on cards */
+  .p-6 {
+    padding: 1rem;
+  }
+  
+  .p-4 {
+    padding: 0.625rem;
+  }
+  
+  /* Smaller labels */
+  label {
+    font-size: 0.75rem;
+  }
+  
+  /* Smaller inputs */
+  input, textarea, select, button {
+    font-size: 0.875rem;
+  }
+  
+  /* Reduce gap in grids */
+  .gap-8 {
+    gap: 1rem;
+  }
+  
+  .gap-4 {
+    gap: 0.5rem;
+  }
+  
+  /* Smaller main padding */
+  main {
+    @apply py-4;
+  }
+}
