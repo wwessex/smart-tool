@@ -309,12 +309,12 @@ export const FALLBACK_SUGGESTIONS = [
 // Task-based suggestions for scheduling future activities
 export const TASK_SUGGESTIONS: Record<string, Array<{title: string; outcome: string}>> = {
   "job fair": [
-    {"title": "Job fair attendance", "outcome": "[Name] will speak with employers about available roles in [sector], collect contact details, and identify potential opportunities to follow up on."},
+    {"title": "Job fair attendance", "outcome": "[Name] will speak with employers about available roles, collect contact details, and identify potential opportunities to follow up on."},
     {"title": "Networking practice", "outcome": "[Name] will practise introducing themselves to employers and talking about their skills and experience."},
     {"title": "CV handout", "outcome": "[Name] will hand out copies of their CV to employers and ask about current vacancies."}
   ],
   "workshop": [
-    {"title": "Skills workshop", "outcome": "[Name] will participate in the [topic] workshop and learn [key skill] to apply to their job search."},
+    {"title": "Skills workshop", "outcome": "[Name] will participate fully in the session and apply what they learn to their job search."},
     {"title": "Group session", "outcome": "[Name] will take part in group activities and engage with other participants to build confidence."},
     {"title": "Training session", "outcome": "[Name] will complete the training and receive a certificate to add to their CV."}
   ],
@@ -324,16 +324,16 @@ export const TASK_SUGGESTIONS: Record<string, Array<{title: string; outcome: str
     {"title": "Interview attendance", "outcome": "[Name] will attend the interview, present themselves professionally, and follow up afterwards regardless of outcome."}
   ],
   "cv": [
-    {"title": "CV review session", "outcome": "[Name] will review and update their CV with support, focusing on [section] to better highlight their skills."},
-    {"title": "CV creation", "outcome": "[Name] will create a tailored CV for [sector/role] with support from their advisor."}
+    {"title": "CV review session", "outcome": "[Name] will review and update their CV with support, focusing on key sections to better highlight their skills."},
+    {"title": "CV creation", "outcome": "[Name] will create a tailored CV with support from their advisor."}
   ],
   "application": [
-    {"title": "Application support", "outcome": "[Name] will complete and submit an application for [role] at [employer] with support."},
+    {"title": "Application support", "outcome": "[Name] will complete and submit an application with support."},
     {"title": "Application practice", "outcome": "[Name] will practise completing application forms and answering competency questions."}
   ],
   "default": [
-    {"title": "General activity", "outcome": "[Name] will participate in [activity] and identify next steps towards their employment goal."},
+    {"title": "General activity", "outcome": "[Name] will participate fully and identify next steps towards their employment goal."},
     {"title": "Review meeting", "outcome": "[Name] will review progress towards their employment goals and agree priorities for the coming weeks."},
-    {"title": "Support session", "outcome": "[Name] will receive support with [topic] and develop a clearer plan for moving forward."}
+    {"title": "Support session", "outcome": "[Name] will receive support and develop a clearer plan for moving forward."}
   ]
 };
