@@ -237,7 +237,7 @@ export function buildFutureOutput(
   ];
   
   if (formattedOutcome) {
-    parts.push(`${formattedOutcome}.`);
+    parts.push(`${BUILDER_TASK.p3} ${formattedOutcome}.`);
   }
   
   parts.push(`${BUILDER_TASK.p4} ${timescale}.`);
