@@ -64,7 +64,7 @@ export const GUIDANCE = [
     body: [
       "Complete every field.",
       "Write the action so it's clear and measurable (what, when, where).",
-      "The generated action is ready to copy into ICONI once you've proofread it."
+      "Proofread before pasting into important documents."
     ]
   },
   {
