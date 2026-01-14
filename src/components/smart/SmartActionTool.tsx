@@ -513,7 +513,7 @@ export function SmartActionTool() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-hidden">
+    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       {/* Subtle gradient overlay */}
       <motion.div 
         className="fixed inset-0 gradient-subtle opacity-50 pointer-events-none"
