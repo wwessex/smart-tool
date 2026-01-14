@@ -759,16 +759,14 @@ export function SmartActionTool() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-muted-foreground">Who is responsible?</label>
-                    <Select value={nowForm.responsible} onValueChange={v => setNowForm(prev => ({ ...prev, responsible: v }))}>
-                      <SelectTrigger className={getFieldClass(!!nowForm.responsible)}>
-                        <SelectValue placeholder="Select…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Participant">Participant</SelectItem>
-                        <SelectItem value="Advisor">Advisor</SelectItem>
-                        <SelectItem value="I">I</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <ComboboxInput
+                      value={nowForm.responsible}
+                      onChange={(value) => setNowForm(prev => ({ ...prev, responsible: value }))}
+                      options={['Participant', 'Advisor', 'I']}
+                      placeholder="Select or type…"
+                      emptyMessage="No options found."
+                      className={getFieldClass(!!nowForm.responsible)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-muted-foreground">This action will help…</label>
@@ -783,14 +781,14 @@ export function SmartActionTool() {
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">This will be reviewed in…</label>
-                  <Select value={nowForm.timescale} onValueChange={v => setNowForm(prev => ({ ...prev, timescale: v }))}>
-                    <SelectTrigger className={getFieldClass(!!nowForm.timescale)}>
-                      <SelectValue placeholder="Select timescale…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {storage.timescales.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <ComboboxInput
+                    value={nowForm.timescale}
+                    onChange={(value) => setNowForm(prev => ({ ...prev, timescale: value }))}
+                    options={storage.timescales}
+                    placeholder="Select timescale…"
+                    emptyMessage="No timescales found."
+                    className={getFieldClass(!!nowForm.timescale)}
+                  />
                 </div>
               </motion.div>
             ) : (
@@ -889,14 +887,14 @@ export function SmartActionTool() {
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">This will be reviewed in…</label>
-                  <Select value={futureForm.timescale} onValueChange={v => setFutureForm(prev => ({ ...prev, timescale: v }))}>
-                    <SelectTrigger className={getFieldClass(!!futureForm.timescale)}>
-                      <SelectValue placeholder="Select timescale…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {storage.timescales.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <ComboboxInput
+                    value={futureForm.timescale}
+                    onChange={(value) => setFutureForm(prev => ({ ...prev, timescale: value }))}
+                    options={storage.timescales}
+                    placeholder="Select timescale…"
+                    emptyMessage="No timescales found."
+                    className={getFieldClass(!!futureForm.timescale)}
+                  />
                 </div>
               </motion.div>
             )}
