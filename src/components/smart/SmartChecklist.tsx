@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, AlertCircle, Info, Target, BarChart3, ThumbsUp, Link2, Clock } from 'lucide-react';
-import { SmartCheck, getSmartLabel, getSmartColor } from '@/lib/smart-checker';
+import { Check, AlertCircle, Info, Target, BarChart3, ThumbsUp, Link2, Clock, AlertTriangle, Lightbulb } from 'lucide-react';
+import { SmartCheck, getSmartLabel, getSmartColor, getImprovementPriority } from '@/lib/smart-checker';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
@@ -23,6 +23,8 @@ const CRITERIA_CONFIG = [
 ] as const;
 
 export function SmartChecklist({ check, className }: SmartChecklistProps) {
+  const improvementPriorities = getImprovementPriority(check);
+  
   return (
     <TooltipProvider delayDuration={300}>
       <motion.div 
@@ -69,6 +71,23 @@ export function SmartChecklist({ check, className }: SmartChecklistProps) {
             transition={{ duration: 0.5, ease: "easeOut" }}
           />
         </div>
+
+        {/* Semantic Warnings */}
+        {check.warnings && check.warnings.length > 0 && (
+          <motion.div 
+            className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 space-y-1"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+          >
+            <div className="flex items-center gap-2 text-amber-600 font-medium text-xs">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              Quality Warnings
+            </div>
+            {check.warnings.map((warning, i) => (
+              <p key={i} className="text-xs text-amber-700">{warning}</p>
+            ))}
+          </motion.div>
+        )}
 
         {/* Criteria list */}
         <div className="space-y-2">
@@ -125,8 +144,22 @@ export function SmartChecklist({ check, className }: SmartChecklistProps) {
                     </p>
                   </div>
 
-                  {/* Hint tooltip */}
-                  {criterion.hint && !isMet && (
+                  {/* Dynamic suggestion tooltip */}
+                  {criterion.suggestion && !isMet && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button className="p-1 hover:bg-primary/10 rounded-md transition-colors group">
+                          <Lightbulb className="w-4 h-4 text-primary group-hover:text-primary" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="max-w-[220px] bg-primary text-primary-foreground">
+                        <p className="text-xs font-medium">{criterion.suggestion}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                  
+                  {/* Fallback hint tooltip */}
+                  {criterion.hint && !criterion.suggestion && !isMet && (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button className="p-1 hover:bg-muted rounded-md transition-colors">
@@ -144,8 +177,38 @@ export function SmartChecklist({ check, className }: SmartChecklistProps) {
           </AnimatePresence>
         </div>
 
-        {/* Missing elements summary */}
-        {check.overallScore < 5 && (
+        {/* Improvement priorities - dynamic guidance */}
+        {check.overallScore < 5 && check.overallScore > 0 && improvementPriorities.length > 0 && (
+          <motion.div 
+            className="pt-2 border-t border-border/50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <div className="flex items-start gap-2">
+              <Lightbulb className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-foreground">Next steps to improve:</p>
+                <div className="flex flex-wrap gap-1">
+                  {improvementPriorities.slice(0, 3).map((priority, i) => (
+                    <span 
+                      key={i}
+                      className={cn(
+                        "text-[10px] px-2 py-0.5 rounded-full",
+                        i === 0 ? "bg-primary/10 text-primary font-medium" : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {i === 0 && "→ "}{priority}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Empty state */}
+        {check.overallScore === 0 && (
           <motion.div 
             className="pt-2 border-t border-border/50"
             initial={{ opacity: 0 }}
@@ -153,12 +216,8 @@ export function SmartChecklist({ check, className }: SmartChecklistProps) {
             transition={{ delay: 0.3 }}
           >
             <div className="flex items-start gap-2 text-xs text-muted-foreground">
-              <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-              <p>
-                {check.overallScore === 4 && "Almost there! Add the missing element for a complete SMART action."}
-                {check.overallScore === 3 && "Good progress! Focus on the amber items to improve."}
-                {check.overallScore < 3 && "Tip: Start with who will do what, add a deadline, and link to the barrier."}
-              </p>
+              <AlertCircle className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+              <p>Generate an action to see SMART analysis.</p>
             </div>
           </motion.div>
         )}
@@ -174,6 +233,11 @@ export function SmartChecklist({ check, className }: SmartChecklistProps) {
             <div className="flex items-center gap-2 text-xs text-green-600 font-medium">
               <Check className="w-4 h-4" />
               Perfect! This is a fully SMART action.
+              {check.warnings && check.warnings.length > 0 && (
+                <span className="text-amber-600 font-normal">
+                  (Review warnings above)
+                </span>
+              )}
             </div>
           </motion.div>
         )}

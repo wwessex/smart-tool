@@ -200,13 +200,6 @@ export const ACTION_LIBRARY: Record<string, Array<{title: string; action: string
       "help": "build structure and consistency."
     }
   ],
-  "Photo ID": [
-    {
-      "title": "Apply for ID",
-      "action": "Start an application for photo ID (e.g., provisional licence or PASS card) and gather required documents by {targetDate}.",
-      "help": "remove barriers to employment checks and services."
-    }
-  ],
   "Substance Misuse": [
     {
       "title": "Contact support service",
@@ -294,6 +287,142 @@ export const ACTION_LIBRARY: Record<string, Array<{title: string; action: string
       "title": "Research target role",
       "action": "Research the skills and qualifications needed for your target role and note any gaps by {targetDate}.",
       "help": "identify steps to become more competitive for your target job."
+    }
+  ],
+  "Photo ID": [
+    {
+      "title": "Apply for provisional licence",
+      "action": "{forename} has agreed to apply for a provisional driving licence online at gov.uk by {targetDate}. This will provide valid photo ID for employment.",
+      "help": "Costs £34, takes 2-3 weeks to arrive."
+    },
+    {
+      "title": "Apply for PASS card",
+      "action": "{forename} will apply for a CitizenCard or similar PASS-approved ID card by {targetDate}. Advisor will provide guidance on the application process.",
+      "help": "PASS cards are accepted as proof of age ID."
+    },
+    {
+      "title": "Request passport application",
+      "action": "{forename} has agreed to complete and submit a passport application with advisor support by {targetDate}. This will serve as primary photo ID.",
+      "help": "Standard passport costs £82.50, allow 10 weeks processing."
+    }
+  ],
+  "Digital Hardware & Connectivity": [
+    {
+      "title": "Library computer access",
+      "action": "{forename} will register for free computer access at the local library by {targetDate} to enable job searching and applications.",
+      "help": "Libraries offer free internet and often have printing facilities."
+    },
+    {
+      "title": "Digital skills assessment",
+      "action": "{forename} has agreed to complete a basic digital skills assessment with advisor support by {targetDate} to identify training needs.",
+      "help": "Helps identify specific areas for development."
+    },
+    {
+      "title": "Smartphone support",
+      "action": "{forename} will explore options for low-cost smartphone access through the relevant provider by {targetDate} to access job apps and emails.",
+      "help": "Some providers offer discounted plans for jobseekers."
+    }
+  ],
+  "Literacy and/or Numeracy": [
+    {
+      "title": "Skills assessment",
+      "action": "{forename} has agreed to complete an initial literacy and numeracy assessment by {targetDate} to identify support needs.",
+      "help": "Assessments are confidential and help tailor support."
+    },
+    {
+      "title": "Enrol in basic skills course",
+      "action": "{forename} will enrol in a free functional skills course at a local provider by {targetDate} to improve confidence with reading, writing, or maths.",
+      "help": "Functional Skills courses are free for adults."
+    },
+    {
+      "title": "One-to-one support",
+      "action": "{forename} has agreed to attend one-to-one support sessions with a tutor to work on specific literacy or numeracy goals by {targetDate}.",
+      "help": "Individual support can be arranged through local providers."
+    }
+  ],
+  "Transferable Skills": [
+    {
+      "title": "Skills audit",
+      "action": "{forename} will complete a transferable skills audit with advisor support by {targetDate} to identify strengths from previous experience.",
+      "help": "Many skills transfer across different sectors."
+    },
+    {
+      "title": "Identify target sectors",
+      "action": "{forename} has agreed to research potential sectors where current skills could be applied by {targetDate}.",
+      "help": "Focus on industries with skills shortages."
+    },
+    {
+      "title": "Update CV with skills",
+      "action": "{forename} will update CV to highlight transferable skills relevant to target roles by {targetDate}.",
+      "help": "Use action words and specific examples."
+    }
+  ],
+  "Learning Capability": [
+    {
+      "title": "Learning style assessment",
+      "action": "{forename} has agreed to complete a learning styles assessment by {targetDate} to understand preferred learning methods.",
+      "help": "Helps identify most effective training approaches."
+    },
+    {
+      "title": "Arrange learning support",
+      "action": "{forename} will meet with the learning provider by {targetDate} to discuss any learning support needs or reasonable adjustments.",
+      "help": "Support may include extra time, different formats, or assistive technology."
+    },
+    {
+      "title": "Set learning goals",
+      "action": "{forename} has agreed to identify specific learning goals related to employment by {targetDate} with advisor support.",
+      "help": "Clear goals help track progress and motivation."
+    }
+  ],
+  "Previous Work History": [
+    {
+      "title": "Employment history review",
+      "action": "{forename} will complete an employment history timeline with advisor support by {targetDate} to identify gaps and talking points.",
+      "help": "Preparing explanations for gaps builds confidence."
+    },
+    {
+      "title": "Reference identification",
+      "action": "{forename} has agreed to identify potential references from previous roles or volunteering by {targetDate}.",
+      "help": "References can include volunteer supervisors, tutors, or community leaders."
+    },
+    {
+      "title": "Volunteering to build recent history",
+      "action": "{forename} will apply to volunteer with organisations by {targetDate} to build recent work experience.",
+      "help": "Short-term volunteering can provide recent references."
+    }
+  ],
+  "Social & Support Networks": [
+    {
+      "title": "Identify support contacts",
+      "action": "{forename} will identify supportive people in their network who can help with job search by {targetDate}.",
+      "help": "Support network might include family, friends, community groups."
+    },
+    {
+      "title": "Join community group",
+      "action": "{forename} has agreed to research and attend local community groups or job clubs by {targetDate}.",
+      "help": "Groups provide peer support and networking opportunities."
+    },
+    {
+      "title": "Mentoring referral",
+      "action": "{forename} will be referred to a mentoring service by {targetDate} for additional one-to-one support during job search.",
+      "help": "Mentors can provide guidance and encouragement."
+    }
+  ],
+  "English Language (ESOL)": [
+    {
+      "title": "ESOL assessment",
+      "action": "{forename} will attend an ESOL assessment at the local provider by {targetDate} to determine current level and support needs.",
+      "help": "Assessment helps identify appropriate class level."
+    },
+    {
+      "title": "Enrol in ESOL course",
+      "action": "{forename} has agreed to enrol in an ESOL course at the local provider by {targetDate} to improve workplace English.",
+      "help": "Many ESOL courses focus on employment-related vocabulary."
+    },
+    {
+      "title": "Practice speaking English",
+      "action": "{forename} will attend English conversation practice sessions by {targetDate} to build speaking confidence.",
+      "help": "Speaking practice helps prepare for interviews."
     }
   ]
 };

@@ -424,6 +424,7 @@ export function SmartActionTool() {
         relevant: { met: false, confidence: 'low', reason: 'Link to barrier' },
         timeBound: { met: false, confidence: 'low', reason: 'Add review date' },
         overallScore: 0,
+        warnings: [],
       };
     }
     
