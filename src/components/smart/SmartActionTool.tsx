@@ -56,7 +56,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot } from 'lucide-react';
+import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -283,6 +283,16 @@ export function SmartActionTool() {
   const handleSave = () => {
     if (!output.trim()) {
       toast({ title: 'Nothing to save', description: 'Generate an action first.', variant: 'destructive' });
+      return;
+    }
+
+    // Check minimum score enforcement
+    if (storage.minScoreEnabled && smartCheck.overallScore < storage.minScoreThreshold) {
+      toast({ 
+        title: 'SMART score too low', 
+        description: `This action scores ${smartCheck.overallScore}/5 but the minimum is ${storage.minScoreThreshold}/5. Improve the action or disable score enforcement in Settings.`,
+        variant: 'destructive'
+      });
       return;
     }
 
@@ -735,6 +745,58 @@ When given context about a participant, provide suggestions to improve their SMA
                     </div>
                   </div>
                 </div>
+                
+                {/* Quality Enforcement Section */}
+                <div className="md:col-span-2 p-4 rounded-lg border bg-card space-y-4">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-primary" />
+                    <h3 className="font-bold">Quality Enforcement</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Prevent saving actions that don't meet SMART quality standards.
+                  </p>
+                  
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={storage.minScoreEnabled} 
+                        onChange={e => storage.updateMinScoreEnabled(e.target.checked)}
+                        className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
+                      />
+                      <span className="text-sm font-medium">Enforce minimum SMART score</span>
+                    </label>
+                    
+                    {storage.minScoreEnabled && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">Minimum score:</span>
+                        <Select 
+                          value={String(storage.minScoreThreshold)} 
+                          onValueChange={v => storage.updateMinScoreThreshold(parseInt(v, 10))}
+                        >
+                          <SelectTrigger className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="3">3/5</SelectItem>
+                            <SelectItem value="4">4/5</SelectItem>
+                            <SelectItem value="5">5/5</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {storage.minScoreEnabled && (
+                    <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <p className="text-xs text-amber-700">
+                        Actions with a SMART score below {storage.minScoreThreshold}/5 cannot be saved to history. 
+                        This encourages higher quality action writing.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </DialogContent>
             </Dialog>
           </div>
@@ -1081,12 +1143,26 @@ When given context about a participant, provide suggestions to improve their SMA
             
             {/* Save to history - separate row */}
             <motion.div 
-              className="flex justify-end"
+              className="flex items-center justify-end gap-3"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.35 }}
             >
-              <Button variant="ghost" onClick={handleSave}>
+              {/* Score warning indicator */}
+              {storage.minScoreEnabled && output.trim() && smartCheck.overallScore < storage.minScoreThreshold && (
+                <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-500/10 px-3 py-1.5 rounded-full">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>Score {smartCheck.overallScore}/{storage.minScoreThreshold} required</span>
+                </div>
+              )}
+              <Button 
+                variant="ghost" 
+                onClick={handleSave}
+                disabled={storage.minScoreEnabled && output.trim() !== '' && smartCheck.overallScore < storage.minScoreThreshold}
+                className={cn(
+                  storage.minScoreEnabled && output.trim() && smartCheck.overallScore < storage.minScoreThreshold && "opacity-50"
+                )}
+              >
                 <History className="w-4 h-4 mr-1" /> Save to history
               </Button>
             </motion.div>

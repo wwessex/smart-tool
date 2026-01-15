@@ -6,7 +6,9 @@ const STORAGE = {
   timescales: "smartTool.timescales",
   history: "smartTool.history",
   recentNames: "smartTool.recentNames",
-  templates: "smartTool.templates"
+  templates: "smartTool.templates",
+  minScoreEnabled: "smartTool.minScoreEnabled",
+  minScoreThreshold: "smartTool.minScoreThreshold"
 };
 
 export interface ActionTemplate {
@@ -54,12 +56,35 @@ function saveList<T>(key: string, list: T[]): void {
   localStorage.setItem(key, JSON.stringify(list));
 }
 
+function loadBoolean(key: string, fallback: boolean): boolean {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return fallback;
+    return raw === 'true';
+  } catch {
+    return fallback;
+  }
+}
+
+function loadNumber(key: string, fallback: number): number {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return fallback;
+    const num = parseInt(raw, 10);
+    return isNaN(num) ? fallback : num;
+  } catch {
+    return fallback;
+  }
+}
+
 export function useSmartStorage() {
   const [barriers, setBarriers] = useState<string[]>(() => loadList(STORAGE.barriers, DEFAULT_BARRIERS));
   const [timescales, setTimescales] = useState<string[]>(() => loadList(STORAGE.timescales, DEFAULT_TIMESCALES));
   const [history, setHistory] = useState<HistoryItem[]>(() => loadList(STORAGE.history, []));
   const [recentNames, setRecentNames] = useState<string[]>(() => loadList(STORAGE.recentNames, []));
   const [templates, setTemplates] = useState<ActionTemplate[]>(() => loadList(STORAGE.templates, []));
+  const [minScoreEnabled, setMinScoreEnabled] = useState<boolean>(() => loadBoolean(STORAGE.minScoreEnabled, false));
+  const [minScoreThreshold, setMinScoreThreshold] = useState<number>(() => loadNumber(STORAGE.minScoreThreshold, 4));
 
   const updateBarriers = useCallback((newBarriers: string[]) => {
     setBarriers(newBarriers);
@@ -161,12 +186,25 @@ export function useSmartStorage() {
     });
   }, []);
 
+  const updateMinScoreEnabled = useCallback((enabled: boolean) => {
+    setMinScoreEnabled(enabled);
+    localStorage.setItem(STORAGE.minScoreEnabled, String(enabled));
+  }, []);
+
+  const updateMinScoreThreshold = useCallback((threshold: number) => {
+    const clamped = Math.max(1, Math.min(5, threshold));
+    setMinScoreThreshold(clamped);
+    localStorage.setItem(STORAGE.minScoreThreshold, String(clamped));
+  }, []);
+
   return {
     barriers,
     timescales,
     history,
     recentNames,
     templates,
+    minScoreEnabled,
+    minScoreThreshold,
     updateBarriers,
     resetBarriers,
     updateTimescales,
@@ -178,6 +216,8 @@ export function useSmartStorage() {
     importData,
     addTemplate,
     deleteTemplate,
-    updateTemplate
+    updateTemplate,
+    updateMinScoreEnabled,
+    updateMinScoreThreshold
   };
 }
