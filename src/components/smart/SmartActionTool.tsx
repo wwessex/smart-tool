@@ -913,6 +913,30 @@ When given context about a participant, provide suggestions to improve their SMA
                       <span className="text-sm font-medium">Enable guided wizard mode</span>
                     </label>
                   </div>
+
+                  {/* Tutorial Reset */}
+                  <div className="p-4 rounded-lg border bg-card space-y-4">
+                    <div className="flex items-center gap-2">
+                      <HelpCircle className="w-5 h-5 text-primary" />
+                      <h3 className="font-bold">Tutorial</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Replay the onboarding tutorial to learn about key features.
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        localStorage.removeItem('smartTool.onboardingComplete');
+                        setSettingsOpen(false);
+                        window.location.reload();
+                      }}
+                      className="gap-2"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      Replay Tutorial
+                    </Button>
+                  </div>
                 </div>
               </DialogContent>
             </Dialog>
