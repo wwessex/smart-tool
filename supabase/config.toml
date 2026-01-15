@@ -1,1 +1,4 @@
 project_id = "wuxvpkczhdeslbhwpnyd"
+
+[functions.smart-chat]
+verify_jwt = false

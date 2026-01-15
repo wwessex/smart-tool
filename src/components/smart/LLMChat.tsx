@@ -5,6 +5,7 @@ import {
   Send,
   Square,
   Cpu,
+  Cloud,
   Download,
   Trash2,
   Sparkles,
@@ -17,13 +18,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -32,8 +26,10 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { WebGPUCheck, useWebGPUSupport } from "./WebGPUCheck";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useWebGPUSupport } from "./WebGPUCheck";
 import { useLLM, ChatMessage, RECOMMENDED_MODELS } from "@/hooks/useLLM";
+import { useCloudAI } from "@/hooks/useCloudAI";
 import { cn } from "@/lib/utils";
 
 interface LLMChatProps {
@@ -43,6 +39,8 @@ interface LLMChatProps {
   onResponse?: (response: string) => void;
 }
 
+type AIMode = "cloud" | "local";
+
 export function LLMChat({
   trigger,
   systemPrompt = "You are a helpful AI assistant. Be concise and helpful.",
@@ -50,14 +48,15 @@ export function LLMChat({
   onResponse,
 }: LLMChatProps) {
   const [open, setOpen] = useState(false);
+  const { supported: webGPUSupported } = useWebGPUSupport();
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
           <Button variant="outline" size="sm" className="gap-2">
-            <Cpu className="h-4 w-4" />
-            Local AI
+            <Bot className="h-4 w-4" />
+            AI Chat
           </Button>
         )}
       </DialogTrigger>
@@ -65,49 +64,38 @@ export function LLMChat({
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle className="flex items-center gap-2">
             <Bot className="h-5 w-5" />
-            Local AI Assistant
-            <Badge variant="secondary" className="ml-2 text-xs">
-              Runs in Browser
-            </Badge>
+            AI Assistant
           </DialogTitle>
         </DialogHeader>
-        <WebGPUCheck>
-          <LLMChatContent
-            systemPrompt={systemPrompt}
-            initialContext={initialContext}
-            onResponse={onResponse}
-          />
-        </WebGPUCheck>
+        <AIChatContent
+          systemPrompt={systemPrompt}
+          initialContext={initialContext}
+          onResponse={onResponse}
+          webGPUSupported={webGPUSupported}
+        />
       </DialogContent>
     </Dialog>
   );
 }
 
-interface LLMChatContentProps {
+interface AIChatContentProps {
   systemPrompt: string;
   initialContext?: string;
   onResponse?: (response: string) => void;
+  webGPUSupported: boolean;
 }
 
-function LLMChatContent({
+function AIChatContent({
   systemPrompt,
   initialContext,
   onResponse,
-}: LLMChatContentProps) {
-  const {
-    isLoading,
-    loadingProgress,
-    loadingStatus,
-    isGenerating,
-    isReady,
-    error,
-    selectedModel,
-    loadModel,
-    chat,
-    abort,
-    clearError,
-    supportedModels,
-  } = useLLM();
+  webGPUSupported,
+}: AIChatContentProps) {
+  // Default to cloud if WebGPU not supported
+  const [mode, setMode] = useState<AIMode>(webGPUSupported ? "cloud" : "cloud");
+  
+  const localAI = useLLM();
+  const cloudAI = useCloudAI();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState(initialContext || "");
@@ -115,6 +103,13 @@ function LLMChatContent({
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const isGenerating = mode === "local" ? localAI.isGenerating : cloudAI.isGenerating;
+  const isReady = mode === "local" ? localAI.isReady : true; // Cloud is always ready
+  const error = mode === "local" ? localAI.error : cloudAI.error;
+  const isLoading = mode === "local" ? localAI.isLoading : false;
+  const loadingProgress = localAI.loadingProgress;
+  const loadingStatus = localAI.loadingStatus;
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -131,7 +126,8 @@ function LLMChatContent({
   }, [isReady]);
 
   const handleSend = useCallback(async () => {
-    if (!input.trim() || isGenerating || !isReady) return;
+    if (!input.trim() || isGenerating) return;
+    if (mode === "local" && !localAI.isReady) return;
 
     const userMessage: ChatMessage = { role: "user", content: input.trim() };
     const newMessages = [...messages, userMessage];
@@ -142,7 +138,9 @@ function LLMChatContent({
     let fullResponse = "";
 
     try {
-      for await (const chunk of chat(newMessages, systemPrompt)) {
+      const chatFn = mode === "local" ? localAI.chat : cloudAI.chat;
+      
+      for await (const chunk of chatFn(newMessages, systemPrompt)) {
         fullResponse += chunk;
         setStreamingContent(fullResponse);
       }
@@ -157,7 +155,7 @@ function LLMChatContent({
     } catch (err) {
       console.error("Chat error:", err);
     }
-  }, [input, isGenerating, isReady, messages, chat, systemPrompt, onResponse]);
+  }, [input, isGenerating, mode, localAI, cloudAI, messages, systemPrompt, onResponse]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -171,76 +169,88 @@ function LLMChatContent({
     setStreamingContent("");
   };
 
-  // Model selection view
-  if (!isReady && !isLoading) {
+  const handleAbort = () => {
+    if (mode === "local") {
+      localAI.abort();
+    } else {
+      cloudAI.abort();
+    }
+  };
+
+  // Show model selection for local mode
+  if (mode === "local" && !localAI.isReady && !localAI.isLoading) {
     return (
-      <div className="flex-1 p-6 space-y-4">
-        <div className="text-center space-y-2">
-          <HardDrive className="h-12 w-12 mx-auto text-muted-foreground" />
-          <h3 className="font-semibold">Select an AI Model</h3>
-          <p className="text-sm text-muted-foreground">
-            Models run entirely in your browser. Downloaded once, cached locally.
+      <div className="flex-1 flex flex-col">
+        <ModeTabs mode={mode} setMode={setMode} webGPUSupported={webGPUSupported} />
+        <div className="flex-1 p-6 space-y-4">
+          <div className="text-center space-y-2">
+            <HardDrive className="h-12 w-12 mx-auto text-muted-foreground" />
+            <h3 className="font-semibold">Select an AI Model</h3>
+            <p className="text-sm text-muted-foreground">
+              Models run entirely in your browser. Downloaded once, cached locally.
+            </p>
+          </div>
+
+          {localAI.error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{localAI.error}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="grid gap-2">
+            {localAI.supportedModels.map((model) => (
+              <button
+                key={model.id}
+                onClick={() => localAI.loadModel(model.id)}
+                className="flex items-center gap-3 p-4 rounded-lg border bg-card hover:bg-accent transition-colors text-left"
+              >
+                <Download className="h-5 w-5 text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium">{model.name}</div>
+                  <div className="text-sm text-muted-foreground truncate">
+                    {model.description}
+                  </div>
+                </div>
+                <Badge variant="outline" className="shrink-0">
+                  {model.size}
+                </Badge>
+              </button>
+            ))}
+          </div>
+
+          <p className="text-xs text-center text-muted-foreground">
+            First download may take a few minutes depending on your connection.
           </p>
         </div>
-
-        {error && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        <div className="grid gap-2">
-          {supportedModels.map((model) => (
-            <button
-              key={model.id}
-              onClick={() => loadModel(model.id)}
-              className="flex items-center gap-3 p-4 rounded-lg border bg-card hover:bg-accent transition-colors text-left"
-            >
-              <Download className="h-5 w-5 text-muted-foreground shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="font-medium">{model.name}</div>
-                <div className="text-sm text-muted-foreground truncate">
-                  {model.description}
-                </div>
-              </div>
-              <Badge variant="outline" className="shrink-0">
-                {model.size}
-              </Badge>
-            </button>
-          ))}
-        </div>
-
-        <p className="text-xs text-center text-muted-foreground">
-          First download may take a few minutes depending on your connection.
-          <br />
-          Models are cached in your browser for instant future use.
-        </p>
       </div>
     );
   }
 
-  // Loading view
-  if (isLoading) {
+  // Loading view for local mode
+  if (mode === "local" && isLoading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-4">
-        <div className="relative">
-          <Cpu className="h-16 w-16 text-primary animate-pulse" />
-          <Sparkles className="h-6 w-6 text-primary absolute -top-1 -right-1 animate-bounce" />
-        </div>
-        
-        <div className="w-full max-w-sm space-y-2">
-          <Progress value={loadingProgress} className="h-2" />
-          <p className="text-sm text-center text-muted-foreground">
-            {loadingStatus || "Initializing..."}
+      <div className="flex-1 flex flex-col">
+        <ModeTabs mode={mode} setMode={setMode} webGPUSupported={webGPUSupported} />
+        <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-4">
+          <div className="relative">
+            <Cpu className="h-16 w-16 text-primary animate-pulse" />
+            <Sparkles className="h-6 w-6 text-primary absolute -top-1 -right-1 animate-bounce" />
+          </div>
+          
+          <div className="w-full max-w-sm space-y-2">
+            <Progress value={loadingProgress} className="h-2" />
+            <p className="text-sm text-center text-muted-foreground">
+              {loadingStatus || "Initializing..."}
+            </p>
+          </div>
+
+          <p className="text-xs text-center text-muted-foreground max-w-xs">
+            {loadingProgress < 100
+              ? "Downloading and caching model... This only happens once."
+              : "Finalizing setup..."}
           </p>
         </div>
-
-        <p className="text-xs text-center text-muted-foreground max-w-xs">
-          {loadingProgress < 100
-            ? "Downloading and caching model... This only happens once."
-            : "Finalizing setup..."}
-        </p>
       </div>
     );
   }
@@ -248,12 +258,18 @@ function LLMChatContent({
   // Chat view
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      {/* Model info bar */}
+      <ModeTabs mode={mode} setMode={setMode} webGPUSupported={webGPUSupported} />
+      
+      {/* Status bar */}
       <div className="px-4 py-2 border-b bg-muted/30 flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm">
           <div className="h-2 w-2 rounded-full bg-green-500" />
           <span className="text-muted-foreground">
-            {RECOMMENDED_MODELS.find((m) => m.id === selectedModel)?.name || selectedModel}
+            {mode === "cloud" ? (
+              "Cloud AI (Gemini)"
+            ) : (
+              RECOMMENDED_MODELS.find((m) => m.id === localAI.selectedModel)?.name || "Local Model"
+            )}
           </span>
         </div>
         <Button
@@ -274,8 +290,10 @@ function LLMChatContent({
           {messages.length === 0 && !streamingContent && (
             <div className="text-center py-8 text-muted-foreground">
               <Bot className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Start a conversation with local AI</p>
-              <p className="text-xs mt-1">Your data never leaves your browser</p>
+              <p className="text-sm">Start a conversation with AI</p>
+              <p className="text-xs mt-1">
+                {mode === "cloud" ? "Powered by Gemini" : "Running locally in your browser"}
+              </p>
             </div>
           )}
 
@@ -358,7 +376,7 @@ function LLMChatContent({
             rows={1}
           />
           {isGenerating ? (
-            <Button onClick={abort} variant="destructive" size="icon" className="shrink-0">
+            <Button onClick={handleAbort} variant="destructive" size="icon" className="shrink-0">
               <Square className="h-4 w-4" />
             </Button>
           ) : (
@@ -380,30 +398,70 @@ function LLMChatContent({
   );
 }
 
-// Standalone chat button component for easy integration
+interface ModeTabsProps {
+  mode: AIMode;
+  setMode: (mode: AIMode) => void;
+  webGPUSupported: boolean;
+}
+
+function ModeTabs({ mode, setMode, webGPUSupported }: ModeTabsProps) {
+  return (
+    <div className="px-4 pt-2 pb-0">
+      <div className="flex gap-1 p-1 bg-muted rounded-lg">
+        <button
+          onClick={() => setMode("cloud")}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors",
+            mode === "cloud"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Cloud className="h-4 w-4" />
+          Cloud AI
+        </button>
+        <button
+          onClick={() => webGPUSupported && setMode("local")}
+          disabled={!webGPUSupported}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors",
+            mode === "local"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+            !webGPUSupported && "opacity-50 cursor-not-allowed"
+          )}
+          title={!webGPUSupported ? "WebGPU not supported in this browser" : undefined}
+        >
+          <Cpu className="h-4 w-4" />
+          Local AI
+          {!webGPUSupported && (
+            <Badge variant="outline" className="text-[10px] px-1 py-0">
+              N/A
+            </Badge>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Button component that shows AI chat - works on all devices
 export function LLMChatButton({
   className,
+  trigger,
   ...props
 }: LLMChatProps & { className?: string }) {
-  const { supported, checking } = useWebGPUSupport();
-
-  if (checking) {
-    return (
-      <Button variant="outline" size="sm" disabled className={className}>
-        <Cpu className="h-4 w-4 mr-2 animate-pulse" />
-        Checking...
-      </Button>
-    );
-  }
-
-  if (!supported) {
-    return (
-      <Button variant="outline" size="sm" disabled className={className} title="WebGPU not supported">
-        <Cpu className="h-4 w-4 mr-2 opacity-50" />
-        Local AI (Unavailable)
-      </Button>
-    );
-  }
-
-  return <LLMChat {...props} />;
+  return (
+    <LLMChat
+      trigger={
+        trigger || (
+          <Button variant="outline" size="sm" className={cn("gap-2", className)}>
+            <Bot className="h-4 w-4" />
+            AI Chat
+          </Button>
+        )
+      }
+      {...props}
+    />
+  );
 }
