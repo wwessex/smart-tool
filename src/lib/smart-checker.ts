@@ -204,8 +204,8 @@ export function checkSmart(text: string, meta?: {
   const measurable: SmartCriterion = {
     met: measurableMatches >= 2 || (hasDate && (hasQuantity || hasOutcome)),
     confidence: measurableMatches >= 3 ? 'high' : measurableMatches >= 2 ? 'medium' : 'low',
-    reason: measurableMatches >= 2 
-      ? `Contains ${hasDate ? 'date' : ''}${hasDate && hasQuantity ? ' and ' : ''}${hasQuantity ? 'quantity' : ''}${hasOutcome && !hasQuantity ? 'measurable outcome' : ''}`
+    reason: measurableMatches >= 2 || (hasDate && (hasQuantity || hasOutcome))
+      ? [hasDate && 'date', hasQuantity && 'quantity', hasOutcome && !hasQuantity && 'outcome'].filter(Boolean).join(' and ') || 'Has measurable elements'
       : 'Add a specific date or quantity',
     hint: !hasQuantity ? 'Try adding a number like "2 applications" or "3 contacts"' : undefined,
   };

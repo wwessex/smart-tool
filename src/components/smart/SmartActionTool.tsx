@@ -389,9 +389,10 @@ export function SmartActionTool() {
   const targetCtx = useMemo(() => {
     const baseISO = mode === 'now' ? nowForm.date : futureForm.date;
     const timescale = mode === 'now' ? nowForm.timescale : futureForm.timescale;
+    const forename = mode === 'now' ? nowForm.forename : futureForm.forename;
     const targetISO = parseTimescaleToTargetISO(baseISO || today, timescale || '2 weeks');
-    return { targetPretty: formatDDMMMYY(targetISO), n: 2 };
-  }, [mode, nowForm.date, nowForm.timescale, futureForm.date, futureForm.timescale, today]);
+    return { targetPretty: formatDDMMMYY(targetISO), n: 2, forename: forename.trim() };
+  }, [mode, nowForm.date, nowForm.timescale, nowForm.forename, futureForm.date, futureForm.timescale, futureForm.forename, today]);
 
   const handleInsertSuggestion = (suggestion: { title: string; action?: string; help?: string; outcome?: string }) => {
     if (mode === 'now' && suggestion.action) {
@@ -655,11 +656,11 @@ When given context about a participant, provide suggestions to improve their SMA
                   <span className="ml-1 hidden sm:inline">Guidance</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
+              <DialogContent className="max-w-2xl max-h-[85vh] sm:max-h-[80vh] flex flex-col overflow-hidden">
+                <DialogHeader className="shrink-0">
                   <DialogTitle>Guidance</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+                <div className="flex-1 space-y-4 overflow-y-auto pr-2">
                   {GUIDANCE.map((g, i) => (
                     <div key={i} className="p-4 rounded-lg border bg-card">
                       <h3 className="font-bold mb-2">{g.title}</h3>

@@ -54,10 +54,11 @@ export function pickLibraryKey(barrier: string): string {
   return "";
 }
 
-export function resolvePlaceholders(str: string, ctx: { targetPretty: string; n?: number }): string {
+export function resolvePlaceholders(str: string, ctx: { targetPretty: string; n?: number; forename?: string }): string {
   return (str || "")
     .split("{targetDate}").join(ctx.targetPretty)
-    .split("{n}").join(String(ctx.n ?? 2));
+    .split("{n}").join(String(ctx.n ?? 2))
+    .split("{forename}").join(ctx.forename || "[Name]");
 }
 
 function lowerFirstLetter(s: string): string {
