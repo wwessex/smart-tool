@@ -18,6 +18,12 @@ import { checkSmart, SmartCheck } from '@/lib/smart-checker';
 import { SmartChecklist } from './SmartChecklist';
 import { TemplateLibrary } from './TemplateLibrary';
 import { LLMChatButton } from './LLMChat';
+import { ActionWizard } from './ActionWizard';
+import { AIImproveDialog } from './AIImproveDialog';
+import { ShortcutsHelp } from './ShortcutsHelp';
+import { HistoryInsights } from './HistoryInsights';
+import { useKeyboardShortcuts, groupShortcuts, ShortcutConfig } from '@/hooks/useKeyboardShortcuts';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Zod schemas for import validation
 const HistoryItemMetaSchema = z.object({
@@ -56,7 +62,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -143,6 +149,10 @@ export function SmartActionTool() {
   const [settingsTimescales, setSettingsTimescales] = useState('');
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
+  const [wizardMode, setWizardMode] = useState(false);
+  const [improveDialogOpen, setImproveDialogOpen] = useState(false);
+  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
+  const [historyTab, setHistoryTab] = useState<'history' | 'insights'>('history');
 
   // Detect landscape orientation
   useEffect(() => {
@@ -515,6 +525,54 @@ When given context about a participant, provide suggestions to improve their SMA
     toast({ title: 'Exported', description: 'Data exported successfully.' });
   };
 
+  // Handle wizard completion
+  const handleWizardComplete = useCallback((data: Record<string, string>) => {
+    if (mode === 'now') {
+      setNowForm(prev => ({
+        ...prev,
+        forename: data.forename || prev.forename,
+        barrier: data.barrier || prev.barrier,
+        action: data.action || prev.action,
+        responsible: data.responsible || prev.responsible,
+        help: data.help || prev.help,
+        timescale: data.timescale || prev.timescale,
+      }));
+    } else {
+      setFutureForm(prev => ({
+        ...prev,
+        forename: data.forename || prev.forename,
+        task: data.task || prev.task,
+        outcome: data.outcome || prev.outcome,
+        timescale: data.timescale || prev.timescale,
+      }));
+    }
+    setWizardMode(false);
+    toast({ title: 'Wizard complete', description: 'Form populated. Review and generate your action.' });
+  }, [mode, toast]);
+
+  // Handle AI improve apply
+  const handleApplyImprovement = useCallback((improvedAction: string) => {
+    if (mode === 'now') {
+      setNowForm(prev => ({ ...prev, action: improvedAction }));
+    } else {
+      setFutureForm(prev => ({ ...prev, outcome: improvedAction }));
+    }
+    toast({ title: 'Improvement applied', description: 'The improved text has been applied to your form.' });
+  }, [mode, toast]);
+
+  // Keyboard shortcuts configuration
+  const shortcuts: ShortcutConfig[] = useMemo(() => [
+    { key: 'Enter', ctrl: true, action: handleSave, description: 'Save to history', category: 'Actions' },
+    { key: 'd', ctrl: true, action: handleAIDraft, description: 'AI Draft', category: 'Actions' },
+    { key: 'c', ctrl: true, shift: true, action: handleCopy, description: 'Copy output', category: 'Actions' },
+    { key: 'x', ctrl: true, shift: true, action: handleClear, description: 'Clear form', category: 'Actions' },
+    { key: '1', ctrl: true, action: () => { setMode('now'); setShowValidation(false); }, description: 'Switch to Now mode', category: 'Navigation' },
+    { key: '2', ctrl: true, action: () => { setMode('future'); setShowValidation(false); }, description: 'Switch to Future mode', category: 'Navigation' },
+    { key: '?', action: () => setShortcutsHelpOpen(true), description: 'Show shortcuts help', category: 'Help' },
+  ], [handleSave, handleAIDraft, handleCopy, handleClear]);
+
+  useKeyboardShortcuts(shortcuts, true);
+
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -677,6 +735,16 @@ When given context about a participant, provide suggestions to improve their SMA
               </DialogContent>
             </Dialog>
 
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="px-1.5 sm:px-2 h-8" 
+              onClick={() => setShortcutsHelpOpen(true)}
+              aria-label="Keyboard shortcuts"
+            >
+              <Keyboard className="w-4 h-4" />
+            </Button>
+
             <Dialog open={settingsOpen} onOpenChange={(open) => {
               setSettingsOpen(open);
               if (open) {
@@ -799,12 +867,50 @@ When given context about a participant, provide suggestions to improve their SMA
                       </div>
                     )}
                   </div>
+
+                  {/* Wizard Mode Toggle */}
+                  <div className="p-4 rounded-lg border bg-card space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Wand2 className="w-5 h-5 text-primary" />
+                      <h3 className="font-bold">Guided Wizard Mode</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Step-by-step guided form that walks you through creating a SMART action.
+                    </p>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={wizardMode} 
+                        onChange={e => setWizardMode(e.target.checked)}
+                        className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
+                      />
+                      <span className="text-sm font-medium">Enable guided wizard mode</span>
+                    </label>
+                  </div>
                 </div>
               </DialogContent>
             </Dialog>
           </div>
         </div>
       </motion.header>
+
+      {/* Shortcuts Help Dialog */}
+      <ShortcutsHelp 
+        open={shortcutsHelpOpen} 
+        onOpenChange={setShortcutsHelpOpen} 
+        groups={groupShortcuts(shortcuts)} 
+      />
+
+      {/* AI Improve Dialog */}
+      <AIImproveDialog
+        open={improveDialogOpen}
+        onOpenChange={setImproveDialogOpen}
+        originalAction={output}
+        barrier={mode === 'now' ? nowForm.barrier : futureForm.task}
+        forename={mode === 'now' ? nowForm.forename : futureForm.forename}
+        smartCheck={smartCheck}
+        onApply={handleApplyImprovement}
+      />
 
       <main className="relative max-w-7xl mx-auto px-4 py-8">
         <motion.div 
@@ -813,12 +919,23 @@ When given context about a participant, provide suggestions to improve their SMA
           initial="initial"
           animate="animate"
         >
-          {/* Left Panel - Form */}
+          {/* Left Panel - Form or Wizard */}
           <motion.div 
             className="bg-card border border-border/50 rounded-2xl p-6 space-y-6 shadow-soft"
             variants={slideInLeft}
             transition={{ duration: 0.4, ease: "easeOut" }}
           >
+            {wizardMode ? (
+              <ActionWizard
+                mode={mode}
+                barriers={storage.barriers}
+                timescales={storage.timescales}
+                recentNames={storage.recentNames}
+                onComplete={handleWizardComplete}
+                onCancel={() => setWizardMode(false)}
+              />
+            ) : (
+            <>
             {/* Tabs */}
             <div className="flex gap-2 p-1 bg-muted rounded-full relative">
               <motion.div
@@ -1116,22 +1233,34 @@ When given context about a participant, provide suggestions to improve their SMA
             </AnimatePresence>
 
             {/* Actions */}
-            <motion.div 
-              className="flex flex-wrap gap-3 pt-4 border-t border-border/50"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-            >
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <Button onClick={() => generateOutput(true)} className="bg-primary hover:bg-primary/90 shadow-md">
-                  Generate action
-                </Button>
-              </motion.div>
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                <Button variant="outline" onClick={handleClear}>Clear</Button>
-              </motion.div>
-              <div className="flex-1" />
-              <TemplateLibrary
+              {/* Actions */}
+              <motion.div 
+                className="flex flex-wrap gap-3 pt-4 border-t border-border/50"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+              >
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <Button onClick={() => generateOutput(true)} className="bg-primary hover:bg-primary/90 shadow-md">
+                    Generate action
+                  </Button>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <Button variant="outline" onClick={handleClear}>Clear</Button>
+                </motion.div>
+                {output.trim() && smartCheck.overallScore < 5 && (
+                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setImproveDialogOpen(true)}
+                      className="border-primary/30 hover:bg-primary/10"
+                    >
+                      <Wand2 className="w-4 h-4 mr-1" /> Improve
+                    </Button>
+                  </motion.div>
+                )}
+                <div className="flex-1" />
+                <TemplateLibrary
                 templates={storage.templates}
                 onSaveTemplate={storage.addTemplate}
                 onDeleteTemplate={storage.deleteTemplate}
@@ -1144,31 +1273,33 @@ When given context about a participant, provide suggestions to improve their SMA
               />
             </motion.div>
             
-            {/* Save to history - separate row */}
-            <motion.div 
-              className="flex items-center justify-end gap-3"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.35 }}
-            >
-              {/* Score warning indicator */}
-              {storage.minScoreEnabled && output.trim() && smartCheck.overallScore < storage.minScoreThreshold && (
-                <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-500/10 px-3 py-1.5 rounded-full">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  <span>Score {smartCheck.overallScore}/{storage.minScoreThreshold} required</span>
-                </div>
-              )}
-              <Button 
-                variant="ghost" 
-                onClick={handleSave}
-                disabled={storage.minScoreEnabled && output.trim() !== '' && smartCheck.overallScore < storage.minScoreThreshold}
-                className={cn(
-                  storage.minScoreEnabled && output.trim() && smartCheck.overallScore < storage.minScoreThreshold && "opacity-50"
-                )}
+              {/* Save to history - separate row */}
+              <motion.div 
+                className="flex items-center justify-end gap-3"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.35 }}
               >
-                <History className="w-4 h-4 mr-1" /> Save to history
-              </Button>
-            </motion.div>
+                {/* Score warning indicator */}
+                {storage.minScoreEnabled && output.trim() && smartCheck.overallScore < storage.minScoreThreshold && (
+                  <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-500/10 px-3 py-1.5 rounded-full">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>Score {smartCheck.overallScore}/{storage.minScoreThreshold} required</span>
+                  </div>
+                )}
+                <Button 
+                  variant="ghost" 
+                  onClick={handleSave}
+                  disabled={storage.minScoreEnabled && output.trim() !== '' && smartCheck.overallScore < storage.minScoreThreshold}
+                  className={cn(
+                    storage.minScoreEnabled && output.trim() && smartCheck.overallScore < storage.minScoreThreshold && "opacity-50"
+                  )}
+                >
+                  <History className="w-4 h-4 mr-1" /> Save to history
+                </Button>
+              </motion.div>
+            </>
+            )}
           </motion.div>
 
           {/* Right Panel - Output & History */}
@@ -1214,7 +1345,7 @@ When given context about a participant, provide suggestions to improve their SMA
             {/* SMART Checklist */}
             <SmartChecklist check={smartCheck} />
 
-            {/* History */}
+            {/* History with Tabs */}
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <h2 className="font-bold text-lg">History</h2>
@@ -1233,61 +1364,78 @@ When given context about a participant, provide suggestions to improve their SMA
                 </div>
               </div>
 
-              <Input
-                value={historySearch}
-                onChange={e => setHistorySearch(e.target.value)}
-                placeholder="Search history…"
-                className="text-sm"
-              />
+              <Tabs value={historyTab} onValueChange={(v) => setHistoryTab(v as 'history' | 'insights')}>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="history" className="flex items-center gap-2">
+                    <History className="w-4 h-4" /> History
+                  </TabsTrigger>
+                  <TabsTrigger value="insights" className="flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4" /> Insights
+                  </TabsTrigger>
+                </TabsList>
 
-              <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
-                {filteredHistory.length === 0 ? (
-                  <div className="p-6 rounded-xl border-2 border-dashed text-sm text-muted-foreground text-center">
-                    {historySearch ? 'No matching items found.' : 'No saved items yet. Generate and save actions to build your history.'}
+                <TabsContent value="history" className="mt-4 space-y-4">
+                  <Input
+                    value={historySearch}
+                    onChange={e => setHistorySearch(e.target.value)}
+                    placeholder="Search history…"
+                    className="text-sm"
+                  />
+
+                  <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
+                    {filteredHistory.length === 0 ? (
+                      <div className="p-6 rounded-xl border-2 border-dashed text-sm text-muted-foreground text-center">
+                        {historySearch ? 'No matching items found.' : 'No saved items yet. Generate and save actions to build your history.'}
+                      </div>
+                    ) : (
+                      filteredHistory.map((h, index) => (
+                        <div 
+                          key={h.id} 
+                          className="p-4 rounded-xl border border-border/50 bg-muted/30 space-y-3 hover:border-primary/30 transition-colors animate-slide-in"
+                          style={{ animationDelay: `${index * 0.05}s` }}
+                        >
+                          <div className="flex flex-wrap gap-2 text-xs">
+                            <span className={cn(
+                              "px-2 py-0.5 rounded-full font-medium",
+                              h.mode === 'now' ? "bg-primary/10 text-primary" : "bg-accent/10 text-accent"
+                            )}>
+                              {h.mode === 'now' ? 'Barrier to action' : 'Task-based'}
+                            </span>
+                            <span className="text-muted-foreground">
+                              {new Date(h.createdAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
+                            </span>
+                            {h.meta.forename && (
+                              <span className="text-muted-foreground">• {h.meta.forename}</span>
+                            )}
+                          </div>
+                          <p className="text-sm whitespace-pre-wrap leading-relaxed">{h.text}</p>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => handleEditHistory(h)}>
+                              <Edit className="w-3 h-3 mr-1" /> Edit
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => {
+                              navigator.clipboard.writeText(h.text);
+                              toast({ title: 'Copied!' });
+                            }}>
+                              <Copy className="w-3 h-3" />
+                            </Button>
+                            <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => {
+                              storage.deleteFromHistory(h.id);
+                              toast({ title: 'Deleted' });
+                            }}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
-                ) : (
-                  filteredHistory.map((h, index) => (
-                    <div 
-                      key={h.id} 
-                      className="p-4 rounded-xl border border-border/50 bg-muted/30 space-y-3 hover:border-primary/30 transition-colors animate-slide-in"
-                      style={{ animationDelay: `${index * 0.05}s` }}
-                    >
-                      <div className="flex flex-wrap gap-2 text-xs">
-                        <span className={cn(
-                          "px-2 py-0.5 rounded-full font-medium",
-                          h.mode === 'now' ? "bg-primary/10 text-primary" : "bg-accent/10 text-accent"
-                        )}>
-                          {h.mode === 'now' ? 'Barrier to action' : 'Task-based'}
-                        </span>
-                        <span className="text-muted-foreground">
-                          {new Date(h.createdAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
-                        </span>
-                        {h.meta.forename && (
-                          <span className="text-muted-foreground">• {h.meta.forename}</span>
-                        )}
-                      </div>
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{h.text}</p>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => handleEditHistory(h)}>
-                          <Edit className="w-3 h-3 mr-1" /> Edit
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => {
-                          navigator.clipboard.writeText(h.text);
-                          toast({ title: 'Copied!' });
-                        }}>
-                          <Copy className="w-3 h-3" />
-                        </Button>
-                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => {
-                          storage.deleteFromHistory(h.id);
-                          toast({ title: 'Deleted' });
-                        }}>
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+                </TabsContent>
+
+                <TabsContent value="insights" className="mt-4">
+                  <HistoryInsights history={storage.history} />
+                </TabsContent>
+              </Tabs>
             </div>
           </motion.div>
         </motion.div>
