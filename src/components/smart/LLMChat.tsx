@@ -241,15 +241,29 @@ function AIChatContent({
           <div className="w-full max-w-sm space-y-2">
             <Progress value={loadingProgress} className="h-2" />
             <p className="text-sm text-center text-muted-foreground">
-              {loadingStatus || "Initializing..."}
+              {loadingStatus || "Starting worker..."}
             </p>
           </div>
 
           <p className="text-xs text-center text-muted-foreground max-w-xs">
-            {loadingProgress < 100
-              ? "Downloading and caching model... This only happens once."
-              : "Finalizing setup..."}
+            {loadingProgress === 0 
+              ? "Initializing the AI engine. This may take 10-30 seconds on first load..."
+              : loadingProgress < 100
+                ? "Downloading and caching model... This only happens once."
+                : "Finalizing setup..."}
           </p>
+          
+          {loadingProgress === 0 && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setMode("cloud")}
+              className="mt-2"
+            >
+              <Cloud className="h-4 w-4 mr-2" />
+              Switch to Cloud AI
+            </Button>
+          )}
         </div>
       </div>
     );
