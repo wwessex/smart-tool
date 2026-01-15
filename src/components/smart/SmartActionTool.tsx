@@ -22,6 +22,7 @@ import { ActionWizard } from './ActionWizard';
 import { AIImproveDialog } from './AIImproveDialog';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { HistoryInsights } from './HistoryInsights';
+import { OnboardingTutorial, useOnboarding } from './OnboardingTutorial';
 import { useKeyboardShortcuts, groupShortcuts, ShortcutConfig } from '@/hooks/useKeyboardShortcuts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -639,6 +640,9 @@ When given context about a participant, provide suggestions to improve their SMA
 
   return (
     <>
+      {/* Onboarding Tutorial for first-time users */}
+      <OnboardingTutorial />
+
       {/* Subtle gradient overlay */}
       <motion.div 
         className="fixed inset-0 gradient-subtle opacity-50 pointer-events-none z-0"
