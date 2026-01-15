@@ -156,6 +156,9 @@ export function useLLM() {
       loadingStatus: "Starting worker...",
     }));
 
+    // Create a worker reference that we can terminate on timeout
+    let worker: Worker | null = null;
+    
     try {
       // Clean up existing engine
       if (engineRef.current) {
@@ -168,48 +171,36 @@ export function useLLM() {
         loadingStatus: "Loading AI engine (this may take a moment)...",
       }));
 
-      // Create worker with timeout detection
-      const worker = new Worker(new URL("/llm-worker.js", import.meta.url), {
+      // Create worker
+      worker = new Worker(new URL("/llm-worker.js", import.meta.url), {
         type: "module",
       });
 
-      // Set up a timeout to detect stuck worker (45 seconds for slow connections)
-      let workerReady = false;
-      const timeoutId = setTimeout(() => {
-        if (!workerReady) {
-          worker.terminate();
-          setState((prev) => ({
-            ...prev,
-            isLoading: false,
-            error: "Worker initialization timed out. The AI engine may not be compatible with your browser. Try Cloud AI instead.",
-          }));
-        }
-      }, 45000);
+      // Listen for worker errors
+      worker.addEventListener("error", (event) => {
+        console.error("Worker error:", event);
+      });
 
-      // Listen for worker ready/error messages
       worker.addEventListener("message", (event) => {
-        if (event.data?.type === "worker-ready") {
-          workerReady = true;
-          clearTimeout(timeoutId);
-        } else if (event.data?.type === "worker-error") {
-          clearTimeout(timeoutId);
-          worker.terminate();
-          setState((prev) => ({
-            ...prev,
-            isLoading: false,
-            error: `Worker error: ${event.data.error}. Try Cloud AI instead.`,
-          }));
+        if (event.data?.type === "worker-error") {
+          console.error("Worker initialization error:", event.data.error);
         }
       });
 
-      // Create new engine with worker
-      const engine = await CreateWebWorkerMLCEngine(
+      // Create engine with timeout using Promise.race
+      const TIMEOUT_MS = 30000; // 30 seconds
+      
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error("TIMEOUT: Engine initialization took too long. Your browser may not fully support WebGPU, or the CDN is slow. Try Cloud AI instead."));
+        }, TIMEOUT_MS);
+      });
+
+      const enginePromise = CreateWebWorkerMLCEngine(
         worker,
         modelId,
         {
           initProgressCallback: (progress) => {
-            workerReady = true; // If we get progress, worker is working
-            clearTimeout(timeoutId);
             setState((prev) => ({
               ...prev,
               loadingProgress: Math.round(progress.progress * 100),
@@ -218,6 +209,9 @@ export function useLLM() {
           },
         }
       );
+
+      // Race between engine creation and timeout
+      const engine = await Promise.race([enginePromise, timeoutPromise]);
 
       engineRef.current = engine;
       setState((prev) => ({
@@ -229,12 +223,19 @@ export function useLLM() {
         loadingStatus: "Ready!",
       }));
     } catch (err) {
+      // Terminate worker on any error
+      if (worker) {
+        worker.terminate();
+      }
+      
       console.error("Failed to load model:", err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load model";
       
       // Provide more specific error messages
       let friendlyError = errorMessage;
-      if (errorMessage.toLowerCase().includes("webgpu")) {
+      if (errorMessage.startsWith("TIMEOUT:")) {
+        friendlyError = errorMessage.replace("TIMEOUT: ", "");
+      } else if (errorMessage.toLowerCase().includes("webgpu")) {
         friendlyError = "WebGPU initialization failed. Please use Cloud AI instead.";
       } else if (errorMessage.toLowerCase().includes("worker")) {
         friendlyError = "Failed to start AI worker. Try refreshing the page.";
