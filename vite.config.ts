@@ -24,5 +24,32 @@ export default defineConfig(({ mode }) => {
         "@": path.resolve(__dirname, "./src"),
       },
     },
+    build: {
+      // Performance optimizations
+      rollupOptions: {
+        output: {
+          // Code splitting for better caching
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-tabs', '@radix-ui/react-tooltip'],
+            'vendor-motion': ['framer-motion'],
+          },
+        },
+      },
+      // Reduce chunk size warnings threshold
+      chunkSizeWarningLimit: 600,
+      // Enable minification
+      minify: 'terser',
+      terserOptions: {
+        compress: {
+          drop_console: mode === 'production',
+          drop_debugger: true,
+        },
+      },
+    },
+    // Optimize deps for faster dev startup
+    optimizeDeps: {
+      include: ['react', 'react-dom', 'framer-motion'],
+    },
   };
 });
