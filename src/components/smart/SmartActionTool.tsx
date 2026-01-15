@@ -762,6 +762,7 @@ When given context about a participant, provide suggestions to improve their SMA
             </Dialog>
 
             <Button 
+              data-tutorial="shortcuts"
               variant="ghost" 
               size="sm" 
               className="px-1.5 sm:px-2 h-8" 
@@ -991,6 +992,7 @@ When given context about a participant, provide suggestions to improve their SMA
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-foreground">Create Action</h2>
               <Button
+                data-tutorial="guided-mode"
                 variant="outline"
                 size="sm"
                 onClick={() => setWizardMode(true)}
@@ -1082,7 +1084,7 @@ When given context about a participant, provide suggestions to improve their SMA
                   <p className="text-xs text-muted-foreground">Tip: you can type your own barrier if it isn't listed.</p>
                 </div>
 
-                <div className="border border-primary/20 rounded-xl p-4 gradient-subtle space-y-3">
+                <div data-tutorial="ai-assist" className="border border-primary/20 rounded-xl p-4 gradient-subtle space-y-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <span className="font-semibold text-sm flex items-center gap-2">
                       <Sparkles className="w-4 h-4 text-primary" />
@@ -1429,7 +1431,7 @@ When given context about a participant, provide suggestions to improve their SMA
                 </div>
               </div>
 
-              <Tabs value={historyTab} onValueChange={(v) => setHistoryTab(v as 'history' | 'insights')}>
+              <Tabs data-tutorial="history" value={historyTab} onValueChange={(v) => setHistoryTab(v as 'history' | 'insights')}>
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="history" className="flex items-center gap-2">
                     <History className="w-4 h-4" /> History
