@@ -23,6 +23,7 @@ import { AIImproveDialog } from './AIImproveDialog';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { HistoryInsights } from './HistoryInsights';
 import { OnboardingTutorial, useOnboarding } from './OnboardingTutorial';
+import { FloatingToolbar } from './FloatingToolbar';
 import { useKeyboardShortcuts, groupShortcuts, ShortcutConfig } from '@/hooks/useKeyboardShortcuts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -1507,6 +1508,17 @@ When given context about a participant, provide suggestions to improve their SMA
           </motion.div>
         </motion.div>
       </main>
+
+      {/* Floating Action Toolbar */}
+      <FloatingToolbar
+        onCopy={handleCopy}
+        onSave={handleSave}
+        onClear={handleClear}
+        onAIDraft={handleAIDraft}
+        onDownload={handleDownload}
+        hasOutput={!!output.trim()}
+        copied={copied}
+      />
     </>
   );
 }
