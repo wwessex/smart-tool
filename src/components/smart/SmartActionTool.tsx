@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, memo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { z } from 'zod';
 import { useSmartStorage, HistoryItem, ActionTemplate } from '@/hooks/useSmartStorage';
@@ -48,6 +48,7 @@ const ImportSchema = z.object({
 });
 
 type ValidatedImport = z.infer<typeof ImportSchema>;
+
 import { GUIDANCE } from '@/lib/smart-data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -74,12 +75,6 @@ const staggerContainer = {
       staggerChildren: 0.1
     }
   }
-};
-
-const scaleIn = {
-  initial: { opacity: 0, scale: 0.95 },
-  animate: { opacity: 1, scale: 1 },
-  exit: { opacity: 0, scale: 0.95 }
 };
 
 const slideInLeft = {
@@ -238,9 +233,10 @@ export function SmartActionTool() {
   }, [mode, nowForm, futureForm, validateNow, validateFuture, toast]);
 
   // Auto-generate on form changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     generateOutput(false);
-  }, [nowForm, futureForm, mode]);
+  }, [nowForm, futureForm, mode, generateOutput]);
 
   const handleCopy = async () => {
     if (!output.trim()) {
