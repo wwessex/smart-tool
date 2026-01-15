@@ -188,37 +188,23 @@ function AIChatContent({
       <div className="flex-1 flex flex-col">
         <ModeTabs mode={mode} setMode={setMode} webGPUSupported={webGPUSupported} />
         <div className="flex-1 p-6 space-y-4">
-          {/* Safari Warning Banner */}
+          {/* Safari WebGPU Info Banner */}
           {isSafari && (
-            <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
-              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              <AlertTitle className="text-amber-800 dark:text-amber-300">Safari Not Supported</AlertTitle>
-              <AlertDescription className="text-amber-700 dark:text-amber-400">
-                <p className="mb-3">
-                  Local AI requires WebGPU, which Safari doesn't support yet. Please use one of these browsers:
+            <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800">
+              <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <AlertTitle className="text-blue-800 dark:text-blue-300">Enable WebGPU in Safari</AlertTitle>
+              <AlertDescription className="text-blue-700 dark:text-blue-400">
+                <p className="mb-2">
+                  Safari supports WebGPU but it may need to be enabled:
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  <a
-                    href="https://www.google.com/chrome/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white dark:bg-amber-900/50 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 text-sm font-medium hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors"
-                  >
-                    <Chrome className="h-4 w-4" />
-                    Chrome
-                  </a>
-                  <a
-                    href="https://www.microsoft.com/edge"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white dark:bg-amber-900/50 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 text-sm font-medium hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors"
-                  >
-                    <Globe className="h-4 w-4" />
-                    Edge
-                  </a>
-                </div>
-                <p className="mt-3 text-sm">
-                  Or use <button onClick={() => setMode("cloud")} className="font-semibold underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-200">Cloud AI</button> instead — it works in any browser!
+                <ol className="list-decimal list-inside space-y-1 text-sm mb-3">
+                  <li>Open <strong>Safari → Settings</strong> (or Preferences)</li>
+                  <li>Go to <strong>Feature Flags</strong> (or Advanced → Experimental Features)</li>
+                  <li>Enable <strong>WebGPU</strong></li>
+                  <li>Reload this page</li>
+                </ol>
+                <p className="text-sm">
+                  Or use <button onClick={() => setMode("cloud")} className="font-semibold underline underline-offset-2 hover:text-blue-900 dark:hover:text-blue-200">Cloud AI</button> — works instantly in any browser!
                 </p>
               </AlertDescription>
             </Alert>

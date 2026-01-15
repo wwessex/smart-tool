@@ -85,25 +85,39 @@ export function useLLM() {
   const checkWebGPU = useCallback(async (): Promise<{ available: boolean; error?: string }> => {
     const nav = navigator as Navigator & { gpu?: { requestAdapter(): Promise<unknown | null> } };
     
+    // Detect Safari
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    
     if (!nav.gpu) {
-      // Detect Safari specifically for a better error message
-      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       if (isSafari) {
         return { 
           available: false, 
-          error: "Safari doesn't support WebGPU yet. Please use Chrome or Edge for local AI, or switch to Cloud AI." 
+          error: "WebGPU is not enabled in Safari. Go to Safari → Settings → Feature Flags → enable 'WebGPU'. Then reload this page. Or use Chrome/Edge, or switch to Cloud AI." 
         };
       }
-      return { available: false, error: "WebGPU is not available in this browser. Please use Cloud AI instead." };
+      return { available: false, error: "WebGPU is not available in this browser. Please use Chrome, Edge, or switch to Cloud AI." };
     }
     
     try {
       const adapter = await nav.gpu.requestAdapter();
       if (!adapter) {
+        if (isSafari) {
+          return { 
+            available: false, 
+            error: "WebGPU adapter not found. In Safari, go to Settings → Feature Flags and enable 'WebGPU'. Then reload." 
+          };
+        }
         return { available: false, error: "No WebGPU adapter found. Your GPU may not be supported." };
       }
       return { available: true };
-    } catch {
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "";
+      if (isSafari) {
+        return { 
+          available: false, 
+          error: `WebGPU failed in Safari: ${errorMsg}. Try enabling it in Safari → Settings → Feature Flags → WebGPU.` 
+        };
+      }
       return { available: false, error: "Failed to initialize WebGPU. Please use Cloud AI instead." };
     }
   }, []);
