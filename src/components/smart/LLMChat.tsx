@@ -230,6 +230,7 @@ function AIChatContent({
   // Loading view for local mode
   if (mode === "local" && isLoading) {
     const isInitializing = loadingProgress === 0;
+    const selectedModelInfo = RECOMMENDED_MODELS.find(m => m.id === localAI.selectedModel);
     
     return (
       <div className="flex-1 flex flex-col">
@@ -240,11 +241,24 @@ function AIChatContent({
             <Sparkles className="h-6 w-6 text-primary absolute -top-1 -right-1 animate-bounce" />
           </div>
           
+          {/* Large percentage display */}
+          <div className="text-center">
+            <div className="text-4xl font-bold text-primary tabular-nums">
+              {isInitializing ? "—" : `${loadingProgress}%`}
+            </div>
+            {selectedModelInfo && (
+              <p className="text-sm text-muted-foreground mt-1">
+                {selectedModelInfo.name} ({selectedModelInfo.size})
+              </p>
+            )}
+          </div>
+          
           <div className="w-full max-w-sm space-y-2">
-            {/* Show indeterminate progress bar during initialization */}
+            {/* Progress bar */}
             {isInitializing ? (
-              <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                <div className="h-full w-1/3 bg-primary rounded-full animate-[shimmer_1.5s_ease-in-out_infinite]" 
+              <div className="h-3 w-full bg-secondary rounded-full overflow-hidden">
+                <div 
+                  className="h-full w-1/3 bg-primary rounded-full"
                   style={{
                     animation: "shimmer 1.5s ease-in-out infinite",
                   }}
@@ -257,23 +271,18 @@ function AIChatContent({
                 `}</style>
               </div>
             ) : (
-              <Progress value={loadingProgress} className="h-2" />
+              <Progress value={loadingProgress} className="h-3" />
             )}
-            <p className="text-sm text-center text-muted-foreground">
+            <p className="text-sm text-center font-medium">
               {loadingStatus || "Starting AI engine..."}
             </p>
-            {!isInitializing && (
-              <p className="text-xs text-center text-muted-foreground">
-                {loadingProgress}% complete
-              </p>
-            )}
           </div>
 
           <p className="text-xs text-center text-muted-foreground max-w-xs">
             {isInitializing 
-              ? "Loading AI engine from CDN. This may take 30-60 seconds on first visit..."
+              ? "Connecting to CDN and initializing WebGPU..."
               : loadingProgress < 100
-                ? "Downloading and caching model... This only happens once."
+                ? "Downloading model files. They'll be cached for instant loading next time."
                 : "Finalizing setup..."}
           </p>
           
