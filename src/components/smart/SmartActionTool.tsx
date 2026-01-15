@@ -17,6 +17,7 @@ import {
 import { checkSmart, SmartCheck } from '@/lib/smart-checker';
 import { SmartChecklist } from './SmartChecklist';
 import { TemplateLibrary } from './TemplateLibrary';
+import { LLMChat } from './LLMChat';
 
 // Zod schemas for import validation
 const HistoryItemMetaSchema = z.object({
@@ -54,7 +55,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp } from 'lucide-react';
+import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Cpu } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -456,6 +457,42 @@ export function SmartActionTool() {
     }
   }, []);
 
+  // Build context for LLM chat based on current form inputs
+  const buildLLMContext = useCallback(() => {
+    if (mode === 'now') {
+      const parts: string[] = [];
+      if (nowForm.forename) parts.push(`Participant: ${nowForm.forename}`);
+      if (nowForm.barrier) parts.push(`Barrier to work: ${nowForm.barrier}`);
+      if (nowForm.action) parts.push(`Current action: ${nowForm.action}`);
+      if (nowForm.responsible) parts.push(`Responsible person: ${nowForm.responsible}`);
+      if (nowForm.help) parts.push(`Help/support: ${nowForm.help}`);
+      if (nowForm.timescale) parts.push(`Review in: ${nowForm.timescale}`);
+      return parts.length > 0 
+        ? `Help me improve this SMART action for employment support:\n\n${parts.join('\n')}\n\nHow can I make this more specific, measurable, and actionable?`
+        : 'Help me create a SMART action for employment support. The action should address a barrier to work.';
+    } else {
+      const parts: string[] = [];
+      if (futureForm.forename) parts.push(`Participant: ${futureForm.forename}`);
+      if (futureForm.task) parts.push(`Activity/event: ${futureForm.task}`);
+      if (futureForm.outcome) parts.push(`Expected outcome: ${futureForm.outcome}`);
+      if (futureForm.timescale) parts.push(`Review in: ${futureForm.timescale}`);
+      return parts.length > 0 
+        ? `Help me improve this task-based SMART action:\n\n${parts.join('\n')}\n\nHow can I make this more specific and measurable?`
+        : 'Help me create a task-based SMART action for a future activity or event.';
+    }
+  }, [mode, nowForm, futureForm]);
+
+  const llmSystemPrompt = `You are a SMART action writing assistant for employment advisors. Help create Specific, Measurable, Achievable, Relevant, and Time-bound actions.
+
+Key principles:
+- Actions should address barriers to employment
+- Include specific dates and review periods  
+- Identify who is responsible for each step
+- Focus on what the participant will DO, not just learn
+- Be concise and actionable
+
+When given context about a participant, provide suggestions to improve their SMART action.`;
+
   const handleExport = () => {
     const payload = { version: 1, exportedAt: new Date().toISOString(), history: storage.history, barriers: storage.barriers, timescales: storage.timescales };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -802,14 +839,25 @@ export function SmartActionTool() {
                 </div>
 
                 <div className="border border-primary/20 rounded-xl p-4 gradient-subtle space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <span className="font-semibold text-sm flex items-center gap-2">
                       <Sparkles className="w-4 h-4 text-primary" />
                       Advisor assist
                     </span>
-                    <Button size="sm" onClick={handleAIDraft} className="bg-primary hover:bg-primary/90 shadow-md">
-                      <Sparkles className="w-3 h-3 mr-1" /> AI draft
-                    </Button>
+                    <div className="flex gap-2">
+                      <LLMChat
+                        trigger={
+                          <Button size="sm" variant="outline" className="border-primary/30 hover:bg-primary/10">
+                            <Cpu className="w-3 h-3 mr-1" /> Local AI
+                          </Button>
+                        }
+                        systemPrompt={llmSystemPrompt}
+                        initialContext={buildLLMContext()}
+                      />
+                      <Button size="sm" onClick={handleAIDraft} className="bg-primary hover:bg-primary/90 shadow-md">
+                        <Sparkles className="w-3 h-3 mr-1" /> AI draft
+                      </Button>
+                    </div>
                   </div>
                   <Input
                     value={suggestQuery}
@@ -936,14 +984,25 @@ export function SmartActionTool() {
 
                 {/* Advisor Assist - Task-based */}
                 <div className="border border-primary/20 rounded-xl p-4 gradient-subtle space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <span className="font-semibold text-sm flex items-center gap-2">
                       <Sparkles className="w-4 h-4 text-primary" />
                       Advisor assist
                     </span>
-                    <Button size="sm" onClick={handleAIDraft} className="bg-primary hover:bg-primary/90 shadow-md">
-                      <Sparkles className="w-3 h-3 mr-1" /> AI draft
-                    </Button>
+                    <div className="flex gap-2">
+                      <LLMChat
+                        trigger={
+                          <Button size="sm" variant="outline" className="border-primary/30 hover:bg-primary/10">
+                            <Cpu className="w-3 h-3 mr-1" /> Local AI
+                          </Button>
+                        }
+                        systemPrompt={llmSystemPrompt}
+                        initialContext={buildLLMContext()}
+                      />
+                      <Button size="sm" onClick={handleAIDraft} className="bg-primary hover:bg-primary/90 shadow-md">
+                        <Sparkles className="w-3 h-3 mr-1" /> AI draft
+                      </Button>
+                    </div>
                   </div>
                   {/* BUG FIX #3: Added proper styling for task-based suggestion buttons */}
                   <div className="flex flex-wrap gap-2">
