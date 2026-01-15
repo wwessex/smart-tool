@@ -55,7 +55,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Cpu } from 'lucide-react';
+import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -848,7 +848,7 @@ When given context about a participant, provide suggestions to improve their SMA
                       <LLMChatButton
                         trigger={
                           <Button size="sm" variant="outline" className="border-primary/30 hover:bg-primary/10">
-                            <Cpu className="w-3 h-3 mr-1" /> Local AI
+                            <Bot className="w-3 h-3 mr-1" /> AI Chat
                           </Button>
                         }
                         systemPrompt={llmSystemPrompt}
@@ -993,7 +993,7 @@ When given context about a participant, provide suggestions to improve their SMA
                       <LLMChatButton
                         trigger={
                           <Button size="sm" variant="outline" className="border-primary/30 hover:bg-primary/10">
-                            <Cpu className="w-3 h-3 mr-1" /> Local AI
+                            <Bot className="w-3 h-3 mr-1" /> AI Chat
                           </Button>
                         }
                         systemPrompt={llmSystemPrompt}
