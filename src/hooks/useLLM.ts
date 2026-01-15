@@ -95,7 +95,7 @@ export function useLLM() {
       ...prev,
       isLoading: true,
       loadingProgress: 0,
-      loadingStatus: "Initializing...",
+      loadingStatus: "Starting worker...",
       error: null,
     }));
 
@@ -105,6 +105,15 @@ export function useLLM() {
         await engineRef.current.unload();
       }
 
+      // Update status to show we're loading the worker module
+      setState((prev) => ({
+        ...prev,
+        loadingStatus: "Loading AI engine (this may take a moment)...",
+      }));
+
+      let lastProgressTime = Date.now();
+      let hasReceivedProgress = false;
+
       // Create new engine with worker
       const engine = await CreateWebWorkerMLCEngine(
         new Worker(new URL("/llm-worker.js", import.meta.url), {
@@ -113,10 +122,12 @@ export function useLLM() {
         modelId,
         {
           initProgressCallback: (progress) => {
+            hasReceivedProgress = true;
+            lastProgressTime = Date.now();
             setState((prev) => ({
               ...prev,
               loadingProgress: Math.round(progress.progress * 100),
-              loadingStatus: progress.text,
+              loadingStatus: progress.text || "Downloading model...",
             }));
           },
         }
@@ -133,10 +144,13 @@ export function useLLM() {
       }));
     } catch (err) {
       console.error("Failed to load model:", err);
+      const errorMessage = err instanceof Error ? err.message : "Failed to load model";
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: err instanceof Error ? err.message : "Failed to load model",
+        error: errorMessage.includes("WebGPU") 
+          ? "WebGPU is not available in this browser. Please use Cloud AI instead."
+          : errorMessage,
       }));
     }
   }, [isModelAvailable]);
