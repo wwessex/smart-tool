@@ -81,6 +81,33 @@ export function useLLM() {
     return prebuiltAppConfig.model_list.some((m) => m.model_id === modelId);
   }, []);
 
+  // Check WebGPU availability
+  const checkWebGPU = useCallback(async (): Promise<{ available: boolean; error?: string }> => {
+    const nav = navigator as Navigator & { gpu?: { requestAdapter(): Promise<unknown | null> } };
+    
+    if (!nav.gpu) {
+      // Detect Safari specifically for a better error message
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      if (isSafari) {
+        return { 
+          available: false, 
+          error: "Safari doesn't support WebGPU yet. Please use Chrome or Edge for local AI, or switch to Cloud AI." 
+        };
+      }
+      return { available: false, error: "WebGPU is not available in this browser. Please use Cloud AI instead." };
+    }
+    
+    try {
+      const adapter = await nav.gpu.requestAdapter();
+      if (!adapter) {
+        return { available: false, error: "No WebGPU adapter found. Your GPU may not be supported." };
+      }
+      return { available: true };
+    } catch {
+      return { available: false, error: "Failed to initialize WebGPU. Please use Cloud AI instead." };
+    }
+  }, []);
+
   // Load a model
   const loadModel = useCallback(async (modelId: string): Promise<void> => {
     if (!isModelAvailable(modelId)) {
@@ -95,8 +122,24 @@ export function useLLM() {
       ...prev,
       isLoading: true,
       loadingProgress: 0,
-      loadingStatus: "Starting worker...",
+      loadingStatus: "Checking WebGPU support...",
       error: null,
+    }));
+
+    // Check WebGPU BEFORE attempting to download
+    const webgpuCheck = await checkWebGPU();
+    if (!webgpuCheck.available) {
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: webgpuCheck.error,
+      }));
+      return;
+    }
+
+    setState((prev) => ({
+      ...prev,
+      loadingStatus: "Starting worker...",
     }));
 
     try {
@@ -111,9 +154,6 @@ export function useLLM() {
         loadingStatus: "Loading AI engine (this may take a moment)...",
       }));
 
-      let lastProgressTime = Date.now();
-      let hasReceivedProgress = false;
-
       // Create new engine with worker
       const engine = await CreateWebWorkerMLCEngine(
         new Worker(new URL("/llm-worker.js", import.meta.url), {
@@ -122,8 +162,6 @@ export function useLLM() {
         modelId,
         {
           initProgressCallback: (progress) => {
-            hasReceivedProgress = true;
-            lastProgressTime = Date.now();
             setState((prev) => ({
               ...prev,
               loadingProgress: Math.round(progress.progress * 100),
@@ -145,15 +183,24 @@ export function useLLM() {
     } catch (err) {
       console.error("Failed to load model:", err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load model";
+      
+      // Provide more specific error messages
+      let friendlyError = errorMessage;
+      if (errorMessage.toLowerCase().includes("webgpu")) {
+        friendlyError = "WebGPU initialization failed. Please use Cloud AI instead.";
+      } else if (errorMessage.toLowerCase().includes("worker")) {
+        friendlyError = "Failed to start AI worker. Try refreshing the page.";
+      } else if (errorMessage.toLowerCase().includes("network") || errorMessage.toLowerCase().includes("fetch")) {
+        friendlyError = "Network error while downloading model. Check your connection and try again.";
+      }
+      
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: errorMessage.includes("WebGPU") 
-          ? "WebGPU is not available in this browser. Please use Cloud AI instead."
-          : errorMessage,
+        error: friendlyError,
       }));
     }
-  }, [isModelAvailable]);
+  }, [isModelAvailable, checkWebGPU]);
 
   // Generate chat response with streaming
   const chat = useCallback(
@@ -240,6 +287,7 @@ export function useLLM() {
     chat,
     abort,
     clearError,
+    checkWebGPU,
     supportedModels: RECOMMENDED_MODELS,
     isModelAvailable,
   };
