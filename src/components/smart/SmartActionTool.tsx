@@ -530,19 +530,19 @@ export function SmartActionTool() {
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
       >
         <div className={cn(
-          "max-w-7xl mx-auto px-4 flex items-center justify-between transition-all duration-200",
-          isLandscape && headerCollapsed ? "py-1" : isLandscape ? "py-2" : "py-4"
+          "max-w-7xl mx-auto px-2 sm:px-4 flex items-center justify-between transition-all duration-200 overflow-hidden",
+          isLandscape && headerCollapsed ? "py-1" : isLandscape ? "py-2" : "py-3 sm:py-4"
         )}>
           <motion.div 
-            className="flex items-center gap-3"
+            className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
           >
             <motion.div 
               className={cn(
-                "rounded-xl gradient-primary flex items-center justify-center text-white font-black shadow-glow transition-all duration-200",
-                isLandscape && headerCollapsed ? "w-7 h-7 text-sm" : isLandscape ? "w-8 h-8 text-base" : "w-11 h-11 text-xl"
+                "rounded-xl gradient-primary flex items-center justify-center text-white font-black shadow-glow transition-all duration-200 flex-shrink-0",
+                isLandscape && headerCollapsed ? "w-7 h-7 text-sm" : isLandscape ? "w-8 h-8 text-base" : "w-9 h-9 sm:w-11 sm:h-11 text-lg sm:text-xl"
               )}
               whileHover={{ scale: 1.1, rotate: 5 }}
               whileTap={{ scale: 0.95 }}
@@ -556,21 +556,22 @@ export function SmartActionTool() {
                   animate={{ opacity: 1, width: "auto" }}
                   exit={{ opacity: 0, width: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
+                  className="overflow-hidden min-w-0"
                 >
                   <h1 className={cn(
-                    "font-extrabold tracking-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent whitespace-nowrap",
-                    isLandscape ? "text-base" : "text-xl"
+                    "font-extrabold tracking-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent truncate",
+                    isLandscape ? "text-base" : "text-sm sm:text-xl"
                   )}>
-                    SMART Action Support Tool
+                    <span className="hidden xs:inline">SMART Action Support Tool</span>
+                    <span className="xs:hidden">SMART Tool</span>
                   </h1>
-                  {!isLandscape && <p className="text-xs text-muted-foreground">by William Wessex</p>}
+                  {!isLandscape && <p className="text-xs text-muted-foreground hidden sm:block">by William Wessex</p>}
                 </motion.div>
               )}
             </AnimatePresence>
           </motion.div>
           
-          <div className="flex gap-1 items-center">
+          <div className="flex gap-0.5 sm:gap-1 items-center flex-shrink-0">
             {/* Collapse toggle - only show in landscape */}
             {isLandscape && (
               <Button 
@@ -578,7 +579,7 @@ export function SmartActionTool() {
                 size="sm" 
                 onClick={() => setHeaderCollapsed(!headerCollapsed)}
                 aria-label={headerCollapsed ? "Expand header" : "Collapse header"}
-                className="px-2"
+                className="px-1.5 sm:px-2 h-8"
               >
                 {headerCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
               </Button>
@@ -586,7 +587,7 @@ export function SmartActionTool() {
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" aria-label="Toggle theme" className={isLandscape ? "px-2" : ""}>
+                <Button variant="ghost" size="sm" aria-label="Toggle theme" className="px-1.5 sm:px-2 h-8">
                   {theme === 'dark' ? <Moon className="w-4 h-4" /> : theme === 'light' ? <Sun className="w-4 h-4" /> : <Monitor className="w-4 h-4" />}
                 </Button>
               </DropdownMenuTrigger>
@@ -605,9 +606,9 @@ export function SmartActionTool() {
             
             <Dialog open={guidanceOpen} onOpenChange={setGuidanceOpen}>
               <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className={isLandscape ? "px-2" : ""}>
+                <Button variant="ghost" size="sm" className="px-1.5 sm:px-2 h-8">
                   <HelpCircle className="w-4 h-4" />
-                  {!isLandscape && <span className="ml-1">Guidance</span>}
+                  <span className="ml-1 hidden sm:inline">Guidance</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
@@ -639,9 +640,9 @@ export function SmartActionTool() {
               }
             }}>
               <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className={isLandscape ? "px-2" : ""}>
+                <Button variant="ghost" size="sm" className="px-1.5 sm:px-2 h-8">
                   <Settings className="w-4 h-4" />
-                  {!isLandscape && <span className="ml-1">Settings</span>}
+                  <span className="ml-1 hidden sm:inline">Settings</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-3xl">
