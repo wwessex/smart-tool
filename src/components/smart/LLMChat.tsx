@@ -65,7 +65,7 @@ export function LLMChat({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-2xl h-[80vh] flex flex-col p-0">
+      <DialogContent className="max-w-2xl h-[85vh] max-h-[85vh] sm:h-[80vh] sm:max-h-[80vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle className="flex items-center gap-2">
             <Bot className="h-5 w-5" />

@@ -689,11 +689,12 @@ When given context about a participant, provide suggestions to improve their SMA
                   <span className="ml-1 hidden sm:inline">Settings</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-3xl">
-                <DialogHeader>
+              <DialogContent className="max-w-3xl max-h-[85vh] sm:max-h-[80vh] flex flex-col overflow-hidden">
+                <DialogHeader className="shrink-0">
                   <DialogTitle>Settings</DialogTitle>
                 </DialogHeader>
-                <div className="grid md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto">
+                <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+                  <div className="grid md:grid-cols-2 gap-4">
                   <div className="p-4 rounded-lg border bg-card space-y-3">
                     <h3 className="font-bold">Barriers list</h3>
                     <p className="text-xs text-muted-foreground">One per line. Users can still type custom barriers.</p>
@@ -742,60 +743,61 @@ When given context about a participant, provide suggestions to improve their SMA
                         storage.updateTimescales(Array.from(new Set(list)));
                         toast({ title: 'Saved', description: 'Timescales updated.' });
                       }}>Save</Button>
+                      </div>
                     </div>
                   </div>
-                </div>
                 
-                {/* Quality Enforcement Section */}
-                <div className="md:col-span-2 p-4 rounded-lg border bg-card space-y-4">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5 text-primary" />
-                    <h3 className="font-bold">Quality Enforcement</h3>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Prevent saving actions that don't meet SMART quality standards.
-                  </p>
-                  
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={storage.minScoreEnabled} 
-                        onChange={e => storage.updateMinScoreEnabled(e.target.checked)}
-                        className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
-                      />
-                      <span className="text-sm font-medium">Enforce minimum SMART score</span>
-                    </label>
+                  {/* Quality Enforcement Section */}
+                  <div className="p-4 rounded-lg border bg-card space-y-4">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-primary" />
+                      <h3 className="font-bold">Quality Enforcement</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Prevent saving actions that don't meet SMART quality standards.
+                    </p>
+                    
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={storage.minScoreEnabled} 
+                          onChange={e => storage.updateMinScoreEnabled(e.target.checked)}
+                          className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
+                        />
+                        <span className="text-sm font-medium">Enforce minimum SMART score</span>
+                      </label>
+                      
+                      {storage.minScoreEnabled && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">Minimum score:</span>
+                          <Select 
+                            value={String(storage.minScoreThreshold)} 
+                            onValueChange={v => storage.updateMinScoreThreshold(parseInt(v, 10))}
+                          >
+                            <SelectTrigger className="w-20">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="3">3/5</SelectItem>
+                              <SelectItem value="4">4/5</SelectItem>
+                              <SelectItem value="5">5/5</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
                     
                     {storage.minScoreEnabled && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">Minimum score:</span>
-                        <Select 
-                          value={String(storage.minScoreThreshold)} 
-                          onValueChange={v => storage.updateMinScoreThreshold(parseInt(v, 10))}
-                        >
-                          <SelectTrigger className="w-20">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="3">3/5</SelectItem>
-                            <SelectItem value="4">4/5</SelectItem>
-                            <SelectItem value="5">5/5</SelectItem>
-                          </SelectContent>
-                        </Select>
+                      <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <p className="text-xs text-amber-700">
+                          Actions with a SMART score below {storage.minScoreThreshold}/5 cannot be saved to history. 
+                          This encourages higher quality action writing.
+                        </p>
                       </div>
                     )}
                   </div>
-                  
-                  {storage.minScoreEnabled && (
-                    <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                      <p className="text-xs text-amber-700">
-                        Actions with a SMART score below {storage.minScoreThreshold}/5 cannot be saved to history. 
-                        This encourages higher quality action writing.
-                      </p>
-                    </div>
-                  )}
                 </div>
               </DialogContent>
             </Dialog>
