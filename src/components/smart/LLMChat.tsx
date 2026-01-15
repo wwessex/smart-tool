@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bot,
@@ -12,6 +12,8 @@ import {
   User,
   AlertCircle,
   HardDrive,
+  Chrome,
+  Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,13 +26,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWebGPUSupport } from "./WebGPUCheck";
 import { useLLM, ChatMessage, RECOMMENDED_MODELS } from "@/hooks/useLLM";
 import { useCloudAI } from "@/hooks/useCloudAI";
 import { cn } from "@/lib/utils";
+
+// Detect Safari browser
+const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
 interface LLMChatProps {
   trigger?: React.ReactNode;
@@ -183,6 +188,42 @@ function AIChatContent({
       <div className="flex-1 flex flex-col">
         <ModeTabs mode={mode} setMode={setMode} webGPUSupported={webGPUSupported} />
         <div className="flex-1 p-6 space-y-4">
+          {/* Safari Warning Banner */}
+          {isSafari && (
+            <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
+              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <AlertTitle className="text-amber-800 dark:text-amber-300">Safari Not Supported</AlertTitle>
+              <AlertDescription className="text-amber-700 dark:text-amber-400">
+                <p className="mb-3">
+                  Local AI requires WebGPU, which Safari doesn't support yet. Please use one of these browsers:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href="https://www.google.com/chrome/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white dark:bg-amber-900/50 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 text-sm font-medium hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors"
+                  >
+                    <Chrome className="h-4 w-4" />
+                    Chrome
+                  </a>
+                  <a
+                    href="https://www.microsoft.com/edge"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white dark:bg-amber-900/50 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 text-sm font-medium hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors"
+                  >
+                    <Globe className="h-4 w-4" />
+                    Edge
+                  </a>
+                </div>
+                <p className="mt-3 text-sm">
+                  Or use <button onClick={() => setMode("cloud")} className="font-semibold underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-200">Cloud AI</button> instead — it works in any browser!
+                </p>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="text-center space-y-2">
             <HardDrive className="h-12 w-12 mx-auto text-muted-foreground" />
             <h3 className="font-semibold">Select an AI Model</h3>
