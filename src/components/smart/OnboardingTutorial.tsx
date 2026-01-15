@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Wand2, Keyboard, History, ChevronRight, X, CheckCircle2 } from 'lucide-react';
@@ -10,7 +10,8 @@ interface TutorialStep {
   icon: React.ReactNode;
   title: string;
   description: string;
-  highlight?: string; // CSS selector or area to highlight
+  targetSelector?: string; // Data attribute selector to highlight
+  position?: 'center' | 'top' | 'bottom'; // Where to position the modal
 }
 
 const TUTORIAL_STEPS: TutorialStep[] = [
@@ -19,32 +20,48 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     icon: <Sparkles className="w-8 h-8 text-primary" />,
     title: 'Welcome to SMART Action Tool!',
     description: 'This tool helps you create effective, well-structured action plans. Let\'s take a quick tour of the key features.',
+    position: 'center',
   },
   {
     id: 'guided-mode',
     icon: <Sparkles className="w-8 h-8 text-primary" />,
     title: 'Guided Mode',
     description: 'Click "Guided Mode" for a step-by-step wizard that walks you through creating an action. Perfect for beginners or when you want structured guidance.',
+    targetSelector: '[data-tutorial="guided-mode"]',
+    position: 'bottom',
   },
   {
     id: 'ai-draft',
     icon: <Wand2 className="w-8 h-8 text-primary" />,
     title: 'AI Draft & Improve',
-    description: 'Use "AI Draft" to automatically generate action text based on your inputs. The "Improve" button helps refine your actions to meet SMART criteria.',
+    description: 'Use "AI Draft" to automatically generate action text based on your inputs. The AI assists with crafting effective SMART actions.',
+    targetSelector: '[data-tutorial="ai-assist"]',
+    position: 'bottom',
   },
   {
     id: 'shortcuts',
     icon: <Keyboard className="w-8 h-8 text-primary" />,
     title: 'Keyboard Shortcuts',
     description: 'Press "?" anytime to see keyboard shortcuts. Use Ctrl+D for AI Draft, Ctrl+Enter to save, and more for faster workflows.',
+    targetSelector: '[data-tutorial="shortcuts"]',
+    position: 'bottom',
   },
   {
     id: 'history',
     icon: <History className="w-8 h-8 text-primary" />,
     title: 'History & Insights',
     description: 'All saved actions are stored in History. The Insights tab shows analytics about your actions and patterns over time.',
+    targetSelector: '[data-tutorial="history"]',
+    position: 'top',
   },
 ];
+
+interface SpotlightRect {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}
 
 interface OnboardingTutorialProps {
   onComplete?: () => void;
@@ -53,26 +70,72 @@ interface OnboardingTutorialProps {
 export function OnboardingTutorial({ onComplete }: OnboardingTutorialProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  const [spotlightRect, setSpotlightRect] = useState<SpotlightRect | null>(null);
+
+  const step = TUTORIAL_STEPS[currentStep];
+  const isLastStep = currentStep === TUTORIAL_STEPS.length - 1;
+  const isFirstStep = currentStep === 0;
+
+  // Calculate spotlight position for current step
+  const updateSpotlight = useCallback(() => {
+    if (!step.targetSelector) {
+      setSpotlightRect(null);
+      return;
+    }
+
+    const element = document.querySelector(step.targetSelector);
+    if (element) {
+      const rect = element.getBoundingClientRect();
+      const padding = 8; // Add some padding around the element
+      setSpotlightRect({
+        top: rect.top - padding,
+        left: rect.left - padding,
+        width: rect.width + padding * 2,
+        height: rect.height + padding * 2,
+      });
+    } else {
+      setSpotlightRect(null);
+    }
+  }, [step.targetSelector]);
 
   useEffect(() => {
     // Check if onboarding has been completed
     const completed = localStorage.getItem(STORAGE_KEY);
     if (!completed) {
       // Small delay to let the main UI render first
-      const timer = setTimeout(() => setIsOpen(true), 500);
+      const timer = setTimeout(() => setIsOpen(true), 800);
       return () => clearTimeout(timer);
     }
   }, []);
 
+  // Update spotlight when step changes or window resizes
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    // Small delay to let animations complete
+    const timer = setTimeout(updateSpotlight, 100);
+    
+    window.addEventListener('resize', updateSpotlight);
+    window.addEventListener('scroll', updateSpotlight);
+    
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateSpotlight);
+      window.removeEventListener('scroll', updateSpotlight);
+    };
+  }, [isOpen, currentStep, updateSpotlight]);
+
   const handleComplete = () => {
     localStorage.setItem(STORAGE_KEY, 'true');
     setIsOpen(false);
+    setSpotlightRect(null);
     onComplete?.();
   };
 
   const handleSkip = () => {
     localStorage.setItem(STORAGE_KEY, 'true');
     setIsOpen(false);
+    setSpotlightRect(null);
   };
 
   const handleNext = () => {
@@ -89,29 +152,132 @@ export function OnboardingTutorial({ onComplete }: OnboardingTutorialProps) {
     }
   };
 
-  const step = TUTORIAL_STEPS[currentStep];
-  const isLastStep = currentStep === TUTORIAL_STEPS.length - 1;
-  const isFirstStep = currentStep === 0;
+  // Calculate modal position based on spotlight
+  const getModalStyle = (): React.CSSProperties => {
+    if (!spotlightRect || step.position === 'center') {
+      return {};
+    }
+
+    const modalWidth = 400;
+    const modalHeight = 320;
+    const margin = 16;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    let top: number;
+    let left: number;
+
+    // Center horizontally relative to spotlight
+    left = spotlightRect.left + spotlightRect.width / 2 - modalWidth / 2;
+    
+    // Clamp to viewport
+    left = Math.max(margin, Math.min(left, viewportWidth - modalWidth - margin));
+
+    if (step.position === 'bottom') {
+      // Position below the spotlight
+      top = spotlightRect.top + spotlightRect.height + margin;
+      // If it would go off screen, position above instead
+      if (top + modalHeight > viewportHeight - margin) {
+        top = spotlightRect.top - modalHeight - margin;
+      }
+    } else {
+      // Position above the spotlight
+      top = spotlightRect.top - modalHeight - margin;
+      // If it would go off screen, position below instead
+      if (top < margin) {
+        top = spotlightRect.top + spotlightRect.height + margin;
+      }
+    }
+
+    // Final clamp
+    top = Math.max(margin, Math.min(top, viewportHeight - modalHeight - margin));
+
+    return {
+      position: 'fixed' as const,
+      top,
+      left,
+      transform: 'none',
+    };
+  };
 
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
+          {/* Dark overlay with spotlight cutout */}
           <motion.div
-            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100]"
+            className="fixed inset-0 z-[100] pointer-events-none"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+          >
+            <svg className="w-full h-full">
+              <defs>
+                <mask id="spotlight-mask">
+                  {/* White = visible, Black = hidden */}
+                  <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                  {spotlightRect && (
+                    <motion.rect
+                      initial={{ opacity: 0 }}
+                      animate={{ 
+                        x: spotlightRect.left,
+                        y: spotlightRect.top,
+                        width: spotlightRect.width,
+                        height: spotlightRect.height,
+                        opacity: 1,
+                      }}
+                      transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                      rx="12"
+                      fill="black"
+                    />
+                  )}
+                </mask>
+              </defs>
+              <rect 
+                x="0" 
+                y="0" 
+                width="100%" 
+                height="100%" 
+                fill="rgba(0, 0, 0, 0.75)"
+                mask="url(#spotlight-mask)"
+              />
+            </svg>
+          </motion.div>
+
+          {/* Spotlight ring effect */}
+          {spotlightRect && (
+            <motion.div
+              className="fixed z-[100] pointer-events-none rounded-xl ring-4 ring-primary ring-offset-2 ring-offset-transparent"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ 
+                opacity: 1,
+                scale: 1,
+                top: spotlightRect.top,
+                left: spotlightRect.left,
+                width: spotlightRect.width,
+                height: spotlightRect.height,
+              }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              style={{
+                boxShadow: '0 0 0 4px hsl(var(--primary) / 0.3), 0 0 30px hsl(var(--primary) / 0.4)',
+              }}
+            />
+          )}
+
+          {/* Clickable backdrop to skip */}
+          <div 
+            className="fixed inset-0 z-[101] cursor-pointer"
             onClick={handleSkip}
           />
 
           {/* Tutorial Modal */}
           <motion.div
-            className="fixed inset-0 z-[101] flex items-center justify-center p-4"
+            className={`fixed z-[102] ${!spotlightRect || step.position === 'center' ? 'inset-0 flex items-center justify-center p-4' : ''}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            style={spotlightRect && step.position !== 'center' ? getModalStyle() : undefined}
           >
             <motion.div
               className="relative bg-card border border-border rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
@@ -125,7 +291,7 @@ export function OnboardingTutorial({ onComplete }: OnboardingTutorialProps) {
               <Button
                 variant="ghost"
                 size="sm"
-                className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"
+                className="absolute top-3 right-3 text-muted-foreground hover:text-foreground z-10"
                 onClick={handleSkip}
               >
                 <X className="w-4 h-4 mr-1" /> Skip
@@ -143,7 +309,6 @@ export function OnboardingTutorial({ onComplete }: OnboardingTutorialProps) {
                         ? 'w-2 bg-primary/50' 
                         : 'w-2 bg-muted'
                     }`}
-                    layoutId={`dot-${index}`}
                   />
                 ))}
               </div>
@@ -152,7 +317,7 @@ export function OnboardingTutorial({ onComplete }: OnboardingTutorialProps) {
               <AnimatePresence mode="wait">
                 <motion.div
                   key={step.id}
-                  className="p-8 pt-4 text-center"
+                  className="p-6 pt-4 text-center"
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
@@ -160,7 +325,7 @@ export function OnboardingTutorial({ onComplete }: OnboardingTutorialProps) {
                 >
                   {/* Icon */}
                   <motion.div
-                    className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-primary/10 flex items-center justify-center"
+                    className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-primary/10 flex items-center justify-center"
                     initial={{ scale: 0.5, rotate: -10 }}
                     animate={{ scale: 1, rotate: 0 }}
                     transition={{ type: "spring", damping: 15, stiffness: 300, delay: 0.1 }}
@@ -169,10 +334,10 @@ export function OnboardingTutorial({ onComplete }: OnboardingTutorialProps) {
                   </motion.div>
 
                   {/* Title */}
-                  <h2 className="text-xl font-bold mb-3 text-foreground">{step.title}</h2>
+                  <h2 className="text-lg font-bold mb-2 text-foreground">{step.title}</h2>
 
                   {/* Description */}
-                  <p className="text-muted-foreground leading-relaxed mb-8">
+                  <p className="text-sm text-muted-foreground leading-relaxed mb-6">
                     {step.description}
                   </p>
 
@@ -180,6 +345,7 @@ export function OnboardingTutorial({ onComplete }: OnboardingTutorialProps) {
                   <div className="flex justify-between items-center gap-3">
                     <Button
                       variant="ghost"
+                      size="sm"
                       onClick={handleBack}
                       disabled={isFirstStep}
                       className="flex-1"
@@ -187,6 +353,7 @@ export function OnboardingTutorial({ onComplete }: OnboardingTutorialProps) {
                       Back
                     </Button>
                     <Button
+                      size="sm"
                       onClick={handleNext}
                       className="flex-1 gap-2"
                     >
@@ -203,15 +370,13 @@ export function OnboardingTutorial({ onComplete }: OnboardingTutorialProps) {
                       )}
                     </Button>
                   </div>
+
+                  {/* Step counter */}
+                  <p className="text-xs text-muted-foreground mt-4">
+                    Step {currentStep + 1} of {TUTORIAL_STEPS.length}
+                  </p>
                 </motion.div>
               </AnimatePresence>
-
-              {/* Step counter */}
-              <div className="px-8 pb-6 text-center">
-                <span className="text-xs text-muted-foreground">
-                  Step {currentStep + 1} of {TUTORIAL_STEPS.length}
-                </span>
-              </div>
             </motion.div>
           </motion.div>
         </>
