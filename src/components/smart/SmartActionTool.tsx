@@ -772,7 +772,7 @@ export function SmartActionTool() {
                     />
                     {nowDateWarning && <p className="text-xs text-amber-500">{nowDateWarning}</p>}
                   </div>
-                  <div className="space-y-2 shrink-0" style={{ width: 'clamp(120px, 35%, 180px)' }}>
+                  <div className="space-y-2 flex-1 min-w-0">
                     <label className="text-sm font-medium text-muted-foreground">Participant forename</label>
                     <Input
                       value={nowForm.forename}
@@ -908,7 +908,7 @@ export function SmartActionTool() {
                     {/* BUG FIX #1: Show error for past dates */}
                     {futureDateError && <p className="text-xs text-destructive">{futureDateError}</p>}
                   </div>
-                  <div className="space-y-2 shrink-0" style={{ width: 'clamp(120px, 35%, 180px)' }}>
+                  <div className="space-y-2 flex-1 min-w-0">
                     <label className="text-sm font-medium text-muted-foreground">Participant forename</label>
                     <Input
                       value={futureForm.forename}
