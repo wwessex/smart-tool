@@ -17,7 +17,7 @@ import {
 import { checkSmart, SmartCheck } from '@/lib/smart-checker';
 import { SmartChecklist } from './SmartChecklist';
 import { TemplateLibrary } from './TemplateLibrary';
-import { LLMChat } from './LLMChat';
+import { LLMChatButton } from './LLMChat';
 
 // Zod schemas for import validation
 const HistoryItemMetaSchema = z.object({
@@ -845,7 +845,7 @@ When given context about a participant, provide suggestions to improve their SMA
                       Advisor assist
                     </span>
                     <div className="flex gap-2">
-                      <LLMChat
+                      <LLMChatButton
                         trigger={
                           <Button size="sm" variant="outline" className="border-primary/30 hover:bg-primary/10">
                             <Cpu className="w-3 h-3 mr-1" /> Local AI
@@ -990,7 +990,7 @@ When given context about a participant, provide suggestions to improve their SMA
                       Advisor assist
                     </span>
                     <div className="flex gap-2">
-                      <LLMChat
+                      <LLMChatButton
                         trigger={
                           <Button size="sm" variant="outline" className="border-primary/30 hover:bg-primary/10">
                             <Cpu className="w-3 h-3 mr-1" /> Local AI
