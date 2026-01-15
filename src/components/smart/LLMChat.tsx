@@ -229,6 +229,8 @@ function AIChatContent({
 
   // Loading view for local mode
   if (mode === "local" && isLoading) {
+    const isInitializing = loadingProgress === 0;
+    
     return (
       <div className="flex-1 flex flex-col">
         <ModeTabs mode={mode} setMode={setMode} webGPUSupported={webGPUSupported} />
@@ -239,31 +241,51 @@ function AIChatContent({
           </div>
           
           <div className="w-full max-w-sm space-y-2">
-            <Progress value={loadingProgress} className="h-2" />
+            {/* Show indeterminate progress bar during initialization */}
+            {isInitializing ? (
+              <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                <div className="h-full w-1/3 bg-primary rounded-full animate-[shimmer_1.5s_ease-in-out_infinite]" 
+                  style={{
+                    animation: "shimmer 1.5s ease-in-out infinite",
+                  }}
+                />
+                <style>{`
+                  @keyframes shimmer {
+                    0% { transform: translateX(-100%); }
+                    100% { transform: translateX(400%); }
+                  }
+                `}</style>
+              </div>
+            ) : (
+              <Progress value={loadingProgress} className="h-2" />
+            )}
             <p className="text-sm text-center text-muted-foreground">
-              {loadingStatus || "Starting worker..."}
+              {loadingStatus || "Starting AI engine..."}
             </p>
+            {!isInitializing && (
+              <p className="text-xs text-center text-muted-foreground">
+                {loadingProgress}% complete
+              </p>
+            )}
           </div>
 
           <p className="text-xs text-center text-muted-foreground max-w-xs">
-            {loadingProgress === 0 
-              ? "Initializing the AI engine. This may take 10-30 seconds on first load..."
+            {isInitializing 
+              ? "Loading AI engine from CDN. This may take 30-60 seconds on first visit..."
               : loadingProgress < 100
                 ? "Downloading and caching model... This only happens once."
                 : "Finalizing setup..."}
           </p>
           
-          {loadingProgress === 0 && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setMode("cloud")}
-              className="mt-2"
-            >
-              <Cloud className="h-4 w-4 mr-2" />
-              Switch to Cloud AI
-            </Button>
-          )}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setMode("cloud")}
+            className="mt-2"
+          >
+            <Cloud className="h-4 w-4 mr-2" />
+            Switch to Cloud AI (instant)
+          </Button>
         </div>
       </div>
     );

@@ -1,5 +1,6 @@
 // Web Worker for WebLLM - Isolates heavy LLM computation from main UI thread
-import { WebWorkerMLCEngineHandler } from "https://esm.run/@mlc-ai/web-llm";
+// Using jsdelivr for faster, more reliable CDN delivery
+import { WebWorkerMLCEngineHandler } from "https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.80/+esm";
 
 // Initialize the handler that manages the LLM engine
 const handler = new WebWorkerMLCEngineHandler();
