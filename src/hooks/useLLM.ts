@@ -168,14 +168,48 @@ export function useLLM() {
         loadingStatus: "Loading AI engine (this may take a moment)...",
       }));
 
+      // Create worker with timeout detection
+      const worker = new Worker(new URL("/llm-worker.js", import.meta.url), {
+        type: "module",
+      });
+
+      // Set up a timeout to detect stuck worker (45 seconds for slow connections)
+      let workerReady = false;
+      const timeoutId = setTimeout(() => {
+        if (!workerReady) {
+          worker.terminate();
+          setState((prev) => ({
+            ...prev,
+            isLoading: false,
+            error: "Worker initialization timed out. The AI engine may not be compatible with your browser. Try Cloud AI instead.",
+          }));
+        }
+      }, 45000);
+
+      // Listen for worker ready/error messages
+      worker.addEventListener("message", (event) => {
+        if (event.data?.type === "worker-ready") {
+          workerReady = true;
+          clearTimeout(timeoutId);
+        } else if (event.data?.type === "worker-error") {
+          clearTimeout(timeoutId);
+          worker.terminate();
+          setState((prev) => ({
+            ...prev,
+            isLoading: false,
+            error: `Worker error: ${event.data.error}. Try Cloud AI instead.`,
+          }));
+        }
+      });
+
       // Create new engine with worker
       const engine = await CreateWebWorkerMLCEngine(
-        new Worker(new URL("/llm-worker.js", import.meta.url), {
-          type: "module",
-        }),
+        worker,
         modelId,
         {
           initProgressCallback: (progress) => {
+            workerReady = true; // If we get progress, worker is working
+            clearTimeout(timeoutId);
             setState((prev) => ({
               ...prev,
               loadingProgress: Math.round(progress.progress * 100),
