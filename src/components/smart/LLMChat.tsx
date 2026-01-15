@@ -185,9 +185,9 @@ function AIChatContent({
   // Show model selection for local mode
   if (mode === "local" && !localAI.isReady && !localAI.isLoading) {
     return (
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <ModeTabs mode={mode} setMode={setMode} webGPUSupported={webGPUSupported} />
-        <div className="flex-1 p-6 space-y-4">
+        <div className="flex-1 p-6 space-y-4 overflow-y-auto">
           {/* Safari WebGPU Warning - recommend Cloud AI */}
           {isSafari && (
             <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
