@@ -550,6 +550,28 @@ When given context about a participant, provide suggestions to improve their SMA
     toast({ title: 'Wizard complete', description: 'Form populated. Review and generate your action.' });
   }, [mode, toast]);
 
+  // Handle wizard AI draft - provides field-specific AI drafts within the wizard
+  const handleWizardAIDraft = useCallback(async (field: string, context: Record<string, string>): Promise<string> => {
+    if (mode === 'now') {
+      const timescale = context.timescale || '2 weeks';
+      if (field === 'action' || field === 'help') {
+        const { action, help } = aiDraftNow(
+          context.barrier || '', 
+          context.forename || '', 
+          context.responsible || 'Advisor',
+          timescale,
+          nowForm.date
+        );
+        return field === 'action' ? action : help;
+      }
+    } else {
+      if (field === 'outcome') {
+        return aiDraftFuture(context.task || '', context.forename || '');
+      }
+    }
+    return '';
+  }, [mode, nowForm.date]);
+
   // Handle AI improve apply
   const handleApplyImprovement = useCallback((improvedAction: string) => {
     if (mode === 'now') {
@@ -933,9 +955,24 @@ When given context about a participant, provide suggestions to improve their SMA
                 recentNames={storage.recentNames}
                 onComplete={handleWizardComplete}
                 onCancel={() => setWizardMode(false)}
+                onAIDraft={handleWizardAIDraft}
               />
             ) : (
             <>
+            {/* Header with Guided Mode button */}
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-foreground">Create Action</h2>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setWizardMode(true)}
+                className="gap-2 border-primary/40 hover:bg-primary/10 hover:border-primary"
+              >
+                <Sparkles className="w-4 h-4 text-primary" />
+                Guided Mode
+              </Button>
+            </div>
+
             {/* Tabs */}
             <div className="flex gap-2 p-1 bg-muted rounded-full relative">
               <motion.div

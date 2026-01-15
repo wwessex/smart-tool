@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronLeft, Check, Sparkles, X } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Check, Sparkles, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,6 +18,7 @@ interface WizardStep {
   type: 'input' | 'textarea' | 'combobox';
   options?: string[];
   required?: boolean;
+  canAIDraft?: boolean; // Whether AI Draft is available for this step
 }
 
 interface ActionWizardProps {
@@ -27,6 +28,8 @@ interface ActionWizardProps {
   recentNames: string[];
   onComplete: (data: Record<string, string>) => void;
   onCancel: () => void;
+  onAIDraft?: (field: string, context: Record<string, string>) => Promise<string>;
+  isAIDrafting?: boolean;
 }
 
 const NOW_STEPS: WizardStep[] = [
@@ -59,6 +62,7 @@ const NOW_STEPS: WizardStep[] = [
     hint: 'Be specific: include who, what, where, and when',
     type: 'textarea',
     required: true,
+    canAIDraft: true,
   },
   {
     id: 'responsible',
@@ -80,6 +84,7 @@ const NOW_STEPS: WizardStep[] = [
     hint: 'Explain the benefit or expected outcome',
     type: 'input',
     required: true,
+    canAIDraft: true,
   },
   {
     id: 'timescale',
@@ -123,6 +128,7 @@ const FUTURE_STEPS: WizardStep[] = [
     hint: 'What will they achieve or learn?',
     type: 'textarea',
     required: true,
+    canAIDraft: true,
   },
   {
     id: 'timescale',
@@ -136,10 +142,11 @@ const FUTURE_STEPS: WizardStep[] = [
   },
 ];
 
-export function ActionWizard({ mode, barriers, timescales, recentNames, onComplete, onCancel }: ActionWizardProps) {
+export function ActionWizard({ mode, barriers, timescales, recentNames, onComplete, onCancel, onAIDraft, isAIDrafting }: ActionWizardProps) {
   const steps = mode === 'now' ? NOW_STEPS : FUTURE_STEPS;
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<Record<string, string>>({});
+  const [drafting, setDrafting] = useState(false);
 
   const step = steps[currentStep];
   const progress = ((currentStep + 1) / steps.length) * 100;
@@ -156,6 +163,29 @@ export function ActionWizard({ mode, barriers, timescales, recentNames, onComple
     if (step.field === 'forename') return recentNames;
     return [];
   }, [barriers, timescales, recentNames]);
+
+  // Check if AI Draft is available for current step
+  const canDraft = step.canAIDraft && onAIDraft && !drafting && !isAIDrafting;
+  const hasPrerequisites = step.field === 'action' 
+    ? !!(formData.forename?.trim() && formData.barrier?.trim())
+    : step.field === 'help'
+    ? !!(formData.action?.trim())
+    : step.field === 'outcome'
+    ? !!(formData.forename?.trim() && formData.task?.trim())
+    : true;
+
+  const handleAIDraft = useCallback(async () => {
+    if (!onAIDraft || drafting) return;
+    setDrafting(true);
+    try {
+      const result = await onAIDraft(step.field, formData);
+      if (result) {
+        setFormData(prev => ({ ...prev, [step.field]: result }));
+      }
+    } finally {
+      setDrafting(false);
+    }
+  }, [onAIDraft, step.field, formData, drafting]);
 
   const handleNext = () => {
     if (!isValid) return;
@@ -221,8 +251,40 @@ export function ActionWizard({ mode, barriers, timescales, recentNames, onComple
           transition={{ duration: 0.2 }}
         >
           <div className="space-y-2">
-            <h3 className="text-lg font-semibold">{step.question}</h3>
-            <p className="text-sm text-muted-foreground">{step.hint}</p>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h3 className="text-lg font-semibold">{step.question}</h3>
+                <p className="text-sm text-muted-foreground">{step.hint}</p>
+              </div>
+              {step.canAIDraft && onAIDraft && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleAIDraft}
+                  disabled={!hasPrerequisites || drafting || isAIDrafting}
+                  className="shrink-0 gap-1.5 border-primary/30 hover:bg-primary/10"
+                >
+                  {drafting || isAIDrafting ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Drafting...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3 h-3" />
+                      AI Draft
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+            {step.canAIDraft && !hasPrerequisites && (
+              <p className="text-xs text-amber-500">
+                {step.field === 'action' && 'Fill in forename and barrier first to use AI Draft'}
+                {step.field === 'help' && 'Fill in the action first to use AI Draft'}
+                {step.field === 'outcome' && 'Fill in forename and task first to use AI Draft'}
+              </p>
+            )}
           </div>
 
           {step.type === 'input' && (
