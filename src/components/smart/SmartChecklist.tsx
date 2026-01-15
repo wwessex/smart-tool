@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, AlertCircle, Info, Target, BarChart3, ThumbsUp, Link2, Clock, AlertTriangle, Lightbulb } from 'lucide-react';
 import { SmartCheck, getSmartLabel, getSmartColor, getImprovementPriority } from '@/lib/smart-checker';
+import { SmartScoreDetails } from './SmartScoreDetails';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
@@ -12,6 +14,7 @@ import {
 interface SmartChecklistProps {
   check: SmartCheck;
   className?: string;
+  actionText?: string;
 }
 
 const CRITERIA_CONFIG = [
@@ -22,10 +25,18 @@ const CRITERIA_CONFIG = [
   { key: 'timeBound', label: 'Time-bound', icon: Clock, letter: 'T' },
 ] as const;
 
-export function SmartChecklist({ check, className }: SmartChecklistProps) {
+export function SmartChecklist({ check, className, actionText = '' }: SmartChecklistProps) {
   const improvementPriorities = getImprovementPriority(check);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   
   return (
+    <>
+    <SmartScoreDetails
+      open={detailsOpen}
+      onOpenChange={setDetailsOpen}
+      check={check}
+      actionText={actionText}
+    />
     <TooltipProvider delayDuration={300}>
       <motion.div 
         className={cn(
@@ -43,7 +54,7 @@ export function SmartChecklist({ check, className }: SmartChecklistProps) {
           </h3>
           <motion.div 
             className={cn(
-              "px-3 py-1 rounded-full text-sm font-bold",
+              "px-3 py-1 rounded-full text-sm font-bold cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all",
               check.overallScore >= 4 ? "bg-green-500/10 text-green-600" :
               check.overallScore >= 3 ? "bg-amber-500/10 text-amber-600" :
               "bg-destructive/10 text-destructive"
@@ -52,6 +63,10 @@ export function SmartChecklist({ check, className }: SmartChecklistProps) {
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
             transition={{ type: "spring", stiffness: 400, damping: 20 }}
+            onClick={() => setDetailsOpen(true)}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            title="Click for detailed analysis"
           >
             {check.overallScore}/5 {getSmartLabel(check.overallScore)}
           </motion.div>
@@ -59,7 +74,7 @@ export function SmartChecklist({ check, className }: SmartChecklistProps) {
 
         {/* Progress bar */}
         <div className="h-2 bg-muted rounded-full overflow-hidden">
-          <motion.div 
+          <motion.div
             className={cn(
               "h-full rounded-full",
               check.overallScore >= 4 ? "bg-green-500" :
@@ -243,5 +258,6 @@ export function SmartChecklist({ check, className }: SmartChecklistProps) {
         )}
       </motion.div>
     </TooltipProvider>
+    </>
   );
 }
