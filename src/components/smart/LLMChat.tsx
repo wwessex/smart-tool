@@ -188,23 +188,27 @@ function AIChatContent({
       <div className="flex-1 flex flex-col">
         <ModeTabs mode={mode} setMode={setMode} webGPUSupported={webGPUSupported} />
         <div className="flex-1 p-6 space-y-4">
-          {/* Safari WebGPU Info Banner */}
+          {/* Safari WebGPU Warning - recommend Cloud AI */}
           {isSafari && (
-            <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800">
-              <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-              <AlertTitle className="text-blue-800 dark:text-blue-300">Enable WebGPU in Safari</AlertTitle>
-              <AlertDescription className="text-blue-700 dark:text-blue-400">
+            <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
+              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <AlertTitle className="text-amber-800 dark:text-amber-300">Safari Has Limited WebGPU Support</AlertTitle>
+              <AlertDescription className="text-amber-700 dark:text-amber-400">
                 <p className="mb-2">
-                  Safari supports WebGPU but it may need to be enabled:
+                  Safari's WebGPU is experimental and may not work with local AI models. 
+                  <strong> We recommend using Cloud AI</strong> for the best experience.
                 </p>
-                <ol className="list-decimal list-inside space-y-1 text-sm mb-3">
-                  <li>Open <strong>Safari → Settings</strong> (or Preferences)</li>
-                  <li>Go to <strong>Feature Flags</strong> (or Advanced → Experimental Features)</li>
-                  <li>Enable <strong>WebGPU</strong></li>
-                  <li>Reload this page</li>
-                </ol>
-                <p className="text-sm">
-                  Or use <button onClick={() => setMode("cloud")} className="font-semibold underline underline-offset-2 hover:text-blue-900 dark:hover:text-blue-200">Cloud AI</button> — works instantly in any browser!
+                <div className="flex gap-2 mt-3">
+                  <button 
+                    onClick={() => setMode("cloud")} 
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+                  >
+                    <Cloud className="h-4 w-4" />
+                    Use Cloud AI (Recommended)
+                  </button>
+                </div>
+                <p className="mt-3 text-xs opacity-75">
+                  For local AI, use Chrome or Edge on desktop.
                 </p>
               </AlertDescription>
             </Alert>
