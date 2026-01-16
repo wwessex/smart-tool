@@ -20,7 +20,7 @@ export const DEFAULT_BARRIERS = [
   "Social & Support Networks",
   "Communication Skills",
   "Digital Skills",
-  "Literacy and/ Numeracy",
+  "Literacy and/or Numeracy",
   "Qualifications",
   "Transferable Skills",
   "Learning Capability",
@@ -34,7 +34,12 @@ export const DEFAULT_BARRIERS = [
   "Motivation",
   "Job Goal",
   "Photo ID",
-  "Substance Misuse"
+  "Substance Misuse",
+  "Autism",
+  "Learning Difficulties",
+  "ADHD",
+  "Health Condition",
+  "Disability"
 ];
 
 // Builder phrases (DATA sheet) - SMART format for Restart Advisors
@@ -423,6 +428,116 @@ export const ACTION_LIBRARY: Record<string, Array<{title: string; action: string
       "title": "Practice speaking English",
       "action": "{forename} will attend English conversation practice sessions by {targetDate} to build speaking confidence.",
       "help": "Speaking practice helps prepare for interviews."
+    }
+  ],
+  "Autism": [
+    {
+      "title": "Discuss workplace adjustments",
+      "action": "{forename} will identify reasonable workplace adjustments they may need (e.g., quiet space, clear instructions, routine) and discuss them with their advisor by {targetDate}.",
+      "help": "understand what adjustments will help in employment."
+    },
+    {
+      "title": "Create communication profile",
+      "action": "{forename} will create a simple communication profile explaining their preferences and any adjustments needed, with advisor support, by {targetDate}.",
+      "help": "communicate needs clearly to future employers."
+    },
+    {
+      "title": "Access specialist support",
+      "action": "{forename} will be referred to a specialist autism employment service for tailored support by {targetDate}.",
+      "help": "access specialist guidance for employment."
+    },
+    {
+      "title": "Practise interview scenarios",
+      "action": "{forename} will practise interview scenarios with advisor support, focusing on structured responses and managing sensory needs, by {targetDate}.",
+      "help": "build confidence for interviews."
+    }
+  ],
+  "Learning Difficulties": [
+    {
+      "title": "Arrange learning support assessment",
+      "action": "{forename} will attend a learning support assessment by {targetDate} to identify any reasonable adjustments needed for training or employment.",
+      "help": "understand specific support needs."
+    },
+    {
+      "title": "Explore supported employment",
+      "action": "{forename} will be referred to a supported employment service by {targetDate} for tailored job search support.",
+      "help": "access specialist employment support."
+    },
+    {
+      "title": "Break down tasks",
+      "action": "{forename} and advisor will break down job search tasks into smaller steps with visual checklists by {targetDate}.",
+      "help": "make progress manageable and clear."
+    },
+    {
+      "title": "Identify job match",
+      "action": "{forename} will discuss strengths and interests with advisor to identify suitable job roles by {targetDate}.",
+      "help": "focus job search on appropriate roles."
+    }
+  ],
+  "ADHD": [
+    {
+      "title": "Create structured routine",
+      "action": "{forename} will create a structured daily routine for job search activities with advisor support by {targetDate}.",
+      "help": "build consistent job search habits."
+    },
+    {
+      "title": "Use reminder systems",
+      "action": "{forename} will set up phone reminders or calendar alerts for appointments and deadlines by {targetDate}.",
+      "help": "stay on track with commitments."
+    },
+    {
+      "title": "Break tasks into chunks",
+      "action": "{forename} will break job applications into 15-minute focused sessions with breaks, completing {n} applications by {targetDate}.",
+      "help": "make tasks more manageable."
+    },
+    {
+      "title": "Discuss workplace strategies",
+      "action": "{forename} will identify workplace strategies that help with focus and organisation by {targetDate}.",
+      "help": "prepare for success in employment."
+    }
+  ],
+  "Health Condition": [
+    {
+      "title": "Discuss work limitations",
+      "action": "{forename} will discuss any work limitations or adjustments needed due to health condition with advisor by {targetDate}.",
+      "help": "identify suitable roles and adjustments."
+    },
+    {
+      "title": "Access to Work application",
+      "action": "{forename} will explore Access to Work support and begin an application if eligible by {targetDate}.",
+      "help": "access funding for workplace adjustments."
+    },
+    {
+      "title": "Flexible working research",
+      "action": "{forename} will research roles offering flexible working arrangements that accommodate health needs by {targetDate}.",
+      "help": "find sustainable employment options."
+    },
+    {
+      "title": "Fit note discussion",
+      "action": "{forename} will discuss fit note recommendations with GP and share relevant information with advisor by {targetDate}.",
+      "help": "ensure appropriate support is in place."
+    }
+  ],
+  "Disability": [
+    {
+      "title": "Discuss reasonable adjustments",
+      "action": "{forename} will identify reasonable adjustments needed for work and discuss how to communicate these to employers by {targetDate}.",
+      "help": "prepare for disclosure conversations."
+    },
+    {
+      "title": "Access to Work referral",
+      "action": "{forename} will be supported to apply for Access to Work funding by {targetDate}.",
+      "help": "access support and equipment for employment."
+    },
+    {
+      "title": "Disability Confident employers",
+      "action": "{forename} will identify and target Disability Confident employers in their local area by {targetDate}.",
+      "help": "focus on inclusive employers."
+    },
+    {
+      "title": "Support worker discussion",
+      "action": "{forename} will discuss whether a job coach or support worker would help in employment by {targetDate}.",
+      "help": "explore available support options."
     }
   ]
 };

@@ -45,12 +45,43 @@ export function pickLibraryKey(barrier: string): string {
   const b = (barrier || "").trim().toLowerCase();
   if (!b) return "";
   const keys = Object.keys(ACTION_LIBRARY);
+  
+  // Exact match first
   for (const k of keys) {
     if (k.toLowerCase() === b) return k;
   }
+  
+  // Partial match - barrier contains key
   for (const k of keys) {
     if (b.includes(k.toLowerCase())) return k;
   }
+  
+  // Partial match - key contains barrier
+  for (const k of keys) {
+    if (k.toLowerCase().includes(b)) return k;
+  }
+  
+  // Semantic matches for common variations
+  const semanticMatches: Record<string, string[]> = {
+    "Autism": ["autistic", "asd", "asperger", "autism spectrum"],
+    "Learning Difficulties": ["learning disability", "developmental delay", "global developmental", "intellectual disability", "special needs", "learning need"],
+    "ADHD": ["attention deficit", "add", "hyperactivity", "concentration"],
+    "Health Condition": ["health", "illness", "medical", "chronic", "physical health"],
+    "Disability": ["disabled", "physical disability", "impairment"],
+    "Mental Wellbeing": ["mental health", "anxiety", "depression", "stress", "wellbeing", "psychological"],
+    "Literacy and/or Numeracy": ["literacy", "numeracy", "reading", "writing", "maths", "dyslexia", "dyscalculia"],
+    "Digital Skills": ["computer", "digital", "it skills", "technology", "internet"],
+    "Communication Skills": ["speech", "language", "communication", "stammer", "stutter"],
+  };
+  
+  for (const [key, variations] of Object.entries(semanticMatches)) {
+    for (const variation of variations) {
+      if (b.includes(variation)) {
+        return key;
+      }
+    }
+  }
+  
   return "";
 }
 
@@ -190,6 +221,11 @@ export function formatTaskOutcome(forename: string, rawOutcome: string): string 
   return outcome.charAt(0).toUpperCase() + outcome.slice(1);
 }
 
+// Helper to strip trailing punctuation
+function stripTrailingPunctuation(s: string): string {
+  return (s || "").trim().replace(/[.!?]+$/, "");
+}
+
 export function buildNowOutput(
   date: string,
   forename: string,
@@ -200,7 +236,7 @@ export function buildNowOutput(
   timescale: string
 ): string {
   const formattedDate = formatDDMMMYY(date);
-  let formattedAction = action.trim().replace(/\s+/g, " ");
+  let formattedAction = stripTrailingPunctuation(action.trim().replace(/\s+/g, " "));
   
   const nameWillPattern = new RegExp(`^${forename.toLowerCase()}\\s+will\\s+`, 'i');
   if (nameWillPattern.test(formattedAction)) {
@@ -210,17 +246,21 @@ export function buildNowOutput(
   if (formattedAction) {
     formattedAction = formattedAction.charAt(0).toLowerCase() + formattedAction.slice(1);
   }
+  
+  // Strip trailing punctuation from help text too
+  const cleanHelp = stripTrailingPunctuation(help);
+  const cleanBarrier = stripTrailingPunctuation(barrier);
+  const cleanTimescale = stripTrailingPunctuation(timescale);
 
   return [
-    `${BUILDER_NOW.p1} ${formattedDate}, ${forename} and I ${BUILDER_NOW.p2} ${barrier}.`,
-    `${BUILDER_NOW.p3} ${forename} will ${formattedAction}`,
-    `${BUILDER_NOW.p5} ${help}.`,
+    `${BUILDER_NOW.p1} ${formattedDate}, ${forename} and I ${BUILDER_NOW.p2} ${cleanBarrier}.`,
+    `${BUILDER_NOW.p3} ${forename} will ${formattedAction}.`,
+    `${BUILDER_NOW.p5} ${cleanHelp}.`,
     `${BUILDER_NOW.p6}`,
-    `${BUILDER_NOW.p7} ${timescale}.`
+    `${BUILDER_NOW.p7} ${cleanTimescale}.`
   ].join(" ");
 }
 
-// BUG FIX #2: Fixed double period issue when outcome is empty
 export function buildFutureOutput(
   date: string,
   forename: string,
@@ -229,8 +269,9 @@ export function buildFutureOutput(
   timescale: string
 ): string {
   const formattedDate = formatDDMMMYY(date);
-  const formattedTask = task.trim().replace(/\s+/g, " ");
-  const formattedOutcome = formatTaskOutcome(forename, rawOutcome);
+  const formattedTask = stripTrailingPunctuation(task.trim().replace(/\s+/g, " "));
+  const formattedOutcome = stripTrailingPunctuation(formatTaskOutcome(forename, rawOutcome));
+  const cleanTimescale = stripTrailingPunctuation(timescale);
 
   // Structure: "As discussed and agreed, on [date], [name] will attend [task]. [Outcome]. Reviewed in [timescale]."
   const parts = [
@@ -241,7 +282,7 @@ export function buildFutureOutput(
     parts.push(`${formattedOutcome}.`);
   }
   
-  parts.push(`${BUILDER_TASK.p3} ${timescale}.`);
+  parts.push(`${BUILDER_TASK.p3} ${cleanTimescale}.`);
 
   return parts.join(" ");
 }

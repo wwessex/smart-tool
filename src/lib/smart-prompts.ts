@@ -16,13 +16,18 @@ Instructions:
 3. Use stronger commitment language ("will" instead of "try to")
 4. Include specific dates, quantities, or measurable outcomes
 5. Ensure it clearly links to the barrier being addressed
+6. For barriers like autism, ADHD, learning difficulties, or developmental conditions, focus on reasonable adjustments and supportive actions
 
-Respond in valid JSON format only:
+CRITICAL: You MUST respond with ONLY valid JSON. No explanation text before or after the JSON object.
+
+Response format:
+\`\`\`json
 {
   "improved": "The improved action text that addresses all SMART criteria...",
   "explanation": "Brief explanation of what was changed and why...",
   "changes": ["Specific change 1", "Specific change 2", "Specific change 3"]
-}`;
+}
+\`\`\``;
 
 export const WIZARD_PROMPTS = {
   now: {
