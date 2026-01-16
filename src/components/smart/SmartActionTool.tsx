@@ -24,6 +24,8 @@ import { ShortcutsHelp } from './ShortcutsHelp';
 import { HistoryInsights } from './HistoryInsights';
 import { OnboardingTutorial, useOnboarding } from './OnboardingTutorial';
 import { FloatingToolbar } from './FloatingToolbar';
+import { Footer } from './Footer';
+import { ManageConsentDialog, getStoredConsent } from './CookieConsent';
 import { useKeyboardShortcuts, groupShortcuts, ShortcutConfig } from '@/hooks/useKeyboardShortcuts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -64,7 +66,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3 } from 'lucide-react';
+import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3, Shield, FileDown } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -155,6 +157,7 @@ export function SmartActionTool() {
   const [improveDialogOpen, setImproveDialogOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const [historyTab, setHistoryTab] = useState<'history' | 'insights'>('history');
+  const [privacySettingsOpen, setPrivacySettingsOpen] = useState(false);
 
   // Detect landscape orientation
   useEffect(() => {
@@ -938,6 +941,75 @@ When given context about a participant, provide suggestions to improve their SMA
                       <Sparkles className="w-4 h-4" />
                       Replay Tutorial
                     </Button>
+                  </div>
+
+                  {/* Privacy & Data Section - GDPR Compliance */}
+                  <div className="p-4 rounded-lg border bg-card space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-primary" />
+                      <h3 className="font-bold">Privacy & Data</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Manage your data and privacy preferences in accordance with UK GDPR.
+                    </p>
+                    
+                    <div className="grid gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          const data = storage.exportAllData();
+                          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `smart-action-data-${new Date().toISOString().slice(0, 10)}.json`;
+                          document.body.appendChild(a);
+                          a.click();
+                          a.remove();
+                          URL.revokeObjectURL(url);
+                          toast({ title: 'Data exported', description: 'Your data has been downloaded.' });
+                        }}
+                        className="gap-2 justify-start"
+                      >
+                        <FileDown className="w-4 h-4" />
+                        Export All My Data
+                      </Button>
+                      
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setPrivacySettingsOpen(true)}
+                        className="gap-2 justify-start"
+                      >
+                        <Shield className="w-4 h-4" />
+                        Manage Cookie Preferences
+                      </Button>
+                      
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          if (confirm('Are you sure you want to delete all your data? This cannot be undone.')) {
+                            storage.deleteAllData();
+                            toast({ title: 'Data deleted', description: 'All your data has been removed.' });
+                            window.location.reload();
+                          }
+                        }}
+                        className="gap-2 justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete All My Data
+                      </Button>
+                    </div>
+                    
+                    <a 
+                      href="#/privacy" 
+                      className="text-xs text-primary hover:underline block mt-2"
+                      onClick={() => setSettingsOpen(false)}
+                    >
+                      View Privacy Policy →
+                    </a>
                   </div>
                 </div>
               </DialogContent>
