@@ -8,7 +8,9 @@ const STORAGE = {
   recentNames: "smartTool.recentNames",
   templates: "smartTool.templates",
   minScoreEnabled: "smartTool.minScoreEnabled",
-  minScoreThreshold: "smartTool.minScoreThreshold"
+  minScoreThreshold: "smartTool.minScoreThreshold",
+  gdprConsent: "smartTool.gdprConsent",
+  onboardingComplete: "smartTool.onboardingComplete"
 };
 
 export interface ActionTemplate {
@@ -197,6 +199,43 @@ export function useSmartStorage() {
     localStorage.setItem(STORAGE.minScoreThreshold, String(clamped));
   }, []);
 
+  // Export all data for GDPR data portability
+  const exportAllData = useCallback(() => {
+    const exportData = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      data: {
+        barriers,
+        timescales,
+        history,
+        recentNames,
+        templates,
+        settings: {
+          minScoreEnabled,
+          minScoreThreshold,
+        }
+      }
+    };
+    return exportData;
+  }, [barriers, timescales, history, recentNames, templates, minScoreEnabled, minScoreThreshold]);
+
+  // Delete all user data for GDPR right to erasure
+  const deleteAllData = useCallback(() => {
+    // Clear all localStorage keys
+    Object.values(STORAGE).forEach(key => {
+      localStorage.removeItem(key);
+    });
+    
+    // Reset state to defaults
+    setBarriers([...DEFAULT_BARRIERS]);
+    setTimescales([...DEFAULT_TIMESCALES]);
+    setHistory([]);
+    setRecentNames([]);
+    setTemplates([]);
+    setMinScoreEnabled(false);
+    setMinScoreThreshold(4);
+  }, []);
+
   return {
     barriers,
     timescales,
@@ -218,6 +257,8 @@ export function useSmartStorage() {
     deleteTemplate,
     updateTemplate,
     updateMinScoreEnabled,
-    updateMinScoreThreshold
+    updateMinScoreThreshold,
+    exportAllData,
+    deleteAllData
   };
 }

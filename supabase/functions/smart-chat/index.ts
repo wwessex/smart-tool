@@ -35,17 +35,18 @@ Key principles:
 
 When given context about a participant, provide suggestions to improve their SMART action. Keep responses focused and practical.`;
 
-// Simple in-memory rate limiting (per IP)
+// Simple in-memory rate limiting (per IP hash - no raw IPs stored)
+// GDPR: We only store a hash of the IP for rate limiting, never the raw IP
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = 30; // 30 requests per minute
 
-function checkRateLimit(ip: string): boolean {
+function checkRateLimit(ipHash: string): boolean {
   const now = Date.now();
-  const entry = rateLimitMap.get(ip);
+  const entry = rateLimitMap.get(ipHash);
   
   if (!entry || now > entry.resetTime) {
-    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+    rateLimitMap.set(ipHash, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
     return true;
   }
   
@@ -67,6 +68,17 @@ setInterval(() => {
   }
 }, 60000);
 
+// Simple hash function for rate limiting (not for security purposes)
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return hash.toString(36);
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -74,14 +86,16 @@ serve(async (req) => {
   }
 
   try {
-    // Get client IP for rate limiting
-    const clientIP = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
-                     req.headers.get("x-real-ip") || 
-                     "unknown";
+    // GDPR: Get client IP and immediately hash it for rate limiting
+    // The raw IP is not stored or logged - only the hash is used
+    const rawIP = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || 
+                  req.headers.get("x-real-ip") || 
+                  "unknown";
+    const ipHash = simpleHash(rawIP);
     
-    // Check rate limit
-    if (!checkRateLimit(clientIP)) {
-      console.warn(`Rate limit exceeded for IP: ${clientIP}`);
+    // Check rate limit using only the hash (no personal data stored)
+    if (!checkRateLimit(ipHash)) {
+      // GDPR: We don't log the IP or hash to maintain privacy
       return new Response(
         JSON.stringify({ error: "Too many requests. Please wait a moment before trying again." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -105,7 +119,8 @@ serve(async (req) => {
       const errorMessages = validationResult.error.errors
         .map((e) => `${e.path.join(".")}: ${e.message}`)
         .join("; ");
-      console.warn(`Input validation failed: ${errorMessages}`);
+      // GDPR: Only log validation structure, not user content
+      console.warn(`Input validation failed`);
       return new Response(
         JSON.stringify({ error: `Invalid input: ${errorMessages}` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -123,7 +138,8 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Processing request from ${clientIP} with ${messages.length} messages`);
+    // GDPR: Only log message count, not content or IP
+    console.log(`Processing chat request with ${messages.length} messages`);
 
     // Build the messages array with fixed system prompt
     // User-provided systemPrompt is added as context, not as system instructions

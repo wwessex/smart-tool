@@ -6,10 +6,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { PWAPrompt } from "@/components/PWAPrompt";
+import { CookieConsent } from "@/components/smart/CookieConsent";
 
 // Lazy load pages for better initial load time
 const Index = lazy(() => import("./pages/Index"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const Privacy = lazy(() => import("./pages/Privacy"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -40,10 +42,12 @@ const App = () => {
           <Toaster />
           <Sonner />
           <PWAPrompt />
+          <CookieConsent />
           <HashRouter>
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<Index />} />
+                <Route path="/privacy" element={<Privacy />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
