@@ -205,7 +205,7 @@ export function SmartActionTool() {
   const nowDateWarning = useMemo(() => {
     if (!nowForm.date) return '';
     if (nowForm.date !== today) {
-      return `Note: the spreadsheet flags a warning if this isn't today (${today}).`;
+      return `This date differs from today. Actions recorded for past or future dates may need additional context.`;
     }
     return '';
   }, [nowForm.date, today]);
