@@ -1,4 +1,4 @@
-import { Shield, Heart } from 'lucide-react';
+import { Shield, Heart, Scale } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface FooterProps {
@@ -28,7 +28,15 @@ export function Footer({ onOpenPrivacySettings, className }: FooterProps) {
               className="hover:text-foreground transition-colors flex items-center gap-1.5"
             >
               <Shield className="w-3.5 h-3.5" />
-              Privacy Policy
+              Privacy
+            </a>
+            
+            <a 
+              href="#/terms" 
+              className="hover:text-foreground transition-colors flex items-center gap-1.5"
+            >
+              <Scale className="w-3.5 h-3.5" />
+              Terms
             </a>
             
             {onOpenPrivacySettings && (
