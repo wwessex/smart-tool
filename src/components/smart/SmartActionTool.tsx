@@ -719,15 +719,10 @@ When given context about a participant, provide suggestions to improve their SMA
           // Skip auto-generate to prevent overwriting the AI fix
           skipAutoGenerateRef.current = true;
           
-          // Apply the fix to the output
+          // Only update the output directly - don't update form fields
+          // because buildNowOutput/buildFutureOutput would reconstruct 
+          // the text differently. The fixed text IS the complete output.
           setOutput(fixedAction);
-          
-          // Also update the form field to keep it in sync
-          if (mode === 'now') {
-            setNowForm(prev => ({ ...prev, action: fixedAction }));
-          } else {
-            setFutureForm(prev => ({ ...prev, outcome: fixedAction }));
-          }
           
           // Clear any existing translation as the text changed
           setTranslatedOutput(null);
