@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, AlertCircle, Info, Target, BarChart3, ThumbsUp, Link2, Clock, AlertTriangle, Lightbulb, Wrench, Loader2 } from 'lucide-react';
+import { Check, AlertCircle, Info, Target, BarChart3, ThumbsUp, Link2, Clock, AlertTriangle, Lightbulb, Wrench, Loader2, Sparkles } from 'lucide-react';
 import { SmartCheck, getSmartLabel, getSmartColor, getImprovementPriority } from '@/lib/smart-checker';
 import { SmartScoreDetails } from './SmartScoreDetails';
 import { cn } from '@/lib/utils';
@@ -28,9 +28,48 @@ const CRITERIA_CONFIG = [
   { key: 'timeBound', label: 'Time-bound', icon: Clock, letter: 'T' },
 ] as const;
 
+// Confetti particle component
+const ConfettiParticle = ({ delay, x }: { delay: number; x: number }) => (
+  <motion.div
+    className="absolute w-1.5 h-1.5 rounded-full bg-green-500"
+    initial={{ opacity: 1, y: 0, x: x, scale: 1 }}
+    animate={{ 
+      opacity: [1, 1, 0],
+      y: [-5, -25, -35],
+      x: [x, x + (Math.random() - 0.5) * 20, x + (Math.random() - 0.5) * 30],
+      scale: [1, 1.2, 0.5]
+    }}
+    transition={{ duration: 0.8, delay, ease: "easeOut" }}
+  />
+);
+
 export function SmartChecklist({ check, className, actionText = '', onFixCriterion, fixingCriterion }: SmartChecklistProps) {
   const improvementPriorities = getImprovementPriority(check);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [celebratingCriteria, setCelebratingCriteria] = useState<Set<string>>(new Set());
+  const prevCheckRef = useRef<SmartCheck | null>(null);
+  
+  // Track when criteria change from unmet to met (after AI fix)
+  useEffect(() => {
+    if (prevCheckRef.current) {
+      const newCelebrations = new Set<string>();
+      CRITERIA_CONFIG.forEach(({ key }) => {
+        const wasMet = prevCheckRef.current?.[key]?.met;
+        const isMet = check[key]?.met;
+        // Criterion just became met
+        if (!wasMet && isMet) {
+          newCelebrations.add(key);
+        }
+      });
+      
+      if (newCelebrations.size > 0) {
+        setCelebratingCriteria(newCelebrations);
+        // Clear celebration after animation
+        setTimeout(() => setCelebratingCriteria(new Set()), 1500);
+      }
+    }
+    prevCheckRef.current = check;
+  }, [check]);
   
   return (
     <>
@@ -113,34 +152,82 @@ export function SmartChecklist({ check, className, actionText = '', onFixCriteri
             {CRITERIA_CONFIG.map(({ key, label, icon: Icon, letter }, index) => {
               const criterion = check[key];
               const isMet = criterion.met;
+              const isCelebrating = celebratingCriteria.has(key);
               
               return (
                 <motion.div
                   key={key}
                   className={cn(
-                    "flex items-center gap-3 p-2 rounded-lg transition-colors",
+                    "relative flex items-center gap-3 p-2 rounded-lg transition-colors overflow-hidden",
                     isMet ? "bg-green-500/5" : "bg-muted/50"
                   )}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
                 >
+                  {/* Celebration glow effect */}
+                  {isCelebrating && (
+                    <>
+                      <motion.div
+                        className="absolute inset-0 bg-gradient-to-r from-green-500/20 via-green-400/30 to-green-500/20 rounded-lg"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ 
+                          opacity: [0, 1, 1, 0],
+                          scale: [0.8, 1, 1.02, 1]
+                        }}
+                        transition={{ duration: 1.2, ease: "easeOut" }}
+                      />
+                      <motion.div
+                        className="absolute inset-0 rounded-lg"
+                        initial={{ boxShadow: "0 0 0 0 rgba(34, 197, 94, 0)" }}
+                        animate={{ 
+                          boxShadow: [
+                            "0 0 0 0 rgba(34, 197, 94, 0)",
+                            "0 0 20px 4px rgba(34, 197, 94, 0.4)",
+                            "0 0 30px 8px rgba(34, 197, 94, 0.2)",
+                            "0 0 0 0 rgba(34, 197, 94, 0)"
+                          ]
+                        }}
+                        transition={{ duration: 1.2, ease: "easeOut" }}
+                      />
+                      {/* Confetti particles */}
+                      <div className="absolute left-4 top-1/2">
+                        {[...Array(6)].map((_, i) => (
+                          <ConfettiParticle key={i} delay={i * 0.05} x={(i - 2.5) * 8} />
+                        ))}
+                      </div>
+                      {/* Sparkle icon */}
+                      <motion.div
+                        className="absolute right-2 top-1/2 -translate-y-1/2"
+                        initial={{ opacity: 0, scale: 0, rotate: -30 }}
+                        animate={{ 
+                          opacity: [0, 1, 1, 0],
+                          scale: [0, 1.2, 1, 0.8],
+                          rotate: [-30, 0, 10, 0]
+                        }}
+                        transition={{ duration: 1, ease: "easeOut" }}
+                      >
+                        <Sparkles className="w-5 h-5 text-green-500" />
+                      </motion.div>
+                    </>
+                  )}
+                  
                   {/* Status icon */}
                   <motion.div 
                     className={cn(
-                      "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
+                      "relative z-10 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
                       isMet 
                         ? criterion.confidence === 'high' ? "bg-green-500 text-white" : "bg-green-400 text-white"
                         : "bg-muted text-muted-foreground"
                     )}
-                    animate={isMet ? { scale: [1, 1.2, 1] } : {}}
+                    animate={isCelebrating ? { scale: [1, 1.4, 1.1, 1], rotate: [0, -10, 10, 0] } : isMet ? { scale: [1, 1.2, 1] } : {}}
                     transition={{ duration: 0.3 }}
                   >
                     {isMet ? <Check className="w-3.5 h-3.5" /> : letter}
                   </motion.div>
 
                   {/* Label and reason */}
-                  <div className="flex-1 min-w-0">
+                  <div className="relative z-10 flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className={cn(
                         "text-sm font-medium",
@@ -152,6 +239,16 @@ export function SmartChecklist({ check, className, actionText = '', onFixCriteri
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-600 font-medium">
                           Strong
                         </span>
+                      )}
+                      {isCelebrating && (
+                        <motion.span 
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-600 font-bold"
+                          initial={{ opacity: 0, scale: 0.5 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: 0.2, type: "spring", stiffness: 400 }}
+                        >
+                          ✓ Fixed!
+                        </motion.span>
                       )}
                     </div>
                     <p className={cn(
