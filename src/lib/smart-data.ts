@@ -55,7 +55,7 @@ export const BUILDER_NOW = {
 
 export const BUILDER_TASK = {
   p1: "As discussed and agreed, on",
-  p2: "will attend",
+  p2: "will", // Changed from "will attend" - verb is now contextual
   p3: "This will be reviewed in our next meeting in"
 };
 
