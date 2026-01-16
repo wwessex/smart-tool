@@ -603,6 +603,34 @@ When given context about a participant, provide suggestions to improve their SMA
     toast({ title: 'Improvement applied', description: 'The improved text has been applied to your form.' });
   }, [mode, toast]);
 
+  // Handle fix criterion from SMART checklist - focuses on the relevant field and shows suggestion
+  const handleFixCriterion = useCallback((criterion: 'specific' | 'measurable' | 'achievable' | 'relevant' | 'timeBound', suggestion: string) => {
+    // Show toast with the suggestion
+    toast({ 
+      title: `Fix ${criterion.charAt(0).toUpperCase() + criterion.slice(1)}`, 
+      description: suggestion,
+      duration: 6000
+    });
+    
+    // Focus the appropriate field based on criterion
+    // For most criteria, the action/outcome field is where improvements happen
+    // For time-bound, focus the timescale selector
+    if (criterion === 'timeBound') {
+      // Scroll to timescale field and highlight it
+      const timescaleField = document.querySelector('[data-field="timescale"]');
+      timescaleField?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      // Focus on action/outcome textarea
+      const actionField = mode === 'now' 
+        ? document.querySelector('[data-field="action"]') as HTMLTextAreaElement
+        : document.querySelector('[data-field="outcome"]') as HTMLTextAreaElement;
+      if (actionField) {
+        actionField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        actionField.focus();
+      }
+    }
+  }, [mode, toast]);
+
   // Keyboard shortcuts configuration
   const shortcuts: ShortcutConfig[] = useMemo(() => [
     { key: 'Enter', ctrl: true, action: handleSave, description: 'Save to history', category: 'Actions' },
@@ -1283,6 +1311,7 @@ When given context about a participant, provide suggestions to improve their SMA
                     placeholder="Start with the participant's name. Include what they will do, by when, and where if relevant."
                     rows={4}
                     spellCheck
+                    data-field="action"
                     className={getFieldClass(!!nowForm.action.trim())}
                   />
                 </div>
@@ -1319,6 +1348,7 @@ When given context about a participant, provide suggestions to improve their SMA
                     placeholder="Select timescale…"
                     emptyMessage="No timescales found."
                     className={getFieldClass(!!nowForm.timescale)}
+                    data-field="timescale"
                   />
                 </div>
               </motion.div>
@@ -1422,6 +1452,7 @@ When given context about a participant, provide suggestions to improve their SMA
                     placeholder="e.g. will speak with employers about warehouse roles and collect contact details"
                     rows={4}
                     spellCheck
+                    data-field="outcome"
                     className={getFieldClass(!!futureForm.outcome.trim())}
                   />
                   <p className="text-xs text-muted-foreground">Describe what the participant will do or achieve. Use AI draft for suggestions.</p>
@@ -1436,6 +1467,7 @@ When given context about a participant, provide suggestions to improve their SMA
                     placeholder="Select timescale…"
                     emptyMessage="No timescales found."
                     className={getFieldClass(!!futureForm.timescale)}
+                    data-field="timescale"
                   />
                 </div>
               </motion.div>
@@ -1558,7 +1590,7 @@ When given context about a participant, provide suggestions to improve their SMA
             </AnimatePresence>
 
             {/* SMART Checklist */}
-            <SmartChecklist check={smartCheck} />
+            <SmartChecklist check={smartCheck} onFixCriterion={handleFixCriterion} />
 
             {/* History with Tabs */}
             <div className="space-y-4">
