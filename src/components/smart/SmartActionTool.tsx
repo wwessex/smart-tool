@@ -1058,13 +1058,28 @@ When given context about a participant, provide suggestions to improve their SMA
                     </div>
                     
                     {storage.minScoreEnabled && (
-                      <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                      <motion.div 
+                        className="relative flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                      >
+                        <motion.div
+                          className="absolute inset-0 rounded-lg pointer-events-none"
+                          animate={{
+                            boxShadow: [
+                              '0 0 0 0 rgba(245, 158, 11, 0)',
+                              '0 0 8px 2px rgba(245, 158, 11, 0.3)',
+                              '0 0 0 0 rgba(245, 158, 11, 0)',
+                            ],
+                          }}
+                          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                        />
                         <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                         <p className="text-xs text-amber-700">
                           Actions with a SMART score below {storage.minScoreThreshold}/5 cannot be saved to history. 
                           This encourages higher quality action writing.
                         </p>
-                      </div>
+                      </motion.div>
                     )}
                   </div>
 
@@ -1569,18 +1584,52 @@ When given context about a participant, provide suggestions to improve their SMA
                 <div className="flex flex-col sm:flex-row">
                   <div className="space-y-2 shrink-0 mb-4 sm:mb-0 sm:mr-6" style={{ width: 'clamp(140px, 40%, 220px)' }}>
                     <label htmlFor="scheduled-date" className="text-sm font-medium text-muted-foreground">Scheduled date</label>
-                    <Input
-                      id="scheduled-date"
-                      type="date"
-                      value={futureForm.date}
-                      onChange={e => setFutureForm(prev => ({ ...prev, date: e.target.value }))}
-                      min={today}
-                      className={getFieldClass(!!futureForm.date && !futureDateError)}
-                      aria-describedby={futureDateError ? "future-date-error" : undefined}
-                      aria-invalid={!!futureDateError}
-                    />
+                    <div className="relative">
+                      {futureDateError && (
+                        <motion.div
+                          className="absolute inset-0 rounded-md pointer-events-none"
+                          animate={{
+                            boxShadow: [
+                              '0 0 0 0 rgba(239, 68, 68, 0)',
+                              '0 0 8px 2px rgba(239, 68, 68, 0.3)',
+                              '0 0 0 0 rgba(239, 68, 68, 0)',
+                            ],
+                          }}
+                          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                        />
+                      )}
+                      <Input
+                        id="scheduled-date"
+                        type="date"
+                        value={futureForm.date}
+                        onChange={e => setFutureForm(prev => ({ ...prev, date: e.target.value }))}
+                        min={today}
+                        className={`${getFieldClass(!!futureForm.date && !futureDateError)} ${futureDateError ? 'border-destructive' : ''}`}
+                        aria-describedby={futureDateError ? "future-date-error" : undefined}
+                        aria-invalid={!!futureDateError}
+                      />
+                    </div>
                     {/* BUG FIX #1: Show error for past dates */}
-                    {futureDateError && <p id="future-date-error" className="text-xs text-destructive" role="alert">{futureDateError}</p>}
+                    <AnimatePresence>
+                      {futureDateError && (
+                        <motion.p 
+                          id="future-date-error" 
+                          className="text-xs text-destructive flex items-center gap-1" 
+                          role="alert"
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -5 }}
+                        >
+                          <motion.span
+                            animate={{ rotate: [0, -10, 10, -10, 0] }}
+                            transition={{ duration: 0.5, delay: 0.2 }}
+                          >
+                            <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden="true" />
+                          </motion.span>
+                          {futureDateError}
+                        </motion.p>
+                      )}
+                    </AnimatePresence>
                   </div>
                   <div className="space-y-2 flex-1 min-w-0">
                     <label htmlFor="future-participant-name" className="text-sm font-medium text-muted-foreground">Participant forename</label>
