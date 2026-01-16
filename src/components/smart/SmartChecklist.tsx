@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, AlertCircle, Info, Target, BarChart3, ThumbsUp, Link2, Clock, AlertTriangle, Lightbulb, Wrench, Loader2, Sparkles } from 'lucide-react';
 import { SmartCheck, getSmartLabel, getSmartColor, getImprovementPriority } from '@/lib/smart-checker';
@@ -28,20 +28,24 @@ const CRITERIA_CONFIG = [
   { key: 'timeBound', label: 'Time-bound', icon: Clock, letter: 'T' },
 ] as const;
 
-// Confetti particle component
-const ConfettiParticle = ({ delay, x }: { delay: number; x: number }) => (
-  <motion.div
-    className="absolute w-1.5 h-1.5 rounded-full bg-green-500"
-    initial={{ opacity: 1, y: 0, x: x, scale: 1 }}
-    animate={{ 
-      opacity: [1, 1, 0],
-      y: [-5, -25, -35],
-      x: [x, x + (Math.random() - 0.5) * 20, x + (Math.random() - 0.5) * 30],
-      scale: [1, 1.2, 0.5]
-    }}
-    transition={{ duration: 0.8, delay, ease: "easeOut" }}
-  />
+// Confetti particle component - using forwardRef to avoid React ref warning
+const ConfettiParticle = forwardRef<HTMLDivElement, { delay: number; x: number }>(
+  ({ delay, x }, ref) => (
+    <motion.div
+      ref={ref}
+      className="absolute w-1.5 h-1.5 rounded-full bg-green-500"
+      initial={{ opacity: 1, y: 0, x: x, scale: 1 }}
+      animate={{ 
+        opacity: [1, 1, 0],
+        y: [-5, -25, -35],
+        x: [x, x + (Math.random() - 0.5) * 20, x + (Math.random() - 0.5) * 30],
+        scale: [1, 1.2, 0.5]
+      }}
+      transition={{ duration: 0.8, delay, ease: "easeOut" }}
+    />
+  )
 );
+ConfettiParticle.displayName = 'ConfettiParticle';
 
 export function SmartChecklist({ check, className, actionText = '', onFixCriterion, fixingCriterion }: SmartChecklistProps) {
   const improvementPriorities = getImprovementPriority(check);
@@ -64,8 +68,10 @@ export function SmartChecklist({ check, className, actionText = '', onFixCriteri
       
       if (newCelebrations.size > 0) {
         setCelebratingCriteria(newCelebrations);
-        // Clear celebration after animation
-        setTimeout(() => setCelebratingCriteria(new Set()), 1500);
+        // Clear celebration after animation - with cleanup
+        const timeout = setTimeout(() => setCelebratingCriteria(new Set()), 1500);
+        prevCheckRef.current = check;
+        return () => clearTimeout(timeout);
       }
     }
     prevCheckRef.current = check;

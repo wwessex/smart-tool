@@ -55,7 +55,8 @@ const RELEVANT_PATTERNS = {
 const TIMEBOUND_PATTERNS = {
   deadline: /\b(by|before|until|within|no later than)\s+(\d|next|this|end of)/i,
   review: /\b(review(ed)?|check|follow[- ]?up|progress|revisit)\s*(in|on|at|within|after)?\s*(\d+\s*)?(days?|weeks?|months?|next)?/i,
-  specific_date: /\b\d{1,2}[-\/\.]\d{1,2}[-\/\.]\d{2,4}\b|\b\d{1,2}(st|nd|rd|th)?\s*(of\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i,
+  // Fixed to match hyphenated dates like "30-Jan-26" as well as spaced dates
+  specific_date: /\b\d{1,2}[-\/\.]\d{1,2}[-\/\.]\d{2,4}\b|\b\d{1,2}[-\s]*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[-\s]*\d{2,4}\b|\b\d{1,2}(st|nd|rd|th)?[-\s]*(of[-\s]*)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i,
   timeframe: /\b(today|tomorrow|this week|next week|this month|next month|immediate|soon)\b/i,
 };
 
