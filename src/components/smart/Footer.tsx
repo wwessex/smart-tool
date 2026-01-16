@@ -17,7 +17,7 @@ export function Footer({ onOpenPrivacySettings, className }: FooterProps) {
       <div className="max-w-7xl mx-auto px-4 py-4">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
           <div className="flex items-center gap-1">
-            <span>© {currentYear} SMART Action Tool.</span>
+            <span>Copyright © {currentYear} William Wessex.</span>
             <span className="hidden sm:inline">Made with</span>
             <Heart className="w-3.5 h-3.5 text-destructive hidden sm:inline" />
           </div>
