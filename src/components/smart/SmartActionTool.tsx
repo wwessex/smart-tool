@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect, memo, lazy, Suspense, useRef } from 'react';
+import { useState, useCallback, useMemo, useEffect, memo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { z } from 'zod';
 import { useSmartStorage, HistoryItem, ActionTemplate } from '@/hooks/useSmartStorage';
@@ -149,6 +149,7 @@ export function SmartActionTool() {
     timescale: ''
   });
   const [output, setOutput] = useState('');
+  const [outputSource, setOutputSource] = useState<'form' | 'ai' | 'manual'>('form');
   const [translatedOutput, setTranslatedOutput] = useState<string | null>(null);
   const [showValidation, setShowValidation] = useState(false);
   const [suggestQuery, setSuggestQuery] = useState('');
@@ -166,7 +167,6 @@ export function SmartActionTool() {
   const [historyTab, setHistoryTab] = useState<'history' | 'insights'>('history');
   const [privacySettingsOpen, setPrivacySettingsOpen] = useState(false);
   const [fixingCriterion, setFixingCriterion] = useState<string | null>(null);
-  const skipAutoGenerateRef = useRef(false);
 
   // Detect landscape orientation
   useEffect(() => {
@@ -272,15 +272,20 @@ export function SmartActionTool() {
     }
   }, [mode, nowForm, futureForm, validateNow, validateFuture, toast]);
 
-  // Auto-generate on form changes (skip when AI fix was just applied)
+  // Auto-generate on form changes (skip when output was set by AI fix)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (skipAutoGenerateRef.current) {
-      skipAutoGenerateRef.current = false;
+    // Only regenerate if output came from form, not from AI fix or manual edit
+    if (outputSource === 'ai') {
+      // Reset to form source so future form edits will regenerate
+      setOutputSource('form');
       return;
     }
+    if (outputSource === 'manual') {
+      return; // Don't overwrite manual edits until form changes
+    }
     generateOutput(false);
-  }, [nowForm, futureForm, mode, generateOutput]);
+  }, [nowForm, futureForm, mode, generateOutput, outputSource]);
 
   const handleCopy = async () => {
     if (!output.trim()) {
@@ -332,6 +337,7 @@ export function SmartActionTool() {
       setFutureForm({ date: today, forename: '', task: '', outcome: '', timescale: '' });
     }
     setOutput('');
+    setOutputSource('form');
     setTranslatedOutput(null);
     translation.clearTranslation();
     setShowValidation(false);
@@ -716,8 +722,8 @@ When given context about a participant, provide suggestions to improve their SMA
         const whatChanged = parsed.whatChanged || `Fixed ${criterionLabel} criterion`;
         
         if (fixedAction) {
-          // Skip auto-generate to prevent overwriting the AI fix
-          skipAutoGenerateRef.current = true;
+          // Mark output as coming from AI to prevent auto-regeneration
+          setOutputSource('ai');
           
           // Only update the output directly - don't update form fields
           // because buildNowOutput/buildFutureOutput would reconstruct 
@@ -1728,7 +1734,7 @@ When given context about a participant, provide suggestions to improve their SMA
                   {translatedOutput && <p className="text-xs font-medium text-muted-foreground mb-2">🇬🇧 ENGLISH</p>}
                   <Textarea
                     value={output}
-                    onChange={e => { setOutput(e.target.value); setTranslatedOutput(null); }}
+                    onChange={e => { setOutput(e.target.value); setOutputSource('manual'); setTranslatedOutput(null); }}
                     placeholder="Generated action will appear here… You can also edit the text directly."
                     className={cn(
                       "min-h-[120px] p-5 rounded-xl border-2 border-dashed border-border bg-muted/30 leading-relaxed resize-y",
