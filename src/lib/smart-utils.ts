@@ -269,6 +269,28 @@ export function buildNowOutput(
   ].join(" ");
 }
 
+// Detect appropriate verb for task
+function getTaskVerb(task: string): string {
+  const t = (task || "").trim().toLowerCase();
+  
+  // If task already starts with a verb, return empty (we'll use the task as-is)
+  const startsWithVerb = /^(attend|complete|submit|call|contact|visit|meet|book|apply|register|prepare|create|write|send|upload|take|go|make|have|do|start|finish|begin|schedule|arrange|organise|organize|speak|talk|discuss|review|check|follow|collect|gather|bring|pick|drop|return|update|fill|sign|hand)/i.test(t);
+  if (startsWithVerb) return "";
+  
+  // Events/appointments -> "attend"
+  if (/\b(appointment|meeting|session|workshop|fair|event|interview|assessment|course|class|training|induction|orientation|webinar|seminar|group)\b/i.test(t)) {
+    return "attend ";
+  }
+  
+  // Phone-related -> "make"
+  if (/\b(phone call|call to|calls to)\b/i.test(t)) {
+    return "make ";
+  }
+  
+  // Default - no verb prefix needed if context unclear
+  return "";
+}
+
 export function buildFutureOutput(
   date: string,
   forename: string,
@@ -277,13 +299,21 @@ export function buildFutureOutput(
   timescale: string
 ): string {
   const formattedDate = formatDDMMMYY(date);
-  const formattedTask = stripTrailingPunctuation(task.trim().replace(/\s+/g, " "));
+  let formattedTask = stripTrailingPunctuation(task.trim().replace(/\s+/g, " "));
   const formattedOutcome = stripTrailingPunctuation(formatTaskOutcome(forename, rawOutcome));
   const cleanTimescale = stripTrailingPunctuation(timescale);
+  
+  // Get appropriate verb and format task
+  const verb = getTaskVerb(formattedTask);
+  
+  // If no verb prefix needed and task starts with verb, lowercase the first letter
+  if (!verb && /^[A-Z]/.test(formattedTask)) {
+    formattedTask = formattedTask.charAt(0).toLowerCase() + formattedTask.slice(1);
+  }
 
-  // Structure: "As discussed and agreed, on [date], [name] will attend [task]. [Outcome]. Reviewed in [timescale]."
+  // Structure: "As discussed and agreed, on [date], [name] will [verb] [task]. [Outcome]. Reviewed in [timescale]."
   const parts = [
-    `${BUILDER_TASK.p1} ${formattedDate}, ${forename} ${BUILDER_TASK.p2} ${formattedTask}.`
+    `${BUILDER_TASK.p1} ${formattedDate}, ${forename} ${BUILDER_TASK.p2} ${verb}${formattedTask}.`
   ];
   
   if (formattedOutcome) {
