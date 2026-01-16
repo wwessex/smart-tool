@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, AlertCircle, Info, Target, BarChart3, ThumbsUp, Link2, Clock, AlertTriangle, Lightbulb, Wrench } from 'lucide-react';
+import { Check, AlertCircle, Info, Target, BarChart3, ThumbsUp, Link2, Clock, AlertTriangle, Lightbulb, Wrench, Loader2 } from 'lucide-react';
 import { SmartCheck, getSmartLabel, getSmartColor, getImprovementPriority } from '@/lib/smart-checker';
 import { SmartScoreDetails } from './SmartScoreDetails';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,7 @@ interface SmartChecklistProps {
   className?: string;
   actionText?: string;
   onFixCriterion?: (criterion: 'specific' | 'measurable' | 'achievable' | 'relevant' | 'timeBound', suggestion: string) => void;
+  fixingCriterion?: string | null;
 }
 
 const CRITERIA_CONFIG = [
@@ -27,7 +28,7 @@ const CRITERIA_CONFIG = [
   { key: 'timeBound', label: 'Time-bound', icon: Clock, letter: 'T' },
 ] as const;
 
-export function SmartChecklist({ check, className, actionText = '', onFixCriterion }: SmartChecklistProps) {
+export function SmartChecklist({ check, className, actionText = '', onFixCriterion, fixingCriterion }: SmartChecklistProps) {
   const improvementPriorities = getImprovementPriority(check);
   const [detailsOpen, setDetailsOpen] = useState(false);
   
@@ -168,15 +169,29 @@ export function SmartChecklist({ check, className, actionText = '', onFixCriteri
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-6 px-2 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
+                          className="h-6 px-2 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10 hover:text-primary disabled:opacity-50"
                           onClick={() => onFixCriterion(key, criterion.suggestion || criterion.hint || '')}
+                          disabled={!!fixingCriterion}
                         >
-                          <Wrench className="w-3 h-3" />
-                          Fix
+                          {fixingCriterion === key ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              Fixing...
+                            </>
+                          ) : (
+                            <>
+                              <Wrench className="w-3 h-3" />
+                              Fix
+                            </>
+                          )}
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="left" className="max-w-[220px]">
-                        <p className="text-xs">{criterion.suggestion || criterion.hint}</p>
+                        <p className="text-xs">
+                          {fixingCriterion === key 
+                            ? 'AI is fixing this criterion...' 
+                            : `Click to auto-fix: ${criterion.suggestion || criterion.hint}`}
+                        </p>
                       </TooltipContent>
                     </Tooltip>
                   )}

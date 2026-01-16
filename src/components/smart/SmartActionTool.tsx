@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { z } from 'zod';
 import { useSmartStorage, HistoryItem, ActionTemplate } from '@/hooks/useSmartStorage';
 import { useTranslation, SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
+import { useCloudAI } from '@/hooks/useCloudAI';
 import { 
   todayISO, 
   buildNowOutput, 
@@ -30,6 +31,7 @@ import { ManageConsentDialog, getStoredConsent } from './CookieConsent';
 import { LanguageSelector } from './LanguageSelector';
 import { useKeyboardShortcuts, groupShortcuts, ShortcutConfig } from '@/hooks/useKeyboardShortcuts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { FIX_CRITERION_PROMPT, CRITERION_GUIDANCE } from '@/lib/smart-prompts';
 
 // Zod schemas for import validation
 const HistoryItemMetaSchema = z.object({
@@ -126,6 +128,7 @@ export function SmartActionTool() {
   const { theme, setTheme } = useTheme();
   const storage = useSmartStorage();
   const translation = useTranslation();
+  const cloudAI = useCloudAI();
   const today = todayISO();
 
   const [mode, setMode] = useState<Mode>('now');
@@ -162,6 +165,7 @@ export function SmartActionTool() {
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const [historyTab, setHistoryTab] = useState<'history' | 'insights'>('history');
   const [privacySettingsOpen, setPrivacySettingsOpen] = useState(false);
+  const [fixingCriterion, setFixingCriterion] = useState<string | null>(null);
 
   // Detect landscape orientation
   useEffect(() => {
@@ -657,33 +661,91 @@ When given context about a participant, provide suggestions to improve their SMA
     toast({ title: 'Improvement applied', description: 'The improved text has been applied to your form.' });
   }, [mode, toast]);
 
-  // Handle fix criterion from SMART checklist - focuses on the relevant field and shows suggestion
-  const handleFixCriterion = useCallback((criterion: 'specific' | 'measurable' | 'achievable' | 'relevant' | 'timeBound', suggestion: string) => {
-    // Show toast with the suggestion
-    toast({ 
-      title: `Fix ${criterion.charAt(0).toUpperCase() + criterion.slice(1)}`, 
-      description: suggestion,
-      duration: 6000
-    });
-    
-    // Focus the appropriate field based on criterion
-    // For most criteria, the action/outcome field is where improvements happen
-    // For time-bound, focus the timescale selector
-    if (criterion === 'timeBound') {
-      // Scroll to timescale field and highlight it
-      const timescaleField = document.querySelector('[data-field="timescale"]');
-      timescaleField?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } else {
-      // Focus on action/outcome textarea
-      const actionField = mode === 'now' 
-        ? document.querySelector('[data-field="action"]') as HTMLTextAreaElement
-        : document.querySelector('[data-field="outcome"]') as HTMLTextAreaElement;
-      if (actionField) {
-        actionField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        actionField.focus();
-      }
+  // Handle fix criterion from SMART checklist - uses AI to fix the specific criterion
+  const handleFixCriterion = useCallback(async (criterion: 'specific' | 'measurable' | 'achievable' | 'relevant' | 'timeBound', suggestion: string) => {
+    // Check if we have output to fix
+    if (!output.trim()) {
+      toast({ 
+        title: 'No action to fix', 
+        description: 'Generate an action first before using AI fix.',
+        variant: 'destructive'
+      });
+      return;
     }
-  }, [mode, toast]);
+
+    // Check AI consent
+    if (!cloudAI.hasConsent) {
+      toast({ 
+        title: 'AI consent required', 
+        description: 'Please accept AI cookies in privacy settings to use this feature.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setFixingCriterion(criterion);
+    
+    const criterionLabel = criterion.charAt(0).toUpperCase() + criterion.slice(1);
+    const forename = mode === 'now' ? nowForm.forename : futureForm.forename;
+    const barrier = mode === 'now' ? nowForm.barrier : futureForm.task;
+    
+    // Build the prompt
+    const prompt = FIX_CRITERION_PROMPT
+      .replace(/{criterion}/g, criterionLabel)
+      .replace('{action}', output)
+      .replace('{barrier}', barrier || 'Not specified')
+      .replace('{forename}', forename || 'Participant')
+      .replace('{criterionGuidance}', CRITERION_GUIDANCE[criterion] || '');
+
+    try {
+      let fullResponse = '';
+      for await (const chunk of cloudAI.chat([{ role: 'user', content: prompt }])) {
+        fullResponse += chunk;
+      }
+
+      // Parse JSON response
+      const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        const fixedAction = parsed.fixed || '';
+        const whatChanged = parsed.whatChanged || `Fixed ${criterionLabel} criterion`;
+        
+        if (fixedAction) {
+          // Apply the fix to the output
+          setOutput(fixedAction);
+          
+          // Also update the form field
+          if (mode === 'now') {
+            setNowForm(prev => ({ ...prev, action: fixedAction }));
+          } else {
+            setFutureForm(prev => ({ ...prev, outcome: fixedAction }));
+          }
+          
+          // Clear any existing translation as the text changed
+          setTranslatedOutput(null);
+          
+          toast({ 
+            title: `${criterionLabel} fixed!`, 
+            description: whatChanged,
+            duration: 4000
+          });
+        } else {
+          throw new Error('Empty response from AI');
+        }
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (err) {
+      console.error('Fix criterion error:', err);
+      toast({ 
+        title: 'Fix failed', 
+        description: err instanceof Error ? err.message : 'Failed to fix criterion. Try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setFixingCriterion(null);
+    }
+  }, [output, mode, nowForm, futureForm, cloudAI, toast]);
 
   // Keyboard shortcuts configuration
   const shortcuts: ShortcutConfig[] = useMemo(() => [
@@ -1691,7 +1753,7 @@ When given context about a participant, provide suggestions to improve their SMA
             </AnimatePresence>
 
             {/* SMART Checklist */}
-            <SmartChecklist check={smartCheck} onFixCriterion={handleFixCriterion} />
+            <SmartChecklist check={smartCheck} onFixCriterion={handleFixCriterion} fixingCriterion={fixingCriterion} />
 
             {/* History with Tabs */}
             <div className="space-y-4">
