@@ -29,6 +29,7 @@ import { FloatingToolbar } from './FloatingToolbar';
 import { Footer } from './Footer';
 import { ManageConsentDialog, getStoredConsent } from './CookieConsent';
 import { LanguageSelector } from './LanguageSelector';
+import { WarningBox, WarningText, InputGlow } from './WarningBox';
 import { useKeyboardShortcuts, groupShortcuts, ShortcutConfig } from '@/hooks/useKeyboardShortcuts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FIX_CRITERION_PROMPT, CRITERION_GUIDANCE } from '@/lib/smart-prompts';
@@ -1057,30 +1058,10 @@ When given context about a participant, provide suggestions to improve their SMA
                       )}
                     </div>
                     
-                    {storage.minScoreEnabled && (
-                      <motion.div 
-                        className="relative flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                      >
-                        <motion.div
-                          className="absolute inset-0 rounded-lg pointer-events-none"
-                          animate={{
-                            boxShadow: [
-                              '0 0 0 0 rgba(245, 158, 11, 0)',
-                              '0 0 8px 2px rgba(245, 158, 11, 0.3)',
-                              '0 0 0 0 rgba(245, 158, 11, 0)',
-                            ],
-                          }}
-                          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                        />
-                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                        <p className="text-xs text-amber-700">
-                          Actions with a SMART score below {storage.minScoreThreshold}/5 cannot be saved to history. 
-                          This encourages higher quality action writing.
-                        </p>
-                      </motion.div>
-                    )}
+                    <WarningBox show={storage.minScoreEnabled} variant="warning">
+                      Actions with a SMART score below {storage.minScoreThreshold}/5 cannot be saved to history. 
+                      This encourages higher quality action writing.
+                    </WarningBox>
                   </div>
 
                   {/* Wizard Mode Toggle */}
@@ -1389,23 +1370,7 @@ When given context about a participant, provide suggestions to improve their SMA
                       </AnimatePresence>
                     </label>
                     <div className="relative">
-                      {nowDateWarning && (
-                        <motion.div
-                          className="absolute inset-0 rounded-md pointer-events-none"
-                          animate={{
-                            boxShadow: [
-                              '0 0 0 0 rgba(245, 158, 11, 0)',
-                              '0 0 8px 2px rgba(245, 158, 11, 0.3)',
-                              '0 0 0 0 rgba(245, 158, 11, 0)',
-                            ],
-                          }}
-                          transition={{
-                            duration: 2,
-                            repeat: Infinity,
-                            ease: 'easeInOut',
-                          }}
-                        />
-                      )}
+                      <InputGlow show={!!nowDateWarning} variant="warning" />
                       <Input
                         id="meeting-date"
                         type="date"
@@ -1417,27 +1382,9 @@ When given context about a participant, provide suggestions to improve their SMA
                         aria-invalid={!!nowDateWarning}
                       />
                     </div>
-                    <AnimatePresence>
-                      {nowDateWarning && (
-                        <motion.p 
-                          id="date-warning" 
-                          className="text-xs text-amber-500 flex items-center gap-1" 
-                          role="alert"
-                          initial={{ opacity: 0, y: -5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -5 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <motion.span
-                            animate={{ rotate: [0, -10, 10, -10, 0] }}
-                            transition={{ duration: 0.5, delay: 0.2 }}
-                          >
-                            <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden="true" />
-                          </motion.span>
-                          {nowDateWarning}
-                        </motion.p>
-                      )}
-                    </AnimatePresence>
+                    <WarningText show={!!nowDateWarning} variant="warning">
+                      {nowDateWarning}
+                    </WarningText>
                   </div>
                   <div className="space-y-2 flex-1 min-w-0">
                     <label htmlFor="participant-name" className="text-sm font-medium text-muted-foreground">Participant forename</label>
@@ -1585,19 +1532,7 @@ When given context about a participant, provide suggestions to improve their SMA
                   <div className="space-y-2 shrink-0 mb-4 sm:mb-0 sm:mr-6" style={{ width: 'clamp(140px, 40%, 220px)' }}>
                     <label htmlFor="scheduled-date" className="text-sm font-medium text-muted-foreground">Scheduled date</label>
                     <div className="relative">
-                      {futureDateError && (
-                        <motion.div
-                          className="absolute inset-0 rounded-md pointer-events-none"
-                          animate={{
-                            boxShadow: [
-                              '0 0 0 0 rgba(239, 68, 68, 0)',
-                              '0 0 8px 2px rgba(239, 68, 68, 0.3)',
-                              '0 0 0 0 rgba(239, 68, 68, 0)',
-                            ],
-                          }}
-                          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                        />
-                      )}
+                      <InputGlow show={!!futureDateError} variant="error" />
                       <Input
                         id="scheduled-date"
                         type="date"
@@ -1610,26 +1545,9 @@ When given context about a participant, provide suggestions to improve their SMA
                       />
                     </div>
                     {/* BUG FIX #1: Show error for past dates */}
-                    <AnimatePresence>
-                      {futureDateError && (
-                        <motion.p 
-                          id="future-date-error" 
-                          className="text-xs text-destructive flex items-center gap-1" 
-                          role="alert"
-                          initial={{ opacity: 0, y: -5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -5 }}
-                        >
-                          <motion.span
-                            animate={{ rotate: [0, -10, 10, -10, 0] }}
-                            transition={{ duration: 0.5, delay: 0.2 }}
-                          >
-                            <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden="true" />
-                          </motion.span>
-                          {futureDateError}
-                        </motion.p>
-                      )}
-                    </AnimatePresence>
+                    <WarningText show={!!futureDateError} variant="error">
+                      {futureDateError}
+                    </WarningText>
                   </div>
                   <div className="space-y-2 flex-1 min-w-0">
                     <label htmlFor="future-participant-name" className="text-sm font-medium text-muted-foreground">Participant forename</label>

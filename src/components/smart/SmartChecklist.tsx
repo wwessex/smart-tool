@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Check, AlertCircle, Info, Target, BarChart3, ThumbsUp, Link2, Clock, AlertTriangle, Lightbulb, Wrench, Loader2, Sparkles } from 'lucide-react';
 import { SmartCheck, getSmartLabel, getSmartColor, getImprovementPriority } from '@/lib/smart-checker';
 import { SmartScoreDetails } from './SmartScoreDetails';
+import { WarningBox } from './WarningBox';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -144,32 +145,17 @@ export function SmartChecklist({ check, className, actionText = '', onFixCriteri
         </div>
 
         {/* Semantic Warnings */}
-        {check.warnings && check.warnings.length > 0 && (
-          <motion.div 
-            className="relative bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 space-y-1"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-          >
-            <motion.div
-              className="absolute inset-0 rounded-lg pointer-events-none"
-              animate={{
-                boxShadow: [
-                  '0 0 0 0 rgba(245, 158, 11, 0)',
-                  '0 0 8px 2px rgba(245, 158, 11, 0.3)',
-                  '0 0 0 0 rgba(245, 158, 11, 0)',
-                ],
-              }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-            />
-            <div className="flex items-center gap-2 text-amber-600 font-medium text-xs">
-              <AlertTriangle className="w-3.5 h-3.5" />
-              Quality Warnings
-            </div>
-            {check.warnings.map((warning, i) => (
-              <p key={i} className="text-xs text-amber-700">{warning}</p>
+        <WarningBox 
+          show={check.warnings && check.warnings.length > 0}
+          variant="warning"
+          title="Quality Warnings"
+        >
+          <div className="space-y-1">
+            {check.warnings?.map((warning, i) => (
+              <p key={i}>{warning}</p>
             ))}
-          </motion.div>
-        )}
+          </div>
+        </WarningBox>
 
         {/* Criteria list */}
         <div className="space-y-2">
