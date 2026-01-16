@@ -431,10 +431,41 @@ function AIChatContent({
       {/* Error display */}
       {error && (
         <div className="px-4 py-2">
-          <Alert variant="destructive" className="py-2">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription className="text-xs">{error}</AlertDescription>
-          </Alert>
+          {mode === "cloud" && (error.toLowerCase().includes("fetch") || error.toLowerCase().includes("network")) ? (
+            <Alert className="py-2 bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
+              <Globe className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <AlertTitle className="text-amber-800 dark:text-amber-300 text-sm">Connection Blocked</AlertTitle>
+              <AlertDescription className="text-xs text-amber-700 dark:text-amber-400 space-y-2">
+                <p>Unable to reach Cloud AI. This is often caused by corporate network restrictions or firewalls.</p>
+                <p className="font-medium">Try these alternatives:</p>
+                <ul className="list-disc list-inside space-y-0.5 ml-1">
+                  <li>Use your phone's mobile hotspot</li>
+                  <li>Connect to a personal/home network</li>
+                  <li>Ask IT to whitelist *.supabase.co</li>
+                  {webGPUSupported && <li>Switch to Local AI mode (runs offline)</li>}
+                </ul>
+                {webGPUSupported && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => {
+                      setMode("local");
+                      cloudAI.clearError();
+                    }}
+                    className="mt-2 h-7 text-xs border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900/50"
+                  >
+                    <HardDrive className="h-3 w-3 mr-1" />
+                    Try Local AI Instead
+                  </Button>
+                )}
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <Alert variant="destructive" className="py-2">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-xs">{error}</AlertDescription>
+            </Alert>
+          )}
         </div>
       )}
 
