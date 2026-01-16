@@ -75,7 +75,9 @@ export function FloatingToolbar({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <motion.div
+      <motion.nav
+        role="toolbar"
+        aria-label="Action toolbar"
         className={cn(
           "fixed bottom-6 left-1/2 -translate-x-1/2 z-50",
           "bg-card/95 backdrop-blur-xl border border-border/50 rounded-full shadow-lg",
@@ -99,13 +101,16 @@ export function FloatingToolbar({
                   size="sm"
                   onClick={action.onClick}
                   disabled={action.disabled}
+                  aria-label={action.label}
+                  aria-keyshortcuts={action.shortcut?.replace('Ctrl+', 'Control+').replace('Shift+', 'Shift+')}
                   className={cn(
                     "h-10 w-10 rounded-full p-0",
                     action.disabled && "opacity-50 cursor-not-allowed",
                     action.className
                   )}
                 >
-                  <action.icon className="w-4 h-4" />
+                  <action.icon className="w-4 h-4" aria-hidden="true" />
+                  <span className="sr-only">{action.label}</span>
                 </Button>
               </motion.div>
             </TooltipTrigger>
@@ -119,7 +124,7 @@ export function FloatingToolbar({
             </TooltipContent>
           </Tooltip>
         ))}
-      </motion.div>
+      </motion.nav>
     </TooltipProvider>
   );
 }

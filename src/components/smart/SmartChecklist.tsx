@@ -97,12 +97,13 @@ export function SmartChecklist({ check, className, actionText = '', onFixCriteri
       >
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-sm flex items-center gap-2">
+          <h3 id="smart-checklist-heading" className="font-semibold text-sm flex items-center gap-2">
             <span className="text-primary">SMART</span> Checklist
           </h3>
-          <motion.div 
+          <motion.button
+            type="button"
             className={cn(
-              "px-3 py-1 rounded-full text-sm font-bold cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all",
+              "px-3 py-1 rounded-full text-sm font-bold cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all focus:outline-none focus:ring-2 focus:ring-primary",
               check.overallScore >= 4 ? "bg-green-500/10 text-green-600" :
               check.overallScore >= 3 ? "bg-amber-500/10 text-amber-600" :
               "bg-destructive/10 text-destructive"
@@ -114,14 +115,21 @@ export function SmartChecklist({ check, className, actionText = '', onFixCriteri
             onClick={() => setDetailsOpen(true)}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            title="Click for detailed analysis"
+            aria-label={`SMART score: ${check.overallScore} out of 5, ${getSmartLabel(check.overallScore)}. Click for detailed analysis`}
           >
             {check.overallScore}/5 {getSmartLabel(check.overallScore)}
-          </motion.div>
+          </motion.button>
         </div>
 
         {/* Progress bar */}
-        <div className="h-2 bg-muted rounded-full overflow-hidden">
+        <div 
+          className="h-2 bg-muted rounded-full overflow-hidden"
+          role="progressbar"
+          aria-valuenow={check.overallScore}
+          aria-valuemin={0}
+          aria-valuemax={5}
+          aria-label={`SMART score progress: ${check.overallScore} out of 5`}
+        >
           <motion.div
             className={cn(
               "h-full rounded-full",
@@ -275,16 +283,20 @@ export function SmartChecklist({ check, className, actionText = '', onFixCriteri
                           className="h-6 px-2 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10 hover:text-primary disabled:opacity-50"
                           onClick={() => onFixCriterion(key, criterion.suggestion || criterion.hint || '')}
                           disabled={!!fixingCriterion}
+                          aria-label={fixingCriterion === key 
+                            ? `AI is fixing ${label} criterion` 
+                            : `Fix ${label} criterion: ${criterion.suggestion || criterion.hint}`}
+                          aria-busy={fixingCriterion === key}
                         >
                           {fixingCriterion === key ? (
                             <>
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                              Fixing...
+                              <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
+                              <span>Fixing...</span>
                             </>
                           ) : (
                             <>
-                              <Wrench className="w-3 h-3" />
-                              Fix
+                              <Wrench className="w-3 h-3" aria-hidden="true" />
+                              <span>Fix</span>
                             </>
                           )}
                         </Button>
@@ -303,8 +315,12 @@ export function SmartChecklist({ check, className, actionText = '', onFixCriteri
                   {criterion.suggestion && !isMet && !onFixCriterion && (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <button className="p-1 hover:bg-primary/10 rounded-md transition-colors group">
-                          <Lightbulb className="w-4 h-4 text-primary group-hover:text-primary" />
+                        <button 
+                          type="button"
+                          className="p-1 hover:bg-primary/10 rounded-md transition-colors group"
+                          aria-label={`Suggestion for ${label}: ${criterion.suggestion}`}
+                        >
+                          <Lightbulb className="w-4 h-4 text-primary group-hover:text-primary" aria-hidden="true" />
                         </button>
                       </TooltipTrigger>
                       <TooltipContent side="left" className="max-w-[220px] bg-primary text-primary-foreground">
@@ -317,8 +333,12 @@ export function SmartChecklist({ check, className, actionText = '', onFixCriteri
                   {criterion.hint && !criterion.suggestion && !isMet && !onFixCriterion && (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <button className="p-1 hover:bg-muted rounded-md transition-colors">
-                          <Info className="w-4 h-4 text-muted-foreground" />
+                        <button 
+                          type="button"
+                          className="p-1 hover:bg-muted rounded-md transition-colors"
+                          aria-label={`Hint for ${label}: ${criterion.hint}`}
+                        >
+                          <Info className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
                         </button>
                       </TooltipTrigger>
                       <TooltipContent side="left" className="max-w-[200px]">

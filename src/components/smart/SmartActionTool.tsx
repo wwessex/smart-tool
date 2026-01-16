@@ -1300,16 +1300,25 @@ When given context about a participant, provide suggestions to improve their SMA
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 p-1 bg-muted rounded-full relative">
+            <div 
+              className="flex gap-2 p-1 bg-muted rounded-full relative"
+              role="tablist"
+              aria-label="Action type selection"
+            >
               <motion.div
                 className="absolute inset-y-1 rounded-full bg-primary shadow-md"
                 layoutId="activeTab"
                 style={{ width: 'calc(50% - 4px)' }}
                 animate={{ x: mode === 'now' ? 4 : 'calc(100% + 4px)' }}
                 transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                aria-hidden="true"
               />
               <Button
                 variant="ghost"
+                role="tab"
+                aria-selected={mode === 'now'}
+                aria-controls="now-form-panel"
+                id="now-tab"
                 className={cn(
                   "flex-1 rounded-full transition-colors duration-200 relative z-10",
                   mode === 'now' && "text-primary-foreground hover:bg-transparent"
@@ -1320,6 +1329,10 @@ When given context about a participant, provide suggestions to improve their SMA
               </Button>
               <Button
                 variant="ghost"
+                role="tab"
+                aria-selected={mode === 'future'}
+                aria-controls="future-form-panel"
+                id="future-tab"
                 className={cn(
                   "flex-1 rounded-full transition-colors duration-200 relative z-10",
                   mode === 'future' && "text-primary-foreground hover:bg-transparent"
@@ -1334,6 +1347,9 @@ When given context about a participant, provide suggestions to improve their SMA
             {mode === 'now' ? (
               <motion.div 
                 key="now-form"
+                id="now-form-panel"
+                role="tabpanel"
+                aria-labelledby="now-tab"
                 className="space-y-4"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -1342,23 +1358,27 @@ When given context about a participant, provide suggestions to improve their SMA
               >
                 <div className="flex flex-col sm:flex-row">
                   <div className="space-y-2 shrink-0 mb-4 sm:mb-0 sm:mr-6" style={{ width: 'clamp(140px, 40%, 220px)' }}>
-                    <label className="text-sm font-medium text-muted-foreground">During our meeting on…</label>
+                    <label htmlFor="meeting-date" className="text-sm font-medium text-muted-foreground">During our meeting on…</label>
                     <Input
+                      id="meeting-date"
                       type="date"
                       value={nowForm.date}
                       onChange={e => setNowForm(prev => ({ ...prev, date: e.target.value }))}
                       max={today}
                       className={getFieldClass(!!nowForm.date)}
+                      aria-describedby={nowDateWarning ? "date-warning" : undefined}
                     />
-                    {nowDateWarning && <p className="text-xs text-amber-500">{nowDateWarning}</p>}
+                    {nowDateWarning && <p id="date-warning" className="text-xs text-amber-500" role="alert">{nowDateWarning}</p>}
                   </div>
                   <div className="space-y-2 flex-1 min-w-0">
-                    <label className="text-sm font-medium text-muted-foreground">Participant forename</label>
+                    <label htmlFor="participant-name" className="text-sm font-medium text-muted-foreground">Participant forename</label>
                     <Input
+                      id="participant-name"
                       value={nowForm.forename}
                       onChange={e => setNowForm(prev => ({ ...prev, forename: e.target.value }))}
                       placeholder="e.g. John"
                       list="recent-names"
+                      autoComplete="off"
                       className={getFieldClass(!!nowForm.forename.trim())}
                     />
                     <datalist id="recent-names">
@@ -1406,6 +1426,7 @@ When given context about a participant, provide suggestions to improve their SMA
                     onChange={e => setSuggestQuery(e.target.value)}
                     placeholder="Filter suggestions (optional)…"
                     className="text-sm bg-background/80"
+                    aria-label="Filter action suggestions"
                   />
                   {/* BUG FIX #3: Added proper styling for suggestion chips */}
                   <div className="flex flex-wrap gap-2">
@@ -1480,6 +1501,9 @@ When given context about a participant, provide suggestions to improve their SMA
             ) : (
               <motion.div 
                 key="future-form"
+                id="future-form-panel"
+                role="tabpanel"
+                aria-labelledby="future-tab"
                 className="space-y-4"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -1490,24 +1514,29 @@ When given context about a participant, provide suggestions to improve their SMA
                 
                 <div className="flex flex-col sm:flex-row">
                   <div className="space-y-2 shrink-0 mb-4 sm:mb-0 sm:mr-6" style={{ width: 'clamp(140px, 40%, 220px)' }}>
-                    <label className="text-sm font-medium text-muted-foreground">Scheduled date</label>
+                    <label htmlFor="scheduled-date" className="text-sm font-medium text-muted-foreground">Scheduled date</label>
                     <Input
+                      id="scheduled-date"
                       type="date"
                       value={futureForm.date}
                       onChange={e => setFutureForm(prev => ({ ...prev, date: e.target.value }))}
                       min={today}
                       className={getFieldClass(!!futureForm.date && !futureDateError)}
+                      aria-describedby={futureDateError ? "future-date-error" : undefined}
+                      aria-invalid={!!futureDateError}
                     />
                     {/* BUG FIX #1: Show error for past dates */}
-                    {futureDateError && <p className="text-xs text-destructive">{futureDateError}</p>}
+                    {futureDateError && <p id="future-date-error" className="text-xs text-destructive" role="alert">{futureDateError}</p>}
                   </div>
                   <div className="space-y-2 flex-1 min-w-0">
-                    <label className="text-sm font-medium text-muted-foreground">Participant forename</label>
+                    <label htmlFor="future-participant-name" className="text-sm font-medium text-muted-foreground">Participant forename</label>
                     <Input
+                      id="future-participant-name"
                       value={futureForm.forename}
                       onChange={e => setFutureForm(prev => ({ ...prev, forename: e.target.value }))}
                       placeholder="e.g. John"
                       list="recent-names"
+                      autoComplete="off"
                       className={getFieldClass(!!futureForm.forename.trim())}
                     />
                   </div>
@@ -1731,11 +1760,14 @@ When given context about a participant, provide suggestions to improve their SMA
               >
                 {/* English output */}
                 <div>
-                  {translatedOutput && <p className="text-xs font-medium text-muted-foreground mb-2">🇬🇧 ENGLISH</p>}
+                  {translatedOutput && <p id="output-label-en" className="text-xs font-medium text-muted-foreground mb-2">🇬🇧 ENGLISH</p>}
                   <Textarea
+                    id="action-output"
                     value={output}
                     onChange={e => { setOutput(e.target.value); setOutputSource('manual'); setTranslatedOutput(null); }}
                     placeholder="Generated action will appear here… You can also edit the text directly."
+                    aria-label="Generated SMART action text"
+                    aria-describedby={translatedOutput ? "output-label-en" : undefined}
                     className={cn(
                       "min-h-[120px] p-5 rounded-xl border-2 border-dashed border-border bg-muted/30 leading-relaxed resize-y",
                       copied && "border-accent bg-accent/10 shadow-glow",
@@ -1772,13 +1804,25 @@ When given context about a participant, provide suggestions to improve their SMA
                   <Button size="sm" variant="outline" onClick={handleExport}>Export</Button>
                   <label className="cursor-pointer">
                     <Button size="sm" variant="outline" asChild><span>Import</span></Button>
-                    <input type="file" accept="application/json" className="hidden" onChange={handleImport} />
+                    <input 
+                      type="file" 
+                      accept="application/json" 
+                      className="hidden" 
+                      onChange={handleImport}
+                      aria-label="Import history from JSON file"
+                    />
                   </label>
-                  <Button size="sm" variant="destructive" onClick={() => {
-                    storage.clearHistory();
-                    toast({ title: 'Cleared', description: 'History cleared.' });
-                  }}>
-                    <Trash2 className="w-4 h-4" />
+                  <Button 
+                    size="sm" 
+                    variant="destructive" 
+                    onClick={() => {
+                      storage.clearHistory();
+                      toast({ title: 'Cleared', description: 'History cleared.' });
+                    }}
+                    aria-label="Clear all history"
+                  >
+                    <Trash2 className="w-4 h-4" aria-hidden="true" />
+                    <span className="sr-only">Clear history</span>
                   </Button>
                 </div>
               </div>
@@ -1799,6 +1843,8 @@ When given context about a participant, provide suggestions to improve their SMA
                     onChange={e => setHistorySearch(e.target.value)}
                     placeholder="Search history…"
                     className="text-sm"
+                    aria-label="Search history"
+                    type="search"
                   />
 
                   <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
@@ -1807,46 +1853,50 @@ When given context about a participant, provide suggestions to improve their SMA
                         {historySearch ? 'No matching items found.' : 'No saved items yet. Generate and save actions to build your history.'}
                       </div>
                     ) : (
-                      filteredHistory.map((h, index) => (
-                        <div 
-                          key={h.id} 
-                          className="p-4 rounded-xl border border-border/50 bg-muted/30 space-y-3 hover:border-primary/30 transition-colors animate-slide-in"
-                          style={{ animationDelay: `${index * 0.05}s` }}
-                        >
-                          <div className="flex flex-wrap gap-2 text-xs">
-                            <span className={cn(
-                              "px-2 py-0.5 rounded-full font-medium",
-                              h.mode === 'now' ? "bg-primary/10 text-primary" : "bg-accent/10 text-accent"
-                            )}>
-                              {h.mode === 'now' ? 'Barrier to action' : 'Task-based'}
-                            </span>
-                            <span className="text-muted-foreground">
-                              {new Date(h.createdAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
-                            </span>
-                            {h.meta.forename && (
-                              <span className="text-muted-foreground">• {h.meta.forename}</span>
-                            )}
-                          </div>
-                          <p className="text-sm whitespace-pre-wrap leading-relaxed">{h.text}</p>
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={() => handleEditHistory(h)}>
-                              <Edit className="w-3 h-3 mr-1" /> Edit
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => {
-                              navigator.clipboard.writeText(h.text);
-                              toast({ title: 'Copied!' });
-                            }}>
-                              <Copy className="w-3 h-3" />
-                            </Button>
-                            <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => {
-                              storage.deleteFromHistory(h.id);
-                              toast({ title: 'Deleted' });
-                            }}>
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))
+                      <ul role="list" aria-label="Saved actions history">
+                        {filteredHistory.map((h, index) => (
+                          <li 
+                            key={h.id} 
+                            className="p-4 rounded-xl border border-border/50 bg-muted/30 space-y-3 hover:border-primary/30 transition-colors animate-slide-in mb-3 last:mb-0"
+                            style={{ animationDelay: `${index * 0.05}s` }}
+                          >
+                            <div className="flex flex-wrap gap-2 text-xs">
+                              <span className={cn(
+                                "px-2 py-0.5 rounded-full font-medium",
+                                h.mode === 'now' ? "bg-primary/10 text-primary" : "bg-accent/10 text-accent"
+                              )}>
+                                {h.mode === 'now' ? 'Barrier to action' : 'Task-based'}
+                              </span>
+                              <span className="text-muted-foreground">
+                                {new Date(h.createdAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
+                              </span>
+                              {h.meta.forename && (
+                                <span className="text-muted-foreground">• {h.meta.forename}</span>
+                              )}
+                            </div>
+                            <p className="text-sm whitespace-pre-wrap leading-relaxed">{h.text}</p>
+                            <div className="flex gap-2" role="group" aria-label="Action buttons">
+                              <Button size="sm" variant="outline" onClick={() => handleEditHistory(h)} aria-label={`Edit action for ${h.meta.forename || 'participant'}`}>
+                                <Edit className="w-3 h-3 mr-1" aria-hidden="true" /> Edit
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => {
+                                navigator.clipboard.writeText(h.text);
+                                toast({ title: 'Copied!' });
+                              }} aria-label="Copy action text">
+                                <Copy className="w-3 h-3" aria-hidden="true" />
+                                <span className="sr-only">Copy</span>
+                              </Button>
+                              <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => {
+                                storage.deleteFromHistory(h.id);
+                                toast({ title: 'Deleted' });
+                              }} aria-label={`Delete action for ${h.meta.forename || 'participant'}`}>
+                                <Trash2 className="w-3 h-3" aria-hidden="true" />
+                                <span className="sr-only">Delete</span>
+                              </Button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
                     )}
                   </div>
                 </TabsContent>
