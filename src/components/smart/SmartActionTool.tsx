@@ -1591,6 +1591,15 @@ When given context about a participant, provide suggestions to improve their SMA
         hasOutput={!!output.trim()}
         copied={copied}
       />
+
+      {/* Footer */}
+      <Footer onOpenPrivacySettings={() => setPrivacySettingsOpen(true)} />
+
+      {/* Privacy Settings Dialog */}
+      <ManageConsentDialog 
+        open={privacySettingsOpen} 
+        onOpenChange={setPrivacySettingsOpen} 
+      />
     </>
   );
 }
