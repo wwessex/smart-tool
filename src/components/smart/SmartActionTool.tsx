@@ -1374,6 +1374,23 @@ When given context about a participant, provide suggestions to improve their SMA
                       </AnimatePresence>
                     </label>
                     <div className="relative">
+                      {nowDateWarning && (
+                        <motion.div
+                          className="absolute inset-0 rounded-md pointer-events-none"
+                          animate={{
+                            boxShadow: [
+                              '0 0 0 0 rgba(245, 158, 11, 0)',
+                              '0 0 8px 2px rgba(245, 158, 11, 0.3)',
+                              '0 0 0 0 rgba(245, 158, 11, 0)',
+                            ],
+                          }}
+                          transition={{
+                            duration: 2,
+                            repeat: Infinity,
+                            ease: 'easeInOut',
+                          }}
+                        />
+                      )}
                       <Input
                         id="meeting-date"
                         type="date"
