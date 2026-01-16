@@ -1360,9 +1360,18 @@ When given context about a participant, provide suggestions to improve their SMA
                   <div className="space-y-2 shrink-0 mb-4 sm:mb-0 sm:mr-6" style={{ width: 'clamp(140px, 40%, 220px)' }}>
                     <label htmlFor="meeting-date" className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
                       During our meeting on…
-                      {nowDateWarning && (
-                        <AlertTriangle className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" />
-                      )}
+                      <AnimatePresence>
+                        {nowDateWarning && (
+                          <motion.span
+                            initial={{ scale: 0, rotate: -180 }}
+                            animate={{ scale: [1, 1.2, 1], rotate: 0 }}
+                            exit={{ scale: 0, rotate: 180 }}
+                            transition={{ duration: 0.4, ease: "easeOut" }}
+                          >
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" />
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
                     </label>
                     <div className="relative">
                       <Input
@@ -1376,7 +1385,27 @@ When given context about a participant, provide suggestions to improve their SMA
                         aria-invalid={!!nowDateWarning}
                       />
                     </div>
-                    {nowDateWarning && <p id="date-warning" className="text-xs text-amber-500 flex items-center gap-1" role="alert"><AlertTriangle className="w-3 h-3 shrink-0" aria-hidden="true" />{nowDateWarning}</p>}
+                    <AnimatePresence>
+                      {nowDateWarning && (
+                        <motion.p 
+                          id="date-warning" 
+                          className="text-xs text-amber-500 flex items-center gap-1" 
+                          role="alert"
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -5 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <motion.span
+                            animate={{ rotate: [0, -10, 10, -10, 0] }}
+                            transition={{ duration: 0.5, delay: 0.2 }}
+                          >
+                            <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden="true" />
+                          </motion.span>
+                          {nowDateWarning}
+                        </motion.p>
+                      )}
+                    </AnimatePresence>
                   </div>
                   <div className="space-y-2 flex-1 min-w-0">
                     <label htmlFor="participant-name" className="text-sm font-medium text-muted-foreground">Participant forename</label>
