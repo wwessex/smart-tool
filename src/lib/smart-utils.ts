@@ -170,11 +170,19 @@ export function aiDraftNow(
   suggestQuery?: string
 ): { action: string; help: string } {
   const targetISO = parseTimescaleToTargetISO(baseISO, timescale);
-  const ctx = { targetPretty: formatDDMMMYY(targetISO), n: 2 };
+  // Include forename in context so {forename} placeholders get replaced
+  const ctx = { targetPretty: formatDDMMMYY(targetISO), n: 2, forename };
 
   const s = bestNowSuggestion(barrier, suggestQuery);
   const rawAction = resolvePlaceholders(s.action, ctx);
-  let action = forenameWillify(rawAction, forename);
+  
+  // Only add "forename will" prefix if action doesn't already start with forename
+  let action = rawAction;
+  const startsWithForename = forename && rawAction.toLowerCase().startsWith(forename.toLowerCase());
+  if (!startsWithForename && forename) {
+    action = forenameWillify(rawAction, forename);
+  }
+  
   const help = resolvePlaceholders(s.help, ctx);
 
   if (responsible && /\bsend it to me\b/i.test(action) && !/\bI\b|advisor/i.test(responsible.toLowerCase())) {
