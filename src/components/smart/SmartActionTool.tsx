@@ -166,6 +166,7 @@ export function SmartActionTool() {
   const [historyTab, setHistoryTab] = useState<'history' | 'insights'>('history');
   const [privacySettingsOpen, setPrivacySettingsOpen] = useState(false);
   const [fixingCriterion, setFixingCriterion] = useState<string | null>(null);
+  const [skipAutoGenerate, setSkipAutoGenerate] = useState(false);
 
   // Detect landscape orientation
   useEffect(() => {
@@ -271,11 +272,15 @@ export function SmartActionTool() {
     }
   }, [mode, nowForm, futureForm, validateNow, validateFuture, toast]);
 
-  // Auto-generate on form changes
+  // Auto-generate on form changes (skip when AI fix was just applied)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
+    if (skipAutoGenerate) {
+      setSkipAutoGenerate(false);
+      return;
+    }
     generateOutput(false);
-  }, [nowForm, futureForm, mode, generateOutput]);
+  }, [nowForm, futureForm, mode, generateOutput, skipAutoGenerate]);
 
   const handleCopy = async () => {
     if (!output.trim()) {
@@ -711,10 +716,13 @@ When given context about a participant, provide suggestions to improve their SMA
         const whatChanged = parsed.whatChanged || `Fixed ${criterionLabel} criterion`;
         
         if (fixedAction) {
+          // Skip auto-generate to prevent overwriting the AI fix
+          setSkipAutoGenerate(true);
+          
           // Apply the fix to the output
           setOutput(fixedAction);
           
-          // Also update the form field
+          // Also update the form field to keep it in sync
           if (mode === 'now') {
             setNowForm(prev => ({ ...prev, action: fixedAction }));
           } else {
