@@ -1539,16 +1539,21 @@ When given context about a participant, provide suggestions to improve their SMA
 
             <AnimatePresence mode="wait">
               <motion.div 
-                key={output || 'empty'}
-                className={cn(
-                  "min-h-[140px] p-5 rounded-xl border-2 border-dashed border-border bg-muted/30 whitespace-pre-wrap leading-relaxed",
-                  copied && "border-accent bg-accent/10 shadow-glow"
-                )}
+                key="output-container"
                 initial={{ opacity: 0.5, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.2 }}
               >
-                {output || <span className="text-muted-foreground">Generated action will appear here…</span>}
+                <Textarea
+                  value={output}
+                  onChange={e => setOutput(e.target.value)}
+                  placeholder="Generated action will appear here… You can also edit the text directly."
+                  className={cn(
+                    "min-h-[140px] p-5 rounded-xl border-2 border-dashed border-border bg-muted/30 leading-relaxed resize-y",
+                    copied && "border-accent bg-accent/10 shadow-glow",
+                    !output && "text-muted-foreground"
+                  )}
+                />
               </motion.div>
             </AnimatePresence>
 
