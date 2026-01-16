@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect, memo, lazy, Suspense } from 
 import { motion, AnimatePresence } from 'framer-motion';
 import { z } from 'zod';
 import { useSmartStorage, HistoryItem, ActionTemplate } from '@/hooks/useSmartStorage';
+import { useTranslation, SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
 import { 
   todayISO, 
   buildNowOutput, 
@@ -26,6 +27,7 @@ import { OnboardingTutorial, useOnboarding } from './OnboardingTutorial';
 import { FloatingToolbar } from './FloatingToolbar';
 import { Footer } from './Footer';
 import { ManageConsentDialog, getStoredConsent } from './CookieConsent';
+import { LanguageSelector } from './LanguageSelector';
 import { useKeyboardShortcuts, groupShortcuts, ShortcutConfig } from '@/hooks/useKeyboardShortcuts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -66,7 +68,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3, Shield, FileDown, Clock } from 'lucide-react';
+import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3, Shield, FileDown, Clock, Languages, Loader2 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -123,6 +125,7 @@ export function SmartActionTool() {
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
   const storage = useSmartStorage();
+  const translation = useTranslation();
   const today = todayISO();
 
   const [mode, setMode] = useState<Mode>('now');
@@ -143,6 +146,7 @@ export function SmartActionTool() {
     timescale: ''
   });
   const [output, setOutput] = useState('');
+  const [translatedOutput, setTranslatedOutput] = useState<string | null>(null);
   const [showValidation, setShowValidation] = useState(false);
   const [suggestQuery, setSuggestQuery] = useState('');
   const [historySearch, setHistorySearch] = useState('');
@@ -275,10 +279,16 @@ export function SmartActionTool() {
       return;
     }
     try {
-      await navigator.clipboard.writeText(output);
+      // Build combined text with translation if available
+      let textToCopy = output;
+      if (translatedOutput && storage.participantLanguage !== 'none') {
+        const langInfo = SUPPORTED_LANGUAGES[storage.participantLanguage];
+        textToCopy = `=== ENGLISH ===\n${output}\n\n=== ${langInfo?.nativeName?.toUpperCase() || storage.participantLanguage.toUpperCase()} ===\n${translatedOutput}`;
+      }
+      await navigator.clipboard.writeText(textToCopy);
       setCopied(true);
       setTimeout(() => setCopied(false), 400);
-      toast({ title: 'Copied!', description: 'Action copied to clipboard.' });
+      toast({ title: 'Copied!', description: translatedOutput ? 'Both versions copied to clipboard.' : 'Action copied to clipboard.' });
     } catch {
       toast({ title: 'Copy failed', description: 'Please copy manually.', variant: 'destructive' });
     }
@@ -289,7 +299,13 @@ export function SmartActionTool() {
       toast({ title: 'Nothing to download', description: 'Generate an action first.', variant: 'destructive' });
       return;
     }
-    const blob = new Blob([output], { type: 'text/plain;charset=utf-8' });
+    // Build combined text with translation if available
+    let textToDownload = output;
+    if (translatedOutput && storage.participantLanguage !== 'none') {
+      const langInfo = SUPPORTED_LANGUAGES[storage.participantLanguage];
+      textToDownload = `=== ENGLISH ===\n${output}\n\n=== ${langInfo?.nativeName?.toUpperCase() || storage.participantLanguage.toUpperCase()} ===\n${translatedOutput}`;
+    }
+    const blob = new Blob([textToDownload], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -307,9 +323,38 @@ export function SmartActionTool() {
       setFutureForm({ date: today, forename: '', task: '', outcome: '', timescale: '' });
     }
     setOutput('');
+    setTranslatedOutput(null);
+    translation.clearTranslation();
     setShowValidation(false);
     setSuggestQuery('');
   };
+
+  // Handle translation
+  const handleTranslate = useCallback(async () => {
+    if (!output.trim()) return;
+    if (storage.participantLanguage === 'none') {
+      setTranslatedOutput(null);
+      return;
+    }
+    
+    const result = await translation.translate(output, storage.participantLanguage);
+    if (result) {
+      setTranslatedOutput(result.translated);
+      toast({ 
+        title: 'Translated!', 
+        description: `Action translated to ${result.languageName}.` 
+      });
+    }
+  }, [output, storage.participantLanguage, translation, toast]);
+
+  // Handle language change
+  const handleLanguageChange = useCallback((language: string) => {
+    storage.updateParticipantLanguage(language);
+    if (language === 'none') {
+      setTranslatedOutput(null);
+      translation.clearTranslation();
+    }
+  }, [storage, translation]);
 
   const handleSave = () => {
     if (!output.trim()) {
@@ -330,18 +375,27 @@ export function SmartActionTool() {
     const forename = mode === 'now' ? nowForm.forename : futureForm.forename;
     storage.addRecentName(forename);
 
+    const baseMeta = mode === 'now' 
+      ? { date: nowForm.date, forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
+      : { date: futureForm.date, forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, reason: futureForm.outcome };
+
+    // Include translation in history if available
     const item: HistoryItem = {
       id: crypto.randomUUID(),
       mode,
       createdAt: new Date().toISOString(),
       text: output,
-      meta: mode === 'now' 
-        ? { date: nowForm.date, forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
-        : { date: futureForm.date, forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, reason: futureForm.outcome }
+      meta: {
+        ...baseMeta,
+        ...(translatedOutput && storage.participantLanguage !== 'none' ? {
+          translatedText: translatedOutput,
+          translationLanguage: storage.participantLanguage
+        } : {})
+      }
     };
 
     storage.addToHistory(item);
-    toast({ title: 'Saved!', description: 'Action saved to history.' });
+    toast({ title: 'Saved!', description: translatedOutput ? 'Action with translation saved to history.' : 'Action saved to history.' });
   };
 
   const handleAIDraft = () => {
@@ -1550,7 +1604,7 @@ When given context about a participant, provide suggestions to improve their SMA
             variants={slideInRight}
             transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
           >
-            <div className="flex items-end justify-between gap-4">
+            <div className="flex items-end justify-between gap-4 flex-wrap">
               <div>
                 <h2 className="font-bold text-lg">Generated action</h2>
                 <p className="text-xs text-muted-foreground">Proofread before pasting into important documents.</p>
@@ -1569,23 +1623,70 @@ When given context about a participant, provide suggestions to improve their SMA
               </div>
             </div>
 
+            {/* Language selector and translate button */}
+            <div className="flex items-center gap-3 flex-wrap p-3 rounded-lg bg-muted/30 border border-border/50">
+              <LanguageSelector 
+                value={storage.participantLanguage} 
+                onChange={handleLanguageChange}
+                disabled={translation.isTranslating}
+              />
+              {storage.participantLanguage !== 'none' && output.trim() && (
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={handleTranslate}
+                  disabled={translation.isTranslating}
+                  className="border-primary/30 hover:bg-primary/10"
+                >
+                  {translation.isTranslating ? (
+                    <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Translating...</>
+                  ) : (
+                    <><Languages className="w-4 h-4 mr-1" /> Translate</>
+                  )}
+                </Button>
+              )}
+              {translation.error && (
+                <span className="text-xs text-destructive">{translation.error}</span>
+              )}
+            </div>
+
             <AnimatePresence mode="wait">
               <motion.div 
                 key="output-container"
                 initial={{ opacity: 0.5, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.2 }}
+                className="space-y-4"
               >
-                <Textarea
-                  value={output}
-                  onChange={e => setOutput(e.target.value)}
-                  placeholder="Generated action will appear here… You can also edit the text directly."
-                  className={cn(
-                    "min-h-[140px] p-5 rounded-xl border-2 border-dashed border-border bg-muted/30 leading-relaxed resize-y",
-                    copied && "border-accent bg-accent/10 shadow-glow",
-                    !output && "text-muted-foreground"
-                  )}
-                />
+                {/* English output */}
+                <div>
+                  {translatedOutput && <p className="text-xs font-medium text-muted-foreground mb-2">🇬🇧 ENGLISH</p>}
+                  <Textarea
+                    value={output}
+                    onChange={e => { setOutput(e.target.value); setTranslatedOutput(null); }}
+                    placeholder="Generated action will appear here… You can also edit the text directly."
+                    className={cn(
+                      "min-h-[120px] p-5 rounded-xl border-2 border-dashed border-border bg-muted/30 leading-relaxed resize-y",
+                      copied && "border-accent bg-accent/10 shadow-glow",
+                      !output && "text-muted-foreground"
+                    )}
+                  />
+                </div>
+                
+                {/* Translated output */}
+                {translatedOutput && storage.participantLanguage !== 'none' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <p className="text-xs font-medium text-muted-foreground mb-2">
+                      {SUPPORTED_LANGUAGES[storage.participantLanguage]?.flag} {SUPPORTED_LANGUAGES[storage.participantLanguage]?.nativeName?.toUpperCase()}
+                    </p>
+                    <div className="p-5 rounded-xl border-2 border-primary/30 bg-primary/5 leading-relaxed whitespace-pre-wrap text-sm">
+                      {translatedOutput}
+                    </div>
+                  </motion.div>
+                )}
               </motion.div>
             </AnimatePresence>
 

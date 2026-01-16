@@ -99,10 +99,11 @@ export default function Privacy() {
                 <h3 className="font-medium mb-2">Data Processed by AI Service (with consent)</h3>
                 <ul className="list-disc pl-6 text-muted-foreground space-y-1">
                   <li>Action text when using AI improvement features</li>
+                  <li>Action text when using translation features (same AI service)</li>
                   <li>Context about barriers and outcomes (no surnames or addresses)</li>
                 </ul>
                 <p className="text-sm text-muted-foreground mt-2">
-                  AI processing only occurs when you explicitly use AI features and have given consent. 
+                  AI processing (including translation) only occurs when you explicitly use these features and have given consent. 
                   Data is not stored by the AI service and is not used for training AI models.
                 </p>
               </div>

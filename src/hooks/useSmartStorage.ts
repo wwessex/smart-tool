@@ -13,7 +13,8 @@ const STORAGE = {
   onboardingComplete: "smartTool.onboardingComplete",
   retentionDays: "smartTool.retentionDays",
   retentionEnabled: "smartTool.retentionEnabled",
-  lastRetentionCheck: "smartTool.lastRetentionCheck"
+  lastRetentionCheck: "smartTool.lastRetentionCheck",
+  participantLanguage: "smartTool.participantLanguage"
 };
 
 // Default retention period in days
@@ -46,6 +47,9 @@ export interface HistoryItem {
     responsible?: string;
     help?: string;
     reason?: string;
+    // Translation fields (stored locally only)
+    translatedText?: string;
+    translationLanguage?: string;
   };
 }
 
@@ -95,6 +99,13 @@ export function useSmartStorage() {
   const [minScoreThreshold, setMinScoreThreshold] = useState<number>(() => loadNumber(STORAGE.minScoreThreshold, 5));
   const [retentionEnabled, setRetentionEnabled] = useState<boolean>(() => loadBoolean(STORAGE.retentionEnabled, true));
   const [retentionDays, setRetentionDays] = useState<number>(() => loadNumber(STORAGE.retentionDays, DEFAULT_RETENTION_DAYS));
+  const [participantLanguage, setParticipantLanguage] = useState<string>(() => {
+    try {
+      return localStorage.getItem(STORAGE.participantLanguage) || 'none';
+    } catch {
+      return 'none';
+    }
+  });
 
   const updateBarriers = useCallback((newBarriers: string[]) => {
     setBarriers(newBarriers);
@@ -258,6 +269,11 @@ export function useSmartStorage() {
     localStorage.setItem(STORAGE.retentionDays, String(clamped));
   }, []);
 
+  const updateParticipantLanguage = useCallback((language: string) => {
+    setParticipantLanguage(language);
+    localStorage.setItem(STORAGE.participantLanguage, language);
+  }, []);
+
   // Check and clean up old history items
   // Returns the number of items deleted
   const cleanupOldHistory = useCallback((): { deletedCount: number; deletedItems: HistoryItem[] } => {
@@ -313,6 +329,7 @@ export function useSmartStorage() {
     minScoreThreshold,
     retentionEnabled,
     retentionDays,
+    participantLanguage,
     updateBarriers,
     resetBarriers,
     updateTimescales,
@@ -329,6 +346,7 @@ export function useSmartStorage() {
     updateMinScoreThreshold,
     updateRetentionEnabled,
     updateRetentionDays,
+    updateParticipantLanguage,
     cleanupOldHistory,
     shouldRunCleanup,
     exportAllData,
