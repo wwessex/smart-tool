@@ -139,12 +139,15 @@ export function useCloudAI() {
     setState((prev) => ({ ...prev, error: null }));
   }, []);
 
+  // Check consent reactively (re-evaluates on each render)
+  const hasConsent = hasAIConsent();
+  
   return {
     ...state,
     chat,
     abort,
     clearError,
     checkConsent,
-    hasConsent: hasAIConsent(),
+    hasConsent,
   };
 }

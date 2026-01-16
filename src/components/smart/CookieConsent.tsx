@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -274,7 +274,8 @@ interface ManageConsentDialogProps {
   onConsentChange?: (consent: GDPRConsent) => void;
 }
 
-export function ManageConsentDialog({ open, onOpenChange, onConsentChange }: ManageConsentDialogProps) {
+export const ManageConsentDialog = forwardRef<HTMLDivElement, ManageConsentDialogProps>(
+  function ManageConsentDialog({ open, onOpenChange, onConsentChange }, ref) {
   const [consent, setConsent] = useState<GDPRConsent | null>(null);
   const [aiProcessing, setAiProcessing] = useState(true);
   const [analytics, setAnalytics] = useState(false);
@@ -368,4 +369,4 @@ export function ManageConsentDialog({ open, onOpenChange, onConsentChange }: Man
       </DialogContent>
     </Dialog>
   );
-}
+});
