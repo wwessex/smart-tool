@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, AlertCircle, Info, Target, BarChart3, ThumbsUp, Link2, Clock, AlertTriangle, Lightbulb } from 'lucide-react';
+import { Check, AlertCircle, Info, Target, BarChart3, ThumbsUp, Link2, Clock, AlertTriangle, Lightbulb, Wrench } from 'lucide-react';
 import { SmartCheck, getSmartLabel, getSmartColor, getImprovementPriority } from '@/lib/smart-checker';
 import { SmartScoreDetails } from './SmartScoreDetails';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import {
   Tooltip,
   TooltipContent,
@@ -15,6 +16,7 @@ interface SmartChecklistProps {
   check: SmartCheck;
   className?: string;
   actionText?: string;
+  onFixCriterion?: (criterion: 'specific' | 'measurable' | 'achievable' | 'relevant' | 'timeBound', suggestion: string) => void;
 }
 
 const CRITERIA_CONFIG = [
@@ -25,7 +27,7 @@ const CRITERIA_CONFIG = [
   { key: 'timeBound', label: 'Time-bound', icon: Clock, letter: 'T' },
 ] as const;
 
-export function SmartChecklist({ check, className, actionText = '' }: SmartChecklistProps) {
+export function SmartChecklist({ check, className, actionText = '', onFixCriterion }: SmartChecklistProps) {
   const improvementPriorities = getImprovementPriority(check);
   const [detailsOpen, setDetailsOpen] = useState(false);
   
@@ -159,8 +161,28 @@ export function SmartChecklist({ check, className, actionText = '' }: SmartCheck
                     </p>
                   </div>
 
-                  {/* Dynamic suggestion tooltip */}
-                  {criterion.suggestion && !isMet && (
+                  {/* Fix button for unmet criteria */}
+                  {!isMet && onFixCriterion && (criterion.suggestion || criterion.hint) && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 px-2 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
+                          onClick={() => onFixCriterion(key, criterion.suggestion || criterion.hint || '')}
+                        >
+                          <Wrench className="w-3 h-3" />
+                          Fix
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="max-w-[220px]">
+                        <p className="text-xs">{criterion.suggestion || criterion.hint}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+
+                  {/* Dynamic suggestion tooltip - only show if no Fix button */}
+                  {criterion.suggestion && !isMet && !onFixCriterion && (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button className="p-1 hover:bg-primary/10 rounded-md transition-colors group">
@@ -173,8 +195,8 @@ export function SmartChecklist({ check, className, actionText = '' }: SmartCheck
                     </Tooltip>
                   )}
                   
-                  {/* Fallback hint tooltip */}
-                  {criterion.hint && !criterion.suggestion && !isMet && (
+                  {/* Fallback hint tooltip - only show if no Fix button */}
+                  {criterion.hint && !criterion.suggestion && !isMet && !onFixCriterion && (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button className="p-1 hover:bg-muted rounded-md transition-colors">

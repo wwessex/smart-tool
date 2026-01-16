@@ -11,6 +11,7 @@ interface ComboboxInputProps {
   placeholder?: string;
   emptyMessage?: string;
   className?: string;
+  'data-field'?: string;
 }
 
 export function ComboboxInput({
@@ -19,7 +20,8 @@ export function ComboboxInput({
   options,
   placeholder = "Select or type...",
   emptyMessage = "No options found.",
-  className
+  className,
+  'data-field': dataField
 }: ComboboxInputProps) {
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value);
@@ -48,7 +50,7 @@ export function ComboboxInput({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <div className="relative">
+        <div className="relative" data-field={dataField}>
           <input
             ref={inputRef}
             type="text"
