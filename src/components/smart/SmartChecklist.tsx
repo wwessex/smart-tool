@@ -146,10 +146,21 @@ export function SmartChecklist({ check, className, actionText = '', onFixCriteri
         {/* Semantic Warnings */}
         {check.warnings && check.warnings.length > 0 && (
           <motion.div 
-            className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 space-y-1"
+            className="relative bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 space-y-1"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
           >
+            <motion.div
+              className="absolute inset-0 rounded-lg pointer-events-none"
+              animate={{
+                boxShadow: [
+                  '0 0 0 0 rgba(245, 158, 11, 0)',
+                  '0 0 8px 2px rgba(245, 158, 11, 0.3)',
+                  '0 0 0 0 rgba(245, 158, 11, 0)',
+                ],
+              }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            />
             <div className="flex items-center gap-2 text-amber-600 font-medium text-xs">
               <AlertTriangle className="w-3.5 h-3.5" />
               Quality Warnings
