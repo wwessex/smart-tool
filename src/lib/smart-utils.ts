@@ -273,18 +273,23 @@ export function buildNowOutput(
 function getTaskVerb(task: string): string {
   const t = (task || "").trim().toLowerCase();
   
-  // If task already starts with a verb, return empty (we'll use the task as-is)
-  const startsWithVerb = /^(attend|complete|submit|call|contact|visit|meet|book|apply|register|prepare|create|write|send|upload|take|go|make|have|do|start|finish|begin|schedule|arrange|organise|organize|speak|talk|discuss|review|check|follow|collect|gather|bring|pick|drop|return|update|fill|sign|hand)/i.test(t);
+  // Comprehensive list of verbs that tasks might start with
+  const startsWithVerb = /^(attend|complete|submit|call|contact|visit|meet|book|apply|register|prepare|create|write|send|upload|take|go|make|have|do|start|finish|begin|schedule|arrange|organise|organize|speak|talk|discuss|review|check|follow|collect|gather|bring|pick|drop|return|update|fill|sign|hand|research|practice|practise|work\s+on|work\s+with|engage|participate|join|learn|study|read|watch|listen|observe|shadow|volunteer|help|assist|support|explore|investigate|try|attempt|test|demonstrate|present|deliver|lead|run|host|facilitate|coordinate|manage|plan|design|develop|build|set\s+up|clean|tidy|sort|file|scan|print|copy|fax|post|mail|order|purchase|buy|sell|pay|receive|accept|decline|confirm|cancel|reschedule|postpone|delay|wait|stay|leave|arrive|depart|travel|commute|drive|walk|cycle|use|access|log\s+in|download|install|configure|troubleshoot)/i.test(t);
   if (startsWithVerb) return "";
   
-  // Events/appointments -> "attend"
-  if (/\b(appointment|meeting|session|workshop|fair|event|interview|assessment|course|class|training|induction|orientation|webinar|seminar|group)\b/i.test(t)) {
+  // Events/appointments/sessions -> "attend"
+  if (/\b(appointment|meeting|session|workshop|fair|event|interview|assessment|course|class|training|induction|orientation|webinar|seminar|group|clinic|surgery|consultation|hearing|tribunal|panel|review|drop-in|open\s+day|taster|trial|placement|work\s+experience)\b/i.test(t)) {
     return "attend ";
   }
   
   // Phone-related -> "make"
-  if (/\b(phone call|call to|calls to)\b/i.test(t)) {
+  if (/\b(phone\s+call|call\s+to|calls\s+to|telephone)\b/i.test(t)) {
     return "make ";
+  }
+  
+  // Document/form related -> "complete"
+  if (/\b(form|application|questionnaire|survey|assessment|paperwork|documentation)\b/i.test(t)) {
+    return "complete ";
   }
   
   // Default - no verb prefix needed if context unclear
