@@ -31,6 +31,8 @@ const SUPPORTED_LANGUAGES: Record<string, string> = {
   "fr": "French (Français)",
   "zh": "Chinese Simplified (简体中文)",
   "hi": "Hindi (हिन्दी)",
+  "ps": "Pashto (پښتو)",
+  "ti": "Tigrinya (ትግርኛ)",
 };
 
 // Simple in-memory rate limiting (per IP hash - no raw IPs stored)
