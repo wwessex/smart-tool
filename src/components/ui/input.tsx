@@ -4,6 +4,9 @@ import { cn } from "@/lib/utils";
 
 const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
   ({ className, type, ...props }, ref) => {
+    // Enable spellcheck by default for text inputs
+    const shouldSpellCheck = props.spellCheck ?? (type === "text" || type === undefined);
+    
     return (
       <input
         type={type}
@@ -12,6 +15,7 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
           className,
         )}
         ref={ref}
+        spellCheck={shouldSpellCheck}
         {...props}
       />
     );
