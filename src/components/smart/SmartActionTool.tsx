@@ -1358,17 +1358,25 @@ When given context about a participant, provide suggestions to improve their SMA
               >
                 <div className="flex flex-col sm:flex-row">
                   <div className="space-y-2 shrink-0 mb-4 sm:mb-0 sm:mr-6" style={{ width: 'clamp(140px, 40%, 220px)' }}>
-                    <label htmlFor="meeting-date" className="text-sm font-medium text-muted-foreground">During our meeting on…</label>
-                    <Input
-                      id="meeting-date"
-                      type="date"
-                      value={nowForm.date}
-                      onChange={e => setNowForm(prev => ({ ...prev, date: e.target.value }))}
-                      max={today}
-                      className={getFieldClass(!!nowForm.date)}
-                      aria-describedby={nowDateWarning ? "date-warning" : undefined}
-                    />
-                    {nowDateWarning && <p id="date-warning" className="text-xs text-amber-500" role="alert">{nowDateWarning}</p>}
+                    <label htmlFor="meeting-date" className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                      During our meeting on…
+                      {nowDateWarning && (
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" />
+                      )}
+                    </label>
+                    <div className="relative">
+                      <Input
+                        id="meeting-date"
+                        type="date"
+                        value={nowForm.date}
+                        onChange={e => setNowForm(prev => ({ ...prev, date: e.target.value }))}
+                        max={today}
+                        className={`${getFieldClass(!!nowForm.date)} ${nowDateWarning ? 'border-amber-500 focus-visible:ring-amber-500' : ''}`}
+                        aria-describedby={nowDateWarning ? "date-warning" : undefined}
+                        aria-invalid={!!nowDateWarning}
+                      />
+                    </div>
+                    {nowDateWarning && <p id="date-warning" className="text-xs text-amber-500 flex items-center gap-1" role="alert"><AlertTriangle className="w-3 h-3 shrink-0" aria-hidden="true" />{nowDateWarning}</p>}
                   </div>
                   <div className="space-y-2 flex-1 min-w-0">
                     <label htmlFor="participant-name" className="text-sm font-medium text-muted-foreground">Participant forename</label>
