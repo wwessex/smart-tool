@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect, memo, lazy, Suspense } from 'react';
+import { useState, useCallback, useMemo, useEffect, memo, lazy, Suspense, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { z } from 'zod';
 import { useSmartStorage, HistoryItem, ActionTemplate } from '@/hooks/useSmartStorage';
@@ -166,7 +166,7 @@ export function SmartActionTool() {
   const [historyTab, setHistoryTab] = useState<'history' | 'insights'>('history');
   const [privacySettingsOpen, setPrivacySettingsOpen] = useState(false);
   const [fixingCriterion, setFixingCriterion] = useState<string | null>(null);
-  const [skipAutoGenerate, setSkipAutoGenerate] = useState(false);
+  const skipAutoGenerateRef = useRef(false);
 
   // Detect landscape orientation
   useEffect(() => {
@@ -275,12 +275,12 @@ export function SmartActionTool() {
   // Auto-generate on form changes (skip when AI fix was just applied)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (skipAutoGenerate) {
-      setSkipAutoGenerate(false);
+    if (skipAutoGenerateRef.current) {
+      skipAutoGenerateRef.current = false;
       return;
     }
     generateOutput(false);
-  }, [nowForm, futureForm, mode, generateOutput, skipAutoGenerate]);
+  }, [nowForm, futureForm, mode, generateOutput]);
 
   const handleCopy = async () => {
     if (!output.trim()) {
@@ -717,7 +717,7 @@ When given context about a participant, provide suggestions to improve their SMA
         
         if (fixedAction) {
           // Skip auto-generate to prevent overwriting the AI fix
-          setSkipAutoGenerate(true);
+          skipAutoGenerateRef.current = true;
           
           // Apply the fix to the output
           setOutput(fixedAction);
