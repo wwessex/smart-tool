@@ -92,7 +92,7 @@ export function useSmartStorage() {
   const [recentNames, setRecentNames] = useState<string[]>(() => loadList(STORAGE.recentNames, []));
   const [templates, setTemplates] = useState<ActionTemplate[]>(() => loadList(STORAGE.templates, []));
   const [minScoreEnabled, setMinScoreEnabled] = useState<boolean>(() => loadBoolean(STORAGE.minScoreEnabled, false));
-  const [minScoreThreshold, setMinScoreThreshold] = useState<number>(() => loadNumber(STORAGE.minScoreThreshold, 4));
+  const [minScoreThreshold, setMinScoreThreshold] = useState<number>(() => loadNumber(STORAGE.minScoreThreshold, 5));
   const [retentionEnabled, setRetentionEnabled] = useState<boolean>(() => loadBoolean(STORAGE.retentionEnabled, true));
   const [retentionDays, setRetentionDays] = useState<number>(() => loadNumber(STORAGE.retentionDays, DEFAULT_RETENTION_DAYS));
 
@@ -241,7 +241,7 @@ export function useSmartStorage() {
     setRecentNames([]);
     setTemplates([]);
     setMinScoreEnabled(false);
-    setMinScoreThreshold(4);
+    setMinScoreThreshold(5);
     setRetentionEnabled(true);
     setRetentionDays(DEFAULT_RETENTION_DAYS);
   }, []);
