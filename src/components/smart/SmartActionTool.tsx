@@ -66,7 +66,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3, Shield, FileDown } from 'lucide-react';
+import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3, Shield, FileDown, Clock } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -168,6 +168,22 @@ export function SmartActionTool() {
     window.addEventListener('resize', checkOrientation);
     return () => window.removeEventListener('resize', checkOrientation);
   }, []);
+
+  // GDPR: Auto-cleanup old history items on load
+  useEffect(() => {
+    if (storage.shouldRunCleanup()) {
+      const { deletedCount } = storage.cleanupOldHistory();
+      if (deletedCount > 0) {
+        toast({
+          title: 'Data retention cleanup',
+          description: `${deletedCount} action${deletedCount === 1 ? '' : 's'} older than ${storage.retentionDays} days ${deletedCount === 1 ? 'was' : 'were'} automatically removed.`,
+        });
+      }
+    }
+  // Run only once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // BUG FIX #1: Validate future date - must be today or later
   const futureDateError = useMemo(() => {
     if (!futureForm.date) return '';
@@ -941,6 +957,60 @@ When given context about a participant, provide suggestions to improve their SMA
                       <Sparkles className="w-4 h-4" />
                       Replay Tutorial
                     </Button>
+                  </div>
+
+                  {/* Data Retention Section */}
+                  <div className="p-4 rounded-lg border bg-card space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-primary" />
+                      <h3 className="font-bold">Data Retention</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Automatically delete old history items to comply with data minimisation principles.
+                    </p>
+                    
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={storage.retentionEnabled} 
+                          onChange={e => storage.updateRetentionEnabled(e.target.checked)}
+                          className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
+                        />
+                        <span className="text-sm font-medium">Auto-delete old actions</span>
+                      </label>
+                      
+                      {storage.retentionEnabled && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">Keep for:</span>
+                          <Select 
+                            value={String(storage.retentionDays)} 
+                            onValueChange={v => storage.updateRetentionDays(parseInt(v, 10))}
+                          >
+                            <SelectTrigger className="w-28">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="30">30 days</SelectItem>
+                              <SelectItem value="60">60 days</SelectItem>
+                              <SelectItem value="90">90 days</SelectItem>
+                              <SelectItem value="180">180 days</SelectItem>
+                              <SelectItem value="365">1 year</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {storage.retentionEnabled && (
+                      <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                        <Clock className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                        <p className="text-xs text-muted-foreground">
+                          Actions older than {storage.retentionDays} days will be automatically deleted when you open the app. 
+                          You currently have {storage.history.length} action{storage.history.length === 1 ? '' : 's'} in history.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Privacy & Data Section - GDPR Compliance */}

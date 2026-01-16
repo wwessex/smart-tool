@@ -10,8 +10,14 @@ const STORAGE = {
   minScoreEnabled: "smartTool.minScoreEnabled",
   minScoreThreshold: "smartTool.minScoreThreshold",
   gdprConsent: "smartTool.gdprConsent",
-  onboardingComplete: "smartTool.onboardingComplete"
+  onboardingComplete: "smartTool.onboardingComplete",
+  retentionDays: "smartTool.retentionDays",
+  retentionEnabled: "smartTool.retentionEnabled",
+  lastRetentionCheck: "smartTool.lastRetentionCheck"
 };
+
+// Default retention period in days
+const DEFAULT_RETENTION_DAYS = 90;
 
 export interface ActionTemplate {
   id: string;
@@ -87,6 +93,8 @@ export function useSmartStorage() {
   const [templates, setTemplates] = useState<ActionTemplate[]>(() => loadList(STORAGE.templates, []));
   const [minScoreEnabled, setMinScoreEnabled] = useState<boolean>(() => loadBoolean(STORAGE.minScoreEnabled, false));
   const [minScoreThreshold, setMinScoreThreshold] = useState<number>(() => loadNumber(STORAGE.minScoreThreshold, 4));
+  const [retentionEnabled, setRetentionEnabled] = useState<boolean>(() => loadBoolean(STORAGE.retentionEnabled, true));
+  const [retentionDays, setRetentionDays] = useState<number>(() => loadNumber(STORAGE.retentionDays, DEFAULT_RETENTION_DAYS));
 
   const updateBarriers = useCallback((newBarriers: string[]) => {
     setBarriers(newBarriers);
@@ -234,6 +242,65 @@ export function useSmartStorage() {
     setTemplates([]);
     setMinScoreEnabled(false);
     setMinScoreThreshold(4);
+    setRetentionEnabled(true);
+    setRetentionDays(DEFAULT_RETENTION_DAYS);
+  }, []);
+
+  // Update retention settings
+  const updateRetentionEnabled = useCallback((enabled: boolean) => {
+    setRetentionEnabled(enabled);
+    localStorage.setItem(STORAGE.retentionEnabled, String(enabled));
+  }, []);
+
+  const updateRetentionDays = useCallback((days: number) => {
+    const clamped = Math.max(7, Math.min(365, days));
+    setRetentionDays(clamped);
+    localStorage.setItem(STORAGE.retentionDays, String(clamped));
+  }, []);
+
+  // Check and clean up old history items
+  // Returns the number of items deleted
+  const cleanupOldHistory = useCallback((): { deletedCount: number; deletedItems: HistoryItem[] } => {
+    if (!retentionEnabled) {
+      return { deletedCount: 0, deletedItems: [] };
+    }
+
+    const now = new Date();
+    const cutoffDate = new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000);
+    
+    const deletedItems: HistoryItem[] = [];
+    const remainingItems: HistoryItem[] = [];
+    
+    history.forEach(item => {
+      const itemDate = new Date(item.createdAt);
+      if (itemDate < cutoffDate) {
+        deletedItems.push(item);
+      } else {
+        remainingItems.push(item);
+      }
+    });
+
+    if (deletedItems.length > 0) {
+      setHistory(remainingItems);
+      localStorage.setItem(STORAGE.history, JSON.stringify(remainingItems));
+    }
+
+    // Update last check timestamp
+    localStorage.setItem(STORAGE.lastRetentionCheck, now.toISOString());
+
+    return { deletedCount: deletedItems.length, deletedItems };
+  }, [history, retentionEnabled, retentionDays]);
+
+  // Check if we should run cleanup (once per day)
+  const shouldRunCleanup = useCallback((): boolean => {
+    const lastCheck = localStorage.getItem(STORAGE.lastRetentionCheck);
+    if (!lastCheck) return true;
+    
+    const lastCheckDate = new Date(lastCheck);
+    const now = new Date();
+    const hoursSinceLastCheck = (now.getTime() - lastCheckDate.getTime()) / (1000 * 60 * 60);
+    
+    return hoursSinceLastCheck >= 24;
   }, []);
 
   return {
@@ -244,6 +311,8 @@ export function useSmartStorage() {
     templates,
     minScoreEnabled,
     minScoreThreshold,
+    retentionEnabled,
+    retentionDays,
     updateBarriers,
     resetBarriers,
     updateTimescales,
@@ -258,6 +327,10 @@ export function useSmartStorage() {
     updateTemplate,
     updateMinScoreEnabled,
     updateMinScoreThreshold,
+    updateRetentionEnabled,
+    updateRetentionDays,
+    cleanupOldHistory,
+    shouldRunCleanup,
     exportAllData,
     deleteAllData
   };
