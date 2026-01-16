@@ -188,11 +188,13 @@ export function useLLM() {
       });
 
       // Create engine with timeout using Promise.race
-      const TIMEOUT_MS = 30000; // 30 seconds
+      // Note: Model download can take several minutes on slow connections
+      // The timeout only applies to initial engine setup, not the full download
+      const TIMEOUT_MS = 120000; // 2 minutes for engine init
       
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
-          reject(new Error("TIMEOUT: Engine initialization took too long. Your browser may not fully support WebGPU, or the CDN is slow. Try Cloud AI instead."));
+          reject(new Error("TIMEOUT: Engine initialization took too long. This may be due to a slow connection or browser limitations. Try Cloud AI for a faster experience."));
         }, TIMEOUT_MS);
       });
 
