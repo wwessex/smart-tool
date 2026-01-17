@@ -53,6 +53,14 @@ export interface HistoryItem {
   };
 }
 
+export interface SmartToolSettings {
+  minScoreEnabled?: boolean;
+  minScoreThreshold?: number;
+  retentionEnabled?: boolean;
+  retentionDays?: number;
+  participantLanguage?: string;
+}
+
 function loadList<T>(key: string, fallback: T[]): T[] {
   try {
     const raw = localStorage.getItem(key);
@@ -159,7 +167,14 @@ export function useSmartStorage() {
     });
   }, []);
 
-  const importData = useCallback((data: { history?: HistoryItem[]; barriers?: string[]; timescales?: string[]; templates?: ActionTemplate[] }) => {
+  const importData = useCallback((data: {
+    history?: HistoryItem[];
+    barriers?: string[];
+    timescales?: string[];
+    recentNames?: string[];
+    templates?: ActionTemplate[];
+    settings?: SmartToolSettings;
+  }) => {
     if (Array.isArray(data.history)) {
       setHistory(data.history);
       localStorage.setItem(STORAGE.history, JSON.stringify(data.history));
@@ -172,9 +187,45 @@ export function useSmartStorage() {
       setTimescales(data.timescales);
       saveList(STORAGE.timescales, data.timescales);
     }
+    if (Array.isArray(data.recentNames)) {
+      const cleaned = Array.from(
+        new Map(
+          data.recentNames
+            .map(n => (typeof n === 'string' ? n.trim() : ''))
+            .filter(Boolean)
+            .map(n => [n.toLowerCase(), n] as const)
+        ).values()
+      ).slice(0, 10);
+      setRecentNames(cleaned);
+      saveList(STORAGE.recentNames, cleaned);
+    }
     if (Array.isArray(data.templates)) {
       setTemplates(data.templates);
       saveList(STORAGE.templates, data.templates);
+    }
+    if (data.settings && typeof data.settings === 'object') {
+      if (typeof data.settings.minScoreEnabled === 'boolean') {
+        setMinScoreEnabled(data.settings.minScoreEnabled);
+        localStorage.setItem(STORAGE.minScoreEnabled, String(data.settings.minScoreEnabled));
+      }
+      if (typeof data.settings.minScoreThreshold === 'number') {
+        const clamped = Math.max(1, Math.min(5, Math.round(data.settings.minScoreThreshold)));
+        setMinScoreThreshold(clamped);
+        localStorage.setItem(STORAGE.minScoreThreshold, String(clamped));
+      }
+      if (typeof data.settings.retentionEnabled === 'boolean') {
+        setRetentionEnabled(data.settings.retentionEnabled);
+        localStorage.setItem(STORAGE.retentionEnabled, String(data.settings.retentionEnabled));
+      }
+      if (typeof data.settings.retentionDays === 'number') {
+        const clamped = Math.max(7, Math.min(365, Math.round(data.settings.retentionDays)));
+        setRetentionDays(clamped);
+        localStorage.setItem(STORAGE.retentionDays, String(clamped));
+      }
+      if (typeof data.settings.participantLanguage === 'string') {
+        setParticipantLanguage(data.settings.participantLanguage);
+        localStorage.setItem(STORAGE.participantLanguage, data.settings.participantLanguage);
+      }
     }
   }, []);
 
@@ -221,22 +272,34 @@ export function useSmartStorage() {
   // Export all data for GDPR data portability
   const exportAllData = useCallback(() => {
     const exportData = {
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
-      data: {
-        barriers,
-        timescales,
-        history,
-        recentNames,
-        templates,
-        settings: {
-          minScoreEnabled,
-          minScoreThreshold,
-        }
-      }
+      barriers,
+      timescales,
+      history,
+      recentNames,
+      templates,
+      settings: {
+        minScoreEnabled,
+        minScoreThreshold,
+        retentionEnabled,
+        retentionDays,
+        participantLanguage,
+      },
     };
     return exportData;
-  }, [barriers, timescales, history, recentNames, templates, minScoreEnabled, minScoreThreshold]);
+  }, [
+    barriers,
+    timescales,
+    history,
+    recentNames,
+    templates,
+    minScoreEnabled,
+    minScoreThreshold,
+    retentionEnabled,
+    retentionDays,
+    participantLanguage,
+  ]);
 
   // Delete all user data for GDPR right to erasure
   const deleteAllData = useCallback(() => {
@@ -255,6 +318,7 @@ export function useSmartStorage() {
     setMinScoreThreshold(5);
     setRetentionEnabled(true);
     setRetentionDays(DEFAULT_RETENTION_DAYS);
+    setParticipantLanguage('none');
   }, []);
 
   // Update retention settings
