@@ -188,12 +188,13 @@ export default function Privacy() {
               </li>
               <li>
                 <strong>Automatic cleanup:</strong> By default, action history older than 90 days is 
-                automatically deleted when you open the app. You can adjust this period (7-365 days) 
-                or disable automatic cleanup entirely in Settings → Privacy & Data.
+                automatically deleted when you open the app. You can adjust this period (30, 60, 90, 180, 
+                or 365 days) or disable automatic cleanup entirely in Settings → Privacy & Data.
               </li>
               <li>
-                <strong>AI processing:</strong> Data sent to AI services is processed in real-time 
-                and is not stored after the response is generated.
+                <strong>AI processing:</strong> Text sent to AI services is processed in real-time only. 
+                We do not intentionally store prompts or responses beyond what is needed for delivery; 
+                provider data handling is governed by their applicable terms.
               </li>
               <li>
                 <strong>Server/hosting logs:</strong> Our hosting infrastructure may retain 
