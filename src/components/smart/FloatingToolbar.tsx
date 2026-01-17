@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Copy, Save, Trash2, Sparkles, Download, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SMART_TOOL_SHORTCUTS } from '@/lib/smart-tool-shortcuts';
+import { formatShortcut, toAriaKeyShortcuts } from '@/hooks/useKeyboardShortcuts';
 
 interface FloatingToolbarProps {
   onCopy: () => void;
@@ -30,7 +32,7 @@ export function FloatingToolbar({
       id: 'ai-draft',
       icon: Sparkles,
       label: 'AI Draft',
-      shortcut: 'Ctrl+D',
+      shortcut: SMART_TOOL_SHORTCUTS.aiDraft,
       onClick: onAIDraft,
       variant: 'default' as const,
       className: 'bg-primary hover:bg-primary/90 text-primary-foreground',
@@ -39,7 +41,7 @@ export function FloatingToolbar({
       id: 'copy',
       icon: copied ? Check : Copy,
       label: copied ? 'Copied!' : 'Copy',
-      shortcut: 'Ctrl+Shift+C',
+      shortcut: SMART_TOOL_SHORTCUTS.copyOutput,
       onClick: onCopy,
       disabled: !hasOutput,
       variant: 'secondary' as const,
@@ -49,7 +51,7 @@ export function FloatingToolbar({
       id: 'save',
       icon: Save,
       label: 'Save',
-      shortcut: 'Ctrl+Enter',
+      shortcut: SMART_TOOL_SHORTCUTS.saveToHistory,
       onClick: onSave,
       disabled: !hasOutput,
       variant: 'secondary' as const,
@@ -66,7 +68,7 @@ export function FloatingToolbar({
       id: 'clear',
       icon: Trash2,
       label: 'Clear',
-      shortcut: 'Ctrl+Shift+X',
+      shortcut: SMART_TOOL_SHORTCUTS.clearForm,
       onClick: onClear,
       variant: 'ghost' as const,
       className: 'hover:bg-destructive/10 hover:text-destructive',
@@ -102,7 +104,7 @@ export function FloatingToolbar({
                   onClick={action.onClick}
                   disabled={action.disabled}
                   aria-label={action.label}
-                  aria-keyshortcuts={action.shortcut?.replace('Ctrl+', 'Control+').replace('Shift+', 'Shift+')}
+                  aria-keyshortcuts={action.shortcut ? toAriaKeyShortcuts(action.shortcut) : undefined}
                   className={cn(
                     "h-10 w-10 rounded-full p-0",
                     action.disabled && "opacity-50 cursor-not-allowed",
@@ -118,7 +120,7 @@ export function FloatingToolbar({
               <span>{action.label}</span>
               {action.shortcut && (
                 <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded font-mono">
-                  {action.shortcut}
+                  {formatShortcut(action.shortcut)}
                 </kbd>
               )}
             </TooltipContent>
