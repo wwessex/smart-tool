@@ -14,7 +14,6 @@ import {
 export interface GDPRConsent {
   essential: boolean; // Always true - required for functionality
   aiProcessing: boolean; // Consent for sending data to AI service
-  analytics: boolean; // Future use - analytics consent
   consentDate: string;
   version: number;
 }
@@ -60,7 +59,6 @@ export function CookieConsent({ onConsentChange }: CookieConsentProps) {
   const [showBanner, setShowBanner] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [aiProcessing, setAiProcessing] = useState(true);
-  const [analytics, setAnalytics] = useState(false);
 
   useEffect(() => {
     // Check if consent has been given or version has changed
@@ -78,7 +76,6 @@ export function CookieConsent({ onConsentChange }: CookieConsentProps) {
     const consent: GDPRConsent = {
       essential: true,
       aiProcessing: true,
-      analytics: false, // Keep false until analytics is actually implemented
       consentDate: new Date().toISOString(),
       version: CONSENT_VERSION,
     };
@@ -91,7 +88,6 @@ export function CookieConsent({ onConsentChange }: CookieConsentProps) {
     const consent: GDPRConsent = {
       essential: true,
       aiProcessing,
-      analytics,
       consentDate: new Date().toISOString(),
       version: CONSENT_VERSION,
     };
@@ -99,13 +95,12 @@ export function CookieConsent({ onConsentChange }: CookieConsentProps) {
     setShowBanner(false);
     setShowDetails(false);
     onConsentChange?.(consent);
-  }, [aiProcessing, analytics, onConsentChange]);
+  }, [aiProcessing, onConsentChange]);
 
   const handleRejectNonEssential = useCallback(() => {
     const consent: GDPRConsent = {
       essential: true,
       aiProcessing: false,
-      analytics: false,
       consentDate: new Date().toISOString(),
       version: CONSENT_VERSION,
     };
@@ -233,24 +228,6 @@ export function CookieConsent({ onConsentChange }: CookieConsentProps) {
               />
             </div>
 
-            {/* Analytics - future use */}
-            <div className="flex items-start justify-between gap-4 p-4 rounded-lg border opacity-60">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <Settings className="w-4 h-4 text-muted-foreground" />
-                  <span className="font-medium">Analytics</span>
-                  <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">Coming soon</span>
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Anonymous usage analytics to help improve the tool. Not currently active.
-                </p>
-              </div>
-              <Switch 
-                checked={analytics} 
-                onCheckedChange={setAnalytics}
-                disabled
-              />
-            </div>
           </div>
 
           <div className="flex gap-2 mt-6">
@@ -282,7 +259,6 @@ export const ManageConsentDialog = forwardRef<HTMLDivElement, ManageConsentDialo
   function ManageConsentDialog({ open, onOpenChange, onConsentChange }, ref) {
   const [consent, setConsent] = useState<GDPRConsent | null>(null);
   const [aiProcessing, setAiProcessing] = useState(true);
-  const [analytics, setAnalytics] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -290,7 +266,6 @@ export const ManageConsentDialog = forwardRef<HTMLDivElement, ManageConsentDialo
       if (stored) {
         setConsent(stored);
         setAiProcessing(stored.aiProcessing);
-        setAnalytics(stored.analytics);
       }
     }
   }, [open]);
@@ -299,7 +274,6 @@ export const ManageConsentDialog = forwardRef<HTMLDivElement, ManageConsentDialo
     const newConsent: GDPRConsent = {
       essential: true,
       aiProcessing,
-      analytics,
       consentDate: new Date().toISOString(),
       version: CONSENT_VERSION,
     };
