@@ -135,6 +135,7 @@ function AIChatContent({
   const handleSend = useCallback(async () => {
     if (!input.trim() || isGenerating) return;
     if (mode === "local" && !localAI.isReady) return;
+    if (mode === "cloud" && !cloudHasConsent) return;
 
     const userMessage: ChatMessage = { role: "user", content: input.trim() };
     const newMessages = [...messages, userMessage];
@@ -162,7 +163,7 @@ function AIChatContent({
     } catch (err) {
       console.error("Chat error:", err);
     }
-  }, [input, isGenerating, mode, localAI, cloudAI, messages, systemPrompt, onResponse]);
+  }, [input, isGenerating, mode, localAI, cloudAI, messages, systemPrompt, onResponse, cloudHasConsent]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -520,7 +521,7 @@ function AIChatContent({
           ) : (
             <Button
               onClick={handleSend}
-              disabled={!input.trim()}
+              disabled={!input.trim() || (mode === "cloud" && !cloudHasConsent)}
               size="icon"
               className="shrink-0"
             >
