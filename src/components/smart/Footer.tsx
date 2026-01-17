@@ -18,18 +18,18 @@ export function Footer({ onOpenPrivacySettings, className }: FooterProps) {
         {/* GDPR Summary with Trust Badge */}
         <div className="flex flex-col sm:flex-row items-start gap-3 mb-3 p-3 rounded-lg bg-muted/30 border border-border/50">
           {/* Trust Badge */}
-          <div className="flex items-center gap-2 shrink-0">
+          <a href="#/privacy" className="flex items-center gap-2 shrink-0 group cursor-pointer">
             <div className="relative">
-              <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 flex items-center justify-center">
-                <Shield className="w-6 h-6 text-primary" />
-                <CheckCircle2 className="w-3.5 h-3.5 text-green-500 absolute -bottom-0.5 -right-0.5 bg-background rounded-full" />
+              <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-primary/20 group-hover:border-primary/50 group-hover:from-primary/30 group-hover:to-primary/10">
+                <Shield className="w-6 h-6 text-primary transition-transform duration-300 group-hover:scale-110" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-green-500 absolute -bottom-0.5 -right-0.5 bg-background rounded-full transition-transform duration-300 group-hover:scale-125" />
               </div>
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col transition-transform duration-300 group-hover:translate-x-0.5">
               <span className="text-[10px] font-semibold text-primary uppercase tracking-wide">UK GDPR</span>
-              <span className="text-[10px] text-muted-foreground">Aligned</span>
+              <span className="text-[10px] text-muted-foreground group-hover:text-foreground transition-colors duration-300">Aligned</span>
             </div>
-          </div>
+          </a>
 
           {/* Summary Text */}
           <div className="flex-1">
