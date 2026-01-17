@@ -1,8 +1,8 @@
 import { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, AlertCircle, Info } from 'lucide-react';
+import { AlertTriangle, AlertCircle, Info, CheckCircle } from 'lucide-react';
 
-type WarningVariant = 'warning' | 'error' | 'info';
+type WarningVariant = 'warning' | 'error' | 'info' | 'success';
 
 interface WarningBoxProps {
   children: ReactNode;
@@ -33,12 +33,19 @@ const variantStyles: Record<WarningVariant, { bg: string; border: string; text: 
     text: 'text-blue-600',
     glow: 'rgba(59, 130, 246, 0.3)',
   },
+  success: {
+    bg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/20',
+    text: 'text-emerald-600',
+    glow: 'rgba(16, 185, 129, 0.3)',
+  },
 };
 
 const defaultIcons: Record<WarningVariant, ReactNode> = {
   warning: <AlertTriangle className="w-4 h-4 shrink-0" />,
   error: <AlertCircle className="w-4 h-4 shrink-0" />,
   info: <Info className="w-4 h-4 shrink-0" />,
+  success: <CheckCircle className="w-4 h-4 shrink-0" />,
 };
 
 export function WarningBox({
