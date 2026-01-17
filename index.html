@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
+    <!-- Preconnect to external resources for faster loading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="https://wuxvpkczhdeslbhwpnyd.supabase.co" />
+    
     <!-- Primary Meta Tags -->
     <title>SMART Action Tool | Employment Support Action Generator</title>
     <meta name="title" content="SMART Action Tool | Employment Support Action Generator" />
@@ -136,15 +141,27 @@
       ]
     }
     </script>
+
+    <!-- Inline critical CSS for faster first paint -->
+    <style>
+      /* Critical CSS for initial load */
+      *,*::before,*::after{box-sizing:border-box}
+      body{margin:0;font-family:system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+      #root{min-height:100vh}
+      .loading-container{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:2rem;text-align:center;background:#0a0f1c;color:#fff}
+      .loading-spinner{width:2rem;height:2rem;border:3px solid rgba(139,92,246,0.3);border-top-color:#8b5cf6;border-radius:50%;animation:spin 1s linear infinite}
+      @keyframes spin{to{transform:rotate(360deg)}}
+      .loading-text{margin-top:1rem;color:#94a3b8;font-size:0.875rem}
+    </style>
   </head>
 
   <body>
     <div id="root">
-      <div style="padding: 2rem; font-family: system-ui; text-align: center;">
-        <h1>Loading SMART Action Tool...</h1>
-        <p>Free SMART action generator for employment advisors</p>
+      <div class="loading-container">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">Loading SMART Action Tool...</p>
         <noscript>
-          <p style="color: red;">JavaScript is required to use this application. Please enable JavaScript in your browser settings.</p>
+          <p style="color: #ef4444; margin-top: 1rem;">JavaScript is required to use this application. Please enable JavaScript in your browser settings.</p>
         </noscript>
       </div>
     </div>
