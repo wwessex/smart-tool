@@ -146,7 +146,7 @@ export function SmartActionTool() {
   const storage = useSmartStorage();
   const translation = useTranslation();
   const cloudAI = useCloudAI();
-  const aiHasConsent = useAIConsent();
+const aiHasConsent = useAIConsent();
   const today = todayISO();
 
   const [mode, setMode] = useState<Mode>('now');

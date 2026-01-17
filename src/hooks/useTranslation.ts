@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { hasAIConsent } from '@/components/smart/CookieConsent';
 import { useAIConsent } from '@/hooks/useAIConsent';
 
 export interface TranslationResult {
@@ -47,7 +46,7 @@ export function useTranslation() {
 
   const translate = useCallback(async (action: string, targetLanguage: string): Promise<TranslationResult | null> => {
     // Check AI consent first
-    if (!hasAIConsent()) {
+    if (!hasConsent) {
       setState(prev => ({
         ...prev,
         error: "AI processing consent required. Please enable AI features in privacy settings.",
@@ -117,7 +116,7 @@ export function useTranslation() {
       });
       return null;
     }
-  }, []);
+  }, [hasConsent]);
 
   const clearTranslation = useCallback(() => {
     setState({

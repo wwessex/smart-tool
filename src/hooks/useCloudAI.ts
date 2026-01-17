@@ -1,5 +1,4 @@
 import { useState, useCallback, useRef } from "react";
-import { hasAIConsent } from "@/components/smart/CookieConsent";
 import { useAIConsent } from "@/hooks/useAIConsent";
 
 export interface ChatMessage {
@@ -26,8 +25,8 @@ export function useCloudAI() {
 
   // Check if user has given AI consent
   const checkConsent = useCallback((): boolean => {
-    return hasAIConsent();
-  }, []);
+    return hasConsent;
+  }, [hasConsent]);
 
   const chat = useCallback(
     async function* (
