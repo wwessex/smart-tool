@@ -43,12 +43,33 @@ export function hasAIConsent(): boolean {
   return consent?.aiProcessing === true;
 }
 
-function saveConsent(consent: GDPRConsent): void {
-  localStorage.setItem(CONSENT_KEY, JSON.stringify(consent));
+/**
+ * Safely save consent to localStorage, catching quota errors and blocked storage.
+ * Returns true if the save succeeded, false otherwise.
+ */
+function saveConsent(consent: GDPRConsent): boolean {
+  try {
+    localStorage.setItem(CONSENT_KEY, JSON.stringify(consent));
+    return true;
+  } catch (error) {
+    // QuotaExceededError, SecurityError, or other storage errors
+    console.warn('Failed to save consent to localStorage:', error);
+    return false;
+  }
 }
 
-export function clearConsent(): void {
-  localStorage.removeItem(CONSENT_KEY);
+/**
+ * Safely clear consent from localStorage, catching any errors.
+ * Returns true if the removal succeeded, false otherwise.
+ */
+export function clearConsent(): boolean {
+  try {
+    localStorage.removeItem(CONSENT_KEY);
+    return true;
+  } catch (error) {
+    console.warn('Failed to clear consent from localStorage:', error);
+    return false;
+  }
 }
 
 interface CookieConsentProps {

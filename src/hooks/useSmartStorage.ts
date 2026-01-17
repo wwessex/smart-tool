@@ -53,6 +53,35 @@ export interface HistoryItem {
   };
 }
 
+/**
+ * Safely write to localStorage, catching quota errors and blocked storage.
+ * Returns true if the write succeeded, false otherwise.
+ */
+function safeSetItem(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (error) {
+    // QuotaExceededError, SecurityError, or other storage errors
+    console.warn(`localStorage write failed for key "${key}":`, error);
+    return false;
+  }
+}
+
+/**
+ * Safely remove from localStorage, catching any errors.
+ * Returns true if the removal succeeded, false otherwise.
+ */
+function safeRemoveItem(key: string): boolean {
+  try {
+    localStorage.removeItem(key);
+    return true;
+  } catch (error) {
+    console.warn(`localStorage remove failed for key "${key}":`, error);
+    return false;
+  }
+}
+
 function loadList<T>(key: string, fallback: T[]): T[] {
   try {
     const raw = localStorage.getItem(key);
@@ -65,7 +94,7 @@ function loadList<T>(key: string, fallback: T[]): T[] {
 }
 
 function saveList<T>(key: string, list: T[]): void {
-  localStorage.setItem(key, JSON.stringify(list));
+  safeSetItem(key, JSON.stringify(list));
 }
 
 function loadBoolean(key: string, fallback: boolean): boolean {
@@ -130,7 +159,7 @@ export function useSmartStorage() {
   const addToHistory = useCallback((item: HistoryItem) => {
     setHistory(prev => {
       const updated = [item, ...prev].slice(0, 100);
-      localStorage.setItem(STORAGE.history, JSON.stringify(updated));
+      safeSetItem(STORAGE.history, JSON.stringify(updated));
       return updated;
     });
   }, []);
@@ -138,14 +167,14 @@ export function useSmartStorage() {
   const deleteFromHistory = useCallback((id: string) => {
     setHistory(prev => {
       const updated = prev.filter(x => x.id !== id);
-      localStorage.setItem(STORAGE.history, JSON.stringify(updated));
+      safeSetItem(STORAGE.history, JSON.stringify(updated));
       return updated;
     });
   }, []);
 
   const clearHistory = useCallback(() => {
     setHistory([]);
-    localStorage.setItem(STORAGE.history, JSON.stringify([]));
+    safeSetItem(STORAGE.history, JSON.stringify([]));
   }, []);
 
   const addRecentName = useCallback((name: string) => {
@@ -154,7 +183,7 @@ export function useSmartStorage() {
     setRecentNames(prev => {
       let names = prev.filter(n => n.toLowerCase() !== trimmed.toLowerCase());
       names = [trimmed, ...names].slice(0, 10);
-      localStorage.setItem(STORAGE.recentNames, JSON.stringify(names));
+      safeSetItem(STORAGE.recentNames, JSON.stringify(names));
       return names;
     });
   }, []);
@@ -162,7 +191,7 @@ export function useSmartStorage() {
   const importData = useCallback((data: { history?: HistoryItem[]; barriers?: string[]; timescales?: string[]; templates?: ActionTemplate[] }) => {
     if (Array.isArray(data.history)) {
       setHistory(data.history);
-      localStorage.setItem(STORAGE.history, JSON.stringify(data.history));
+      safeSetItem(STORAGE.history, JSON.stringify(data.history));
     }
     if (Array.isArray(data.barriers)) {
       setBarriers(data.barriers);
@@ -209,13 +238,13 @@ export function useSmartStorage() {
 
   const updateMinScoreEnabled = useCallback((enabled: boolean) => {
     setMinScoreEnabled(enabled);
-    localStorage.setItem(STORAGE.minScoreEnabled, String(enabled));
+    safeSetItem(STORAGE.minScoreEnabled, String(enabled));
   }, []);
 
   const updateMinScoreThreshold = useCallback((threshold: number) => {
     const clamped = Math.max(1, Math.min(5, threshold));
     setMinScoreThreshold(clamped);
-    localStorage.setItem(STORAGE.minScoreThreshold, String(clamped));
+    safeSetItem(STORAGE.minScoreThreshold, String(clamped));
   }, []);
 
   // Export all data for GDPR data portability
@@ -242,7 +271,7 @@ export function useSmartStorage() {
   const deleteAllData = useCallback(() => {
     // Clear all localStorage keys
     Object.values(STORAGE).forEach(key => {
-      localStorage.removeItem(key);
+      safeRemoveItem(key);
     });
     
     // Reset state to defaults
@@ -260,18 +289,18 @@ export function useSmartStorage() {
   // Update retention settings
   const updateRetentionEnabled = useCallback((enabled: boolean) => {
     setRetentionEnabled(enabled);
-    localStorage.setItem(STORAGE.retentionEnabled, String(enabled));
+    safeSetItem(STORAGE.retentionEnabled, String(enabled));
   }, []);
 
   const updateRetentionDays = useCallback((days: number) => {
     const clamped = Math.max(7, Math.min(365, days));
     setRetentionDays(clamped);
-    localStorage.setItem(STORAGE.retentionDays, String(clamped));
+    safeSetItem(STORAGE.retentionDays, String(clamped));
   }, []);
 
   const updateParticipantLanguage = useCallback((language: string) => {
     setParticipantLanguage(language);
-    localStorage.setItem(STORAGE.participantLanguage, language);
+    safeSetItem(STORAGE.participantLanguage, language);
   }, []);
 
   // Check and clean up old history items
@@ -298,11 +327,11 @@ export function useSmartStorage() {
 
     if (deletedItems.length > 0) {
       setHistory(remainingItems);
-      localStorage.setItem(STORAGE.history, JSON.stringify(remainingItems));
+      safeSetItem(STORAGE.history, JSON.stringify(remainingItems));
     }
 
     // Update last check timestamp
-    localStorage.setItem(STORAGE.lastRetentionCheck, now.toISOString());
+    safeSetItem(STORAGE.lastRetentionCheck, now.toISOString());
 
     return { deletedCount: deletedItems.length, deletedItems };
   }, [history, retentionEnabled, retentionDays]);

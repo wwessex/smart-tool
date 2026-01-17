@@ -34,6 +34,19 @@ import { useKeyboardShortcuts, groupShortcuts, ShortcutConfig } from '@/hooks/us
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FIX_CRITERION_PROMPT, CRITERION_GUIDANCE } from '@/lib/smart-prompts';
 
+/**
+ * Safely remove from localStorage, catching any errors.
+ */
+function safeRemoveItem(key: string): boolean {
+  try {
+    localStorage.removeItem(key);
+    return true;
+  } catch (error) {
+    console.warn(`localStorage remove failed for key "${key}":`, error);
+    return false;
+  }
+}
+
 // Zod schemas for import validation
 const HistoryItemMetaSchema = z.object({
   date: z.string().max(50),
@@ -1097,7 +1110,7 @@ When given context about a participant, provide suggestions to improve their SMA
                       variant="outline" 
                       size="sm"
                       onClick={() => {
-                        localStorage.removeItem('smartTool.onboardingComplete');
+                        safeRemoveItem('smartTool.onboardingComplete');
                         setSettingsOpen(false);
                         window.location.reload();
                       }}
