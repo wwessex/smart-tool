@@ -53,6 +53,14 @@ export interface HistoryItem {
   };
 }
 
+export interface SmartToolSettings {
+  minScoreEnabled?: boolean;
+  minScoreThreshold?: number;
+  retentionEnabled?: boolean;
+  retentionDays?: number;
+  participantLanguage?: string;
+}
+
 function loadList<T>(key: string, fallback: T[]): T[] {
   try {
     const raw = localStorage.getItem(key);
@@ -159,19 +167,13 @@ export function useSmartStorage() {
     });
   }, []);
 
-  const importData = useCallback((data: { 
-    history?: HistoryItem[]; 
-    barriers?: string[]; 
-    timescales?: string[]; 
-    templates?: ActionTemplate[];
+const importData = useCallback((data: {
+    history?: HistoryItem[];
+    barriers?: string[];
+    timescales?: string[];
     recentNames?: string[];
-    settings?: {
-      minScoreEnabled?: boolean;
-      minScoreThreshold?: number;
-      retentionEnabled?: boolean;
-      retentionDays?: number;
-      participantLanguage?: string;
-    };
+    templates?: ActionTemplate[];
+    settings?: SmartToolSettings;
   }) => {
     if (Array.isArray(data.history)) {
       setHistory(data.history);
@@ -185,21 +187,30 @@ export function useSmartStorage() {
       setTimescales(data.timescales);
       saveList(STORAGE.timescales, data.timescales);
     }
+    if (Array.isArray(data.recentNames)) {
+      const map = new Map<string, string>();
+      for (const raw of data.recentNames) {
+        const n = typeof raw === 'string' ? raw.trim() : '';
+        if (!n) continue;
+        const key = n.toLowerCase();
+        // Preserve the first casing encountered.
+        if (!map.has(key)) map.set(key, n);
+      }
+      const cleaned = Array.from(map.values()).slice(0, 10);
+      setRecentNames(cleaned);
+      saveList(STORAGE.recentNames, cleaned);
+    }
     if (Array.isArray(data.templates)) {
       setTemplates(data.templates);
       saveList(STORAGE.templates, data.templates);
     }
-    if (Array.isArray(data.recentNames)) {
-      setRecentNames(data.recentNames);
-      saveList(STORAGE.recentNames, data.recentNames);
-    }
-    if (data.settings) {
+if (data.settings && typeof data.settings === 'object') {
       if (typeof data.settings.minScoreEnabled === 'boolean') {
         setMinScoreEnabled(data.settings.minScoreEnabled);
         localStorage.setItem(STORAGE.minScoreEnabled, String(data.settings.minScoreEnabled));
       }
       if (typeof data.settings.minScoreThreshold === 'number') {
-        const clamped = Math.max(1, Math.min(5, data.settings.minScoreThreshold));
+        const clamped = Math.max(1, Math.min(5, Math.round(data.settings.minScoreThreshold)));
         setMinScoreThreshold(clamped);
         localStorage.setItem(STORAGE.minScoreThreshold, String(clamped));
       }
@@ -208,7 +219,7 @@ export function useSmartStorage() {
         localStorage.setItem(STORAGE.retentionEnabled, String(data.settings.retentionEnabled));
       }
       if (typeof data.settings.retentionDays === 'number') {
-        const clamped = Math.max(7, Math.min(365, data.settings.retentionDays));
+        const clamped = Math.max(7, Math.min(365, Math.round(data.settings.retentionDays)));
         setRetentionDays(clamped);
         localStorage.setItem(STORAGE.retentionDays, String(clamped));
       }
@@ -261,25 +272,36 @@ export function useSmartStorage() {
 
   // Export all data for GDPR data portability
   // Uses flat structure to ensure round-trip compatibility with import
-  const exportAllData = useCallback(() => {
+const exportAllData = useCallback(() => {
     const exportData = {
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
-      history,
       barriers,
       timescales,
-      templates,
+      history,
       recentNames,
+      templates,
       settings: {
         minScoreEnabled,
         minScoreThreshold,
         retentionEnabled,
         retentionDays,
         participantLanguage,
-      }
+      },
     };
     return exportData;
-  }, [barriers, timescales, history, recentNames, templates, minScoreEnabled, minScoreThreshold, retentionEnabled, retentionDays, participantLanguage]);
+  }, [
+    barriers,
+    timescales,
+    history,
+    recentNames,
+    templates,
+    minScoreEnabled,
+    minScoreThreshold,
+    retentionEnabled,
+    retentionDays,
+    participantLanguage,
+  ]);
 
   // Delete all user data for GDPR right to erasure
   const deleteAllData = useCallback(() => {
@@ -298,6 +320,7 @@ export function useSmartStorage() {
     setMinScoreThreshold(5);
     setRetentionEnabled(true);
     setRetentionDays(DEFAULT_RETENTION_DAYS);
+    setParticipantLanguage('none');
   }, []);
 
   // Update retention settings

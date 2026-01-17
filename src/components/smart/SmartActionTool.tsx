@@ -6,6 +6,7 @@ import { useSmartStorage, HistoryItem, ActionTemplate } from '@/hooks/useSmartSt
 import { useTranslation, SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
 import { useCloudAI } from '@/hooks/useCloudAI';
 import { useAIConsent } from '@/hooks/useAIConsent';
+import { parseSmartToolImportFile } from '@/lib/smart-portability';
 import { 
   todayISO, 
   buildNowOutput, 
@@ -49,60 +50,6 @@ import { WarningBox, WarningText, InputGlow } from './WarningBox';
 import { useKeyboardShortcuts, groupShortcuts, ShortcutConfig } from '@/hooks/useKeyboardShortcuts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FIX_CRITERION_PROMPT, CRITERION_GUIDANCE } from '@/lib/smart-prompts';
-
-// Zod schemas for import validation
-const HistoryItemMetaSchema = z.object({
-  date: z.string().max(50),
-  forename: z.string().max(100),
-  barrier: z.string().max(200),
-  timescale: z.string().max(50),
-  action: z.string().max(2000).optional(),
-  responsible: z.string().max(100).optional(),
-  help: z.string().max(2000).optional(),
-  reason: z.string().max(2000).optional()
-});
-
-const HistoryItemSchema = z.object({
-  id: z.string().max(100),
-  mode: z.enum(['now', 'future']),
-  createdAt: z.string().max(50),
-  text: z.string().max(5000),
-  meta: HistoryItemMetaSchema
-});
-
-const ActionTemplateSchema = z.object({
-  id: z.string().max(100),
-  name: z.string().max(200),
-  mode: z.enum(['now', 'future']),
-  createdAt: z.string().max(50),
-  barrier: z.string().max(200).optional(),
-  action: z.string().max(2000).optional(),
-  responsible: z.string().max(100).optional(),
-  help: z.string().max(2000).optional(),
-  task: z.string().max(2000).optional(),
-  outcome: z.string().max(2000).optional()
-});
-
-const SettingsSchema = z.object({
-  minScoreEnabled: z.boolean().optional(),
-  minScoreThreshold: z.number().min(1).max(5).optional(),
-  retentionEnabled: z.boolean().optional(),
-  retentionDays: z.number().min(7).max(365).optional(),
-  participantLanguage: z.string().max(20).optional()
-});
-
-const ImportSchema = z.object({
-  version: z.number().optional(),
-  exportedAt: z.string().optional(),
-  history: z.array(HistoryItemSchema).max(100).optional(),
-  barriers: z.array(z.string().max(200)).max(50).optional(),
-  timescales: z.array(z.string().max(50)).max(20).optional(),
-  templates: z.array(ActionTemplateSchema).max(50).optional(),
-  recentNames: z.array(z.string().max(100)).max(20).optional(),
-  settings: SettingsSchema.optional()
-});
-
-type ValidatedImport = z.infer<typeof ImportSchema>;
 
 import { GUIDANCE } from '@/lib/smart-data';
 import { Button } from '@/components/ui/button';
@@ -851,16 +798,14 @@ When given context about a participant, provide suggestions to improve their SMA
     reader.onload = () => {
       try {
         const rawData = JSON.parse(String(reader.result || '{}'));
-        // Validate against schema
-        const validated = ImportSchema.parse(rawData);
-        // Pass all validated fields to importData for complete restoration
+        const validated = parseSmartToolImportFile(rawData);
         storage.importData({
           history: validated.history as HistoryItem[] | undefined,
           barriers: validated.barriers,
           timescales: validated.timescales,
-          templates: validated.templates as ActionTemplate[] | undefined,
           recentNames: validated.recentNames,
-          settings: validated.settings
+          templates: validated.templates as ActionTemplate[] | undefined,
+          settings: validated.settings,
         });
         toast({ title: 'Imported', description: 'Data imported successfully.' });
       } catch (error) {
