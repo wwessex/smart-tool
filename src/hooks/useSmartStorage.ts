@@ -188,14 +188,15 @@ export function useSmartStorage() {
       saveList(STORAGE.timescales, data.timescales);
     }
     if (Array.isArray(data.recentNames)) {
-      const cleaned = Array.from(
-        new Map(
-          data.recentNames
-            .map(n => (typeof n === 'string' ? n.trim() : ''))
-            .filter(Boolean)
-            .map(n => [n.toLowerCase(), n] as const)
-        ).values()
-      ).slice(0, 10);
+      const map = new Map<string, string>();
+      for (const raw of data.recentNames) {
+        const n = typeof raw === 'string' ? raw.trim() : '';
+        if (!n) continue;
+        const key = n.toLowerCase();
+        // Preserve the first casing encountered.
+        if (!map.has(key)) map.set(key, n);
+      }
+      const cleaned = Array.from(map.values()).slice(0, 10);
       setRecentNames(cleaned);
       saveList(STORAGE.recentNames, cleaned);
     }
