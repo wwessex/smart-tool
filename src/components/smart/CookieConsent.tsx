@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, forwardRef } from 'react';
+import { useState, useEffect, useCallback, forwardRef, useSyncExternalStore } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -20,6 +20,43 @@ export interface GDPRConsent {
 
 const CONSENT_KEY = 'smartTool.gdprConsent';
 const CONSENT_VERSION = 1;
+
+// Event name for consent changes
+const CONSENT_CHANGE_EVENT = 'smartTool:consentChange';
+
+// Set of listeners for consent changes
+type ConsentListener = () => void;
+const consentListeners = new Set<ConsentListener>();
+
+// Notify all listeners when consent changes
+function notifyConsentChange(): void {
+  // Dispatch custom event for cross-tab/window sync
+  window.dispatchEvent(new CustomEvent(CONSENT_CHANGE_EVENT));
+  // Notify React subscribers
+  consentListeners.forEach(listener => listener());
+}
+
+// Subscribe to consent changes (for useSyncExternalStore)
+function subscribeToConsent(callback: ConsentListener): () => void {
+  consentListeners.add(callback);
+  
+  // Also listen for storage events (cross-tab sync) and custom events
+  const handleStorageChange = (e: StorageEvent) => {
+    if (e.key === CONSENT_KEY) {
+      callback();
+    }
+  };
+  const handleConsentEvent = () => callback();
+  
+  window.addEventListener('storage', handleStorageChange);
+  window.addEventListener(CONSENT_CHANGE_EVENT, handleConsentEvent);
+  
+  return () => {
+    consentListeners.delete(callback);
+    window.removeEventListener('storage', handleStorageChange);
+    window.removeEventListener(CONSENT_CHANGE_EVENT, handleConsentEvent);
+  };
+}
 
 export function getStoredConsent(): GDPRConsent | null {
   try {
@@ -45,10 +82,40 @@ export function hasAIConsent(): boolean {
 
 function saveConsent(consent: GDPRConsent): void {
   localStorage.setItem(CONSENT_KEY, JSON.stringify(consent));
+  // Notify all subscribers that consent has changed
+  notifyConsentChange();
 }
 
 export function clearConsent(): void {
   localStorage.removeItem(CONSENT_KEY);
+  // Notify all subscribers that consent has been cleared
+  notifyConsentChange();
+}
+
+/**
+ * React hook that subscribes to AI consent changes.
+ * Returns the current AI consent state and re-renders when it changes.
+ * Uses useSyncExternalStore for safe concurrent rendering.
+ */
+export function useAIConsent(): boolean {
+  return useSyncExternalStore(
+    subscribeToConsent,
+    hasAIConsent,
+    // Server snapshot (always false on server)
+    () => false
+  );
+}
+
+/**
+ * React hook that returns the full consent object and subscribes to changes.
+ */
+export function useConsent(): GDPRConsent | null {
+  return useSyncExternalStore(
+    subscribeToConsent,
+    getStoredConsent,
+    // Server snapshot
+    () => null
+  );
 }
 
 interface CookieConsentProps {

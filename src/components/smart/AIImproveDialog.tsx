@@ -7,7 +7,7 @@ import { useCloudAI } from '@/hooks/useCloudAI';
 import { SmartCheck } from '@/lib/smart-checker';
 import { IMPROVE_PROMPT } from '@/lib/smart-prompts';
 import { cn } from '@/lib/utils';
-import { hasAIConsent } from './CookieConsent';
+import { useAIConsent } from './CookieConsent';
 import { WarningBox } from './WarningBox';
 
 interface AIImproveDialogProps {
@@ -36,7 +36,7 @@ export function AIImproveDialog({
   onApply,
 }: AIImproveDialogProps) {
   const { chat, isGenerating, abort } = useCloudAI();
-  const hasConsent = hasAIConsent();
+  const hasConsent = useAIConsent();
   const [result, setResult] = useState<ImproveResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
