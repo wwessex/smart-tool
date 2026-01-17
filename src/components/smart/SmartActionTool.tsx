@@ -274,7 +274,6 @@ export function SmartActionTool() {
   }, [mode, nowForm, futureForm, validateNow, validateFuture, toast]);
 
   // Auto-generate on form changes (skip when output was set by AI fix)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     // Only regenerate if output came from form, not from AI fix or manual edit
     if (outputSource === 'ai') {
@@ -288,7 +287,7 @@ export function SmartActionTool() {
     generateOutput(false);
   }, [nowForm, futureForm, mode, generateOutput, outputSource]);
 
-  const handleCopy = async () => {
+  const handleCopy = useCallback(async () => {
     if (!output.trim()) {
       toast({ title: 'Nothing to copy', description: 'Generate an action first.', variant: 'destructive' });
       return;
@@ -307,7 +306,7 @@ export function SmartActionTool() {
     } catch {
       toast({ title: 'Copy failed', description: 'Please copy manually.', variant: 'destructive' });
     }
-  };
+  }, [output, translatedOutput, storage.participantLanguage, toast]);
 
   const handleDownload = () => {
     if (!output.trim()) {
@@ -331,7 +330,7 @@ export function SmartActionTool() {
     URL.revokeObjectURL(url);
   };
 
-  const handleClear = () => {
+  const handleClear = useCallback(() => {
     if (mode === 'now') {
       setNowForm({ date: today, forename: '', barrier: '', action: '', responsible: '', help: '', timescale: '' });
     } else {
@@ -343,7 +342,7 @@ export function SmartActionTool() {
     translation.clearTranslation();
     setShowValidation(false);
     setSuggestQuery('');
-  };
+  }, [mode, today, translation]);
 
   // Handle translation
   const handleTranslate = useCallback(async () => {
@@ -372,7 +371,7 @@ export function SmartActionTool() {
     }
   }, [storage, translation]);
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     if (!output.trim()) {
       toast({ title: 'Nothing to save', description: 'Generate an action first.', variant: 'destructive' });
       return;
@@ -412,9 +411,9 @@ export function SmartActionTool() {
 
     storage.addToHistory(item);
     toast({ title: 'Saved!', description: translatedOutput ? 'Action with translation saved to history.' : 'Action saved to history.' });
-  };
+  }, [output, storage, smartCheck.overallScore, mode, nowForm, futureForm, translatedOutput, toast]);
 
-  const handleAIDraft = () => {
+  const handleAIDraft = useCallback(() => {
     if (mode === 'now') {
       if (!nowForm.forename.trim() || !nowForm.barrier.trim()) {
         toast({ title: 'Missing info', description: 'Add a forename and barrier first.', variant: 'destructive' });
@@ -444,7 +443,7 @@ export function SmartActionTool() {
       setFutureForm(prev => ({ ...prev, outcome }));
       toast({ title: 'Draft inserted', description: 'AI draft added. Edit as needed.' });
     }
-  };
+  }, [mode, nowForm, futureForm, suggestQuery, toast]);
 
   const handleEditHistory = (item: HistoryItem) => {
     setMode(item.mode);
