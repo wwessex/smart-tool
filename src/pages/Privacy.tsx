@@ -11,7 +11,7 @@ const fadeIn = {
 
 export default function Privacy() {
   const navigate = useNavigate();
-  const lastUpdated = "16 January 2026";
+  const lastUpdated = "17 January 2026";
 
   return (
     <div className="min-h-screen bg-background">
@@ -173,8 +173,10 @@ export default function Privacy() {
                 and is not stored after the response is generated.
               </li>
               <li>
-                <strong>Server logs:</strong> Technical logs (without personal data) may be retained 
-                for up to 30 days for security monitoring.
+                <strong>Server/hosting logs:</strong> Our hosting infrastructure (Supabase) may retain 
+                server access logs including IP addresses, user agents, and timestamps for up to 30 days 
+                for security and operational purposes. IP addresses are considered online identifiers 
+                under GDPR.
               </li>
             </ul>
           </section>
@@ -226,19 +228,66 @@ export default function Privacy() {
           <section className="p-6 rounded-xl border bg-card">
             <h2 className="text-xl font-semibold mb-4">Third-Party Services</h2>
             <p className="text-muted-foreground mb-4">
-              When you use AI features (with your consent), data is processed by:
+              When you use AI features (with your consent), data is processed by the following services:
             </p>
-            <div className="p-4 rounded-lg bg-muted/30">
-              <p className="font-medium">Lovable AI Gateway</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                A secure AI processing service. Data is transmitted over HTTPS, processed in real-time, 
-                and not retained or used for model training.
+            
+            <div className="space-y-3">
+              <div className="p-4 rounded-lg bg-muted/30">
+                <p className="font-medium">Supabase (Data Processor)</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Our backend infrastructure provider. Supabase Edge Functions handle AI and translation 
+                  requests. Data is transmitted over HTTPS and processed in EU/UK data centres.
+                </p>
+                <a 
+                  href="https://supabase.com/privacy" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-2"
+                >
+                  Supabase Privacy Policy
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+
+              <div className="p-4 rounded-lg bg-muted/30">
+                <p className="font-medium">Lovable AI Gateway (Sub-processor)</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  AI model provider accessed via Supabase. Processes action text for improvements and 
+                  translations. Data is not retained or used for model training.
+                </p>
+              </div>
+            </div>
+
+            <p className="text-muted-foreground mt-4">
+              We do not use analytics services, advertising networks, or social media tracking.
+            </p>
+          </section>
+
+          {/* Experimental Local AI */}
+          <section className="p-6 rounded-xl border bg-card">
+            <h2 className="text-xl font-semibold mb-4">Experimental Local AI Feature</h2>
+            <p className="text-muted-foreground mb-4">
+              When you enable the experimental "Local AI" feature, your browser may download AI model 
+              files from third-party sources:
+            </p>
+            
+            <ul className="list-disc pl-6 text-muted-foreground space-y-1 text-sm">
+              <li><strong>Hugging Face</strong> (huggingface.co) - AI model hosting</li>
+              <li><strong>GitHub</strong> (raw.githubusercontent.com) - Model configuration files</li>
+              <li><strong>WebGPU Report</strong> (webgpureport.org) - Browser capability detection</li>
+            </ul>
+            
+            <p className="text-sm text-muted-foreground mt-3">
+              These requests share your IP address and browser metadata with these services. 
+              Local AI runs entirely in your browser after download—no action text is sent externally.
+            </p>
+            
+            <div className="mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <p className="text-sm text-amber-700 dark:text-amber-400">
+                <strong>Note:</strong> Local AI is disabled by default. Downloads only occur when you 
+                explicitly enable this feature in Settings.
               </p>
             </div>
-            <p className="text-muted-foreground mt-4">
-              No other third parties receive your personal data. We do not use analytics services, 
-              advertising networks, or social media tracking.
-            </p>
           </section>
 
           {/* Security */}
