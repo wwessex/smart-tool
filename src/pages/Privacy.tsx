@@ -183,15 +183,20 @@ export default function Privacy() {
             <h2 className="text-xl font-semibold mb-4">Data Retention</h2>
             <ul className="list-disc pl-6 text-muted-foreground space-y-2">
               <li>
-                <strong>Local storage:</strong> Data remains on your device until you clear it manually 
-                or clear your browser data. You can delete all data at any time from Settings.
+                <strong>Local storage:</strong> Data is stored on your device. You can delete all data 
+                at any time from Settings → Privacy & Data.
+              </li>
+              <li>
+                <strong>Automatic cleanup:</strong> By default, action history older than 90 days is 
+                automatically deleted when you open the app. You can adjust this period (7-365 days) 
+                or disable automatic cleanup entirely in Settings → Privacy & Data.
               </li>
               <li>
                 <strong>AI processing:</strong> Data sent to AI services is processed in real-time 
                 and is not stored after the response is generated.
               </li>
               <li>
-                <strong>Server/hosting logs:</strong> Our hosting infrastructure (Supabase) may retain 
+                <strong>Server/hosting logs:</strong> Our hosting infrastructure may retain 
                 server access logs including IP addresses, user agents, and timestamps for up to 30 days 
                 for security and operational purposes. IP addresses are considered online identifiers 
                 under GDPR.
