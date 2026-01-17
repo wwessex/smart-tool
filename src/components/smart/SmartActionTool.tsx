@@ -27,7 +27,7 @@ import { HistoryInsights } from './HistoryInsights';
 import { OnboardingTutorial, useOnboarding } from './OnboardingTutorial';
 import { FloatingToolbar } from './FloatingToolbar';
 import { Footer } from './Footer';
-import { ManageConsentDialog, getStoredConsent } from './CookieConsent';
+import { ManageConsentDialog, getStoredConsent, hasAIConsent } from './CookieConsent';
 import { LanguageSelector } from './LanguageSelector';
 import { WarningBox, WarningText, InputGlow } from './WarningBox';
 import { useKeyboardShortcuts, groupShortcuts, ShortcutConfig } from '@/hooks/useKeyboardShortcuts';
@@ -1164,9 +1164,24 @@ When given context about a participant, provide suggestions to improve their SMA
 
                   {/* Privacy & Data Section - GDPR Compliance */}
                   <div className="p-4 rounded-lg border bg-card space-y-4">
-                    <div className="flex items-center gap-2">
-                      <Shield className="w-5 h-5 text-primary" />
-                      <h3 className="font-bold">Privacy & Data</h3>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-5 h-5 text-primary" />
+                        <h3 className="font-bold">Privacy & Data</h3>
+                      </div>
+                      {/* AI Consent Status Badge */}
+                      <div className={cn(
+                        "flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium",
+                        hasAIConsent() 
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" 
+                          : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                      )}>
+                        <div className={cn(
+                          "w-2 h-2 rounded-full",
+                          hasAIConsent() ? "bg-emerald-500" : "bg-amber-500"
+                        )} />
+                        AI: {hasAIConsent() ? "Enabled" : "Disabled"}
+                      </div>
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Manage your data and privacy preferences in accordance with UK GDPR.

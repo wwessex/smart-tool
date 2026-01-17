@@ -33,6 +33,7 @@ import { useWebGPUSupport } from "./WebGPUCheck";
 import { useLLM, ChatMessage, RECOMMENDED_MODELS } from "@/hooks/useLLM";
 import { useCloudAI } from "@/hooks/useCloudAI";
 import { cn } from "@/lib/utils";
+import { hasAIConsent } from "./CookieConsent";
 
 // Detect Safari browser
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -101,6 +102,7 @@ function AIChatContent({
   
   const localAI = useLLM();
   const cloudAI = useCloudAI();
+  const cloudHasConsent = hasAIConsent();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState(initialContext || "");
@@ -110,7 +112,7 @@ function AIChatContent({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isGenerating = mode === "local" ? localAI.isGenerating : cloudAI.isGenerating;
-  const isReady = mode === "local" ? localAI.isReady : true; // Cloud is always ready
+  const isReady = mode === "local" ? localAI.isReady : (cloudHasConsent ? true : false); // Cloud requires consent
   const error = mode === "local" ? localAI.error : cloudAI.error;
   const isLoading = mode === "local" ? localAI.isLoading : false;
   const loadingProgress = localAI.loadingProgress;
@@ -360,6 +362,33 @@ function AIChatContent({
         </Button>
       </div>
 
+      {/* Cloud AI Consent Warning */}
+      {mode === "cloud" && !cloudHasConsent && (
+        <div className="px-4 py-2">
+          <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
+            <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <AlertTitle className="text-amber-800 dark:text-amber-300 text-sm">AI Consent Required</AlertTitle>
+            <AlertDescription className="text-xs text-amber-700 dark:text-amber-400 space-y-2">
+              <p>Cloud AI requires consent to process your messages. Enable AI features in your privacy settings.</p>
+              {webGPUSupported && (
+                <p className="font-medium">Alternatively, switch to Local AI which runs entirely in your browser without sending data externally.</p>
+              )}
+              {webGPUSupported && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setMode("local")}
+                  className="mt-2 h-7 text-xs border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900/50"
+                >
+                  <HardDrive className="h-3 w-3 mr-1" />
+                  Use Local AI (No Consent Required)
+                </Button>
+              )}
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+
       {/* Messages */}
       <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
         <div className="space-y-4">
@@ -368,7 +397,9 @@ function AIChatContent({
               <Bot className="h-12 w-12 mx-auto mb-2 opacity-50" />
               <p className="text-sm">Start a conversation with AI</p>
               <p className="text-xs mt-1">
-                {mode === "cloud" ? "Powered by Gemini" : "Running locally in your browser"}
+                {mode === "cloud" 
+                  ? (cloudHasConsent ? "Powered by Gemini" : "Enable AI consent to start") 
+                  : "Running locally in your browser"}
               </p>
             </div>
           )}
