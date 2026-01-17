@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -14,7 +14,7 @@ interface ComboboxInputProps {
   'data-field'?: string;
 }
 
-export function ComboboxInput({
+export const ComboboxInput = memo(function ComboboxInput({
   value,
   onChange,
   options,
@@ -115,4 +115,4 @@ export function ComboboxInput({
       </PopoverContent>
     </Popover>
   );
-}
+});

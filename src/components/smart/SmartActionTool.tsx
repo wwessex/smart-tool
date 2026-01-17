@@ -1,4 +1,5 @@
-import { useState, useCallback, useMemo, useEffect, memo, lazy, Suspense } from 'react';
+import { useState, useCallback, useMemo, useEffect, memo, lazy, Suspense, useRef } from 'react';
+import { useDebounce } from '@/hooks/useDebounce';
 import { motion, AnimatePresence } from 'framer-motion';
 import { z } from 'zod';
 import { useSmartStorage, HistoryItem, ActionTemplate } from '@/hooks/useSmartStorage';
@@ -23,8 +24,22 @@ import { LLMChatButton } from './LLMChat';
 import { ActionWizard } from './ActionWizard';
 import { AIImproveDialog } from './AIImproveDialog';
 import { ShortcutsHelp } from './ShortcutsHelp';
-import { HistoryInsights } from './HistoryInsights';
 import { OnboardingTutorial, useOnboarding } from './OnboardingTutorial';
+
+// Lazy load HistoryInsights as it uses recharts which is a heavy dependency
+const HistoryInsights = lazy(() => import('./HistoryInsights').then(module => ({ default: module.HistoryInsights })));
+
+// Skeleton loader for lazy-loaded components
+const InsightsSkeleton = () => (
+  <div className="space-y-4 animate-pulse">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {[1, 2, 3, 4].map(i => (
+        <div key={i} className="h-20 rounded-xl bg-muted" />
+      ))}
+    </div>
+    <div className="h-48 rounded-xl bg-muted" />
+  </div>
+);
 import { FloatingToolbar } from './FloatingToolbar';
 import { Footer } from './Footer';
 import { ManageConsentDialog, getStoredConsent, hasAIConsent } from './CookieConsent';
@@ -181,16 +196,26 @@ export function SmartActionTool() {
 
   // GDPR: Auto-cleanup old history items on load
   useEffect(() => {
-    if (storage.shouldRunCleanup()) {
-      const { deletedCount } = storage.cleanupOldHistory();
-      if (deletedCount > 0) {
-        toast({
-          title: 'Data retention cleanup',
-          description: `${deletedCount} action${deletedCount === 1 ? '' : 's'} older than ${storage.retentionDays} days ${deletedCount === 1 ? 'was' : 'were'} automatically removed.`,
-        });
+    let isMounted = true;
+    
+    // Defer cleanup check to avoid blocking initial render
+    const timeoutId = setTimeout(() => {
+      if (isMounted && storage.shouldRunCleanup()) {
+        const { deletedCount } = storage.cleanupOldHistory();
+        if (isMounted && deletedCount > 0) {
+          toast({
+            title: 'Data retention cleanup',
+            description: `${deletedCount} action${deletedCount === 1 ? '' : 's'} older than ${storage.retentionDays} days ${deletedCount === 1 ? 'was' : 'were'} automatically removed.`,
+          });
+        }
       }
-    }
-  // Run only once on mount
+    }, 100);
+    
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+    };
+  // Only run once on mount - storage methods are stable
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -274,7 +299,6 @@ export function SmartActionTool() {
   }, [mode, nowForm, futureForm, validateNow, validateFuture, toast]);
 
   // Auto-generate on form changes (skip when output was set by AI fix)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     // Only regenerate if output came from form, not from AI fix or manual edit
     if (outputSource === 'ai') {
@@ -286,9 +310,9 @@ export function SmartActionTool() {
       return; // Don't overwrite manual edits until form changes
     }
     generateOutput(false);
-  }, [nowForm, futureForm, mode, generateOutput, outputSource]);
+  }, [nowForm, futureForm, mode, outputSource, generateOutput]);
 
-  const handleCopy = async () => {
+  const handleCopy = useCallback(async () => {
     if (!output.trim()) {
       toast({ title: 'Nothing to copy', description: 'Generate an action first.', variant: 'destructive' });
       return;
@@ -307,9 +331,9 @@ export function SmartActionTool() {
     } catch {
       toast({ title: 'Copy failed', description: 'Please copy manually.', variant: 'destructive' });
     }
-  };
+  }, [output, translatedOutput, storage.participantLanguage, toast]);
 
-  const handleDownload = () => {
+  const handleDownload = useCallback(() => {
     if (!output.trim()) {
       toast({ title: 'Nothing to download', description: 'Generate an action first.', variant: 'destructive' });
       return;
@@ -329,9 +353,9 @@ export function SmartActionTool() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-  };
+  }, [output, translatedOutput, storage.participantLanguage, mode, toast]);
 
-  const handleClear = () => {
+  const handleClear = useCallback(() => {
     if (mode === 'now') {
       setNowForm({ date: today, forename: '', barrier: '', action: '', responsible: '', help: '', timescale: '' });
     } else {
@@ -343,7 +367,7 @@ export function SmartActionTool() {
     translation.clearTranslation();
     setShowValidation(false);
     setSuggestQuery('');
-  };
+  }, [mode, today, translation]);
 
   // Handle translation
   const handleTranslate = useCallback(async () => {
@@ -372,7 +396,7 @@ export function SmartActionTool() {
     }
   }, [storage, translation]);
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     if (!output.trim()) {
       toast({ title: 'Nothing to save', description: 'Generate an action first.', variant: 'destructive' });
       return;
@@ -412,9 +436,9 @@ export function SmartActionTool() {
 
     storage.addToHistory(item);
     toast({ title: 'Saved!', description: translatedOutput ? 'Action with translation saved to history.' : 'Action saved to history.' });
-  };
+  }, [output, storage, smartCheck.overallScore, mode, nowForm, futureForm, translatedOutput, toast]);
 
-  const handleAIDraft = () => {
+  const handleAIDraft = useCallback(() => {
     if (mode === 'now') {
       if (!nowForm.forename.trim() || !nowForm.barrier.trim()) {
         toast({ title: 'Missing info', description: 'Add a forename and barrier first.', variant: 'destructive' });
@@ -444,7 +468,7 @@ export function SmartActionTool() {
       setFutureForm(prev => ({ ...prev, outcome }));
       toast({ title: 'Draft inserted', description: 'AI draft added. Edit as needed.' });
     }
-  };
+  }, [mode, nowForm, futureForm, suggestQuery, toast]);
 
   const handleEditHistory = (item: HistoryItem) => {
     setMode(item.mode);
@@ -526,9 +550,12 @@ export function SmartActionTool() {
     );
   }, [storage.history, historySearch]);
 
-  // SMART Check - auto-detect elements in real-time
+  // Debounce output for SMART checking to avoid running on every keystroke
+  const debouncedOutput = useDebounce(output, 150);
+  
+  // SMART Check - auto-detect elements with debounced input for performance
   const smartCheck = useMemo((): SmartCheck => {
-    if (!output.trim()) {
+    if (!debouncedOutput.trim()) {
       return {
         specific: { met: false, confidence: 'low', reason: 'Generate an action first' },
         measurable: { met: false, confidence: 'low', reason: 'Add dates or quantities' },
@@ -544,8 +571,8 @@ export function SmartActionTool() {
       ? { forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, date: nowForm.date }
       : { forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, date: futureForm.date };
     
-    return checkSmart(output, meta);
-  }, [output, mode, nowForm, futureForm]);
+    return checkSmart(debouncedOutput, meta);
+  }, [debouncedOutput, mode, nowForm.forename, nowForm.barrier, nowForm.timescale, nowForm.date, futureForm.forename, futureForm.task, futureForm.timescale, futureForm.date]);
 
   // Handle template insertion
   const handleInsertTemplate = useCallback((template: ActionTemplate) => {
@@ -1938,7 +1965,9 @@ When given context about a participant, provide suggestions to improve their SMA
                 </TabsContent>
 
                 <TabsContent value="insights" className="mt-4">
-                  <HistoryInsights history={storage.history} />
+                  <Suspense fallback={<InsightsSkeleton />}>
+                    <HistoryInsights history={storage.history} />
+                  </Suspense>
                 </TabsContent>
               </Tabs>
             </div>
