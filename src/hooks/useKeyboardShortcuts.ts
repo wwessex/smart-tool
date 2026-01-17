@@ -9,6 +9,8 @@ export interface ShortcutConfig {
   action: () => void;
   description: string;
   category?: string;
+  /** Unique identifier for the shortcut, used for UI components to look up formatted shortcuts */
+  id?: string;
 }
 
 export interface ShortcutGroup {
@@ -88,4 +90,18 @@ export function groupShortcuts(shortcuts: ShortcutConfig[]): ShortcutGroup[] {
     category,
     shortcuts,
   }));
+}
+
+/**
+ * Creates a lookup map from action IDs to formatted shortcut strings.
+ * This allows UI components to display consistent shortcut hints.
+ */
+export function createShortcutMap(shortcuts: ShortcutConfig[]): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const shortcut of shortcuts) {
+    if (shortcut.id) {
+      map[shortcut.id] = formatShortcut(shortcut);
+    }
+  }
+  return map;
 }
