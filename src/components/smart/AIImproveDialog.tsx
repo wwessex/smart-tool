@@ -1,12 +1,14 @@
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wand2, Check, X, ArrowRight, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Wand2, Check, X, ArrowRight, Loader2, AlertCircle, RefreshCw, Shield } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useCloudAI } from '@/hooks/useCloudAI';
 import { SmartCheck } from '@/lib/smart-checker';
 import { IMPROVE_PROMPT } from '@/lib/smart-prompts';
 import { cn } from '@/lib/utils';
+import { hasAIConsent } from './CookieConsent';
+import { WarningBox } from './WarningBox';
 
 interface AIImproveDialogProps {
   open: boolean;
@@ -34,6 +36,7 @@ export function AIImproveDialog({
   onApply,
 }: AIImproveDialogProps) {
   const { chat, isGenerating, abort } = useCloudAI();
+  const hasConsent = hasAIConsent();
   const [result, setResult] = useState<ImproveResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -128,17 +131,37 @@ export function AIImproveDialog({
             </div>
           </div>
 
+          {/* Consent Warning */}
+          {!hasConsent && (
+            <WarningBox variant="warning" title="AI Consent Required">
+              <p className="text-sm">
+                Enable AI features in <strong>Settings → Privacy & Data</strong> to use this feature.
+              </p>
+            </WarningBox>
+          )}
+
           {/* Generate Button */}
           {!result && !isGenerating && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="flex justify-center py-4"
+              className="flex flex-col items-center gap-3 py-4"
             >
-              <Button onClick={handleImprove} size="lg" className="gap-2">
+              <Button 
+                onClick={handleImprove} 
+                size="lg" 
+                className="gap-2"
+                disabled={!hasConsent}
+              >
                 <Wand2 className="w-4 h-4" />
                 Generate Improvement
               </Button>
+              {!hasConsent && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Shield className="w-3 h-3" />
+                  AI consent required
+                </p>
+              )}
             </motion.div>
           )}
 

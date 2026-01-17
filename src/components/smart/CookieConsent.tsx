@@ -63,13 +63,15 @@ export function CookieConsent({ onConsentChange }: CookieConsentProps) {
   const [analytics, setAnalytics] = useState(false);
 
   useEffect(() => {
-    // Check if consent has been given
+    // Check if consent has been given or version has changed
     const consent = getStoredConsent();
     if (!consent) {
-      // Small delay to prevent flash on load
+      // No consent - show banner
       const timer = setTimeout(() => setShowBanner(true), 500);
       return () => clearTimeout(timer);
     }
+    // Note: getStoredConsent already returns null if version mismatch,
+    // so if consent exists here, it's valid and current version
   }, []);
 
   const handleAcceptAll = useCallback(() => {
