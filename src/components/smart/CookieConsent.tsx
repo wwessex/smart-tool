@@ -21,8 +21,6 @@ export interface GDPRConsent {
 const CONSENT_KEY = 'smartTool.gdprConsent';
 const CONSENT_VERSION = 1;
 
-// Used to notify the app (same-tab) that consent changed.
-// Cross-tab updates are handled via the native `storage` event.
 export const GDPR_CONSENT_CHANGE_EVENT = 'smartTool.gdprConsentChanged';
 export const GDPR_CONSENT_STORAGE_KEY = CONSENT_KEY;
 
