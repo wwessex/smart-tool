@@ -159,7 +159,20 @@ export function useSmartStorage() {
     });
   }, []);
 
-  const importData = useCallback((data: { history?: HistoryItem[]; barriers?: string[]; timescales?: string[]; templates?: ActionTemplate[] }) => {
+  const importData = useCallback((data: { 
+    history?: HistoryItem[]; 
+    barriers?: string[]; 
+    timescales?: string[]; 
+    templates?: ActionTemplate[];
+    recentNames?: string[];
+    settings?: {
+      minScoreEnabled?: boolean;
+      minScoreThreshold?: number;
+      retentionEnabled?: boolean;
+      retentionDays?: number;
+      participantLanguage?: string;
+    };
+  }) => {
     if (Array.isArray(data.history)) {
       setHistory(data.history);
       localStorage.setItem(STORAGE.history, JSON.stringify(data.history));
@@ -175,6 +188,34 @@ export function useSmartStorage() {
     if (Array.isArray(data.templates)) {
       setTemplates(data.templates);
       saveList(STORAGE.templates, data.templates);
+    }
+    if (Array.isArray(data.recentNames)) {
+      setRecentNames(data.recentNames);
+      saveList(STORAGE.recentNames, data.recentNames);
+    }
+    if (data.settings) {
+      if (typeof data.settings.minScoreEnabled === 'boolean') {
+        setMinScoreEnabled(data.settings.minScoreEnabled);
+        localStorage.setItem(STORAGE.minScoreEnabled, String(data.settings.minScoreEnabled));
+      }
+      if (typeof data.settings.minScoreThreshold === 'number') {
+        const clamped = Math.max(1, Math.min(5, data.settings.minScoreThreshold));
+        setMinScoreThreshold(clamped);
+        localStorage.setItem(STORAGE.minScoreThreshold, String(clamped));
+      }
+      if (typeof data.settings.retentionEnabled === 'boolean') {
+        setRetentionEnabled(data.settings.retentionEnabled);
+        localStorage.setItem(STORAGE.retentionEnabled, String(data.settings.retentionEnabled));
+      }
+      if (typeof data.settings.retentionDays === 'number') {
+        const clamped = Math.max(7, Math.min(365, data.settings.retentionDays));
+        setRetentionDays(clamped);
+        localStorage.setItem(STORAGE.retentionDays, String(clamped));
+      }
+      if (typeof data.settings.participantLanguage === 'string') {
+        setParticipantLanguage(data.settings.participantLanguage);
+        localStorage.setItem(STORAGE.participantLanguage, data.settings.participantLanguage);
+      }
     }
   }, []);
 
@@ -219,24 +260,26 @@ export function useSmartStorage() {
   }, []);
 
   // Export all data for GDPR data portability
+  // Uses flat structure to ensure round-trip compatibility with import
   const exportAllData = useCallback(() => {
     const exportData = {
       version: 1,
       exportedAt: new Date().toISOString(),
-      data: {
-        barriers,
-        timescales,
-        history,
-        recentNames,
-        templates,
-        settings: {
-          minScoreEnabled,
-          minScoreThreshold,
-        }
+      history,
+      barriers,
+      timescales,
+      templates,
+      recentNames,
+      settings: {
+        minScoreEnabled,
+        minScoreThreshold,
+        retentionEnabled,
+        retentionDays,
+        participantLanguage,
       }
     };
     return exportData;
-  }, [barriers, timescales, history, recentNames, templates, minScoreEnabled, minScoreThreshold]);
+  }, [barriers, timescales, history, recentNames, templates, minScoreEnabled, minScoreThreshold, retentionEnabled, retentionDays, participantLanguage]);
 
   // Delete all user data for GDPR right to erasure
   const deleteAllData = useCallback(() => {

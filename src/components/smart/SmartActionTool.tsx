@@ -70,12 +70,36 @@ const HistoryItemSchema = z.object({
   meta: HistoryItemMetaSchema
 });
 
+const ActionTemplateSchema = z.object({
+  id: z.string().max(100),
+  name: z.string().max(200),
+  mode: z.enum(['now', 'future']),
+  createdAt: z.string().max(50),
+  barrier: z.string().max(200).optional(),
+  action: z.string().max(2000).optional(),
+  responsible: z.string().max(100).optional(),
+  help: z.string().max(2000).optional(),
+  task: z.string().max(2000).optional(),
+  outcome: z.string().max(2000).optional()
+});
+
+const SettingsSchema = z.object({
+  minScoreEnabled: z.boolean().optional(),
+  minScoreThreshold: z.number().min(1).max(5).optional(),
+  retentionEnabled: z.boolean().optional(),
+  retentionDays: z.number().min(7).max(365).optional(),
+  participantLanguage: z.string().max(20).optional()
+});
+
 const ImportSchema = z.object({
   version: z.number().optional(),
   exportedAt: z.string().optional(),
   history: z.array(HistoryItemSchema).max(100).optional(),
   barriers: z.array(z.string().max(200)).max(50).optional(),
-  timescales: z.array(z.string().max(50)).max(20).optional()
+  timescales: z.array(z.string().max(50)).max(20).optional(),
+  templates: z.array(ActionTemplateSchema).max(50).optional(),
+  recentNames: z.array(z.string().max(100)).max(20).optional(),
+  settings: SettingsSchema.optional()
 });
 
 type ValidatedImport = z.infer<typeof ImportSchema>;
@@ -636,7 +660,8 @@ Key principles:
 When given context about a participant, provide suggestions to improve their SMART action.`;
 
   const handleExport = () => {
-    const payload = { version: 1, exportedAt: new Date().toISOString(), history: storage.history, barriers: storage.barriers, timescales: storage.timescales };
+    // Use the same format as exportAllData for consistency and full round-trip support
+    const payload = storage.exportAllData();
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -828,11 +853,14 @@ When given context about a participant, provide suggestions to improve their SMA
         const rawData = JSON.parse(String(reader.result || '{}'));
         // Validate against schema
         const validated = ImportSchema.parse(rawData);
-        // Cast to expected import type after validation
+        // Pass all validated fields to importData for complete restoration
         storage.importData({
           history: validated.history as HistoryItem[] | undefined,
           barriers: validated.barriers,
-          timescales: validated.timescales
+          timescales: validated.timescales,
+          templates: validated.templates as ActionTemplate[] | undefined,
+          recentNames: validated.recentNames,
+          settings: validated.settings
         });
         toast({ title: 'Imported', description: 'Data imported successfully.' });
       } catch (error) {
