@@ -47,7 +47,7 @@ import { Footer } from './Footer';
 import { ManageConsentDialog, getStoredConsent } from './CookieConsent';
 import { LanguageSelector } from './LanguageSelector';
 import { WarningBox, WarningText, InputGlow } from './WarningBox';
-import { useKeyboardShortcuts, groupShortcuts, ShortcutConfig } from '@/hooks/useKeyboardShortcuts';
+import { useKeyboardShortcuts, groupShortcuts, createShortcutMap, ShortcutConfig } from '@/hooks/useKeyboardShortcuts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FIX_CRITERION_PROMPT, CRITERION_GUIDANCE } from '@/lib/smart-prompts';
 
@@ -770,15 +770,19 @@ When given context about a participant, provide suggestions to improve their SMA
   }, [lastFixAttempt, handleFixCriterion]);
 
   // Keyboard shortcuts configuration
+  // Note: 'id' values must match the action IDs used in FloatingToolbar for shortcut hints to work
   const shortcuts: ShortcutConfig[] = useMemo(() => [
-    { key: 'Enter', ctrl: true, action: handleSave, description: 'Save to history', category: 'Actions' },
-    { key: 'd', ctrl: true, action: handleAIDraft, description: 'AI Draft', category: 'Actions' },
-    { key: 'c', ctrl: true, shift: true, action: handleCopy, description: 'Copy output', category: 'Actions' },
-    { key: 'x', ctrl: true, shift: true, action: handleClear, description: 'Clear form', category: 'Actions' },
-    { key: '1', ctrl: true, action: () => { setMode('now'); setShowValidation(false); }, description: 'Switch to Now mode', category: 'Navigation' },
-    { key: '2', ctrl: true, action: () => { setMode('future'); setShowValidation(false); }, description: 'Switch to Future mode', category: 'Navigation' },
-    { key: '?', action: () => setShortcutsHelpOpen(true), description: 'Show shortcuts help', category: 'Help' },
+    { id: 'save', key: 'Enter', ctrl: true, action: handleSave, description: 'Save to history', category: 'Actions' },
+    { id: 'ai-draft', key: 'd', ctrl: true, action: handleAIDraft, description: 'AI Draft', category: 'Actions' },
+    { id: 'copy', key: 'c', ctrl: true, shift: true, action: handleCopy, description: 'Copy output', category: 'Actions' },
+    { id: 'clear', key: 'x', ctrl: true, shift: true, action: handleClear, description: 'Clear form', category: 'Actions' },
+    { id: 'mode-now', key: '1', ctrl: true, action: () => { setMode('now'); setShowValidation(false); }, description: 'Switch to Now mode', category: 'Navigation' },
+    { id: 'mode-future', key: '2', ctrl: true, action: () => { setMode('future'); setShowValidation(false); }, description: 'Switch to Future mode', category: 'Navigation' },
+    { id: 'help', key: '?', action: () => setShortcutsHelpOpen(true), description: 'Show shortcuts help', category: 'Help' },
   ], [handleSave, handleAIDraft, handleCopy, handleClear]);
+
+  // Create a map of shortcut IDs to formatted shortcut strings for UI components
+  const shortcutMap = useMemo(() => createShortcutMap(shortcuts), [shortcuts]);
 
   useKeyboardShortcuts(shortcuts, true);
 
@@ -1995,6 +1999,7 @@ When given context about a participant, provide suggestions to improve their SMA
         onDownload={handleDownload}
         hasOutput={!!output.trim()}
         copied={copied}
+        shortcutMap={shortcutMap}
       />
 
       {/* Footer */}

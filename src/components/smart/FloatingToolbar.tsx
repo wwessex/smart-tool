@@ -13,6 +13,8 @@ interface FloatingToolbarProps {
   hasOutput: boolean;
   copied?: boolean;
   className?: string;
+  /** Map of action IDs to formatted shortcut strings (e.g., { 'copy': 'Ctrl+Shift+C' }) */
+  shortcutMap?: Record<string, string>;
 }
 
 export function FloatingToolbar({
@@ -24,13 +26,13 @@ export function FloatingToolbar({
   hasOutput,
   copied,
   className,
+  shortcutMap = {},
 }: FloatingToolbarProps) {
   const actions = [
     {
       id: 'ai-draft',
       icon: Sparkles,
       label: 'AI Draft',
-      shortcut: 'Ctrl+D',
       onClick: onAIDraft,
       variant: 'default' as const,
       className: 'bg-primary hover:bg-primary/90 text-primary-foreground',
@@ -39,7 +41,6 @@ export function FloatingToolbar({
       id: 'copy',
       icon: copied ? Check : Copy,
       label: copied ? 'Copied!' : 'Copy',
-      shortcut: 'Ctrl+Shift+C',
       onClick: onCopy,
       disabled: !hasOutput,
       variant: 'secondary' as const,
@@ -49,7 +50,6 @@ export function FloatingToolbar({
       id: 'save',
       icon: Save,
       label: 'Save',
-      shortcut: 'Ctrl+Enter',
       onClick: onSave,
       disabled: !hasOutput,
       variant: 'secondary' as const,
@@ -66,12 +66,14 @@ export function FloatingToolbar({
       id: 'clear',
       icon: Trash2,
       label: 'Clear',
-      shortcut: 'Ctrl+Shift+X',
       onClick: onClear,
       variant: 'ghost' as const,
       className: 'hover:bg-destructive/10 hover:text-destructive',
     },
   ];
+
+  // Get shortcut for an action from the shortcutMap
+  const getShortcut = (actionId: string): string | undefined => shortcutMap[actionId];
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -102,7 +104,7 @@ export function FloatingToolbar({
                   onClick={action.onClick}
                   disabled={action.disabled}
                   aria-label={action.label}
-                  aria-keyshortcuts={action.shortcut?.replace('Ctrl+', 'Control+').replace('Shift+', 'Shift+')}
+                  aria-keyshortcuts={getShortcut(action.id)?.replace('Ctrl+', 'Control+').replace('Shift+', 'Shift+')}
                   className={cn(
                     "h-10 w-10 rounded-full p-0",
                     action.disabled && "opacity-50 cursor-not-allowed",
@@ -116,9 +118,9 @@ export function FloatingToolbar({
             </TooltipTrigger>
             <TooltipContent side="top" className="flex items-center gap-2">
               <span>{action.label}</span>
-              {action.shortcut && (
+              {getShortcut(action.id) && (
                 <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded font-mono">
-                  {action.shortcut}
+                  {getShortcut(action.id)}
                 </kbd>
               )}
             </TooltipContent>
