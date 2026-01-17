@@ -117,6 +117,44 @@ function AIChatContent({
   const isLoading = mode === "local" ? localAI.isLoading : false;
   const loadingProgress = localAI.loadingProgress;
   const loadingStatus = localAI.loadingStatus;
+  const lastMessage = messages[messages.length - 1];
+  const canRetry = !isGenerating && lastMessage?.role === "user";
+
+  const clearActiveError = useCallback(() => {
+    if (mode === "local") {
+      localAI.clearError();
+    } else {
+      cloudAI.clearError();
+    }
+  }, [mode, localAI, cloudAI]);
+
+  const retryLastMessage = useCallback(async () => {
+    const currentLast = messages[messages.length - 1];
+    if (isGenerating || !currentLast || currentLast.role !== "user") return;
+
+    clearActiveError();
+    setStreamingContent("");
+    let fullResponse = "";
+
+    try {
+      const chatFn = mode === "local" ? localAI.chat : cloudAI.chat;
+
+      for await (const chunk of chatFn(messages, systemPrompt)) {
+        fullResponse += chunk;
+        setStreamingContent(fullResponse);
+      }
+
+      const assistantMessage: ChatMessage = {
+        role: "assistant",
+        content: fullResponse,
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+      setStreamingContent("");
+      onResponse?.(fullResponse);
+    } catch (err) {
+      console.error("Chat retry error:", err);
+    }
+  }, [isGenerating, messages, mode, localAI, cloudAI, systemPrompt, onResponse, clearActiveError]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -475,26 +513,58 @@ function AIChatContent({
                   <li>Ask IT to whitelist *.supabase.co</li>
                   {webGPUSupported && <li>Switch to Local AI mode (runs offline)</li>}
                 </ul>
-                {webGPUSupported && (
+                <div className="flex flex-wrap gap-2">
+                  {canRetry && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={retryLastMessage}
+                      className="h-7 text-xs border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900/50"
+                    >
+                      Retry
+                    </Button>
+                  )}
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    onClick={() => {
-                      setMode("local");
-                      cloudAI.clearError();
-                    }}
-                    className="mt-2 h-7 text-xs border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900/50"
+                    onClick={clearActiveError}
+                    className="h-7 text-xs border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900/50"
                   >
-                    <HardDrive className="h-3 w-3 mr-1" />
-                    Try Local AI Instead
+                    Dismiss
                   </Button>
-                )}
+                  {webGPUSupported && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => {
+                        setMode("local");
+                        cloudAI.clearError();
+                      }}
+                      className="h-7 text-xs border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900/50"
+                    >
+                      <HardDrive className="h-3 w-3 mr-1" />
+                      Try Local AI Instead
+                    </Button>
+                  )}
+                </div>
               </AlertDescription>
             </Alert>
           ) : (
             <Alert variant="destructive" className="py-2">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="text-xs">{error}</AlertDescription>
+              <AlertDescription className="text-xs space-y-2">
+                <p>{error}</p>
+                <div className="flex flex-wrap gap-2">
+                  {canRetry && (
+                    <Button variant="outline" size="sm" onClick={retryLastMessage} className="h-7 text-xs bg-background text-foreground">
+                      Retry
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={clearActiveError} className="h-7 text-xs bg-background text-foreground">
+                    Dismiss
+                  </Button>
+                </div>
+              </AlertDescription>
             </Alert>
           )}
         </div>
