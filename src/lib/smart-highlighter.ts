@@ -21,7 +21,7 @@ const PATTERNS: Record<Exclude<HighlightType, 'normal'>, RegExp[]> = {
   ],
   measurable: [
     /\b(\d+)\s*(applications?|interviews?|contacts?|calls?|jobs?|opportunities|employers?|CVs?|hours?|minutes?|days?|weeks?)\b/gi,
-    /\b(\d{1,2}[-\/\.]\d{1,2}[-\/\.]\d{2,4})\b/g,
+    /\b(\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4})\b/g,
     /\b(\d{1,2})(st|nd|rd|th)?\s*(of\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b/gi,
     /\b(by|before|within)\s+\d+\s*(days?|weeks?|months?)\b/gi,
   ],

@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { parseSmartToolImportFile } from "@/lib/smart-portability";
 import { renderHook, act } from "@testing-library/react";
-import { useSmartStorage } from "@/hooks/useSmartStorage";
+import { useSmartStorage, type ActionTemplate, type HistoryItem } from "@/hooks/useSmartStorage";
 
-const sampleHistoryItem = {
+const sampleHistoryItem: HistoryItem = {
   id: "h1",
-  mode: "now" as const,
+  mode: "now",
   createdAt: "2026-01-01T00:00:00.000Z",
   text: "John will do something by next week.",
   meta: {
@@ -18,10 +18,10 @@ const sampleHistoryItem = {
   },
 };
 
-const sampleTemplate = {
+const sampleTemplate: ActionTemplate = {
   id: "t1",
   name: "CV update",
-  mode: "now" as const,
+  mode: "now",
   createdAt: "2026-01-01T00:00:00.000Z",
   barrier: "CV",
   action: "Update CV",
@@ -93,11 +93,11 @@ describe("smart portability", () => {
     const { result } = renderHook(() => useSmartStorage());
     act(() => {
       result.current.importData({
-        history: [sampleHistoryItem as any],
+        history: [sampleHistoryItem],
         barriers: ["Confidence"],
         timescales: ["2 weeks"],
         recentNames: [" John ", "john", "Alice"],
-        templates: [sampleTemplate as any],
+        templates: [sampleTemplate],
         settings: {
           minScoreEnabled: true,
           minScoreThreshold: 4,
@@ -108,8 +108,8 @@ describe("smart portability", () => {
       });
     });
 
-    const exported = result.current.exportAllData() as any;
-    expect(exported.data).toBeUndefined();
+    const exported = result.current.exportAllData();
+    expect("data" in exported).toBe(false);
     expect(exported.version).toBe(2);
     expect(exported.recentNames).toEqual(["John", "Alice"]);
     expect(exported.settings.participantLanguage).toBe("es");
