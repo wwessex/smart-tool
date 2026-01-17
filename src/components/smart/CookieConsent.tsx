@@ -157,18 +157,20 @@ export function CookieConsent({ onConsentChange }: CookieConsentProps) {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={handleRejectNonEssential}
+                      className="gap-2"
+                    >
+                      <X className="w-4 h-4" />
+                      Essential Only
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => setShowDetails(true)}
                       className="gap-2"
                     >
                       <Settings className="w-4 h-4" />
                       Customise
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleRejectNonEssential}
-                    >
-                      Essential Only
                     </Button>
                   </div>
                   

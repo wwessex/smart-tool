@@ -61,13 +61,31 @@ export default function Privacy() {
           {/* Data Controller */}
           <section className="p-6 rounded-xl border bg-card">
             <h2 className="text-xl font-semibold mb-4">Data Controller</h2>
-            <p className="text-muted-foreground">
-              The data controller responsible for your personal data is the organisation deploying this tool.
+            <p className="text-muted-foreground mb-4">
+              The data controller responsible for your personal data is:
             </p>
+            
+            <div className="p-4 rounded-lg bg-muted/30 space-y-2">
+              <p className="font-medium">SMART Action Tool</p>
+              <p className="text-sm text-muted-foreground">
+                A productivity tool for employment advisors
+              </p>
+              <div className="flex items-center gap-2 text-sm">
+                <Mail className="w-4 h-4 text-muted-foreground" />
+                <a 
+                  href="mailto:privacy@smartactiontool.app" 
+                  className="text-primary hover:underline"
+                >
+                  privacy@smartactiontool.app
+                </a>
+              </div>
+            </div>
+
             <div className="mt-4 p-4 rounded-lg bg-muted/50">
               <p className="text-sm text-muted-foreground">
-                <strong>Note:</strong> If you are using this tool as part of an employment support service, 
-                the service provider is the data controller. Contact them for specific data protection enquiries.
+                <strong>Note:</strong> If you are using this tool as part of an employment support service 
+                or within your organisation, that organisation may be the data controller for your use. 
+                Contact your organisation's data protection officer for specific enquiries.
               </p>
             </div>
           </section>
@@ -250,11 +268,22 @@ export default function Privacy() {
               </div>
 
               <div className="p-4 rounded-lg bg-muted/30">
-                <p className="font-medium">Lovable AI Gateway (Sub-processor)</p>
+                <p className="font-medium">Google AI (Sub-processor via Lovable AI Gateway)</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  AI model provider accessed via Supabase. Processes action text for improvements and 
-                  translations. Data is not retained or used for model training.
+                  AI model provider (Google Gemini models) accessed via Lovable's AI Gateway. 
+                  Processes action text for improvements and translations. Data is processed 
+                  in accordance with Google's AI data processing terms and is not retained 
+                  for model training.
                 </p>
+                <a 
+                  href="https://cloud.google.com/terms/data-processing-addendum" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-2"
+                >
+                  Google Cloud Data Processing Terms
+                  <ExternalLink className="w-3 h-3" />
+                </a>
               </div>
             </div>
 
