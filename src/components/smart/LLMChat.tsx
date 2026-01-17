@@ -32,8 +32,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWebGPUSupport } from "./WebGPUCheck";
 import { useLLM, ChatMessage, RECOMMENDED_MODELS } from "@/hooks/useLLM";
 import { useCloudAI } from "@/hooks/useCloudAI";
+import { useAIConsent } from "@/hooks/useAIConsent";
 import { cn } from "@/lib/utils";
-import { hasAIConsent } from "./CookieConsent";
 
 // Detect Safari browser
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -103,7 +103,7 @@ function AIChatContent({
   
   const localAI = useLLM();
   const cloudAI = useCloudAI();
-  const cloudHasConsent = hasAIConsent();
+  const cloudHasConsent = useAIConsent();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState(initialContext || "");

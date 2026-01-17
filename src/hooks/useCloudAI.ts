@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { hasAIConsent } from "@/components/smart/CookieConsent";
+import { useAIConsent } from "@/hooks/useAIConsent";
 
 export interface ChatMessage {
   role: "user" | "assistant" | "system";
@@ -20,6 +21,8 @@ export function useCloudAI() {
   });
 
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  const hasConsent = useAIConsent();
 
   // Check if user has given AI consent
   const checkConsent = useCallback((): boolean => {
@@ -139,9 +142,6 @@ export function useCloudAI() {
     setState((prev) => ({ ...prev, error: null }));
   }, []);
 
-  // Check consent reactively (re-evaluates on each render)
-  const hasConsent = hasAIConsent();
-  
   return {
     ...state,
     chat,

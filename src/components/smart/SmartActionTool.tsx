@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { useSmartStorage, HistoryItem, ActionTemplate } from '@/hooks/useSmartStorage';
 import { useTranslation, SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
 import { useCloudAI } from '@/hooks/useCloudAI';
+import { useAIConsent } from '@/hooks/useAIConsent';
 import { 
   todayISO, 
   buildNowOutput, 
@@ -42,7 +43,7 @@ const InsightsSkeleton = () => (
 );
 import { FloatingToolbar } from './FloatingToolbar';
 import { Footer } from './Footer';
-import { ManageConsentDialog, getStoredConsent, hasAIConsent } from './CookieConsent';
+import { ManageConsentDialog, getStoredConsent } from './CookieConsent';
 import { LanguageSelector } from './LanguageSelector';
 import { WarningBox, WarningText, InputGlow } from './WarningBox';
 import { useKeyboardShortcuts, groupShortcuts, ShortcutConfig } from '@/hooks/useKeyboardShortcuts';
@@ -145,6 +146,7 @@ export function SmartActionTool() {
   const storage = useSmartStorage();
   const translation = useTranslation();
   const cloudAI = useCloudAI();
+  const aiHasConsent = useAIConsent();
   const today = todayISO();
 
   const [mode, setMode] = useState<Mode>('now');
@@ -1199,15 +1201,15 @@ When given context about a participant, provide suggestions to improve their SMA
                       {/* AI Consent Status Badge */}
                       <div className={cn(
                         "flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium",
-                        hasAIConsent() 
+                        aiHasConsent
                           ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" 
                           : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
                       )}>
                         <div className={cn(
                           "w-2 h-2 rounded-full",
-                          hasAIConsent() ? "bg-emerald-500" : "bg-amber-500"
+                          aiHasConsent ? "bg-emerald-500" : "bg-amber-500"
                         )} />
-                        AI: {hasAIConsent() ? "Enabled" : "Disabled"}
+                        AI: {aiHasConsent ? "Enabled" : "Disabled"}
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground">
