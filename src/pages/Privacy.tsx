@@ -197,6 +197,12 @@ export default function Privacy() {
                 provider data handling is governed by their applicable terms.
               </li>
               <li>
+                <strong>Rate limiting:</strong> To prevent abuse of AI services, we temporarily hash 
+                your IP address for rate limiting purposes. The hash expires after 60 seconds, raw IP 
+                addresses are never stored, and the hash cannot be reversed. This processing is based 
+                on legitimate interest under GDPR Article 6(1)(f).
+              </li>
+              <li>
                 <strong>Server/hosting logs:</strong> Our hosting infrastructure may retain 
                 server access logs including IP addresses, user agents, and timestamps for up to 30 days 
                 for security and operational purposes. IP addresses are considered online identifiers 
