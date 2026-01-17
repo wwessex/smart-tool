@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Copy, Save, Trash2, Sparkles, Download, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SMART_TOOL_SHORTCUTS } from '@/lib/smart-tool-shortcuts';
+import { formatShortcut, toAriaKeyShortcuts } from '@/hooks/useKeyboardShortcuts';
 
 interface FloatingToolbarProps {
   onCopy: () => void;

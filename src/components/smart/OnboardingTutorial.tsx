@@ -68,7 +68,7 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     id: 'shortcuts',
     icon: <Keyboard className="w-8 h-8 text-primary" />,
     title: 'Keyboard Shortcuts',
-    description: 'Press "?" anytime to see keyboard shortcuts. Use Ctrl+D for AI Draft, Ctrl+Enter to save, and more for faster workflows.',
+    description: 'Press "?" anytime to see keyboard shortcuts. Use Ctrl/⌘+D for AI Draft, Ctrl/⌘+Enter to save, and more for faster workflows.',
     targetSelector: '[data-tutorial="shortcuts"]',
     position: 'bottom',
   },

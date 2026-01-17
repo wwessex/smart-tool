@@ -18,6 +18,8 @@ export interface ShortcutGroup {
   shortcuts: { keys: string; description: string }[];
 }
 
+export type ShortcutLike = Pick<ShortcutConfig, 'key' | 'ctrl' | 'shift' | 'alt'>;
+
 export function useKeyboardShortcuts(shortcuts: ShortcutConfig[], enabled: boolean = true) {
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     if (!enabled) return;
@@ -31,11 +33,13 @@ export function useKeyboardShortcuts(shortcuts: ShortcutConfig[], enabled: boole
     for (const shortcut of shortcuts) {
       const keyMatches = event.key.toLowerCase() === shortcut.key.toLowerCase();
       const ctrlMatches = shortcut.ctrl ? (event.ctrlKey || event.metaKey) : !(event.ctrlKey || event.metaKey);
-      const shiftMatches = shortcut.shift ? event.shiftKey : !event.shiftKey;
+      // Special case: allow "?" regardless of whether Shift is required on the user's keyboard layout
+      const isQuestionMark = shortcut.key === '?' && !shortcut.ctrl && !shortcut.alt;
+      const shiftMatches = shortcut.shift ? event.shiftKey : (isQuestionMark ? true : !event.shiftKey);
       const altMatches = shortcut.alt ? event.altKey : !event.altKey;
       
       // Special case: allow "?" even in inputs for help
-      const isHelpKey = shortcut.key === '?' && !shortcut.ctrl && !shortcut.shift;
+      const isHelpKey = shortcut.key === '?' && !shortcut.ctrl && !shortcut.alt;
       
       if (keyMatches && ctrlMatches && shiftMatches && altMatches) {
         // Skip if in input unless it's a ctrl/meta combo or help key
@@ -54,7 +58,7 @@ export function useKeyboardShortcuts(shortcuts: ShortcutConfig[], enabled: boole
   }, [handleKeyDown]);
 }
 
-export function formatShortcut(shortcut: ShortcutConfig): string {
+export function formatShortcut(shortcut: ShortcutLike): string {
   const parts: string[] = [];
   
   const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
@@ -72,6 +76,27 @@ export function formatShortcut(shortcut: ShortcutConfig): string {
   parts.push(key);
   
   return parts.join(isMac ? '' : '+');
+}
+
+export function toAriaKeyShortcuts(shortcut: ShortcutLike): string | undefined {
+  const normalizeKey = (key: string) => {
+    if (key === ' ') return 'Space';
+    if (key.length === 1) return key.toUpperCase();
+    return key;
+  };
+
+  const build = (primaryModifier?: 'Control' | 'Meta') => {
+    const parts: string[] = [];
+    if (primaryModifier) parts.push(primaryModifier);
+    if (shortcut.shift) parts.push('Shift');
+    if (shortcut.alt) parts.push('Alt');
+    parts.push(normalizeKey(shortcut.key));
+    return parts.join('+');
+  };
+
+  // Our handler treats ctrl as "Ctrl OR Meta" (Cmd on macOS).
+  if (shortcut.ctrl) return `${build('Control')} ${build('Meta')}`;
+  return build();
 }
 
 export function groupShortcuts(shortcuts: ShortcutConfig[]): ShortcutGroup[] {
