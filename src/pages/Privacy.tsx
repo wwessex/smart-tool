@@ -259,7 +259,8 @@ export default function Privacy() {
                 <p className="font-medium">Supabase (Data Processor)</p>
                 <p className="text-sm text-muted-foreground mt-1">
                   Our backend infrastructure provider. Supabase Edge Functions handle AI and translation 
-                  requests. Data is transmitted over HTTPS and processed in EU/UK data centres.
+                  requests. Data is transmitted over HTTPS and processed in the region configured for our 
+                  project; international transfers may occur with appropriate safeguards.
                 </p>
                 <a 
                   href="https://supabase.com/privacy" 
@@ -276,9 +277,9 @@ export default function Privacy() {
                 <p className="font-medium">Google AI (Sub-processor via Lovable AI Gateway)</p>
                 <p className="text-sm text-muted-foreground mt-1">
                   AI model provider (Google Gemini models) accessed via Lovable's AI Gateway. 
-                  Processes action text for improvements and translations. Data is processed 
-                  in accordance with Google's AI data processing terms and is not retained 
-                  for model training.
+                  Text is sent for real-time processing only; we do not intentionally store prompts 
+                  or responses beyond what is needed for delivery. Provider data handling is governed 
+                  by their applicable terms.
                 </p>
                 <a 
                   href="https://cloud.google.com/terms/data-processing-addendum" 
@@ -422,8 +423,13 @@ export default function Privacy() {
               Contact
             </h2>
             <p className="text-muted-foreground">
-              For data protection enquiries related to this tool, please contact the organisation 
-              that deployed this tool for your use.
+              For data protection enquiries about this public version of the tool, please contact 
+              William Wessex at{' '}
+              <a href="mailto:contact@williamwessex.com" className="text-primary hover:underline">
+                contact@williamwessex.com
+              </a>. 
+              If your organisation has deployed a customised or internal version, contact your 
+              organisation's data protection officer.
             </p>
           </section>
 
