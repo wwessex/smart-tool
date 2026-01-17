@@ -1,10 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import {
-  CreateWebWorkerMLCEngine,
-  WebWorkerMLCEngine,
-  ChatCompletionMessageParam,
-  prebuiltAppConfig,
-} from "@mlc-ai/web-llm";
+import type { ChatCompletionMessageParam, WebWorkerMLCEngine } from "@mlc-ai/web-llm";
 
 export interface ModelInfo {
   id: string;
@@ -76,9 +71,10 @@ export function useLLM() {
   const engineRef = useRef<WebWorkerMLCEngine | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Check if a model is available in the prebuilt config
+  // IMPORTANT (bundle size): avoid importing `@mlc-ai/web-llm` until Local AI is actually used.
+  // We only "validate" against our curated list here; deeper validation happens during `loadModel`.
   const isModelAvailable = useCallback((modelId: string): boolean => {
-    return prebuiltAppConfig.model_list.some((m) => m.model_id === modelId);
+    return RECOMMENDED_MODELS.some((m) => m.id === modelId);
   }, []);
 
   // Check WebGPU availability
@@ -160,6 +156,9 @@ export function useLLM() {
     let worker: Worker | null = null;
     
     try {
+      // Dynamically import WebLLM only when Local AI is actually used.
+      const { CreateWebWorkerMLCEngine } = await import("@mlc-ai/web-llm");
+
       // Clean up existing engine
       if (engineRef.current) {
         await engineRef.current.unload();
