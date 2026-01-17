@@ -5,6 +5,32 @@ import { Sparkles, Wand2, Keyboard, History, ChevronRight, X, CheckCircle2 } fro
 
 const STORAGE_KEY = 'smartTool.onboardingComplete';
 
+/**
+ * Safely write to localStorage, catching quota errors and blocked storage.
+ */
+function safeSetItem(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (error) {
+    console.warn(`localStorage write failed for key "${key}":`, error);
+    return false;
+  }
+}
+
+/**
+ * Safely remove from localStorage, catching any errors.
+ */
+function safeRemoveItem(key: string): boolean {
+  try {
+    localStorage.removeItem(key);
+    return true;
+  } catch (error) {
+    console.warn(`localStorage remove failed for key "${key}":`, error);
+    return false;
+  }
+}
+
 interface TutorialStep {
   id: string;
   icon: React.ReactNode;
@@ -126,14 +152,14 @@ export function OnboardingTutorial({ onComplete }: OnboardingTutorialProps) {
   }, [isOpen, currentStep, updateSpotlight]);
 
   const handleComplete = () => {
-    localStorage.setItem(STORAGE_KEY, 'true');
+    safeSetItem(STORAGE_KEY, 'true');
     setIsOpen(false);
     setSpotlightRect(null);
     onComplete?.();
   };
 
   const handleSkip = () => {
-    localStorage.setItem(STORAGE_KEY, 'true');
+    safeSetItem(STORAGE_KEY, 'true');
     setIsOpen(false);
     setSpotlightRect(null);
   };
@@ -388,7 +414,7 @@ export function OnboardingTutorial({ onComplete }: OnboardingTutorialProps) {
 // Hook to manually trigger onboarding
 export function useOnboarding() {
   const resetOnboarding = () => {
-    localStorage.removeItem(STORAGE_KEY);
+    safeRemoveItem(STORAGE_KEY);
     window.location.reload();
   };
 

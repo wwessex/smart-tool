@@ -51,6 +51,19 @@ import { useKeyboardShortcuts, groupShortcuts, createShortcutMap, ShortcutConfig
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FIX_CRITERION_PROMPT, CRITERION_GUIDANCE } from '@/lib/smart-prompts';
 
+/**
+ * Safely remove from localStorage, catching any errors.
+ */
+function safeRemoveItem(key: string): boolean {
+  try {
+    localStorage.removeItem(key);
+    return true;
+  } catch (error) {
+    console.warn(`localStorage remove failed for key "${key}":`, error);
+    return false;
+  }
+}
+
 import { GUIDANCE } from '@/lib/smart-data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -1114,7 +1127,7 @@ When given context about a participant, provide suggestions to improve their SMA
                       variant="outline" 
                       size="sm"
                       onClick={() => {
-                        localStorage.removeItem('smartTool.onboardingComplete');
+                        safeRemoveItem('smartTool.onboardingComplete');
                         setSettingsOpen(false);
                         window.location.reload();
                       }}
