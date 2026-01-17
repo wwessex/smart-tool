@@ -87,7 +87,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3, Shield, FileDown, Clock, Languages, Loader2 } from 'lucide-react';
+import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3, Shield, FileDown, Clock, Languages, Loader2, RefreshCw } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -185,6 +185,10 @@ const aiHasConsent = useAIConsent();
   const [historyTab, setHistoryTab] = useState<'history' | 'insights'>('history');
   const [privacySettingsOpen, setPrivacySettingsOpen] = useState(false);
   const [fixingCriterion, setFixingCriterion] = useState<string | null>(null);
+  const [lastFixAttempt, setLastFixAttempt] = useState<{
+    criterion: 'specific' | 'measurable' | 'achievable' | 'relevant' | 'timeBound';
+    suggestion: string;
+  } | null>(null);
 
   // Detect landscape orientation
   useEffect(() => {
@@ -724,6 +728,8 @@ When given context about a participant, provide suggestions to improve their SMA
       return;
     }
 
+    cloudAI.clearError();
+    setLastFixAttempt({ criterion, suggestion });
     setFixingCriterion(criterion);
     
     const criterionLabel = criterion.charAt(0).toUpperCase() + criterion.slice(1);
@@ -785,6 +791,11 @@ When given context about a participant, provide suggestions to improve their SMA
       setFixingCriterion(null);
     }
   }, [output, mode, nowForm, futureForm, cloudAI, toast]);
+
+  const handleRetryFix = useCallback(() => {
+    if (!lastFixAttempt) return;
+    handleFixCriterion(lastFixAttempt.criterion, lastFixAttempt.suggestion);
+  }, [lastFixAttempt, handleFixCriterion]);
 
   // Keyboard shortcuts configuration
   const shortcuts: ShortcutConfig[] = useMemo(() => [
@@ -1857,6 +1868,31 @@ When given context about a participant, provide suggestions to improve their SMA
                 )}
               </motion.div>
             </AnimatePresence>
+
+            {cloudAI.error && (
+              <WarningBox variant="error" title="AI request failed">
+                <div className="space-y-2">
+                  <p>{cloudAI.error}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {lastFixAttempt && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleRetryFix}
+                        disabled={!!fixingCriterion}
+                        className="bg-background text-foreground"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        Retry AI fix
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" onClick={() => cloudAI.clearError()} className="text-foreground">
+                      Dismiss
+                    </Button>
+                  </div>
+                </div>
+              </WarningBox>
+            )}
 
             {/* SMART Checklist */}
             <SmartChecklist check={smartCheck} onFixCriterion={handleFixCriterion} fixingCriterion={fixingCriterion} />

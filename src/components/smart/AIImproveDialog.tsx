@@ -35,10 +35,11 @@ export function AIImproveDialog({
   smartCheck,
   onApply,
 }: AIImproveDialogProps) {
-  const { chat, isGenerating, abort } = useCloudAI();
+  const { chat, isGenerating, abort, error: cloudError, clearError } = useCloudAI();
   const hasConsent = useAIConsent();
   const [result, setResult] = useState<ImproveResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const errorMessage = error ?? cloudError;
 
   const unmetCriteria = [
     !smartCheck.specific.met && 'Specific',
@@ -49,6 +50,7 @@ export function AIImproveDialog({
   ].filter(Boolean).join(', ');
 
   const handleImprove = useCallback(async () => {
+    clearError();
     setError(null);
     setResult(null);
 
@@ -80,7 +82,12 @@ export function AIImproveDialog({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to improve action');
     }
-  }, [chat, originalAction, barrier, forename, smartCheck.overallScore, unmetCriteria]);
+  }, [chat, originalAction, barrier, forename, smartCheck.overallScore, unmetCriteria, clearError]);
+
+  const handleDismissError = useCallback(() => {
+    setError(null);
+    clearError();
+  }, [clearError]);
 
   const handleApply = () => {
     if (result?.improved) {
@@ -95,6 +102,7 @@ export function AIImproveDialog({
     onOpenChange(false);
     setResult(null);
     setError(null);
+    clearError();
   };
 
   return (
@@ -181,7 +189,7 @@ export function AIImproveDialog({
           )}
 
           {/* Error State */}
-          {error && (
+          {errorMessage && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -191,10 +199,15 @@ export function AIImproveDialog({
                 <AlertCircle className="w-5 h-5 text-destructive shrink-0" />
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-destructive">Failed to improve action</p>
-                  <p className="text-xs text-muted-foreground">{error}</p>
-                  <Button variant="outline" size="sm" onClick={handleImprove}>
-                    <RefreshCw className="w-3 h-3 mr-1" /> Try Again
-                  </Button>
+                  <p className="text-xs text-muted-foreground">{errorMessage}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" onClick={handleImprove}>
+                      <RefreshCw className="w-3 h-3 mr-1" /> Try Again
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={handleDismissError}>
+                      Dismiss
+                    </Button>
+                  </div>
                 </div>
               </div>
             </motion.div>
