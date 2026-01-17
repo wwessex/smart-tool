@@ -66,17 +66,17 @@ export default function Privacy() {
             </p>
             
             <div className="p-4 rounded-lg bg-muted/30 space-y-2">
-              <p className="font-medium">SMART Action Tool</p>
+              <p className="font-medium">William Wessex</p>
               <p className="text-sm text-muted-foreground">
-                A productivity tool for employment advisors
+                Developer and operator of SMART Action Tool
               </p>
               <div className="flex items-center gap-2 text-sm">
                 <Mail className="w-4 h-4 text-muted-foreground" />
                 <a 
-                  href="mailto:privacy@smartactiontool.app" 
+                  href="mailto:contact@williamwessex.com" 
                   className="text-primary hover:underline"
                 >
-                  privacy@smartactiontool.app
+                  contact@williamwessex.com
                 </a>
               </div>
             </div>
