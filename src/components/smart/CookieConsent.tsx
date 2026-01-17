@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Shield, Cookie, Brain, X, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { safeLocalStorageGetItem, safeLocalStorageRemoveItem, safeLocalStorageSetItem } from '@/lib/safeStorage';
 import {
   Dialog,
   DialogContent,
@@ -23,7 +24,7 @@ const CONSENT_VERSION = 1;
 
 export function getStoredConsent(): GDPRConsent | null {
   try {
-    const raw = localStorage.getItem(CONSENT_KEY);
+    const raw = safeLocalStorageGetItem(CONSENT_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (parsed.version !== CONSENT_VERSION) return null;
@@ -44,11 +45,11 @@ export function hasAIConsent(): boolean {
 }
 
 function saveConsent(consent: GDPRConsent): void {
-  localStorage.setItem(CONSENT_KEY, JSON.stringify(consent));
+  safeLocalStorageSetItem(CONSENT_KEY, JSON.stringify(consent));
 }
 
 export function clearConsent(): void {
-  localStorage.removeItem(CONSENT_KEY);
+  safeLocalStorageRemoveItem(CONSENT_KEY);
 }
 
 interface CookieConsentProps {

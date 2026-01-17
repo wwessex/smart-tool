@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Wand2, Keyboard, History, ChevronRight, X, CheckCircle2 } from 'lucide-react';
+import { safeLocalStorageGetItem, safeLocalStorageRemoveItem, safeLocalStorageSetItem } from '@/lib/safeStorage';
 
 const STORAGE_KEY = 'smartTool.onboardingComplete';
 
@@ -100,7 +101,7 @@ export function OnboardingTutorial({ onComplete }: OnboardingTutorialProps) {
 
   useEffect(() => {
     // Check if onboarding has been completed
-    const completed = localStorage.getItem(STORAGE_KEY);
+    const completed = safeLocalStorageGetItem(STORAGE_KEY);
     if (!completed) {
       // Small delay to let the main UI render first
       const timer = setTimeout(() => setIsOpen(true), 800);
@@ -126,14 +127,14 @@ export function OnboardingTutorial({ onComplete }: OnboardingTutorialProps) {
   }, [isOpen, currentStep, updateSpotlight]);
 
   const handleComplete = () => {
-    localStorage.setItem(STORAGE_KEY, 'true');
+    safeLocalStorageSetItem(STORAGE_KEY, 'true');
     setIsOpen(false);
     setSpotlightRect(null);
     onComplete?.();
   };
 
   const handleSkip = () => {
-    localStorage.setItem(STORAGE_KEY, 'true');
+    safeLocalStorageSetItem(STORAGE_KEY, 'true');
     setIsOpen(false);
     setSpotlightRect(null);
   };
@@ -388,12 +389,12 @@ export function OnboardingTutorial({ onComplete }: OnboardingTutorialProps) {
 // Hook to manually trigger onboarding
 export function useOnboarding() {
   const resetOnboarding = () => {
-    localStorage.removeItem(STORAGE_KEY);
+    safeLocalStorageRemoveItem(STORAGE_KEY);
     window.location.reload();
   };
 
   const isOnboardingComplete = () => {
-    return localStorage.getItem(STORAGE_KEY) === 'true';
+    return safeLocalStorageGetItem(STORAGE_KEY) === 'true';
   };
 
   return { resetOnboarding, isOnboardingComplete };

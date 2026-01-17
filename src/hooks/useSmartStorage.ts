@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { DEFAULT_BARRIERS, DEFAULT_TIMESCALES } from '@/lib/smart-data';
+import { safeLocalStorageGetItem, safeLocalStorageRemoveItem, safeLocalStorageSetItem } from '@/lib/safeStorage';
 
 const STORAGE = {
   barriers: "smartTool.barriers",
@@ -55,7 +56,7 @@ export interface HistoryItem {
 
 function loadList<T>(key: string, fallback: T[]): T[] {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = safeLocalStorageGetItem(key);
     if (!raw) return fallback;
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : fallback;
@@ -65,12 +66,12 @@ function loadList<T>(key: string, fallback: T[]): T[] {
 }
 
 function saveList<T>(key: string, list: T[]): void {
-  localStorage.setItem(key, JSON.stringify(list));
+  safeLocalStorageSetItem(key, JSON.stringify(list));
 }
 
 function loadBoolean(key: string, fallback: boolean): boolean {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = safeLocalStorageGetItem(key);
     if (raw === null) return fallback;
     return raw === 'true';
   } catch {
@@ -80,7 +81,7 @@ function loadBoolean(key: string, fallback: boolean): boolean {
 
 function loadNumber(key: string, fallback: number): number {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = safeLocalStorageGetItem(key);
     if (raw === null) return fallback;
     const num = parseInt(raw, 10);
     return isNaN(num) ? fallback : num;
@@ -100,11 +101,7 @@ export function useSmartStorage() {
   const [retentionEnabled, setRetentionEnabled] = useState<boolean>(() => loadBoolean(STORAGE.retentionEnabled, true));
   const [retentionDays, setRetentionDays] = useState<number>(() => loadNumber(STORAGE.retentionDays, DEFAULT_RETENTION_DAYS));
   const [participantLanguage, setParticipantLanguage] = useState<string>(() => {
-    try {
-      return localStorage.getItem(STORAGE.participantLanguage) || 'none';
-    } catch {
-      return 'none';
-    }
+    return safeLocalStorageGetItem(STORAGE.participantLanguage) || 'none';
   });
 
   const updateBarriers = useCallback((newBarriers: string[]) => {
@@ -130,7 +127,7 @@ export function useSmartStorage() {
   const addToHistory = useCallback((item: HistoryItem) => {
     setHistory(prev => {
       const updated = [item, ...prev].slice(0, 100);
-      localStorage.setItem(STORAGE.history, JSON.stringify(updated));
+      safeLocalStorageSetItem(STORAGE.history, JSON.stringify(updated));
       return updated;
     });
   }, []);
@@ -138,14 +135,14 @@ export function useSmartStorage() {
   const deleteFromHistory = useCallback((id: string) => {
     setHistory(prev => {
       const updated = prev.filter(x => x.id !== id);
-      localStorage.setItem(STORAGE.history, JSON.stringify(updated));
+      safeLocalStorageSetItem(STORAGE.history, JSON.stringify(updated));
       return updated;
     });
   }, []);
 
   const clearHistory = useCallback(() => {
     setHistory([]);
-    localStorage.setItem(STORAGE.history, JSON.stringify([]));
+    safeLocalStorageSetItem(STORAGE.history, JSON.stringify([]));
   }, []);
 
   const addRecentName = useCallback((name: string) => {
@@ -154,7 +151,7 @@ export function useSmartStorage() {
     setRecentNames(prev => {
       let names = prev.filter(n => n.toLowerCase() !== trimmed.toLowerCase());
       names = [trimmed, ...names].slice(0, 10);
-      localStorage.setItem(STORAGE.recentNames, JSON.stringify(names));
+      safeLocalStorageSetItem(STORAGE.recentNames, JSON.stringify(names));
       return names;
     });
   }, []);
@@ -162,7 +159,7 @@ export function useSmartStorage() {
   const importData = useCallback((data: { history?: HistoryItem[]; barriers?: string[]; timescales?: string[]; templates?: ActionTemplate[] }) => {
     if (Array.isArray(data.history)) {
       setHistory(data.history);
-      localStorage.setItem(STORAGE.history, JSON.stringify(data.history));
+      safeLocalStorageSetItem(STORAGE.history, JSON.stringify(data.history));
     }
     if (Array.isArray(data.barriers)) {
       setBarriers(data.barriers);
@@ -209,13 +206,13 @@ export function useSmartStorage() {
 
   const updateMinScoreEnabled = useCallback((enabled: boolean) => {
     setMinScoreEnabled(enabled);
-    localStorage.setItem(STORAGE.minScoreEnabled, String(enabled));
+    safeLocalStorageSetItem(STORAGE.minScoreEnabled, String(enabled));
   }, []);
 
   const updateMinScoreThreshold = useCallback((threshold: number) => {
     const clamped = Math.max(1, Math.min(5, threshold));
     setMinScoreThreshold(clamped);
-    localStorage.setItem(STORAGE.minScoreThreshold, String(clamped));
+    safeLocalStorageSetItem(STORAGE.minScoreThreshold, String(clamped));
   }, []);
 
   // Export all data for GDPR data portability
@@ -242,7 +239,7 @@ export function useSmartStorage() {
   const deleteAllData = useCallback(() => {
     // Clear all localStorage keys
     Object.values(STORAGE).forEach(key => {
-      localStorage.removeItem(key);
+      safeLocalStorageRemoveItem(key);
     });
     
     // Reset state to defaults
@@ -260,18 +257,18 @@ export function useSmartStorage() {
   // Update retention settings
   const updateRetentionEnabled = useCallback((enabled: boolean) => {
     setRetentionEnabled(enabled);
-    localStorage.setItem(STORAGE.retentionEnabled, String(enabled));
+    safeLocalStorageSetItem(STORAGE.retentionEnabled, String(enabled));
   }, []);
 
   const updateRetentionDays = useCallback((days: number) => {
     const clamped = Math.max(7, Math.min(365, days));
     setRetentionDays(clamped);
-    localStorage.setItem(STORAGE.retentionDays, String(clamped));
+    safeLocalStorageSetItem(STORAGE.retentionDays, String(clamped));
   }, []);
 
   const updateParticipantLanguage = useCallback((language: string) => {
     setParticipantLanguage(language);
-    localStorage.setItem(STORAGE.participantLanguage, language);
+    safeLocalStorageSetItem(STORAGE.participantLanguage, language);
   }, []);
 
   // Check and clean up old history items
@@ -298,18 +295,18 @@ export function useSmartStorage() {
 
     if (deletedItems.length > 0) {
       setHistory(remainingItems);
-      localStorage.setItem(STORAGE.history, JSON.stringify(remainingItems));
+      safeLocalStorageSetItem(STORAGE.history, JSON.stringify(remainingItems));
     }
 
     // Update last check timestamp
-    localStorage.setItem(STORAGE.lastRetentionCheck, now.toISOString());
+    safeLocalStorageSetItem(STORAGE.lastRetentionCheck, now.toISOString());
 
     return { deletedCount: deletedItems.length, deletedItems };
   }, [history, retentionEnabled, retentionDays]);
 
   // Check if we should run cleanup (once per day)
   const shouldRunCleanup = useCallback((): boolean => {
-    const lastCheck = localStorage.getItem(STORAGE.lastRetentionCheck);
+    const lastCheck = safeLocalStorageGetItem(STORAGE.lastRetentionCheck);
     if (!lastCheck) return true;
     
     const lastCheckDate = new Date(lastCheck);

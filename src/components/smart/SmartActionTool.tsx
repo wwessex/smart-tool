@@ -33,6 +33,7 @@ import { WarningBox, WarningText, InputGlow } from './WarningBox';
 import { useKeyboardShortcuts, groupShortcuts, ShortcutConfig } from '@/hooks/useKeyboardShortcuts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FIX_CRITERION_PROMPT, CRITERION_GUIDANCE } from '@/lib/smart-prompts';
+import { safeLocalStorageRemoveItem } from '@/lib/safeStorage';
 
 // Zod schemas for import validation
 const HistoryItemMetaSchema = z.object({
@@ -1097,7 +1098,7 @@ When given context about a participant, provide suggestions to improve their SMA
                       variant="outline" 
                       size="sm"
                       onClick={() => {
-                        localStorage.removeItem('smartTool.onboardingComplete');
+                        safeLocalStorageRemoveItem('smartTool.onboardingComplete');
                         setSettingsOpen(false);
                         window.location.reload();
                       }}
