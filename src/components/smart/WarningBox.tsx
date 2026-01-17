@@ -111,6 +111,7 @@ interface WarningTextProps {
   variant?: WarningVariant;
   show?: boolean;
   className?: string;
+  id?: string;
 }
 
 export function WarningText({
@@ -118,6 +119,7 @@ export function WarningText({
   variant = 'warning',
   show = true,
   className = '',
+  id,
 }: WarningTextProps) {
   const styles = variantStyles[variant];
   const icon = defaultIcons[variant];
@@ -126,6 +128,7 @@ export function WarningText({
     <AnimatePresence>
       {show && (
         <motion.p
+          id={id}
           className={`text-xs ${styles.text} flex items-center gap-1 ${className}`}
           role="alert"
           initial={{ opacity: 0, y: -5 }}
@@ -134,8 +137,9 @@ export function WarningText({
           transition={{ duration: 0.2 }}
         >
           <motion.span
+            initial={{ rotate: 0 }}
             animate={{ rotate: [0, -10, 10, -10, 0] }}
-            transition={{ duration: 0.5, delay: 0.2 }}
+            transition={{ duration: 0.5, delay: 0.2, repeat: 0 }}
           >
             {icon}
           </motion.span>

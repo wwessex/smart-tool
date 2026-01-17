@@ -1382,7 +1382,7 @@ When given context about a participant, provide suggestions to improve their SMA
                         aria-invalid={!!nowDateWarning}
                       />
                     </div>
-                    <WarningText show={!!nowDateWarning} variant="warning">
+                    <WarningText show={!!nowDateWarning} variant="warning" id="date-warning">
                       {nowDateWarning}
                     </WarningText>
                   </div>
@@ -1545,7 +1545,7 @@ When given context about a participant, provide suggestions to improve their SMA
                       />
                     </div>
                     {/* BUG FIX #1: Show error for past dates */}
-                    <WarningText show={!!futureDateError} variant="error">
+                    <WarningText show={!!futureDateError} variant="error" id="future-date-error">
                       {futureDateError}
                     </WarningText>
                   </div>
