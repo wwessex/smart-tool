@@ -253,12 +253,15 @@ export function useLLM() {
   }, [isModelAvailable, checkWebGPU]);
 
   // Generate chat response with streaming
+  // Note: We don't include state.isReady in dependencies since we check engineRef.current directly
   const chat = useCallback(
     async function* (
       messages: ChatMessage[],
       systemPrompt?: string
     ): AsyncGenerator<string, void, unknown> {
-      if (!engineRef.current || !state.isReady) {
+      // Check engine directly to avoid stale closure issues
+      const engine = engineRef.current;
+      if (!engine) {
         throw new Error("Model not loaded");
       }
 
@@ -279,7 +282,7 @@ export function useLLM() {
           }))
         );
 
-        const stream = await engineRef.current.chat.completions.create({
+        const stream = await engine.chat.completions.create({
           messages: formattedMessages,
           stream: true,
           temperature: 0.7,
@@ -308,7 +311,7 @@ export function useLLM() {
         abortControllerRef.current = null;
       }
     },
-    [state.isReady]
+    [] // No dependencies needed - we use refs instead
   );
 
   // Abort current generation

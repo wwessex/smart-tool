@@ -97,8 +97,9 @@ function AIChatContent({
   onResponse,
   webGPUSupported,
 }: AIChatContentProps) {
-  // Default to cloud if WebGPU not supported
-  const [mode, setMode] = useState<AIMode>(webGPUSupported ? "cloud" : "cloud");
+  // Default to cloud - it's faster and more reliable for most users
+  // Local AI is available as an option when webGPU is supported
+  const [mode, setMode] = useState<AIMode>("cloud");
   
   const localAI = useLLM();
   const cloudAI = useCloudAI();

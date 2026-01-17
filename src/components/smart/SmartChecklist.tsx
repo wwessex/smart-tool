@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, forwardRef } from 'react';
+import { useState, useEffect, useRef, forwardRef, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, AlertCircle, Info, Target, BarChart3, ThumbsUp, Link2, Clock, AlertTriangle, Lightbulb, Wrench, Loader2, Sparkles } from 'lucide-react';
 import { SmartCheck, getSmartLabel, getSmartColor, getImprovementPriority } from '@/lib/smart-checker';
@@ -48,7 +48,7 @@ const ConfettiParticle = forwardRef<HTMLDivElement, { delay: number; x: number }
 );
 ConfettiParticle.displayName = 'ConfettiParticle';
 
-export function SmartChecklist({ check, className, actionText = '', onFixCriterion, fixingCriterion }: SmartChecklistProps) {
+export const SmartChecklist = memo(function SmartChecklist({ check, className, actionText = '', onFixCriterion, fixingCriterion }: SmartChecklistProps) {
   const improvementPriorities = getImprovementPriority(check);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [celebratingCriteria, setCelebratingCriteria] = useState<Set<string>>(new Set());
@@ -417,4 +417,4 @@ export function SmartChecklist({ check, className, actionText = '', onFixCriteri
     </TooltipProvider>
     </>
   );
-}
+});
