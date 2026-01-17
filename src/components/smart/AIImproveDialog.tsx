@@ -4,10 +4,10 @@ import { Wand2, Check, X, ArrowRight, Loader2, AlertCircle, RefreshCw, Shield } 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useCloudAI } from '@/hooks/useCloudAI';
+import { useAIConsent } from '@/hooks/useAIConsent';
 import { SmartCheck } from '@/lib/smart-checker';
 import { IMPROVE_PROMPT } from '@/lib/smart-prompts';
 import { cn } from '@/lib/utils';
-import { hasAIConsent } from './CookieConsent';
 import { WarningBox } from './WarningBox';
 
 interface AIImproveDialogProps {
@@ -36,7 +36,7 @@ export function AIImproveDialog({
   onApply,
 }: AIImproveDialogProps) {
   const { chat, isGenerating, abort } = useCloudAI();
-  const hasConsent = hasAIConsent();
+  const hasConsent = useAIConsent();
   const [result, setResult] = useState<ImproveResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 

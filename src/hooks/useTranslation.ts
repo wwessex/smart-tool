@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { hasAIConsent } from '@/components/smart/CookieConsent';
+import { useAIConsent } from '@/hooks/useAIConsent';
 
 export interface TranslationResult {
   original: string;
@@ -37,6 +38,7 @@ export const SUPPORTED_LANGUAGES: Record<string, { name: string; nativeName: str
 };
 
 export function useTranslation() {
+  const hasConsent = useAIConsent();
   const [state, setState] = useState<TranslationState>({
     isTranslating: false,
     error: null,
@@ -137,6 +139,6 @@ export function useTranslation() {
     translate,
     clearTranslation,
     clearError,
-    hasConsent: hasAIConsent(),
+    hasConsent,
   };
 }

@@ -21,6 +21,11 @@ export interface GDPRConsent {
 const CONSENT_KEY = 'smartTool.gdprConsent';
 const CONSENT_VERSION = 1;
 
+// Used to notify the app (same-tab) that consent changed.
+// Cross-tab updates are handled via the native `storage` event.
+export const GDPR_CONSENT_CHANGE_EVENT = 'smartTool.gdprConsentChanged';
+export const GDPR_CONSENT_STORAGE_KEY = CONSENT_KEY;
+
 export function getStoredConsent(): GDPRConsent | null {
   try {
     const raw = localStorage.getItem(CONSENT_KEY);
@@ -43,12 +48,20 @@ export function hasAIConsent(): boolean {
   return consent?.aiProcessing === true;
 }
 
+function notifyConsentChanged(): void {
+  // `window` is always defined in the app runtime, but guard for tests/edge environments.
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event(GDPR_CONSENT_CHANGE_EVENT));
+}
+
 function saveConsent(consent: GDPRConsent): void {
   localStorage.setItem(CONSENT_KEY, JSON.stringify(consent));
+  notifyConsentChanged();
 }
 
 export function clearConsent(): void {
   localStorage.removeItem(CONSENT_KEY);
+  notifyConsentChanged();
 }
 
 interface CookieConsentProps {
