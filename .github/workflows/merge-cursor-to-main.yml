@@ -1,0 +1,125 @@
+name: Merge cursor/* into main
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_tests:
+        description: 'Run tests after each merge (true/false)'
+        required: false
+        default: 'false'
+      test_command:
+        description: 'Command to run tests'
+        required: false
+        default: 'npm test'
+
+permissions:
+  contents: write
+
+jobs:
+  merge-cursor-branches:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch all branches
+        run: |
+          git remote set-url origin "https://github.com/${{ github.repository }}"
+          git fetch --all --prune
+
+      - name: Create backup of main
+        id: backup
+        run: |
+          MAIN=main
+          BACKUP="backup-main-$(date +%Y%m%d-%H%M%S)"
+          git fetch origin "$MAIN"
+          git checkout -b "$BACKUP" "origin/$MAIN"
+          # If you add a repo secret MERGE_PAT (a PAT with repo scope), the workflow will use it for pushes.
+          if [ -n "${{ secrets.MERGE_PAT }}" ]; then
+            git remote set-url origin "https://x-access-token:${{ secrets.MERGE_PAT }}@github.com/${{ github.repository }}"
+          fi
+          git push origin "$BACKUP"
+          echo "backup_branch=$BACKUP" >> $GITHUB_OUTPUT
+
+      - name: Gather cursor/* branches
+        id: gather
+        run: |
+          # List remote heads matching cursor/* and extract branch names
+          BRANCHES=$(git ls-remote --heads origin 'cursor/*' | awk '{print $2}' | sed 's|refs/heads/||')
+          echo "branches<<EOF" >> $GITHUB_OUTPUT
+          echo "$BRANCHES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Merge cursor branches into main
+        env:
+          BRANCH_LIST: ${{ steps.gather.outputs.branches }}
+          RUN_TESTS: ${{ github.event.inputs.run_tests }}
+          TEST_CMD: ${{ github.event.inputs.test_command }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BRANCH_LIST" ]; then
+            echo "No cursor/* branches found. Exiting."
+            exit 0
+          fi
+
+          # Ensure origin uses PAT if provided for pushing
+          if [ -n "${{ secrets.MERGE_PAT }}" ]; then
+            git remote set-url origin "https://x-access-token:${{ secrets.MERGE_PAT }}@github.com/${{ github.repository }}"
+          fi
+
+          IFS=$'\n'
+          for BR in $BRANCH_LIST; do
+            BR=$(echo "$BR" | tr -d '\r')
+            if [ -z "$BR" ]; then
+              continue
+            fi
+            echo
+            echo "=== Merging $BR into main ==="
+
+            git checkout main
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Attempt merge favoring incoming branch on conflicts using -X theirs
+            set +e
+            git merge --no-ff -m "Merge $BR into main" -X theirs "origin/$BR"
+            MERGE_STATUS=$?
+            set -e
+
+            if [ $MERGE_STATUS -ne 0 ]; then
+              echo "Merge reported conflicts. Attempting deterministic auto-resolution..."
+              git merge --abort || true
+              git merge --no-ff -m "Merge $BR into main (auto-resolve)" "origin/$BR" || true
+
+              CONFLICTS=$(git diff --name-only --diff-filter=U || true)
+              if [ -n "$CONFLICTS" ]; then
+                echo "Resolving conflicts by taking incoming branch for these files:"; echo "$CONFLICTS"
+                while read -r file; do
+                  [ -z "$file" ] && continue
+                  git checkout --theirs -- "$file"
+                  git add -- "$file"
+                done <<< "$CONFLICTS"
+                git commit -m "Auto-resolve conflicts favoring $BR"
+              fi
+            fi
+
+            echo "Pushing main to origin..."
+            git push origin main
+
+            if [ "$RUN_TESTS" = "true" ]; then
+              echo "Running tests: $TEST_CMD"
+              # run tests in repo root; if tests fail, stop the workflow
+              eval "$TEST_CMD"
+            fi
+          done
+
+      - name: Report result
+        run: |
+          echo "Merge job finished. Backup branch: ${{ steps.backup.outputs.backup_branch }}"
