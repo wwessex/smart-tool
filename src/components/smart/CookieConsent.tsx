@@ -78,7 +78,7 @@ export function CookieConsent({ onConsentChange }: CookieConsentProps) {
     const consent: GDPRConsent = {
       essential: true,
       aiProcessing: true,
-      analytics: true,
+      analytics: false, // Keep false until analytics is actually implemented
       consentDate: new Date().toISOString(),
       version: CONSENT_VERSION,
     };
