@@ -1,12 +1,16 @@
 {
-  "name": "SMART Action Support Tool",
+  "name": "SMART Action Tool - Employment Support Action Generator",
   "short_name": "SMART Tool",
-  "description": "Create SMART actions for participant support meetings",
+  "description": "Free SMART action generator for employment advisors. Create Specific, Measurable, Achievable, Relevant, Time-bound actions for participant support meetings. Works offline, GDPR-aligned.",
   "start_url": "/",
+  "id": "/",
   "display": "standalone",
   "background_color": "#0a0f1c",
   "theme_color": "#8b5cf6",
   "orientation": "any",
+  "scope": "/",
+  "lang": "en-GB",
+  "dir": "ltr",
   "icons": [
     {
       "src": "/favicon-48x48.png",
@@ -26,7 +30,25 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["productivity", "utilities"],
+  "categories": ["productivity", "utilities", "business"],
   "screenshots": [],
-  "prefer_related_applications": false
+  "prefer_related_applications": false,
+  "iarc_rating_id": "",
+  "related_applications": [],
+  "shortcuts": [
+    {
+      "name": "Create Action Now",
+      "short_name": "Now",
+      "description": "Create a SMART action for immediate barriers",
+      "url": "/?mode=now",
+      "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "Create Future Action",
+      "short_name": "Future",
+      "description": "Create a SMART action for future tasks",
+      "url": "/?mode=future",
+      "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]
+    }
+  ]
 }
