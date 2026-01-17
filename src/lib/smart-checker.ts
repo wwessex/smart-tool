@@ -33,7 +33,7 @@ const SPECIFIC_PATTERNS = {
 const MEASURABLE_PATTERNS = {
   // Fixed date pattern to handle formats like "30-Jan-26", "30 Jan 26", "30/01/26"
   quantity: /\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten|several|multiple|at least|minimum|maximum)\b/i,
-  date: /\b(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}|\d{1,2}[-\s]*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[-\s]*\d{2,4}|\d{1,2}(st|nd|rd|th)?[-\s]*(of[-\s]*)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)|by\s+\w+day|within\s+\d+\s*(days?|weeks?|months?))\b/i,
+  date: /\b(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{1,2}[-\s]*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[-\s]*\d{2,4}|\d{1,2}(st|nd|rd|th)?[-\s]*(of[-\s]*)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)|by\s+\w+day|within\s+\d+\s*(days?|weeks?|months?))\b/i,
   frequency: /\b(daily|weekly|monthly|every\s+\w+|twice|once|per\s+(day|week|month))\b/i,
   target: /\b(applications?|interviews?|contacts?|calls?|jobs?|opportunities|employers?)\b/i,
   outcome: /\b(result|outcome|achieve|complete|finish|receive|submit|attend|obtain|acquire|gain|secure|present|findings|review)\b/i,
@@ -56,7 +56,7 @@ const TIMEBOUND_PATTERNS = {
   deadline: /\b(by|before|until|within|no later than)\s+(\d|next|this|end of)/i,
   review: /\b(review(ed)?|check|follow[- ]?up|progress|revisit)\s*(in|on|at|within|after)?\s*(\d+\s*)?(days?|weeks?|months?|next)?/i,
   // Fixed to match hyphenated dates like "30-Jan-26" as well as spaced dates
-  specific_date: /\b\d{1,2}[-\/\.]\d{1,2}[-\/\.]\d{2,4}\b|\b\d{1,2}[-\s]*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[-\s]*\d{2,4}\b|\b\d{1,2}(st|nd|rd|th)?[-\s]*(of[-\s]*)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i,
+  specific_date: /\b\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}\b|\b\d{1,2}[-\s]*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[-\s]*\d{2,4}\b|\b\d{1,2}(st|nd|rd|th)?[-\s]*(of[-\s]*)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i,
   timeframe: /\b(today|tomorrow|this week|next week|this month|next month|immediate|soon)\b/i,
 };
 
@@ -264,7 +264,7 @@ export function checkSmart(text: string, meta?: {
 
   // Calculate overall score with semantic penalty
   const criteria = [specific, measurable, achievable, relevant, timeBound];
-  let overallScore = criteria.filter(c => c.met).length;
+  const overallScore = criteria.filter(c => c.met).length;
   
   // Semantic penalty for weak language (reduce effective score for display purposes)
   // Note: We don't actually reduce the score number, but we add warnings
