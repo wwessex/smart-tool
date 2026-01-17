@@ -31,19 +31,46 @@ export default defineConfig(({ mode }) => {
           // Code splitting for better caching
           manualChunks: {
             'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-            'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-tabs', '@radix-ui/react-tooltip'],
+            'vendor-ui': [
+              '@radix-ui/react-dialog', 
+              '@radix-ui/react-select', 
+              '@radix-ui/react-tabs', 
+              '@radix-ui/react-tooltip',
+              '@radix-ui/react-dropdown-menu',
+              '@radix-ui/react-popover',
+            ],
             'vendor-motion': ['framer-motion'],
+            'vendor-query': ['@tanstack/react-query'],
+            'vendor-forms': ['react-hook-form', '@hookform/resolvers', 'zod'],
           },
         },
       },
       // Reduce chunk size warnings threshold
       chunkSizeWarningLimit: 600,
-      // Use esbuild for minification (built-in, no extra deps needed)
+      // Use esbuild for minification (built-in, fastest)
       minify: 'esbuild',
+      // Enable source maps for production debugging (optional)
+      sourcemap: false,
+      // Target modern browsers for smaller bundles
+      target: 'es2020',
+      // CSS code splitting
+      cssCodeSplit: true,
     },
     // Optimize deps for faster dev startup
     optimizeDeps: {
-      include: ['react', 'react-dom', 'framer-motion'],
+      include: [
+        'react', 
+        'react-dom', 
+        'react-router-dom',
+        'framer-motion',
+        '@tanstack/react-query',
+      ],
+      // Exclude heavy deps from pre-bundling if not needed immediately
+      exclude: ['@mlc-ai/web-llm'],
+    },
+    // Enable CSS minification
+    css: {
+      devSourcemap: false,
     },
   };
 });
