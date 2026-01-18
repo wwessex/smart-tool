@@ -71,6 +71,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3, Shield, FileDown, Clock, Languages, Loader2, RefreshCw } from 'lucide-react';
 import { useTheme } from 'next-themes';
@@ -169,6 +170,7 @@ const aiHasConsent = useAIConsent();
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const [historyTab, setHistoryTab] = useState<'history' | 'insights'>('history');
   const [privacySettingsOpen, setPrivacySettingsOpen] = useState(false);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [fixingCriterion, setFixingCriterion] = useState<string | null>(null);
   const [lastFixAttempt, setLastFixAttempt] = useState<{
     criterion: 'specific' | 'measurable' | 'achievable' | 'relevant' | 'timeBound';
@@ -346,7 +348,29 @@ const aiHasConsent = useAIConsent();
     URL.revokeObjectURL(url);
   }, [output, translatedOutput, storage.participantLanguage, mode, toast]);
 
-  const handleClear = useCallback(() => {
+  // Check if the current form has any user-entered content
+  const formHasContent = useMemo(() => {
+    if (mode === 'now') {
+      return !!(
+        nowForm.forename.trim() ||
+        nowForm.barrier.trim() ||
+        nowForm.action.trim() ||
+        nowForm.responsible.trim() ||
+        nowForm.help.trim() ||
+        nowForm.timescale.trim()
+      );
+    } else {
+      return !!(
+        futureForm.forename.trim() ||
+        futureForm.task.trim() ||
+        futureForm.outcome.trim() ||
+        futureForm.timescale.trim()
+      );
+    }
+  }, [mode, nowForm, futureForm]);
+
+  // Actual clear implementation
+  const performClear = useCallback(() => {
     if (mode === 'now') {
       setNowForm({ date: today, forename: '', barrier: '', action: '', responsible: '', help: '', timescale: '' });
     } else {
@@ -359,6 +383,15 @@ const aiHasConsent = useAIConsent();
     setShowValidation(false);
     setSuggestQuery('');
   }, [mode, today, translation]);
+
+  const handleClear = useCallback(() => {
+    // Show confirmation dialog if enabled and form has content
+    if (storage.clearConfirmEnabled && formHasContent) {
+      setClearConfirmOpen(true);
+    } else {
+      performClear();
+    }
+  }, [storage.clearConfirmEnabled, formHasContent, performClear]);
 
   // Handle translation
   const handleTranslate = useCallback(async () => {
@@ -1093,6 +1126,26 @@ When given context about a participant, provide suggestions to improve their SMA
                       Actions with a SMART score below {storage.minScoreThreshold}/5 cannot be saved to history. 
                       This encourages higher quality action writing.
                     </WarningBox>
+                  </div>
+
+                  {/* Clear Confirmation Toggle */}
+                  <div className="p-4 rounded-lg border bg-card space-y-4">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-5 h-5 text-primary" />
+                      <h3 className="font-bold">Clear Confirmation</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Show a confirmation dialog before clearing the form to prevent accidental data loss.
+                    </p>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={storage.clearConfirmEnabled} 
+                        onChange={e => storage.updateClearConfirmEnabled(e.target.checked)}
+                        className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
+                      />
+                      <span className="text-sm font-medium">Ask before clearing form</span>
+                    </label>
                   </div>
 
                   {/* Wizard Mode Toggle */}
@@ -2024,6 +2077,30 @@ When given context about a participant, provide suggestions to improve their SMA
         open={privacySettingsOpen} 
         onOpenChange={setPrivacySettingsOpen} 
       />
+
+      {/* Clear Confirmation Dialog */}
+      <AlertDialog open={clearConfirmOpen} onOpenChange={setClearConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear form?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will clear all entered data from the current form. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                performClear();
+                setClearConfirmOpen(false);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Clear form
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

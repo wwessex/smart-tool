@@ -14,7 +14,8 @@ const STORAGE = {
   retentionDays: "smartTool.retentionDays",
   retentionEnabled: "smartTool.retentionEnabled",
   lastRetentionCheck: "smartTool.lastRetentionCheck",
-  participantLanguage: "smartTool.participantLanguage"
+  participantLanguage: "smartTool.participantLanguage",
+  clearConfirmEnabled: "smartTool.clearConfirmEnabled"
 };
 
 // Default retention period in days
@@ -59,6 +60,7 @@ export interface SmartToolSettings {
   retentionEnabled?: boolean;
   retentionDays?: number;
   participantLanguage?: string;
+  clearConfirmEnabled?: boolean;
 }
 
 /**
@@ -143,6 +145,7 @@ export function useSmartStorage() {
       return 'none';
     }
   });
+  const [clearConfirmEnabled, setClearConfirmEnabled] = useState<boolean>(() => loadBoolean(STORAGE.clearConfirmEnabled, true));
 
   const updateBarriers = useCallback((newBarriers: string[]) => {
     setBarriers(newBarriers);
@@ -256,6 +259,10 @@ if (data.settings && typeof data.settings === 'object') {
         setParticipantLanguage(data.settings.participantLanguage);
         localStorage.setItem(STORAGE.participantLanguage, data.settings.participantLanguage);
       }
+      if (typeof data.settings.clearConfirmEnabled === 'boolean') {
+        setClearConfirmEnabled(data.settings.clearConfirmEnabled);
+        localStorage.setItem(STORAGE.clearConfirmEnabled, String(data.settings.clearConfirmEnabled));
+      }
     }
   }, []);
 
@@ -316,6 +323,7 @@ const exportAllData = useCallback(() => {
         retentionEnabled,
         retentionDays,
         participantLanguage,
+        clearConfirmEnabled,
       },
     };
     return exportData;
@@ -330,6 +338,7 @@ const exportAllData = useCallback(() => {
     retentionEnabled,
     retentionDays,
     participantLanguage,
+    clearConfirmEnabled,
   ]);
 
   // Delete all user data for GDPR right to erasure
@@ -350,6 +359,7 @@ const exportAllData = useCallback(() => {
     setRetentionEnabled(true);
     setRetentionDays(DEFAULT_RETENTION_DAYS);
     setParticipantLanguage('none');
+    setClearConfirmEnabled(true);
   }, []);
 
   // Update retention settings
@@ -367,6 +377,11 @@ const exportAllData = useCallback(() => {
   const updateParticipantLanguage = useCallback((language: string) => {
     setParticipantLanguage(language);
     safeSetItem(STORAGE.participantLanguage, language);
+  }, []);
+
+  const updateClearConfirmEnabled = useCallback((enabled: boolean) => {
+    setClearConfirmEnabled(enabled);
+    safeSetItem(STORAGE.clearConfirmEnabled, String(enabled));
   }, []);
 
   // Check and clean up old history items
@@ -425,6 +440,7 @@ const exportAllData = useCallback(() => {
     retentionEnabled,
     retentionDays,
     participantLanguage,
+    clearConfirmEnabled,
     updateBarriers,
     resetBarriers,
     updateTimescales,
@@ -442,6 +458,7 @@ const exportAllData = useCallback(() => {
     updateRetentionEnabled,
     updateRetentionDays,
     updateParticipantLanguage,
+    updateClearConfirmEnabled,
     cleanupOldHistory,
     shouldRunCleanup,
     exportAllData,

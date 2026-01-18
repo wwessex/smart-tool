@@ -45,6 +45,7 @@ const SettingsSchema = z.object({
   retentionEnabled: z.boolean().optional(),
   retentionDays: z.number().int().min(7).max(365).optional(),
   participantLanguage: z.string().max(20).optional(),
+  clearConfirmEnabled: z.boolean().optional(),
 });
 
 export const SmartToolImportPayloadSchema = z.object({
