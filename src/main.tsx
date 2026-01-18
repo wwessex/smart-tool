@@ -3,6 +3,26 @@ import { Component, ReactNode } from "react";
 import App from "./App.tsx";
 import "./index.css";
 
+// CRITICAL FIX: Hide loading screen function - ALWAYS runs in finally block
+const hideLoadingScreen = () => {
+  // Clear any fallback timeout
+  if (window.__loaderTimeout) {
+    clearTimeout(window.__loaderTimeout);
+  }
+  const loader = document.getElementById('initial-loader');
+  if (loader) {
+    loader.style.display = 'none';
+    loader.remove();
+  }
+};
+
+// Extend window type for loader timeout
+declare global {
+  interface Window {
+    __loaderTimeout?: ReturnType<typeof setTimeout>;
+  }
+}
+
 // Error boundary to catch render errors
 class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -17,8 +37,15 @@ class ErrorBoundary extends Component<
     return { hasError: true, error };
   }
 
+  componentDidMount() {
+    // Hide loader when error boundary mounts (success case handled by children)
+    hideLoadingScreen();
+  }
+
   render() {
     if (this.state.hasError) {
+      // ALWAYS hide loader on error too
+      hideLoadingScreen();
       return (
         <div style={{ padding: '2rem', fontFamily: 'system-ui' }}>
           <h1>Something went wrong</h1>
@@ -46,39 +73,48 @@ class ErrorBoundary extends Component<
   }
 }
 
-// Hide loading screen once React mounts
-const hideLoadingScreen = () => {
-  const loadingContainer = document.querySelector('.loading-container');
-  if (loadingContainer) {
-    loadingContainer.remove();
+// CRITICAL: Mount the app with proper error handling
+const initApp = () => {
+  try {
+    const root = document.getElementById("root");
+    if (!root) {
+      throw new Error("Root element not found");
+    }
+    
+    createRoot(root).render(
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
+    );
+    
+    // Signal to service worker that app has loaded
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'APP_LOADED' });
+    }
+  } catch (error) {
+    console.error("Failed to initialize app:", error);
+    hideLoadingScreen();
+    
+    // Show error message in root
+    const root = document.getElementById("root");
+    if (root) {
+      root.innerHTML = `
+        <div style="padding: 2rem; font-family: system-ui; text-align: center;">
+          <h1>Failed to load application</h1>
+          <p style="color: #666;">Please try refreshing the page or clearing your cache.</p>
+          <button onclick="location.reload()" style="margin-top: 1rem; padding: 0.5rem 1rem; cursor: pointer; background: #e89309; color: white; border: none; border-radius: 0.25rem;">
+            Reload
+          </button>
+        </div>
+      `;
+    }
   }
 };
 
-// Mount the app
-const root = document.getElementById("root");
-if (root) {
-  createRoot(root).render(
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
-  );
-  // Hide loading screen after React mounts
-  hideLoadingScreen();
+// Start the app - use DOMContentLoaded to ensure DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  // DOM already loaded
+  initApp();
 }
-
-// Signal to service worker that app has loaded successfully
-// Only do this AFTER React has successfully mounted
-requestAnimationFrame(() => {
-  if ('serviceWorker' in navigator) {
-    // Signal existing controller
-    if (navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'APP_LOADED' });
-    }
-    // Also signal when SW becomes active
-    navigator.serviceWorker.ready.then(reg => {
-      reg.active?.postMessage({ type: 'APP_LOADED' });
-    }).catch(() => {
-      // Silently ignore - SW might not be available
-    });
-  }
-});
