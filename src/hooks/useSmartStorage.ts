@@ -14,7 +14,9 @@ const STORAGE = {
   retentionDays: "smartTool.retentionDays",
   retentionEnabled: "smartTool.retentionEnabled",
   lastRetentionCheck: "smartTool.lastRetentionCheck",
-  participantLanguage: "smartTool.participantLanguage"
+  participantLanguage: "smartTool.participantLanguage",
+  aiDraftMode: "smartTool.aiDraftMode",
+  preferredLLMModel: "smartTool.preferredLLMModel"
 };
 
 // Default retention period in days
@@ -53,12 +55,16 @@ export interface HistoryItem {
   };
 }
 
+export type AIDraftMode = 'ai' | 'template';
+
 export interface SmartToolSettings {
   minScoreEnabled?: boolean;
   minScoreThreshold?: number;
   retentionEnabled?: boolean;
   retentionDays?: number;
   participantLanguage?: string;
+  aiDraftMode?: AIDraftMode;
+  preferredLLMModel?: string;
 }
 
 /**
@@ -141,6 +147,21 @@ export function useSmartStorage() {
       return localStorage.getItem(STORAGE.participantLanguage) || 'none';
     } catch {
       return 'none';
+    }
+  });
+  const [aiDraftMode, setAIDraftMode] = useState<AIDraftMode>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE.aiDraftMode);
+      return stored === 'template' ? 'template' : 'ai';
+    } catch {
+      return 'ai';
+    }
+  });
+  const [preferredLLMModel, setPreferredLLMModel] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(STORAGE.preferredLLMModel) || null;
+    } catch {
+      return null;
     }
   });
 
@@ -256,6 +277,14 @@ if (data.settings && typeof data.settings === 'object') {
         setParticipantLanguage(data.settings.participantLanguage);
         localStorage.setItem(STORAGE.participantLanguage, data.settings.participantLanguage);
       }
+      if (data.settings.aiDraftMode === 'ai' || data.settings.aiDraftMode === 'template') {
+        setAIDraftMode(data.settings.aiDraftMode);
+        localStorage.setItem(STORAGE.aiDraftMode, data.settings.aiDraftMode);
+      }
+      if (typeof data.settings.preferredLLMModel === 'string') {
+        setPreferredLLMModel(data.settings.preferredLLMModel);
+        localStorage.setItem(STORAGE.preferredLLMModel, data.settings.preferredLLMModel);
+      }
     }
   }, []);
 
@@ -316,6 +345,8 @@ const exportAllData = useCallback(() => {
         retentionEnabled,
         retentionDays,
         participantLanguage,
+        aiDraftMode,
+        preferredLLMModel,
       },
     };
     return exportData;
@@ -330,6 +361,8 @@ const exportAllData = useCallback(() => {
     retentionEnabled,
     retentionDays,
     participantLanguage,
+    aiDraftMode,
+    preferredLLMModel,
   ]);
 
   // Delete all user data for GDPR right to erasure
@@ -350,6 +383,8 @@ const exportAllData = useCallback(() => {
     setRetentionEnabled(true);
     setRetentionDays(DEFAULT_RETENTION_DAYS);
     setParticipantLanguage('none');
+    setAIDraftMode('ai');
+    setPreferredLLMModel(null);
   }, []);
 
   // Update retention settings
@@ -367,6 +402,20 @@ const exportAllData = useCallback(() => {
   const updateParticipantLanguage = useCallback((language: string) => {
     setParticipantLanguage(language);
     safeSetItem(STORAGE.participantLanguage, language);
+  }, []);
+
+  const updateAIDraftMode = useCallback((mode: AIDraftMode) => {
+    setAIDraftMode(mode);
+    safeSetItem(STORAGE.aiDraftMode, mode);
+  }, []);
+
+  const updatePreferredLLMModel = useCallback((modelId: string | null) => {
+    setPreferredLLMModel(modelId);
+    if (modelId) {
+      safeSetItem(STORAGE.preferredLLMModel, modelId);
+    } else {
+      safeRemoveItem(STORAGE.preferredLLMModel);
+    }
   }, []);
 
   // Check and clean up old history items
@@ -425,6 +474,8 @@ const exportAllData = useCallback(() => {
     retentionEnabled,
     retentionDays,
     participantLanguage,
+    aiDraftMode,
+    preferredLLMModel,
     updateBarriers,
     resetBarriers,
     updateTimescales,
@@ -442,6 +493,8 @@ const exportAllData = useCallback(() => {
     updateRetentionEnabled,
     updateRetentionDays,
     updateParticipantLanguage,
+    updateAIDraftMode,
+    updatePreferredLLMModel,
     cleanupOldHistory,
     shouldRunCleanup,
     exportAllData,

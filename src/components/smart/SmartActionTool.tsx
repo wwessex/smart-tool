@@ -539,6 +539,16 @@ export function SmartActionTool() {
       }
     }
 
+    // User preference: templates - use templates directly
+    if (storage.aiDraftMode === 'template') {
+      if (mode === 'now') {
+        templateDraftNow();
+      } else {
+        templateDraftFuture();
+      }
+      return;
+    }
+
     // On mobile, always use templates (local AI not available due to memory constraints)
     if (llm.isMobile) {
       if (mode === 'now') {
@@ -611,7 +621,7 @@ export function SmartActionTool() {
     } finally {
       setAIDrafting(false);
     }
-  }, [mode, nowForm, futureForm, llm, today, templateDraftNow, templateDraftFuture, toast]);
+  }, [mode, nowForm, futureForm, llm, today, templateDraftNow, templateDraftFuture, toast, storage.aiDraftMode]);
 
   const handleEditHistory = (item: HistoryItem) => {
     setMode(item.mode);
@@ -1281,7 +1291,126 @@ When given context about a participant, provide suggestions to improve their SMA
                     </label>
                   </div>
 
-                  {/* Tutorial Reset */}
+                  {/* AI Draft Settings Section */}
+                  <div className="p-4 rounded-lg border bg-card space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Bot className="w-5 h-5 text-primary" />
+                      <h3 className="font-bold">AI Draft</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Choose how the AI Draft button generates action suggestions.
+                    </p>
+                    
+                    {/* Mode Toggle */}
+                    <div className="space-y-3">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input 
+                          type="radio" 
+                          name="aiDraftMode"
+                          checked={storage.aiDraftMode === 'ai'} 
+                          onChange={() => storage.updateAIDraftMode('ai')}
+                          className="w-4 h-4 accent-primary"
+                        />
+                        <div>
+                          <span className="text-sm font-medium">Use Local AI</span>
+                          <p className="text-xs text-muted-foreground">
+                            AI-generated suggestions (requires model download, desktop only)
+                          </p>
+                        </div>
+                      </label>
+                      
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input 
+                          type="radio" 
+                          name="aiDraftMode"
+                          checked={storage.aiDraftMode === 'template'} 
+                          onChange={() => storage.updateAIDraftMode('template')}
+                          className="w-4 h-4 accent-primary"
+                        />
+                        <div>
+                          <span className="text-sm font-medium">Use Smart Templates</span>
+                          <p className="text-xs text-muted-foreground">
+                            Instant template-based suggestions (no download required)
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                    
+                    {/* Model Selection (only shown when AI mode selected and not on mobile) */}
+                    {storage.aiDraftMode === 'ai' && !llm.isMobile && (
+                      <div className="pt-4 border-t space-y-3">
+                        <h4 className="text-sm font-medium">AI Model</h4>
+                        
+                        {llm.isReady && (
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
+                              <Check className="w-4 h-4" />
+                              {RECOMMENDED_MODELS.find(m => m.id === llm.selectedModel)?.name || 'Model'} loaded
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => llm.unload()}
+                              className="h-7 text-xs"
+                            >
+                              Unload
+                            </Button>
+                          </div>
+                        )}
+                        
+                        {llm.isLoading && (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span className="text-sm">{llm.loadingStatus}</span>
+                            </div>
+                            <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-primary transition-all duration-300"
+                                style={{ width: `${llm.loadingProgress}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        
+                        {!llm.isReady && !llm.isLoading && (
+                          <div className="space-y-2">
+                            {RECOMMENDED_MODELS.map((model) => (
+                              <button
+                                key={model.id}
+                                onClick={() => llm.loadModel(model.id)}
+                                className="w-full p-3 rounded-lg border hover:border-primary/50 hover:bg-primary/5 transition-colors text-left"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium text-sm">{model.name}</span>
+                                  <span className="text-xs text-muted-foreground">{model.size}</span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">{model.description}</p>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {llm.error && (
+                          <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                            <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                            <p className="text-xs text-destructive">{llm.error}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Mobile warning */}
+                    {llm.isMobile && storage.aiDraftMode === 'ai' && (
+                      <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                        <p className="text-xs text-amber-700 dark:text-amber-400">
+                          Local AI is not available on mobile devices. Template mode will be used instead.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="p-4 rounded-lg border bg-card space-y-4">
                     <div className="flex items-center gap-2">
                       <HelpCircle className="w-5 h-5 text-primary" />
