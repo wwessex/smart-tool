@@ -50,8 +50,9 @@ import { LanguageSelector } from './LanguageSelector';
 import { WarningBox, WarningText, InputGlow } from './WarningBox';
 import { useKeyboardShortcuts, groupShortcuts, createShortcutMap, ShortcutConfig } from '@/hooks/useKeyboardShortcuts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FIX_CRITERION_PROMPT, CRITERION_GUIDANCE } from '@/lib/smart-prompts';
+import { FIX_CRITERION_PROMPT, CRITERION_GUIDANCE, DRAFT_ACTION_PROMPT, DRAFT_HELP_PROMPT, DRAFT_OUTCOME_PROMPT } from '@/lib/smart-prompts';
 import { SMART_TOOL_SHORTCUTS } from '@/lib/smart-tool-shortcuts';
+import { useLLM, RECOMMENDED_MODELS } from '@/hooks/useLLM';
 
 /**
  * Safely remove from localStorage, catching any errors.
@@ -135,7 +136,12 @@ export function SmartActionTool() {
   const cloudAI = useCloudAI();
   const aiHasConsent = useAIConsent();
   const localSync = useLocalSync();
+  const llm = useLLM();
   const today = todayISO();
+  
+  // AI Draft state
+  const [aiDrafting, setAIDrafting] = useState(false);
+  const [showLLMPicker, setShowLLMPicker] = useState(false);
 
   const [mode, setMode] = useState<Mode>('now');
   const [nowForm, setNowForm] = useState<NowForm>({
@@ -495,37 +501,115 @@ export function SmartActionTool() {
     }
   }, [output, storage, smartCheck.overallScore, mode, nowForm, futureForm, translatedOutput, toast, localSync]);
 
-  const handleAIDraft = useCallback(() => {
+  // Template-based fallback for AI Draft
+  const templateDraftNow = useCallback(() => {
+    let timescale = nowForm.timescale;
+    if (!timescale) {
+      timescale = '2 weeks';
+      setNowForm(prev => ({ ...prev, timescale }));
+    }
+    const { action, help } = aiDraftNow(
+      nowForm.barrier, 
+      nowForm.forename, 
+      nowForm.responsible, 
+      timescale, 
+      nowForm.date,
+      suggestQuery
+    );
+    setNowForm(prev => ({ ...prev, action, help }));
+    toast({ title: 'Draft inserted', description: 'Template draft added. Edit as needed.' });
+  }, [nowForm, suggestQuery, toast]);
+
+  const templateDraftFuture = useCallback(() => {
+    const outcome = aiDraftFuture(futureForm.task, futureForm.forename);
+    setFutureForm(prev => ({ ...prev, outcome }));
+    toast({ title: 'Draft inserted', description: 'Template draft added. Edit as needed.' });
+  }, [futureForm, toast]);
+
+  const handleAIDraft = useCallback(async () => {
     if (mode === 'now') {
       if (!nowForm.forename.trim() || !nowForm.barrier.trim()) {
         toast({ title: 'Missing info', description: 'Add a forename and barrier first.', variant: 'destructive' });
         return;
       }
-      let timescale = nowForm.timescale;
-      if (!timescale) {
-        timescale = '2 weeks';
-        setNowForm(prev => ({ ...prev, timescale }));
-      }
-      const { action, help } = aiDraftNow(
-        nowForm.barrier, 
-        nowForm.forename, 
-        nowForm.responsible, 
-        timescale, 
-        nowForm.date,
-        suggestQuery
-      );
-      setNowForm(prev => ({ ...prev, action, help }));
-      toast({ title: 'Draft inserted', description: 'AI draft added. Edit as needed.' });
     } else {
       if (!futureForm.forename.trim() || !futureForm.task.trim()) {
         toast({ title: 'Missing info', description: 'Add a forename and task first.', variant: 'destructive' });
         return;
       }
-      const outcome = aiDraftFuture(futureForm.task, futureForm.forename);
-      setFutureForm(prev => ({ ...prev, outcome }));
-      toast({ title: 'Draft inserted', description: 'AI draft added. Edit as needed.' });
     }
-  }, [mode, nowForm, futureForm, suggestQuery, toast]);
+
+    // If LLM is not ready, show picker or use template fallback
+    if (!llm.isReady) {
+      // Check if WebGPU is available
+      const webgpuCheck = await llm.checkWebGPU();
+      if (!webgpuCheck.available) {
+        // No WebGPU, use template fallback
+        if (mode === 'now') {
+          templateDraftNow();
+        } else {
+          templateDraftFuture();
+        }
+        return;
+      }
+      // Show model picker
+      setShowLLMPicker(true);
+      return;
+    }
+
+    // Use LLM for drafting
+    setAIDrafting(true);
+    try {
+      if (mode === 'now') {
+        let timescale = nowForm.timescale;
+        if (!timescale) {
+          timescale = '2 weeks';
+          setNowForm(prev => ({ ...prev, timescale }));
+        }
+        const targetISO = parseTimescaleToTargetISO(nowForm.date || today, timescale);
+        const targetDate = formatDDMMMYY(targetISO);
+        
+        // Generate action
+        const actionPrompt = DRAFT_ACTION_PROMPT
+          .replace(/{forename}/g, nowForm.forename)
+          .replace(/{barrier}/g, nowForm.barrier)
+          .replace(/{responsible}/g, nowForm.responsible || 'Advisor')
+          .replace(/{timescale}/g, timescale)
+          .replace(/{targetDate}/g, targetDate);
+        
+        const action = await llm.generate(actionPrompt);
+        
+        // Generate help
+        const helpPrompt = DRAFT_HELP_PROMPT
+          .replace('{action}', action)
+          .replace('{forename}', nowForm.forename);
+        
+        const help = await llm.generate(helpPrompt);
+        
+        setNowForm(prev => ({ ...prev, action, help }));
+        toast({ title: 'AI Draft ready', description: 'Generated with local AI. Edit as needed.' });
+      } else {
+        // Generate outcome
+        const outcomePrompt = DRAFT_OUTCOME_PROMPT
+          .replace(/{forename}/g, futureForm.forename)
+          .replace(/{task}/g, futureForm.task);
+        
+        const outcome = await llm.generate(outcomePrompt);
+        setFutureForm(prev => ({ ...prev, outcome }));
+        toast({ title: 'AI Draft ready', description: 'Generated with local AI. Edit as needed.' });
+      }
+    } catch (err) {
+      console.warn('LLM draft failed, falling back to templates:', err);
+      // Fallback to templates
+      if (mode === 'now') {
+        templateDraftNow();
+      } else {
+        templateDraftFuture();
+      }
+    } finally {
+      setAIDrafting(false);
+    }
+  }, [mode, nowForm, futureForm, llm, today, templateDraftNow, templateDraftFuture, toast]);
 
   const handleEditHistory = (item: HistoryItem) => {
     setMode(item.mode);
@@ -707,6 +791,41 @@ When given context about a participant, provide suggestions to improve their SMA
 
   // Handle wizard AI draft - provides field-specific AI drafts within the wizard
   const handleWizardAIDraft = useCallback(async (field: string, context: Record<string, string>): Promise<string> => {
+    // If LLM is ready, use it
+    if (llm.isReady) {
+      try {
+        if (mode === 'now' && (field === 'action' || field === 'help')) {
+          const timescale = context.timescale || '2 weeks';
+          const targetISO = parseTimescaleToTargetISO(nowForm.date || today, timescale);
+          const targetDate = formatDDMMMYY(targetISO);
+          
+          if (field === 'action') {
+            const actionPrompt = DRAFT_ACTION_PROMPT
+              .replace(/{forename}/g, context.forename || '')
+              .replace(/{barrier}/g, context.barrier || '')
+              .replace(/{responsible}/g, context.responsible || 'Advisor')
+              .replace(/{timescale}/g, timescale)
+              .replace(/{targetDate}/g, targetDate);
+            return await llm.generate(actionPrompt);
+          } else {
+            const helpPrompt = DRAFT_HELP_PROMPT
+              .replace('{action}', context.action || '')
+              .replace('{forename}', context.forename || '');
+            return await llm.generate(helpPrompt);
+          }
+        } else if (mode === 'future' && field === 'outcome') {
+          const outcomePrompt = DRAFT_OUTCOME_PROMPT
+            .replace(/{forename}/g, context.forename || '')
+            .replace(/{task}/g, context.task || '');
+          return await llm.generate(outcomePrompt);
+        }
+      } catch (err) {
+        console.warn('LLM wizard draft failed, falling back to templates:', err);
+        // Fall through to template fallback
+      }
+    }
+
+    // Template fallback
     if (mode === 'now') {
       const timescale = context.timescale || '2 weeks';
       if (field === 'action' || field === 'help') {
@@ -725,7 +844,7 @@ When given context about a participant, provide suggestions to improve their SMA
       }
     }
     return '';
-  }, [mode, nowForm.date]);
+  }, [mode, nowForm.date, today, llm]);
 
   // Handle AI improve apply
   const handleApplyImprovement = useCallback((improvedAction: string) => {
@@ -1506,6 +1625,8 @@ When given context about a participant, provide suggestions to improve their SMA
                 onComplete={handleWizardComplete}
                 onCancel={() => setWizardMode(false)}
                 onAIDraft={handleWizardAIDraft}
+                isAIDrafting={aiDrafting || llm.isGenerating}
+                isLLMReady={llm.isReady}
               />
             ) : (
             <>
@@ -1662,8 +1783,21 @@ When given context about a participant, provide suggestions to improve their SMA
                         systemPrompt={llmSystemPrompt}
                         initialContext={buildLLMContext()}
                       />
-                      <Button size="sm" onClick={handleAIDraft} className="bg-primary hover:bg-primary/90 shadow-md">
-                        <Sparkles className="w-3 h-3 mr-1" /> AI draft
+                      <Button 
+                        size="sm" 
+                        onClick={handleAIDraft} 
+                        disabled={aiDrafting || llm.isGenerating}
+                        className="bg-primary hover:bg-primary/90 shadow-md"
+                      >
+                        {aiDrafting || llm.isGenerating ? (
+                          <>
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" /> Drafting...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-3 h-3 mr-1" /> {llm.isReady ? 'AI Draft' : 'AI draft'}
+                          </>
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -1835,8 +1969,21 @@ When given context about a participant, provide suggestions to improve their SMA
                         systemPrompt={llmSystemPrompt}
                         initialContext={buildLLMContext()}
                       />
-                      <Button size="sm" onClick={handleAIDraft} className="bg-primary hover:bg-primary/90 shadow-md">
-                        <Sparkles className="w-3 h-3 mr-1" /> AI draft
+                      <Button 
+                        size="sm" 
+                        onClick={handleAIDraft} 
+                        disabled={aiDrafting || llm.isGenerating}
+                        className="bg-primary hover:bg-primary/90 shadow-md"
+                      >
+                        {aiDrafting || llm.isGenerating ? (
+                          <>
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" /> Drafting...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-3 h-3 mr-1" /> {llm.isReady ? 'AI Draft' : 'AI draft'}
+                          </>
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -2229,6 +2376,100 @@ When given context about a participant, provide suggestions to improve their SMA
         open={privacySettingsOpen} 
         onOpenChange={setPrivacySettingsOpen} 
       />
+
+      {/* LLM Model Picker Dialog */}
+      <Dialog open={showLLMPicker} onOpenChange={setShowLLMPicker}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bot className="w-5 h-5" />
+              Load Local AI Model
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Select a model to enable AI-powered drafting. Models run locally in your browser for privacy.
+            </p>
+            
+            {llm.isLoading ? (
+              <div className="space-y-3 p-4 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  <span className="text-sm font-medium">{llm.loadingStatus}</span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div 
+                    className="bg-primary h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${llm.loadingProgress}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {llm.loadingProgress}% - First download may take a few minutes
+                </p>
+              </div>
+            ) : llm.error ? (
+              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                <p className="text-sm text-destructive">{llm.error}</p>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="mt-2"
+                  onClick={() => llm.clearError()}
+                >
+                  Dismiss
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {RECOMMENDED_MODELS.map((model) => (
+                  <button
+                    key={model.id}
+                    onClick={async () => {
+                      await llm.loadModel(model.id);
+                      if (llm.isReady) {
+                        setShowLLMPicker(false);
+                        toast({ title: 'Model loaded', description: `${model.name} is ready for AI Draft.` });
+                      }
+                    }}
+                    className="w-full p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 transition-colors text-left group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{model.name}</span>
+                      <span className="text-xs text-muted-foreground">{model.size}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{model.description}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+            
+            <div className="flex justify-between items-center pt-2 border-t">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowLLMPicker(false);
+                  // Use template fallback
+                  if (mode === 'now') {
+                    templateDraftNow();
+                  } else {
+                    templateDraftFuture();
+                  }
+                }}
+              >
+                Use template instead
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowLLMPicker(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

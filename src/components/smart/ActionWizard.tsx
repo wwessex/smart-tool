@@ -30,6 +30,7 @@ interface ActionWizardProps {
   onCancel: () => void;
   onAIDraft?: (field: string, context: Record<string, string>) => Promise<string>;
   isAIDrafting?: boolean;
+  isLLMReady?: boolean; // Show enhanced indicator when local LLM is available
 }
 
 const NOW_STEPS: WizardStep[] = [
@@ -153,7 +154,7 @@ const FUTURE_STEPS: WizardStep[] = [
   },
 ];
 
-export function ActionWizard({ mode, barriers, timescales, recentNames, onComplete, onCancel, onAIDraft, isAIDrafting }: ActionWizardProps) {
+export function ActionWizard({ mode, barriers, timescales, recentNames, onComplete, onCancel, onAIDraft, isAIDrafting, isLLMReady }: ActionWizardProps) {
   const steps = mode === 'now' ? NOW_STEPS : FUTURE_STEPS;
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<Record<string, string>>({});
@@ -270,10 +271,15 @@ export function ActionWizard({ mode, barriers, timescales, recentNames, onComple
               {step.canAIDraft && onAIDraft && (
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant={isLLMReady ? "default" : "outline"}
                   onClick={handleAIDraft}
                   disabled={!hasPrerequisites || drafting || isAIDrafting}
-                  className="shrink-0 gap-1.5 border-primary/30 hover:bg-primary/10"
+                  className={cn(
+                    "shrink-0 gap-1.5",
+                    isLLMReady 
+                      ? "bg-primary hover:bg-primary/90" 
+                      : "border-primary/30 hover:bg-primary/10"
+                  )}
                 >
                   {drafting || isAIDrafting ? (
                     <>
@@ -283,7 +289,7 @@ export function ActionWizard({ mode, barriers, timescales, recentNames, onComple
                   ) : (
                     <>
                       <Sparkles className="w-3 h-3" />
-                      AI Draft
+                      {isLLMReady ? 'AI Draft' : 'AI Draft'}
                     </>
                   )}
                 </Button>
