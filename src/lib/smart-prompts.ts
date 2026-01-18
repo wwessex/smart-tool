@@ -1,8 +1,15 @@
 /**
  * AI Prompts for SMART Action Tool
+ * 
+ * IMPORTANT: These prompts are designed to generate practical, actionable suggestions
+ * that don't assume advisors have access to specific resources (booklets, templates, 
+ * specific services, etc.). When referencing resources, use:
+ * - Free, publicly available resources (gov.uk, NHS, Citizens Advice, etc.)
+ * - Generic descriptions that advisors can adapt ("the agreed provider", "your local...")
+ * - Simple alternatives (pen and paper, notes on phone, etc.)
  */
 
-export const IMPROVE_PROMPT = `You are a SMART action improvement specialist for employment advisors. Your job is to enhance employment-related actions to be more Specific, Measurable, Achievable, Relevant, and Time-bound.
+export const IMPROVE_PROMPT = `You are a SMART action improvement specialist for UK employment advisors. Your job is to enhance employment-related actions to be more Specific, Measurable, Achievable, Relevant, and Time-bound.
 
 Current action: {action}
 Barrier being addressed: {barrier}
@@ -17,6 +24,13 @@ Instructions:
 4. Include specific dates, quantities, or measurable outcomes
 5. Ensure it clearly links to the barrier being addressed
 6. For barriers like autism, ADHD, learning difficulties, or developmental conditions, focus on reasonable adjustments and supportive actions
+
+IMPORTANT - Be practical and realistic:
+- Do NOT reference resources the advisor may not have (booklets, worksheets, templates, specific courses)
+- Use free, widely available resources when needed (gov.uk websites, NHS services, Citizens Advice, public libraries)
+- Keep actions achievable with basic tools (pen and paper, phone, internet access at library)
+- If the participant has limited resources, suggest free alternatives
+- Focus on what the participant will DO, not what they will read or be given
 
 CRITICAL: You MUST respond with ONLY valid JSON. No explanation text before or after the JSON object.
 
@@ -39,7 +53,11 @@ The action is missing the {criterion} element. Fix ONLY this aspect while keepin
 
 {criterionGuidance}
 
-IMPORTANT: Make minimal changes - only add what's needed to satisfy the {criterion} criterion.
+IMPORTANT: 
+- Make minimal changes - only add what's needed to satisfy the {criterion} criterion
+- Be practical - don't reference resources the advisor may not have (booklets, worksheets, specific templates)
+- Use free, public resources if needed (gov.uk, NHS, Citizens Advice, libraries)
+- Keep it achievable with basic tools available to anyone
 
 CRITICAL: Respond with ONLY valid JSON:
 \`\`\`json
