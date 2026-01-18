@@ -3,7 +3,7 @@ import {
   GDPR_CONSENT_CHANGE_EVENT,
   GDPR_CONSENT_STORAGE_KEY,
   hasAIConsent,
-} from "@/components/smart/CookieConsent";
+} from "@/lib/consent-utils";
 
 function subscribe(callback: () => void): () => void {
   if (typeof window === "undefined") return () => {};
