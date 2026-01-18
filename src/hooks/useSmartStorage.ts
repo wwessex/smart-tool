@@ -1,5 +1,16 @@
 import { useState, useCallback } from 'react';
 import { DEFAULT_BARRIERS, DEFAULT_TIMESCALES } from '@/lib/smart-data';
+import { 
+  safeSetItem, 
+  safeRemoveItem, 
+  safeGetItem,
+  loadList, 
+  saveList, 
+  loadBoolean, 
+  loadNumber,
+  loadString
+} from '@/lib/storage-utils';
+import type { Mode } from '@/types/smart-tool';
 
 const STORAGE = {
   barriers: "smartTool.barriers",
@@ -23,7 +34,7 @@ const DEFAULT_RETENTION_DAYS = 90;
 export interface ActionTemplate {
   id: string;
   name: string;
-  mode: 'now' | 'future';
+  mode: Mode;
   createdAt: string;
   barrier?: string;
   action?: string;
@@ -35,7 +46,7 @@ export interface ActionTemplate {
 
 export interface HistoryItem {
   id: string;
-  mode: 'now' | 'future';
+  mode: Mode;
   createdAt: string;
   text: string;
   meta: {
@@ -61,71 +72,6 @@ export interface SmartToolSettings {
   participantLanguage?: string;
 }
 
-/**
- * Safely write to localStorage, catching quota errors and blocked storage.
- * Returns true if the write succeeded, false otherwise.
- */
-function safeSetItem(key: string, value: string): boolean {
-  try {
-    localStorage.setItem(key, value);
-    return true;
-  } catch (error) {
-    // QuotaExceededError, SecurityError, or other storage errors
-    console.warn(`localStorage write failed for key "${key}":`, error);
-    return false;
-  }
-}
-
-/**
- * Safely remove from localStorage, catching any errors.
- * Returns true if the removal succeeded, false otherwise.
- */
-function safeRemoveItem(key: string): boolean {
-  try {
-    localStorage.removeItem(key);
-    return true;
-  } catch (error) {
-    console.warn(`localStorage remove failed for key "${key}":`, error);
-    return false;
-  }
-}
-
-function loadList<T>(key: string, fallback: T[]): T[] {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function saveList<T>(key: string, list: T[]): void {
-  safeSetItem(key, JSON.stringify(list));
-}
-
-function loadBoolean(key: string, fallback: boolean): boolean {
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw === null) return fallback;
-    return raw === 'true';
-  } catch {
-    return fallback;
-  }
-}
-
-function loadNumber(key: string, fallback: number): number {
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw === null) return fallback;
-    const num = parseInt(raw, 10);
-    return isNaN(num) ? fallback : num;
-  } catch {
-    return fallback;
-  }
-}
-
 export function useSmartStorage() {
   const [barriers, setBarriers] = useState<string[]>(() => loadList(STORAGE.barriers, DEFAULT_BARRIERS));
   const [timescales, setTimescales] = useState<string[]>(() => loadList(STORAGE.timescales, DEFAULT_TIMESCALES));
@@ -136,13 +82,9 @@ export function useSmartStorage() {
   const [minScoreThreshold, setMinScoreThreshold] = useState<number>(() => loadNumber(STORAGE.minScoreThreshold, 5));
   const [retentionEnabled, setRetentionEnabled] = useState<boolean>(() => loadBoolean(STORAGE.retentionEnabled, true));
   const [retentionDays, setRetentionDays] = useState<number>(() => loadNumber(STORAGE.retentionDays, DEFAULT_RETENTION_DAYS));
-  const [participantLanguage, setParticipantLanguage] = useState<string>(() => {
-    try {
-      return localStorage.getItem(STORAGE.participantLanguage) || 'none';
-    } catch {
-      return 'none';
-    }
-  });
+  const [participantLanguage, setParticipantLanguage] = useState<string>(() => 
+    loadString(STORAGE.participantLanguage, 'none')
+  );
 
   const updateBarriers = useCallback((newBarriers: string[]) => {
     setBarriers(newBarriers);
@@ -236,25 +178,25 @@ const importData = useCallback((data: {
 if (data.settings && typeof data.settings === 'object') {
       if (typeof data.settings.minScoreEnabled === 'boolean') {
         setMinScoreEnabled(data.settings.minScoreEnabled);
-        localStorage.setItem(STORAGE.minScoreEnabled, String(data.settings.minScoreEnabled));
+        safeSetItem(STORAGE.minScoreEnabled, String(data.settings.minScoreEnabled));
       }
       if (typeof data.settings.minScoreThreshold === 'number') {
         const clamped = Math.max(1, Math.min(5, Math.round(data.settings.minScoreThreshold)));
         setMinScoreThreshold(clamped);
-        localStorage.setItem(STORAGE.minScoreThreshold, String(clamped));
+        safeSetItem(STORAGE.minScoreThreshold, String(clamped));
       }
       if (typeof data.settings.retentionEnabled === 'boolean') {
         setRetentionEnabled(data.settings.retentionEnabled);
-        localStorage.setItem(STORAGE.retentionEnabled, String(data.settings.retentionEnabled));
+        safeSetItem(STORAGE.retentionEnabled, String(data.settings.retentionEnabled));
       }
       if (typeof data.settings.retentionDays === 'number') {
         const clamped = Math.max(7, Math.min(365, Math.round(data.settings.retentionDays)));
         setRetentionDays(clamped);
-        localStorage.setItem(STORAGE.retentionDays, String(clamped));
+        safeSetItem(STORAGE.retentionDays, String(clamped));
       }
       if (typeof data.settings.participantLanguage === 'string') {
         setParticipantLanguage(data.settings.participantLanguage);
-        localStorage.setItem(STORAGE.participantLanguage, data.settings.participantLanguage);
+        safeSetItem(STORAGE.participantLanguage, data.settings.participantLanguage);
       }
     }
   }, []);
@@ -404,7 +346,7 @@ const exportAllData = useCallback(() => {
 
   // Check if we should run cleanup (once per day)
   const shouldRunCleanup = useCallback((): boolean => {
-    const lastCheck = localStorage.getItem(STORAGE.lastRetentionCheck);
+    const lastCheck = safeGetItem(STORAGE.lastRetentionCheck);
     if (!lastCheck) return true;
     
     const lastCheckDate = new Date(lastCheck);

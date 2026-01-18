@@ -52,18 +52,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FIX_CRITERION_PROMPT, CRITERION_GUIDANCE } from '@/lib/smart-prompts';
 import { SMART_TOOL_SHORTCUTS } from '@/lib/smart-tool-shortcuts';
 
-/**
- * Safely remove from localStorage, catching any errors.
- */
-function safeRemoveItem(key: string): boolean {
-  try {
-    localStorage.removeItem(key);
-    return true;
-  } catch (error) {
-    console.warn(`localStorage remove failed for key "${key}":`, error);
-    return false;
-  }
-}
+import { safeRemoveItem } from '@/lib/storage-utils';
 
 import { GUIDANCE } from '@/lib/smart-data';
 import { Button } from '@/components/ui/button';
@@ -105,25 +94,8 @@ const slideInRight = {
   exit: { opacity: 0, x: -20 }
 };
 
-type Mode = 'now' | 'future';
-
-interface NowForm {
-  date: string;
-  forename: string;
-  barrier: string;
-  action: string;
-  responsible: string;
-  help: string;
-  timescale: string;
-}
-
-interface FutureForm {
-  date: string;
-  forename: string;
-  task: string;
-  outcome: string;
-  timescale: string;
-}
+import type { Mode, NowForm, FutureForm } from '@/types/smart-tool';
+import { createDefaultNowForm, createDefaultFutureForm } from '@/types/smart-tool';
 
 export function SmartActionTool() {
   const { toast } = useToast();
@@ -135,22 +107,8 @@ const aiHasConsent = useAIConsent();
   const today = todayISO();
 
   const [mode, setMode] = useState<Mode>('now');
-  const [nowForm, setNowForm] = useState<NowForm>({
-    date: today,
-    forename: '',
-    barrier: '',
-    action: '',
-    responsible: '',
-    help: '',
-    timescale: ''
-  });
-  const [futureForm, setFutureForm] = useState<FutureForm>({
-    date: today,
-    forename: '',
-    task: '',
-    outcome: '',
-    timescale: ''
-  });
+  const [nowForm, setNowForm] = useState<NowForm>(() => createDefaultNowForm(today));
+  const [futureForm, setFutureForm] = useState<FutureForm>(() => createDefaultFutureForm(today));
   const [output, setOutput] = useState('');
   const [outputSource, setOutputSource] = useState<'form' | 'ai' | 'manual'>('form');
   const [translatedOutput, setTranslatedOutput] = useState<string | null>(null);
@@ -348,9 +306,9 @@ const aiHasConsent = useAIConsent();
 
   const handleClear = useCallback(() => {
     if (mode === 'now') {
-      setNowForm({ date: today, forename: '', barrier: '', action: '', responsible: '', help: '', timescale: '' });
+      setNowForm(createDefaultNowForm(today));
     } else {
-      setFutureForm({ date: today, forename: '', task: '', outcome: '', timescale: '' });
+      setFutureForm(createDefaultFutureForm(today));
     }
     setOutput('');
     setOutputSource('form');
