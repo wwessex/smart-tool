@@ -136,7 +136,6 @@ export function SmartActionTool() {
   const aiHasConsent = useAIConsent();
   const oneDrive = useOneDrive();
   const today = todayISO();
-  const [oneDriveClientIdInput, setOneDriveClientIdInput] = useState('');
 
   const [mode, setMode] = useState<Mode>('now');
   const [nowForm, setNowForm] = useState<NowForm>({
@@ -1195,73 +1194,61 @@ When given context about a participant, provide suggestions to improve their SMA
                       {oneDrive.isConnected && (
                         <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                           <Check className="w-3 h-3" />
-                          Connected
+                          {oneDrive.accountType === 'work' ? 'Work Account' : 'Personal'}
                         </div>
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Automatically save actions to your OneDrive in a folder called "SMART Tool Actions".
+                      Automatically save actions to your OneDrive in a folder called "SMART Tool Actions". 
+                      Works with personal, work, and school Microsoft accounts.
                     </p>
 
-                    {/* Azure AD Client ID input */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                        Azure AD Client ID
-                        <a 
-                          href="https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline inline-flex items-center gap-1"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          <span className="text-xs">Get one</span>
-                        </a>
-                      </label>
-                      <div className="flex gap-2">
-                        <Input
-                          value={oneDriveClientIdInput || oneDrive.clientId}
-                          onChange={e => setOneDriveClientIdInput(e.target.value)}
-                          placeholder="e.g. 12345678-1234-1234-1234-123456789abc"
-                          className="font-mono text-sm"
-                        />
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => {
-                            if (oneDriveClientIdInput.trim()) {
-                              oneDrive.updateClientId(oneDriveClientIdInput.trim());
-                              toast({ title: 'Client ID saved', description: 'You can now connect to OneDrive.' });
-                            }
-                          }}
-                          disabled={!oneDriveClientIdInput.trim() || oneDriveClientIdInput === oneDrive.clientId}
-                        >
-                          Save
-                        </Button>
+                    {/* Not configured warning */}
+                    {!oneDrive.isConfigured && (
+                      <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                        <p className="text-xs text-amber-700 dark:text-amber-300">
+                          OneDrive sync is not yet configured. Contact your administrator to enable this feature.
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Register an app in Azure Portal with "Files.ReadWrite" permission. Use your app's Client ID here.
-                      </p>
-                    </div>
+                    )}
 
                     {/* Connection status and controls */}
-                    {oneDrive.hasValidClientId && (
-                      <div className="space-y-3 pt-2 border-t border-border/50">
+                    {oneDrive.isConfigured && (
+                      <div className="space-y-3">
                         {oneDrive.isConnected ? (
                           <>
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-sm font-medium">{oneDrive.userEmail}</p>
-                                {oneDrive.lastSync && (
-                                  <p className="text-xs text-muted-foreground">
-                                    Last sync: {new Date(oneDrive.lastSync).toLocaleString()}
-                                  </p>
-                                )}
-                              </div>
+                            {/* Account info */}
+                            <div className="p-3 rounded-lg bg-muted/50 space-y-1">
+                              <p className="text-sm font-medium">{oneDrive.userEmail}</p>
+                              {oneDrive.accountType === 'work' && oneDrive.tenantName && (
+                                <p className="text-xs text-muted-foreground">
+                                  Organisation: {oneDrive.tenantName}
+                                </p>
+                              )}
+                              {oneDrive.lastSync && (
+                                <p className="text-xs text-muted-foreground">
+                                  Last sync: {new Date(oneDrive.lastSync).toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Action buttons */}
+                            <div className="flex gap-2">
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => oneDrive.switchAccount()}
+                                className="flex-1 gap-1.5"
+                              >
+                                <RefreshCw className="w-3.5 h-3.5" />
+                                Switch Account
+                              </Button>
                               <Button 
                                 size="sm" 
                                 variant="outline" 
                                 onClick={() => oneDrive.disconnect()}
-                                className="gap-1.5"
+                                className="flex-1 gap-1.5"
                               >
                                 <CloudOff className="w-3.5 h-3.5" />
                                 Disconnect

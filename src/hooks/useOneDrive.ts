@@ -1,23 +1,35 @@
 /**
  * OneDrive integration hook for syncing SMART actions to user's OneDrive
  * Uses Microsoft Graph API via MSAL authentication
+ * 
+ * Supports personal, work, and school Microsoft accounts.
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { PublicClientApplication, InteractionRequiredAuthError, AccountInfo } from '@azure/msal-browser';
-import { msalConfig, loginRequest, GRAPH_API_BASE, ONEDRIVE_FOLDER_NAME } from '@/lib/msal-config';
+import { PublicClientApplication, InteractionRequiredAuthError } from '@azure/msal-browser';
+import { 
+  msalConfig, 
+  loginRequest, 
+  GRAPH_API_BASE, 
+  ONEDRIVE_FOLDER_NAME,
+  CONSUMER_TENANT_ID,
+  isOneDriveConfigured 
+} from '@/lib/msal-config';
 import { HistoryItem } from '@/hooks/useSmartStorage';
 import { SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
 
 // Storage keys
 const STORAGE_KEYS = {
-  clientId: 'smartTool.oneDrive.clientId',
   connected: 'smartTool.oneDrive.connected',
   userEmail: 'smartTool.oneDrive.userEmail',
   syncEnabled: 'smartTool.oneDrive.syncEnabled',
   lastSync: 'smartTool.oneDrive.lastSync',
   folderId: 'smartTool.oneDrive.folderId',
+  accountType: 'smartTool.oneDrive.accountType',
+  tenantName: 'smartTool.oneDrive.tenantName',
 };
+
+type AccountType = 'personal' | 'work' | null;
 
 interface OneDriveState {
   isConnected: boolean;
@@ -25,27 +37,21 @@ interface OneDriveState {
   userEmail: string | null;
   syncEnabled: boolean;
   lastSync: string | null;
-  clientId: string;
+  accountType: AccountType;
+  tenantName: string | null;
   error: string | null;
 }
 
 // Create MSAL instance (singleton)
 let msalInstance: PublicClientApplication | null = null;
 
-function getMsalInstance(clientId: string): PublicClientApplication | null {
-  if (!clientId || clientId === 'YOUR_CLIENT_ID_PLACEHOLDER') {
+function getMsalInstance(): PublicClientApplication | null {
+  if (!isOneDriveConfigured()) {
     return null;
   }
   
-  if (!msalInstance || msalInstance.getConfiguration().auth.clientId !== clientId) {
-    const config = {
-      ...msalConfig,
-      auth: {
-        ...msalConfig.auth,
-        clientId,
-      },
-    };
-    msalInstance = new PublicClientApplication(config);
+  if (!msalInstance) {
+    msalInstance = new PublicClientApplication(msalConfig);
     msalInstance.initialize().catch(console.error);
   }
   
@@ -96,41 +102,48 @@ export function useOneDrive() {
     userEmail: localStorage.getItem(STORAGE_KEYS.userEmail),
     syncEnabled: localStorage.getItem(STORAGE_KEYS.syncEnabled) === 'true',
     lastSync: localStorage.getItem(STORAGE_KEYS.lastSync),
-    clientId: localStorage.getItem(STORAGE_KEYS.clientId) || '',
+    accountType: (localStorage.getItem(STORAGE_KEYS.accountType) as AccountType) || null,
+    tenantName: localStorage.getItem(STORAGE_KEYS.tenantName),
     error: null,
   }));
 
-  // Check if MSAL is properly initialized with valid client ID
-  const hasValidClientId = state.clientId && state.clientId !== 'YOUR_CLIENT_ID_PLACEHOLDER';
+  // Check if OneDrive is properly configured
+  const isConfigured = isOneDriveConfigured();
 
   /**
-   * Update client ID and reinitialize MSAL
+   * Fetch organization name for work/school accounts
    */
-  const updateClientId = useCallback((clientId: string) => {
-    localStorage.setItem(STORAGE_KEYS.clientId, clientId);
-    setState(prev => ({ ...prev, clientId, error: null }));
-    // Reset connection when client ID changes
-    if (state.isConnected) {
-      localStorage.removeItem(STORAGE_KEYS.connected);
-      localStorage.removeItem(STORAGE_KEYS.userEmail);
-      localStorage.removeItem(STORAGE_KEYS.folderId);
-      setState(prev => ({ ...prev, isConnected: false, userEmail: null }));
+  const fetchOrganizationName = useCallback(async (token: string): Promise<string | null> => {
+    try {
+      const response = await fetch(`${GRAPH_API_BASE}/organization`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.value && data.value.length > 0) {
+          return data.value[0].displayName || null;
+        }
+      }
+    } catch (err) {
+      console.warn('Could not fetch organization name:', err);
     }
-  }, [state.isConnected]);
+    return null;
+  }, []);
 
   /**
    * Connect to OneDrive via Microsoft OAuth popup
+   * Shows account picker so users can choose personal/work/school account
    */
   const connect = useCallback(async () => {
-    if (!hasValidClientId) {
-      setState(prev => ({ ...prev, error: 'Please enter a valid Azure AD Client ID first.' }));
+    if (!isConfigured) {
+      setState(prev => ({ ...prev, error: 'OneDrive integration is not configured. Contact your administrator.' }));
       return;
     }
 
     setState(prev => ({ ...prev, isConnecting: true, error: null }));
 
     try {
-      const msal = getMsalInstance(state.clientId);
+      const msal = getMsalInstance();
       if (!msal) {
         throw new Error('MSAL not initialized');
       }
@@ -138,19 +151,41 @@ export function useOneDrive() {
       // Ensure MSAL is initialized
       await msal.initialize();
 
-      // Try popup login
-      const response = await msal.loginPopup(loginRequest);
+      // Force account picker to show all available accounts
+      const response = await msal.loginPopup({
+        ...loginRequest,
+        prompt: 'select_account',
+      });
       
       if (response.account) {
         const email = response.account.username;
+        const tenantId = response.account.tenantId;
+        
+        // Determine account type based on tenant
+        const isPersonal = tenantId === CONSUMER_TENANT_ID;
+        const accountType: AccountType = isPersonal ? 'personal' : 'work';
+        
+        // Store basic connection info
         localStorage.setItem(STORAGE_KEYS.connected, 'true');
         localStorage.setItem(STORAGE_KEYS.userEmail, email);
+        localStorage.setItem(STORAGE_KEYS.accountType, accountType);
+        
+        // For work accounts, try to fetch organization name
+        let tenantName: string | null = null;
+        if (!isPersonal && response.accessToken) {
+          tenantName = await fetchOrganizationName(response.accessToken);
+          if (tenantName) {
+            localStorage.setItem(STORAGE_KEYS.tenantName, tenantName);
+          }
+        }
         
         setState(prev => ({
           ...prev,
           isConnected: true,
           isConnecting: false,
           userEmail: email,
+          accountType,
+          tenantName,
         }));
       }
     } catch (err) {
@@ -161,14 +196,14 @@ export function useOneDrive() {
         error: err instanceof Error ? err.message : 'Failed to connect to OneDrive',
       }));
     }
-  }, [hasValidClientId, state.clientId]);
+  }, [isConfigured, fetchOrganizationName]);
 
   /**
    * Disconnect from OneDrive
    */
   const disconnect = useCallback(async () => {
     try {
-      const msal = getMsalInstance(state.clientId);
+      const msal = getMsalInstance();
       if (msal) {
         const accounts = msal.getAllAccounts();
         if (accounts.length > 0) {
@@ -184,20 +219,33 @@ export function useOneDrive() {
     localStorage.removeItem(STORAGE_KEYS.userEmail);
     localStorage.removeItem(STORAGE_KEYS.folderId);
     localStorage.removeItem(STORAGE_KEYS.lastSync);
+    localStorage.removeItem(STORAGE_KEYS.accountType);
+    localStorage.removeItem(STORAGE_KEYS.tenantName);
     
     setState(prev => ({
       ...prev,
       isConnected: false,
       userEmail: null,
       lastSync: null,
+      accountType: null,
+      tenantName: null,
     }));
-  }, [state.clientId]);
+  }, []);
+
+  /**
+   * Switch to a different Microsoft account
+   */
+  const switchAccount = useCallback(async () => {
+    await disconnect();
+    // Small delay to ensure logout completes, then reconnect
+    setTimeout(() => connect(), 500);
+  }, [disconnect, connect]);
 
   /**
    * Get access token for Graph API calls
    */
   const getAccessToken = useCallback(async (): Promise<string | null> => {
-    const msal = getMsalInstance(state.clientId);
+    const msal = getMsalInstance();
     if (!msal) return null;
 
     try {
@@ -224,7 +272,7 @@ export function useOneDrive() {
       console.error('Token error:', err);
       return null;
     }
-  }, [state.clientId]);
+  }, []);
 
   /**
    * Ensure the SMART Tool Actions folder exists in OneDrive
@@ -350,11 +398,11 @@ export function useOneDrive() {
 
   return {
     ...state,
-    hasValidClientId,
+    isConfigured,
     connect,
     disconnect,
+    switchAccount,
     uploadAction,
-    updateClientId,
     setSyncEnabled,
     clearError,
   };
