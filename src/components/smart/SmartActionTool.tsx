@@ -27,7 +27,7 @@ import { ActionWizard } from './ActionWizard';
 import { AIImproveDialog } from './AIImproveDialog';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { OnboardingTutorial, useOnboarding } from './OnboardingTutorial';
-import { useOneDrive } from '@/hooks/useOneDrive';
+import { useLocalSync } from '@/hooks/useLocalSync';
 
 // Lazy load HistoryInsights as it uses recharts which is a heavy dependency
 const HistoryInsights = lazy(() => import('./HistoryInsights').then(module => ({ default: module.HistoryInsights })));
@@ -73,7 +73,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3, Shield, FileDown, Clock, Languages, Loader2, RefreshCw, Cloud, CloudOff, Check, ExternalLink } from 'lucide-react';
+import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3, Shield, FileDown, Clock, Languages, Loader2, RefreshCw, Cloud, CloudOff, Check, ExternalLink, FolderSync, FolderOpen } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -134,7 +134,7 @@ export function SmartActionTool() {
   const translation = useTranslation();
   const cloudAI = useCloudAI();
   const aiHasConsent = useAIConsent();
-  const oneDrive = useOneDrive();
+  const localSync = useLocalSync();
   const today = todayISO();
 
   const [mode, setMode] = useState<Mode>('now');
@@ -464,36 +464,36 @@ export function SmartActionTool() {
 
     storage.addToHistory(item);
 
-    // OneDrive sync if enabled
-    if (oneDrive.isConnected && oneDrive.syncEnabled) {
+    // Local folder sync if enabled
+    if (localSync.isConnected && localSync.syncEnabled) {
       try {
-        const success = await oneDrive.uploadAction(item);
+        const success = await localSync.writeAction(item);
         if (success) {
           toast({ 
             title: 'Saved & Synced!', 
             description: translatedOutput 
-              ? 'Action with translation saved and synced to OneDrive.' 
-              : 'Action saved and synced to OneDrive.' 
+              ? 'Action with translation saved and synced to folder.' 
+              : 'Action saved and synced to folder.' 
           });
         } else {
           toast({ 
             title: 'Saved locally', 
-            description: 'Action saved but OneDrive sync failed. Check connection in Settings.',
+            description: 'Action saved but folder sync failed. Check connection in Settings.',
             variant: 'default'
           });
         }
       } catch (err) {
-        console.error('OneDrive sync error:', err);
+        console.error('Folder sync error:', err);
         toast({ 
           title: 'Saved locally', 
-          description: 'Action saved but OneDrive sync failed.',
+          description: 'Action saved but folder sync failed.',
           variant: 'default'
         });
       }
     } else {
       toast({ title: 'Saved!', description: translatedOutput ? 'Action with translation saved to history.' : 'Action saved to history.' });
     }
-  }, [output, storage, smartCheck.overallScore, mode, nowForm, futureForm, translatedOutput, toast, oneDrive]);
+  }, [output, storage, smartCheck.overallScore, mode, nowForm, futureForm, translatedOutput, toast, localSync]);
 
   const handleAIDraft = useCallback(() => {
     if (mode === 'now') {
@@ -1184,51 +1184,48 @@ When given context about a participant, provide suggestions to improve their SMA
                     </Button>
                   </div>
 
-                  {/* OneDrive Sync Section */}
+                  {/* Local Folder Sync Section */}
                   <div className="p-4 rounded-lg border bg-card space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Cloud className="w-5 h-5 text-primary" />
-                        <h3 className="font-bold">OneDrive Sync</h3>
+                        <FolderSync className="w-5 h-5 text-primary" />
+                        <h3 className="font-bold">Folder Sync</h3>
                       </div>
-                      {oneDrive.isConnected && (
+                      {localSync.isConnected && (
                         <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                           <Check className="w-3 h-3" />
-                          {oneDrive.accountType === 'work' ? 'Work Account' : 'Personal'}
+                          Connected
                         </div>
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Automatically save actions to your OneDrive in a folder called "SMART Tool Actions". 
-                      Works with personal, work, and school Microsoft accounts.
+                      Save actions to a folder on your device. Tip: Select your OneDrive or Google Drive folder for automatic cloud sync!
                     </p>
 
-                    {/* Not configured warning */}
-                    {!oneDrive.isConfigured && (
+                    {/* Browser not supported warning */}
+                    {!localSync.isSupported && (
                       <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                         <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                         <p className="text-xs text-amber-700 dark:text-amber-300">
-                          OneDrive sync is not yet configured. Contact your administrator to enable this feature.
+                          Your browser doesn't support folder sync. Use Chrome or Edge on desktop for this feature.
                         </p>
                       </div>
                     )}
 
                     {/* Connection status and controls */}
-                    {oneDrive.isConfigured && (
+                    {localSync.isSupported && (
                       <div className="space-y-3">
-                        {oneDrive.isConnected ? (
+                        {localSync.isConnected ? (
                           <>
-                            {/* Account info */}
+                            {/* Folder info */}
                             <div className="p-3 rounded-lg bg-muted/50 space-y-1">
-                              <p className="text-sm font-medium">{oneDrive.userEmail}</p>
-                              {oneDrive.accountType === 'work' && oneDrive.tenantName && (
+                              <p className="text-sm font-medium flex items-center gap-2">
+                                <FolderOpen className="w-4 h-4 text-muted-foreground" />
+                                {localSync.folderName}
+                              </p>
+                              {localSync.lastSync && (
                                 <p className="text-xs text-muted-foreground">
-                                  Organisation: {oneDrive.tenantName}
-                                </p>
-                              )}
-                              {oneDrive.lastSync && (
-                                <p className="text-xs text-muted-foreground">
-                                  Last sync: {new Date(oneDrive.lastSync).toLocaleString()}
+                                  Last sync: {new Date(localSync.lastSync).toLocaleString()}
                                 </p>
                               )}
                             </div>
@@ -1238,16 +1235,16 @@ When given context about a participant, provide suggestions to improve their SMA
                               <Button 
                                 size="sm" 
                                 variant="outline" 
-                                onClick={() => oneDrive.switchAccount()}
+                                onClick={() => localSync.selectFolder()}
                                 className="flex-1 gap-1.5"
                               >
                                 <RefreshCw className="w-3.5 h-3.5" />
-                                Switch Account
+                                Change Folder
                               </Button>
                               <Button 
                                 size="sm" 
                                 variant="outline" 
-                                onClick={() => oneDrive.disconnect()}
+                                onClick={() => localSync.disconnect()}
                                 className="flex-1 gap-1.5"
                               >
                                 <CloudOff className="w-3.5 h-3.5" />
@@ -1258,46 +1255,46 @@ When given context about a participant, provide suggestions to improve their SMA
                             <label className="flex items-center gap-3 cursor-pointer">
                               <input 
                                 type="checkbox" 
-                                checked={oneDrive.syncEnabled} 
-                                onChange={e => oneDrive.setSyncEnabled(e.target.checked)}
+                                checked={localSync.syncEnabled} 
+                                onChange={e => localSync.setSyncEnabled(e.target.checked)}
                                 className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
                               />
                               <span className="text-sm font-medium">Sync when saving to history</span>
                             </label>
 
-                            {oneDrive.syncEnabled && (
+                            {localSync.syncEnabled && (
                               <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
-                                <Cloud className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                                <FolderSync className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                                 <p className="text-xs text-muted-foreground">
-                                  Each saved action will be uploaded as a .txt file to your OneDrive's "SMART Tool Actions" folder.
+                                  Each saved action will be written as a .txt file to your selected folder.
                                 </p>
                               </div>
                             )}
                           </>
                         ) : (
                           <Button 
-                            onClick={() => oneDrive.connect()}
-                            disabled={oneDrive.isConnecting}
+                            onClick={() => localSync.selectFolder()}
+                            disabled={localSync.isConnecting}
                             className="w-full gap-2"
                           >
-                            {oneDrive.isConnecting ? (
+                            {localSync.isConnecting ? (
                               <>
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                Connecting...
+                                Selecting...
                               </>
                             ) : (
                               <>
-                                <Cloud className="w-4 h-4" />
-                                Connect to OneDrive
+                                <FolderOpen className="w-4 h-4" />
+                                Choose Folder
                               </>
                             )}
                           </Button>
                         )}
 
-                        {oneDrive.error && (
+                        {localSync.error && (
                           <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
                             <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-                            <p className="text-xs text-destructive">{oneDrive.error}</p>
+                            <p className="text-xs text-destructive">{localSync.error}</p>
                           </div>
                         )}
                       </div>

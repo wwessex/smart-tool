@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "@azure/msal-browser": "^5.0.2",
-    "@azure/msal-react": "^5.0.2",
     "@hookform/resolvers": "^3.10.0",
     "@mlc-ai/web-llm": "^0.2.80",
     "@radix-ui/react-accordion": "^1.2.11",
