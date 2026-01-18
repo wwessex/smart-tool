@@ -665,6 +665,7 @@ When given context about a participant, provide suggestions to improve their SMA
         ...prev,
         forename: data.forename || prev.forename,
         task: data.task || prev.task,
+        responsible: data.responsible || prev.responsible,
         outcome: data.outcome || prev.outcome,
         timescale: data.timescale || prev.timescale,
       }));
@@ -1361,14 +1362,14 @@ When given context about a participant, provide suggestions to improve their SMA
               aria-label="Action type selection"
             >
               <motion.div
-                className="absolute inset-y-1 rounded-full bg-primary shadow-md"
-                layoutId="activeTab"
+                className="absolute inset-y-1 rounded-full bg-primary shadow-md pointer-events-none"
                 style={{ width: 'calc(50% - 4px)' }}
                 animate={{ x: mode === 'now' ? 4 : 'calc(100% + 4px)' }}
                 transition={{ type: "spring", stiffness: 400, damping: 30 }}
                 aria-hidden="true"
               />
               <Button
+                type="button"
                 variant="ghost"
                 role="tab"
                 aria-selected={mode === 'now'}
@@ -1383,6 +1384,7 @@ When given context about a participant, provide suggestions to improve their SMA
                 Barrier to action now
               </Button>
               <Button
+                type="button"
                 variant="ghost"
                 role="tab"
                 aria-selected={mode === 'future'}
