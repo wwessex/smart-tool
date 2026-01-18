@@ -356,9 +356,11 @@ const aiHasConsent = useAIConsent();
     setOutputSource('form');
     setTranslatedOutput(null);
     translation.clearTranslation();
+    // Reset language to English only when clearing
+    storage.updateParticipantLanguage('none');
     setShowValidation(false);
     setSuggestQuery('');
-  }, [mode, today, translation]);
+  }, [mode, today, translation, storage]);
 
   // Handle translation
   const handleTranslate = useCallback(async () => {
