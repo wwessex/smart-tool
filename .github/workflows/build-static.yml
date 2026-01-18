@@ -56,7 +56,7 @@ jobs:
         run: bun install
       
       - name: Run tests
-        run: bun run test || echo "No tests configured"
+        run: bun run test
 
   # Build job
   build:
