@@ -19,7 +19,7 @@
     <link rel="canonical" href="https://smartactiontool.app/" />
 
     <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#8b5cf6" />
+    <meta name="theme-color" content="#e89309" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="SMART Tool" />
@@ -28,8 +28,8 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16x16.png" />
-    <link rel="mask-icon" href="./safari-pinned-tab.svg" color="#8b5cf6" />
-    <meta name="msapplication-TileColor" content="#8b5cf6" />
+    <link rel="mask-icon" href="./safari-pinned-tab.svg" color="#e89309" />
+    <meta name="msapplication-TileColor" content="#e89309" />
     <meta name="msapplication-TileImage" content="./mstile-150x150.png" />
 
     <!-- Open Graph / Facebook -->
@@ -144,14 +144,14 @@
 
     <!-- Inline critical CSS for faster first paint -->
     <style>
-      /* Critical CSS for initial load */
+      /* Critical CSS for initial load - uses current yellow/gold theme */
       *,*::before,*::after{box-sizing:border-box}
       body{margin:0;font-family:system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
       #root{min-height:100vh}
-      .loading-container{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:2rem;text-align:center;background:#0a0f1c;color:#fff}
-      .loading-spinner{width:2rem;height:2rem;border:3px solid rgba(139,92,246,0.3);border-top-color:#8b5cf6;border-radius:50%;animation:spin 1s linear infinite}
+      .loading-container{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:2rem;text-align:center;background:hsl(60 4% 95%);color:hsl(24 9% 10%)}
+      .loading-spinner{width:2rem;height:2rem;border:3px solid hsl(37 92% 50% / 0.3);border-top-color:hsl(37 92% 50%);border-radius:50%;animation:spin 1s linear infinite}
       @keyframes spin{to{transform:rotate(360deg)}}
-      .loading-text{margin-top:1rem;color:#94a3b8;font-size:0.875rem}
+      .loading-text{margin-top:1rem;color:hsl(24 9% 10% / 0.6);font-size:0.875rem}
     </style>
   </head>
 
