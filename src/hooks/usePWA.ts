@@ -53,9 +53,11 @@ export function usePWA() {
       // Defer SW registration to not block initial render
       const registerSW = async () => {
         try {
-          const reg = await navigator.serviceWorker.register('/sw.js');
+          // Use relative path to support subfolder deployments (e.g., /smart-action-tool-webapp/)
+          const swPath = new URL('./sw.js', import.meta.url).pathname;
+          const reg = await navigator.serviceWorker.register(swPath, { scope: './' });
           setRegistration(reg);
-          console.log('[PWA] Service worker registered');
+          console.log('[PWA] Service worker registered at:', swPath);
 
           // Check for updates
           reg.addEventListener('updatefound', () => {
