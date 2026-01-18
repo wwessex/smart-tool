@@ -315,6 +315,21 @@ export function useLLM() {
     [] // No dependencies needed - we use refs instead
   );
 
+  // Simple single-shot generation (collects all chunks) - useful for AI Draft
+  const generate = useCallback(
+    async (
+      userMessage: string,
+      systemPrompt?: string
+    ): Promise<string> => {
+      let fullResponse = '';
+      for await (const chunk of chat([{ role: 'user', content: userMessage }], systemPrompt)) {
+        fullResponse += chunk;
+      }
+      return fullResponse.trim();
+    },
+    [chat]
+  );
+
   // Abort current generation
   const abort = useCallback(() => {
     abortControllerRef.current?.abort();
@@ -339,6 +354,7 @@ export function useLLM() {
     ...state,
     loadModel,
     chat,
+    generate,
     abort,
     clearError,
     checkWebGPU,

@@ -97,3 +97,38 @@ export const WIZARD_PROMPTS = {
     when: "When will this be reviewed?"
   }
 };
+
+// ===== AI DRAFT PROMPTS FOR LOCAL LLM =====
+
+export const DRAFT_ACTION_PROMPT = `You are a SMART action writer for UK employment advisors.
+
+Participant: {forename}
+Barrier to work: {barrier}
+Responsible person: {responsible}
+Review timescale: {timescale}
+Target date: {targetDate}
+
+Write a specific, actionable SMART action that:
+1. Starts with "{forename} will..."
+2. Includes a specific, measurable task
+3. Has a clear deadline (use {targetDate})
+4. Directly addresses the "{barrier}" barrier
+
+Respond with ONLY the action text (1-2 sentences). No explanation, no quotes.`;
+
+export const DRAFT_HELP_PROMPT = `Given this SMART action:
+"{action}"
+
+Write a brief explanation (1 sentence) of how completing this action will help {forename} move towards employment.
+
+Respond with ONLY the help text. No explanation, no quotes. Example format: "get shortlisted for interviews"`;
+
+export const DRAFT_OUTCOME_PROMPT = `You are writing an expected outcome for a task-based SMART action.
+
+Participant: {forename}
+Activity/Event: {task}
+
+Write what {forename} will achieve or learn from this activity.
+Start with "{forename} will..."
+
+Respond with ONLY the outcome text (1-2 sentences). No explanation, no quotes.`;
