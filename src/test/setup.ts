@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import "@testing-library/jest-dom";
+import "@testing-library/jest-dom/vitest";
 
 // Create a proper localStorage mock that stores data
 const createLocalStorageMock = () => {
