@@ -392,9 +392,12 @@ const aiHasConsent = useAIConsent();
   // Debounce output for SMART checking to avoid running on every keystroke
   const debouncedOutput = useDebounce(output, 150);
   
+  // Use immediate output when from AI fix to avoid delay in updating checklist
+  const checkableOutput = outputSource === 'ai' ? output : debouncedOutput;
+  
   // SMART Check - auto-detect elements with debounced input for performance
   const smartCheck = useMemo((): SmartCheck => {
-    if (!debouncedOutput.trim()) {
+    if (!checkableOutput.trim()) {
       return {
         specific: { met: false, confidence: 'low', reason: 'Generate an action first' },
         measurable: { met: false, confidence: 'low', reason: 'Add dates or quantities' },
@@ -410,8 +413,8 @@ const aiHasConsent = useAIConsent();
       ? { forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, date: nowForm.date }
       : { forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, date: futureForm.date };
     
-    return checkSmart(debouncedOutput, meta);
-  }, [debouncedOutput, mode, nowForm.forename, nowForm.barrier, nowForm.timescale, nowForm.date, futureForm.forename, futureForm.task, futureForm.timescale, futureForm.date]);
+    return checkSmart(checkableOutput, meta);
+  }, [checkableOutput, mode, nowForm.forename, nowForm.barrier, nowForm.timescale, nowForm.date, futureForm.forename, futureForm.task, futureForm.timescale, futureForm.date]);
 
   const handleSave = useCallback(() => {
     if (!output.trim()) {
