@@ -44,6 +44,9 @@ const ACHIEVABLE_PATTERNS = {
   responsibility: /\b(participant|advisor|I|we|they|he|she)\s+(will|has agreed|have agreed|is responsible|takes responsibility)\b/i,
   support: /\b(with support|help from|assistance|guidance|together|advisor will)\b/i,
   commitment: /\b(commits? to|undertakes? to|pledges? to|promises? to)\b/i,
+  // Additional patterns for AI-generated fixes
+  hasAgreedTo: /\bhas agreed to\b/i,
+  agreedTo: /\bagreed to\b/i,
 };
 
 const RELEVANT_PATTERNS = {
@@ -213,17 +216,21 @@ export function checkSmart(text: string, meta?: {
   };
   measurable.suggestion = generateSuggestion('measurable', measurable, meta);
 
-  // ACHIEVABLE check - now requires 2 matches for stronger validation
+  // ACHIEVABLE check - check for agreement language with more flexibility
   const achievableMatches = countMatches(text, ACHIEVABLE_PATTERNS);
   const hasAgreement = ACHIEVABLE_PATTERNS.agreement.test(text);
   const hasCommitment = ACHIEVABLE_PATTERNS.commitment.test(text);
   const hasSupport = ACHIEVABLE_PATTERNS.support.test(text);
+  const hasAgreedTo = ACHIEVABLE_PATTERNS.hasAgreedTo.test(text) || ACHIEVABLE_PATTERNS.agreedTo.test(text);
+  
+  // More lenient: "has agreed to" or "agreed to" in text is strong enough on its own
+  const achievableMet = achievableMatches >= 2 || hasCommitment || (hasAgreement && hasSupport) || hasAgreedTo;
   
   const achievable: SmartCriterion = {
-    met: achievableMatches >= 2 || hasCommitment || (hasAgreement && hasSupport),
-    confidence: achievableMatches >= 3 || hasCommitment ? 'high' : achievableMatches >= 2 ? 'medium' : 'low',
-    reason: achievableMatches >= 2 || hasCommitment
-      ? hasCommitment ? 'Shows clear commitment' : hasAgreement ? 'Shows agreement and commitment' : 'Responsibility is clear'
+    met: achievableMet,
+    confidence: achievableMatches >= 3 || hasCommitment || hasAgreedTo ? 'high' : achievableMatches >= 2 ? 'medium' : 'low',
+    reason: achievableMet
+      ? hasCommitment ? 'Shows clear commitment' : hasAgreedTo ? 'Shows explicit agreement' : hasAgreement ? 'Shows agreement and commitment' : 'Responsibility is clear'
       : 'Add who agreed or is responsible',
     hint: !hasAgreement ? 'Add "discussed and agreed" or "has committed to"' : undefined,
   };

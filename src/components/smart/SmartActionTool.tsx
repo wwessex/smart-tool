@@ -121,6 +121,7 @@ interface FutureForm {
   date: string;
   forename: string;
   task: string;
+  responsible: string;
   outcome: string;
   timescale: string;
 }
@@ -148,6 +149,7 @@ const aiHasConsent = useAIConsent();
     date: today,
     forename: '',
     task: '',
+    responsible: '',
     outcome: '',
     timescale: ''
   });
@@ -282,6 +284,7 @@ const aiHasConsent = useAIConsent();
         futureForm.date,
         futureForm.forename.trim(),
         futureForm.task.trim(),
+        futureForm.responsible,
         futureForm.outcome.trim(),
         futureForm.timescale
       );
@@ -353,7 +356,7 @@ const aiHasConsent = useAIConsent();
     if (mode === 'now') {
       setNowForm({ date: today, forename: '', barrier: '', action: '', responsible: '', help: '', timescale: '' });
     } else {
-      setFutureForm({ date: today, forename: '', task: '', outcome: '', timescale: '' });
+      setFutureForm({ date: today, forename: '', task: '', responsible: '', outcome: '', timescale: '' });
     }
     setOutput('');
     setOutputSource('form');
@@ -440,7 +443,7 @@ const aiHasConsent = useAIConsent();
 
     const baseMeta = mode === 'now' 
       ? { date: nowForm.date, forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
-      : { date: futureForm.date, forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, reason: futureForm.outcome };
+      : { date: futureForm.date, forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, responsible: futureForm.responsible, reason: futureForm.outcome };
 
     // Include translation in history if available
     const item: HistoryItem = {
@@ -510,6 +513,7 @@ const aiHasConsent = useAIConsent();
         date: item.meta.date || today,
         forename: item.meta.forename || '',
         task: item.meta.barrier || '',
+        responsible: item.meta.responsible || '',
         outcome: item.meta.reason || '',
         timescale: item.meta.timescale || ''
       });
@@ -609,6 +613,7 @@ const aiHasConsent = useAIConsent();
       const parts: string[] = [];
       if (futureForm.forename) parts.push(`Participant: ${futureForm.forename}`);
       if (futureForm.task) parts.push(`Activity/event: ${futureForm.task}`);
+      if (futureForm.responsible) parts.push(`Who is responsible: ${futureForm.responsible}`);
       if (futureForm.outcome) parts.push(`Expected outcome: ${futureForm.outcome}`);
       if (futureForm.timescale) parts.push(`Review in: ${futureForm.timescale}`);
       return parts.length > 0 
@@ -1630,6 +1635,25 @@ When given context about a participant, provide suggestions to improve their SMA
                   <p className="text-xs text-muted-foreground">Describe the task, event, or activity they will attend.</p>
                 </div>
 
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">Who is responsible?</label>
+                  <Select
+                    value={futureForm.responsible}
+                    onValueChange={(value) => setFutureForm(prev => ({ ...prev, responsible: value }))}
+                  >
+                    <SelectTrigger className={getFieldClass(!!futureForm.responsible)}>
+                      <SelectValue placeholder="Select…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Participant alone">Participant alone</SelectItem>
+                      <SelectItem value="Participant with advisor support">Participant with advisor support</SelectItem>
+                      <SelectItem value="Advisor on behalf of participant">Advisor on behalf of participant</SelectItem>
+                      <SelectItem value="Third party support">Third party support</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Who will ensure this action happens?</p>
+                </div>
+
                 {/* Advisor Assist - Task-based */}
                 <div className="border border-primary/20 rounded-xl p-4 gradient-subtle space-y-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
@@ -1739,7 +1763,7 @@ When given context about a participant, provide suggestions to improve their SMA
                 currentMode={mode}
                 currentForm={mode === 'now' 
                   ? { barrier: nowForm.barrier, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
-                  : { task: futureForm.task, outcome: futureForm.outcome }
+                  : { task: futureForm.task, responsible: futureForm.responsible, outcome: futureForm.outcome }
                 }
               />
             </motion.div>
