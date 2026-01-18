@@ -5,10 +5,15 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
+// Check if SW should be disabled (for debugging deployment issues)
+const SW_DISABLED = typeof window !== 'undefined' && 
+  (new URLSearchParams(window.location.search).has('no-sw') ||
+   localStorage.getItem('disable-sw') === 'true');
+
 export function usePWA() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
@@ -48,20 +53,22 @@ export function usePWA() {
   }, []);
 
   useEffect(() => {
-    // BUG FIX #4: Better service worker registration - FULLY NON-BLOCKING
-    if ('serviceWorker' in navigator) {
-      // CRITICAL: Defer SW registration significantly to ensure app loads first
-      const registerSW = async () => {
+    // Skip SW registration if disabled or not supported
+    if (SW_DISABLED || !('serviceWorker' in navigator)) {
+      return;
+    }
+
+    // CRITICAL: Only register SW after app is fully interactive
+    // Use requestIdleCallback or setTimeout as fallback
+    const registerSW = () => {
+      const doRegister = async () => {
         try {
-          // Add timeout to prevent hanging
-          const timeoutPromise = new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('SW registration timeout')), 10000)
-          );
+          // Simple relative path - works from any hosting location
+          const reg = await navigator.serviceWorker.register('./sw.js', { 
+            scope: './',
+            updateViaCache: 'none' // Always check for SW updates
+          });
           
-          // Use simple relative path - works from any hosting location
-          const regPromise = navigator.serviceWorker.register('./sw.js', { scope: './' });
-          
-          const reg = await Promise.race([regPromise, timeoutPromise]);
           setRegistration(reg);
 
           // Check for updates
@@ -76,18 +83,31 @@ export function usePWA() {
             }
           });
 
-          // Periodically check for updates
-          setInterval(() => {
+          // Periodically check for updates (every hour)
+          const updateInterval = setInterval(() => {
             reg.update().catch(() => {});
-          }, 60 * 60 * 1000); // Check every hour
+          }, 60 * 60 * 1000);
+
+          return () => clearInterval(updateInterval);
         } catch (err) {
-          // Silently fail - app should work without SW
+          // Silently fail - app works without SW
+          console.warn('[PWA] SW registration failed:', err);
         }
       };
 
-      // CRITICAL: Wait 3 seconds after page load before even attempting SW registration
-      // This ensures the app is fully loaded and interactive first
-      setTimeout(registerSW, 3000);
+      // Use requestIdleCallback if available, otherwise setTimeout
+      if ('requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(doRegister, { timeout: 5000 });
+      } else {
+        setTimeout(doRegister, 3000);
+      }
+    };
+
+    // Wait for load event to ensure page is fully loaded
+    if (document.readyState === 'complete') {
+      registerSW();
+    } else {
+      window.addEventListener('load', registerSW, { once: true });
     }
   }, []);
 
@@ -116,12 +136,23 @@ export function usePWA() {
     }
   }, [registration]);
 
+  const clearCache = useCallback(async () => {
+    if (registration?.active) {
+      registration.active.postMessage({ type: 'CLEAR_CACHE' });
+    }
+    // Also clear via Cache API directly
+    const cacheNames = await caches.keys();
+    await Promise.all(cacheNames.map(name => caches.delete(name)));
+    window.location.reload();
+  }, [registration]);
+
   return {
     canInstall: !!installPrompt && !isInstalled,
     isInstalled,
     isOnline,
     updateAvailable,
     promptInstall,
-    applyUpdate
+    applyUpdate,
+    clearCache
   };
 }

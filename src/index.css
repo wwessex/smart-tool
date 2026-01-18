@@ -1,8 +1,7 @@
 /* 
- * Performance: Only load Inter font - other fonts removed to reduce load time
- * font-display: swap ensures text is visible during font load
+ * Performance: Use system fonts only - no external dependencies
+ * This prevents render-blocking font loads that can cause stuck loading screens
  */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -90,9 +89,10 @@ All colors MUST be HSL.
     --chart-4: 37 92% 50%;
     --chart-5: 24 5% 44%;
     --sidebar: 60 9% 97%;
-    --font-sans: 'Source Sans Pro', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
-    --font-serif: 'Source Serif Pro', ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
-    --font-mono: 'Source Code Pro', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    /* System font stack - no external dependencies */
+    --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+    --font-serif: ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
     --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
     --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
     --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
@@ -176,6 +176,7 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground antialiased;
     min-height: 100%;
+    font-family: var(--font-sans);
   }
 }
 
@@ -239,7 +240,7 @@ All colors MUST be HSL.
     gap: 1rem;
   }
 
-  .sm\\:gap-6 {
+  .sm\:gap-6 {
     gap: 1.5rem !important;
   }
 

@@ -39,7 +39,7 @@ function cacheBustPlugin(): Plugin {
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  // Load env file based on \`mode\` in the current working directory.
+  // Load env file based on `mode` in the current working directory.
   const env = loadEnv(mode, process.cwd(), '');
   
   return {
@@ -62,43 +62,37 @@ export default defineConfig(({ mode }) => {
       // Performance optimizations
       rollupOptions: {
         output: {
-          // Code splitting for better caching
+          // Simplified chunking - fewer chunks = fewer requests = more reliable loading
           manualChunks: (id) => {
-            // React core bundle
-            if (id.includes('node_modules/react/') || 
-                id.includes('node_modules/react-dom/') || 
+            // React + Router core bundle
+            if (id.includes('node_modules/react') || 
+                id.includes('node_modules/react-dom') || 
                 id.includes('node_modules/react-router')) {
               return 'vendor-react';
             }
-            // Heavy charting library - separate chunk for lazy loading
+            // All UI libraries in one chunk
+            if (id.includes('node_modules/@radix-ui') ||
+                id.includes('node_modules/framer-motion') ||
+                id.includes('node_modules/lucide-react')) {
+              return 'vendor-ui';
+            }
+            // Data/query libraries
+            if (id.includes('node_modules/@tanstack') ||
+                id.includes('node_modules/@supabase') ||
+                id.includes('node_modules/zod')) {
+              return 'vendor-data';
+            }
+            // Heavy charting - separate for lazy loading
             if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-')) {
               return 'vendor-charts';
             }
-            // Animation library
-            if (id.includes('node_modules/framer-motion')) {
-              return 'vendor-motion';
-            }
-            // UI components - Radix primitives
-            if (id.includes('node_modules/@radix-ui')) {
-              return 'vendor-ui';
-            }
-            // Form handling
-            if (id.includes('node_modules/react-hook-form') || 
-                id.includes('node_modules/@hookform') || 
-                id.includes('node_modules/zod')) {
-              return 'vendor-forms';
-            }
-            // Query/data fetching
-            if (id.includes('node_modules/@tanstack/react-query') ||
-                id.includes('node_modules/@supabase')) {
-              return 'vendor-data';
-            }
-            // LLM is huge - keep it completely separate
+            // LLM is huge - keep separate
             if (id.includes('node_modules/@mlc-ai')) {
               return 'vendor-llm';
             }
+            // Everything else goes to main bundle
           },
-          // Improve chunk naming for better caching
+          // Hash in filenames for cache busting
           chunkFileNames: 'assets/[name]-[hash].js',
           entryFileNames: 'assets/[name]-[hash].js',
           assetFileNames: 'assets/[name]-[hash].[ext]',
