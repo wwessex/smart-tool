@@ -246,7 +246,26 @@ export function buildNowOutput(
   const formattedDate = formatDDMMMYY(date);
   let formattedAction = stripTrailingPunctuation(action.trim().replace(/\s+/g, " "));
   
-  const nameWillPattern = new RegExp(`^${forename.toLowerCase()}\\s+will\\s+`, 'i');
+  // Escape special regex characters in forename
+  const escapedName = forename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  
+  // Remove various phrase patterns that would duplicate with the template:
+  // - "John will ..."
+  // - "john has agreed to ..."
+  // - "John commits to ..."
+  // - "John will commit to ..."
+  // These all start with the participant's name followed by commitment language
+  const redundantPhrasePattern = new RegExp(
+    `^${escapedName}\\s+(?:will\\s+)?(?:has\\s+agreed\\s+to|agrees\\s+to|commits?\\s+to|has\\s+committed\\s+to|is\\s+going\\s+to|is\\s+committed\\s+to|shall|will)\\s+`,
+    'i'
+  );
+  
+  if (redundantPhrasePattern.test(formattedAction)) {
+    formattedAction = formattedAction.replace(redundantPhrasePattern, '');
+  }
+  
+  // Also handle simpler "Name will" pattern if above didn't match
+  const nameWillPattern = new RegExp(`^${escapedName}\\s+will\\s+`, 'i');
   if (nameWillPattern.test(formattedAction)) {
     formattedAction = formattedAction.replace(nameWillPattern, '');
   }
