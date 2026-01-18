@@ -38,6 +38,19 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// URLs that should never be cached (API endpoints, external services)
+const EXCLUDE_FROM_CACHE = [
+  '/functions/v1/',      // Supabase Edge Functions
+  'supabase.co',         // Supabase API
+  'ai.gateway.lovable',  // AI Gateway
+  'huggingface.co',      // Model downloads (cached by browser separately)
+  'githubusercontent',   // GitHub raw content
+];
+
+function shouldCache(url) {
+  return !EXCLUDE_FROM_CACHE.some(pattern => url.includes(pattern));
+}
+
 // Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
@@ -45,6 +58,9 @@ self.addEventListener('fetch', (event) => {
 
   // Skip chrome-extension and other non-http requests
   if (!event.request.url.startsWith('http')) return;
+
+  // Skip API endpoints and external services - never cache sensitive data
+  if (!shouldCache(event.request.url)) return;
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
