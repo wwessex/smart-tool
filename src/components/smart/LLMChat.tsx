@@ -28,14 +28,13 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useWebGPUSupport } from "./WebGPUCheck";
-import { useLLM, ChatMessage, RECOMMENDED_MODELS } from "@/hooks/useLLM";
+// Note: useWebGPUSupport no longer needed - Transformers.js works with WASM fallback
+import { useTransformersLLM, ChatMessage, RECOMMENDED_MODELS } from "@/hooks/useTransformersLLM";
 import { useCloudAI } from "@/hooks/useCloudAI";
 import { useAIConsent } from "@/hooks/useAIConsent";
 import { cn } from "@/lib/utils";
 
-// Detect Safari browser
+// Transformers.js works on all browsers with WASM fallback - no WebGPU requirement
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
 interface LLMChatProps {
@@ -54,7 +53,8 @@ export function LLMChat({
   onResponse,
 }: LLMChatProps) {
   const [open, setOpen] = useState(false);
-  const { supported: webGPUSupported } = useWebGPUSupport();
+  // Transformers.js works on all browsers - local AI is always available
+  const localAISupported = true;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -77,7 +77,7 @@ export function LLMChat({
           systemPrompt={systemPrompt}
           initialContext={initialContext}
           onResponse={onResponse}
-          webGPUSupported={webGPUSupported}
+          localAISupported={localAISupported}
         />
       </DialogContent>
     </Dialog>
@@ -88,20 +88,20 @@ interface AIChatContentProps {
   systemPrompt: string;
   initialContext?: string;
   onResponse?: (response: string) => void;
-  webGPUSupported: boolean;
+  localAISupported: boolean;
 }
 
 function AIChatContent({
   systemPrompt,
   initialContext,
   onResponse,
-  webGPUSupported,
+  localAISupported,
 }: AIChatContentProps) {
   // Default to cloud - it's faster and more reliable for most users
   // Local AI is available as an option when webGPU is supported
   const [mode, setMode] = useState<AIMode>("cloud");
   
-  const localAI = useLLM();
+  const localAI = useTransformersLLM();
   const cloudAI = useCloudAI();
   const cloudHasConsent = useAIConsent();
 
@@ -228,29 +228,16 @@ function AIChatContent({
   if (mode === "local" && !localAI.isReady && !localAI.isLoading) {
     return (
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <ModeTabs mode={mode} setMode={setMode} webGPUSupported={webGPUSupported} />
+        <ModeTabs mode={mode} setMode={setMode} localAISupported={localAISupported} />
         <div className="flex-1 p-6 space-y-4 overflow-y-auto">
-          {/* Safari WebGPU Warning - recommend Cloud AI */}
+          {/* Safari info - Transformers.js uses WASM fallback */}
           {isSafari && (
-            <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
-              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              <AlertTitle className="text-amber-800 dark:text-amber-300">Safari Has Limited WebGPU Support</AlertTitle>
-              <AlertDescription className="text-amber-700 dark:text-amber-400">
-                <p className="mb-2">
-                  Safari's WebGPU is experimental and may not work with local AI models. 
-                  <strong> We recommend using Cloud AI</strong> for the best experience.
-                </p>
-                <div className="flex gap-2 mt-3">
-                  <button 
-                    onClick={() => setMode("cloud")} 
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
-                  >
-                    <Cloud className="h-4 w-4" />
-                    Use Cloud AI (Recommended)
-                  </button>
-                </div>
-                <p className="mt-3 text-xs opacity-75">
-                  For local AI, use Chrome or Edge on desktop.
+            <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800">
+              <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <AlertTitle className="text-blue-800 dark:text-blue-300">Safari Mode</AlertTitle>
+              <AlertDescription className="text-blue-700 dark:text-blue-400">
+                <p className="text-xs">
+                  Local AI will use WASM (compatible mode). This works on all browsers but may be slower than WebGPU.
                 </p>
               </AlertDescription>
             </Alert>
@@ -307,7 +294,7 @@ function AIChatContent({
     
     return (
       <div className="flex-1 flex flex-col">
-        <ModeTabs mode={mode} setMode={setMode} webGPUSupported={webGPUSupported} />
+        <ModeTabs mode={mode} setMode={setMode} localAISupported={localAISupported} />
         <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-4">
           <div className="relative">
             <Cpu className="h-16 w-16 text-primary animate-pulse" />
@@ -376,7 +363,7 @@ function AIChatContent({
   // Chat view
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <ModeTabs mode={mode} setMode={setMode} webGPUSupported={webGPUSupported} />
+      <ModeTabs mode={mode} setMode={setMode} localAISupported={localAISupported} />
       
       {/* Status bar */}
       <div className="px-4 py-2 border-b bg-muted/30 flex items-center justify-between">
@@ -410,10 +397,10 @@ function AIChatContent({
             <AlertTitle className="text-amber-800 dark:text-amber-300 text-sm">AI Consent Required</AlertTitle>
             <AlertDescription className="text-xs text-amber-700 dark:text-amber-400 space-y-2">
               <p>Cloud AI requires consent to process your messages. Enable AI features in your privacy settings.</p>
-              {webGPUSupported && (
+              {localAISupported && (
                 <p className="font-medium">Alternatively, switch to Local AI which runs entirely in your browser without sending data externally.</p>
               )}
-              {webGPUSupported && (
+              {localAISupported && (
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -513,7 +500,7 @@ function AIChatContent({
                   <li>Use your phone's mobile hotspot</li>
                   <li>Connect to a personal/home network</li>
                   <li>Ask IT to whitelist *.supabase.co</li>
-                  {webGPUSupported && <li>Switch to Local AI mode (runs offline)</li>}
+                  {localAISupported && <li>Switch to Local AI mode (runs offline)</li>}
                 </ul>
                 <div className="flex flex-wrap gap-2">
                   {canRetry && (
@@ -534,7 +521,7 @@ function AIChatContent({
                   >
                     Dismiss
                   </Button>
-                  {webGPUSupported && (
+                  {localAISupported && (
                     <Button 
                       variant="outline" 
                       size="sm" 
@@ -611,10 +598,10 @@ function AIChatContent({
 interface ModeTabsProps {
   mode: AIMode;
   setMode: (mode: AIMode) => void;
-  webGPUSupported: boolean;
+  localAISupported: boolean;
 }
 
-function ModeTabs({ mode, setMode, webGPUSupported }: ModeTabsProps) {
+function ModeTabs({ mode, setMode, localAISupported }: ModeTabsProps) {
   return (
     <div className="px-4 pt-2 pb-0">
       <div className="flex gap-1 p-1 bg-muted rounded-lg">
@@ -631,20 +618,20 @@ function ModeTabs({ mode, setMode, webGPUSupported }: ModeTabsProps) {
           Cloud AI
         </button>
         <button
-          onClick={() => webGPUSupported && setMode("local")}
-          disabled={!webGPUSupported}
+          onClick={() => localAISupported && setMode("local")}
+          disabled={!localAISupported}
           className={cn(
             "flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors",
             mode === "local"
               ? "bg-background text-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground",
-            !webGPUSupported && "opacity-50 cursor-not-allowed"
+            !localAISupported && "opacity-50 cursor-not-allowed"
           )}
-          title={!webGPUSupported ? "WebGPU not supported in this browser" : undefined}
+          title={!localAISupported ? "Local AI not available" : undefined}
         >
           <Cpu className="h-4 w-4" />
           Local AI
-          {!webGPUSupported && (
+          {!localAISupported && (
             <Badge variant="outline" className="text-[10px] px-1 py-0">
               N/A
             </Badge>
