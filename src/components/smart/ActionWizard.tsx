@@ -120,6 +120,17 @@ const FUTURE_STEPS: WizardStep[] = [
     required: true,
   },
   {
+    id: 'responsible',
+    title: 'Who helps?',
+    question: 'Who is responsible for supporting this action?',
+    field: 'responsible',
+    placeholder: 'Select responsible person...',
+    hint: 'Who will help ensure this happens?',
+    type: 'combobox',
+    options: ['Participant', 'Advisor', 'I'],
+    required: true,
+  },
+  {
     id: 'outcome',
     title: 'Expected outcome?',
     question: 'What is the expected outcome or result?',

@@ -30,6 +30,11 @@ export function useKeyboardShortcuts(shortcuts: ShortcutConfig[], enabled: boole
                    target.tagName === 'TEXTAREA' || 
                    target.isContentEditable;
     
+    // Also check if we're inside a combobox/command menu (cmdk) which uses role="combobox"
+    const isCombobox = target.closest('[role="combobox"]') !== null ||
+                       target.closest('[cmdk-root]') !== null ||
+                       target.closest('[data-radix-popper-content-wrapper]') !== null;
+    
     for (const shortcut of shortcuts) {
       const keyMatches = event.key.toLowerCase() === shortcut.key.toLowerCase();
       const ctrlMatches = shortcut.ctrl ? (event.ctrlKey || event.metaKey) : !(event.ctrlKey || event.metaKey);
@@ -42,8 +47,11 @@ export function useKeyboardShortcuts(shortcuts: ShortcutConfig[], enabled: boole
       const isHelpKey = shortcut.key === '?' && !shortcut.ctrl && !shortcut.alt;
       
       if (keyMatches && ctrlMatches && shiftMatches && altMatches) {
-        // Skip if in input unless it's a ctrl/meta combo or help key
-        if (isInput && !shortcut.ctrl && !isHelpKey) continue;
+        // Skip if in input/combobox unless it's a ctrl/meta combo or help key
+        if ((isInput || isCombobox) && !shortcut.ctrl && !isHelpKey) continue;
+        
+        // Extra safety: if ctrl is required but not pressed, skip
+        if (shortcut.ctrl && !(event.ctrlKey || event.metaKey)) continue;
         
         event.preventDefault();
         shortcut.action();
