@@ -539,9 +539,22 @@ export function SmartActionTool() {
       }
     }
 
-    // If LLM is not ready, show picker (Transformers.js works on all browsers via WASM fallback)
+    // On mobile, always use templates (local AI not available due to memory constraints)
+    if (llm.isMobile) {
+      if (mode === 'now') {
+        templateDraftNow();
+      } else {
+        templateDraftFuture();
+      }
+      toast({ 
+        title: 'Smart templates applied', 
+        description: 'Local AI available on desktop browsers.' 
+      });
+      return;
+    }
+
+    // If LLM is not ready on desktop, show picker
     if (!llm.isReady) {
-      // Show model picker - Transformers.js supports both WebGPU and WASM
       setShowLLMPicker(true);
       return;
     }

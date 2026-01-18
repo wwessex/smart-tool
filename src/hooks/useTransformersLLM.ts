@@ -49,6 +49,22 @@ type TextGenerationPipeline = (
   options?: { max_new_tokens?: number; do_sample?: boolean; temperature?: number }
 ) => Promise<Array<{ generated_text: Array<{ role: string; content: string }> }>>;
 
+// Detect mobile device - these have memory constraints that prevent local LLM
+const isMobileDevice = (): boolean => {
+  if (typeof navigator === "undefined") return false;
+  const userAgent = navigator.userAgent || navigator.vendor || (window as unknown as { opera?: string }).opera || "";
+  // iOS detection
+  if (/iPad|iPhone|iPod/.test(userAgent)) return true;
+  // Android detection
+  if (/android/i.test(userAgent)) return true;
+  // Small screen (as fallback for other mobile browsers)
+  if (typeof window !== "undefined" && window.innerWidth < 768) return true;
+  return false;
+};
+
+// Export mobile check for use in other components
+export const checkIsMobile = isMobileDevice;
+
 export function useTransformersLLM() {
   const [state, setState] = useState<UseTransformersLLMState>({
     isLoading: false,
@@ -63,6 +79,9 @@ export function useTransformersLLM() {
   const pipelineRef = useRef<TextGenerationPipeline | null>(null);
   const abortRef = useRef<boolean>(false);
 
+  // Is this a mobile device?
+  const isMobile = isMobileDevice();
+
   // Check if model is in our recommended list
   const isModelAvailable = useCallback((modelId: string): boolean => {
     return RECOMMENDED_MODELS.some((m) => m.id === modelId);
@@ -74,6 +93,15 @@ export function useTransformersLLM() {
     device: "webgpu" | "wasm"; 
     error?: string 
   }> => {
+    // Block mobile devices - they don't have enough memory for local LLMs
+    if (isMobile) {
+      return { 
+        available: false, 
+        device: "wasm",
+        error: "Local AI is not available on mobile devices due to memory limitations. Use template-based drafting instead." 
+      };
+    }
+
     // Try WebGPU first
     const nav = navigator as Navigator & { gpu?: { requestAdapter(): Promise<unknown | null> } };
     
@@ -88,12 +116,21 @@ export function useTransformersLLM() {
       }
     }
     
-    // WASM is always available as fallback
+    // WASM is available as fallback on desktop
     return { available: true, device: "wasm" };
-  }, []);
+  }, [isMobile]);
 
   // Load a model
   const loadModel = useCallback(async (modelId: string): Promise<void> => {
+    // Block mobile devices immediately
+    if (isMobile) {
+      setState((prev) => ({
+        ...prev,
+        error: "Local AI is not available on mobile devices due to memory limitations. Please use template-based drafting instead.",
+      }));
+      return;
+    }
+
     if (!isModelAvailable(modelId)) {
       setState((prev) => ({
         ...prev,
@@ -308,6 +345,7 @@ export function useTransformersLLM() {
 
   return {
     ...state,
+    isMobile,
     loadModel,
     chat,
     generate,

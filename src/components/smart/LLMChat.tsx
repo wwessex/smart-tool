@@ -29,13 +29,15 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 // Note: useWebGPUSupport no longer needed - Transformers.js works with WASM fallback
-import { useTransformersLLM, ChatMessage, RECOMMENDED_MODELS } from "@/hooks/useTransformersLLM";
+import { useTransformersLLM, ChatMessage, RECOMMENDED_MODELS, checkIsMobile } from "@/hooks/useTransformersLLM";
 import { useCloudAI } from "@/hooks/useCloudAI";
 import { useAIConsent } from "@/hooks/useAIConsent";
 import { cn } from "@/lib/utils";
 
-// Transformers.js works on all browsers with WASM fallback - no WebGPU requirement
+// Check if Safari browser
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+// Check if mobile device
+const isMobile = checkIsMobile();
 
 interface LLMChatProps {
   trigger?: React.ReactNode;
@@ -53,8 +55,8 @@ export function LLMChat({
   onResponse,
 }: LLMChatProps) {
   const [open, setOpen] = useState(false);
-  // Transformers.js works on all browsers - local AI is always available
-  const localAISupported = true;
+  // Local AI not supported on mobile due to memory constraints
+  const localAISupported = !isMobile;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -224,14 +226,37 @@ function AIChatContent({
     }
   };
 
-  // Show model selection for local mode
+  // Show model selection for local mode (desktop only)
   if (mode === "local" && !localAI.isReady && !localAI.isLoading) {
     return (
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <ModeTabs mode={mode} setMode={setMode} localAISupported={localAISupported} />
         <div className="flex-1 p-6 space-y-4 overflow-y-auto">
+          {/* Mobile warning - local AI not available */}
+          {isMobile && (
+            <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
+              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <AlertTitle className="text-amber-800 dark:text-amber-300">Not Available on Mobile</AlertTitle>
+              <AlertDescription className="text-amber-700 dark:text-amber-400">
+                <p className="text-xs">
+                  Local AI requires more memory than mobile browsers can provide. 
+                  Use Cloud AI instead, or access Local AI from a desktop browser.
+                </p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setMode("cloud")}
+                  className="mt-2 h-7 text-xs"
+                >
+                  <Cloud className="h-3 w-3 mr-1" />
+                  Switch to Cloud AI
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Safari info - Transformers.js uses WASM fallback */}
-          {isSafari && (
+          {!isMobile && isSafari && (
             <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800">
               <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               <AlertTitle className="text-blue-800 dark:text-blue-300">Safari Mode</AlertTitle>
@@ -243,45 +268,51 @@ function AIChatContent({
             </Alert>
           )}
 
-          <div className="text-center space-y-2">
-            <HardDrive className="h-12 w-12 mx-auto text-muted-foreground" />
-            <h3 className="font-semibold">Select an AI Model</h3>
-            <p className="text-sm text-muted-foreground">
-              Models run entirely in your browser. Downloaded once, cached locally.
-            </p>
-          </div>
+          {!isMobile && (
+            <>
+              <div className="text-center space-y-2">
+                <HardDrive className="h-12 w-12 mx-auto text-muted-foreground" />
+                <h3 className="font-semibold">Select an AI Model</h3>
+                <p className="text-sm text-muted-foreground">
+                  Models run entirely in your browser. Downloaded once, cached locally.
+                </p>
+              </div>
 
-          {localAI.error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{localAI.error}</AlertDescription>
-            </Alert>
+              {localAI.error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{localAI.error}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="grid gap-2">
+                {localAI.supportedModels.map((model) => (
+                  <button
+                    key={model.id}
+                    onClick={() => localAI.loadModel(model.id)}
+                    className="flex items-center gap-3 p-4 rounded-lg border bg-card hover:bg-accent transition-colors text-left"
+                  >
+                    <Download className="h-5 w-5 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium">{model.name}</div>
+                      <div className="text-sm text-muted-foreground truncate">
+                        {model.description}
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="shrink-0">
+                      {model.size}
+                    </Badge>
+                  </button>
+                ))}
+              </div>
+
+              <p className="text-xs text-center text-muted-foreground">
+                First download may take a few minutes depending on your connection.
+                <br />
+                <span className="text-amber-600 dark:text-amber-400">Note: Only available on desktop browsers.</span>
+              </p>
+            </>
           )}
-
-          <div className="grid gap-2">
-            {localAI.supportedModels.map((model) => (
-              <button
-                key={model.id}
-                onClick={() => localAI.loadModel(model.id)}
-                className="flex items-center gap-3 p-4 rounded-lg border bg-card hover:bg-accent transition-colors text-left"
-              >
-                <Download className="h-5 w-5 text-muted-foreground shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium">{model.name}</div>
-                  <div className="text-sm text-muted-foreground truncate">
-                    {model.description}
-                  </div>
-                </div>
-                <Badge variant="outline" className="shrink-0">
-                  {model.size}
-                </Badge>
-              </button>
-            ))}
-          </div>
-
-          <p className="text-xs text-center text-muted-foreground">
-            First download may take a few minutes depending on your connection.
-          </p>
         </div>
       </div>
     );
