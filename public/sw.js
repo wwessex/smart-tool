@@ -1,25 +1,34 @@
-// BUG FIX #5: Dynamic cache versioning to prevent stale JS in static builds
+// BUG FIX #6: Use relative paths for subfolder deployments
 // Increment this version when deploying new builds
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const CACHE_NAME = `smart-tool-${CACHE_VERSION}`;
-const OFFLINE_URL = '/offline.html';
 
-// Assets to cache immediately on install (only truly static assets, NOT JS bundles)
+// Get the base path from the service worker's location (supports subfolders)
+const SW_SCOPE = self.registration?.scope || self.location.href.replace(/sw\.js$/, '');
+
+// Helper to resolve relative URLs to the SW scope
+const resolveUrl = (path) => new URL(path, SW_SCOPE).href;
+
+const OFFLINE_URL = 'offline.html'; // Relative path
+
+// Assets to cache immediately on install (relative paths for subfolder support)
 const PRECACHE_ASSETS = [
-  '/offline.html',
-  '/manifest.json',
-  '/favicon.ico',
-  '/icon-192.png',
-  '/icon-512.png',
-  '/apple-touch-icon.png'
+  'offline.html',
+  'manifest.json',
+  'favicon.ico',
+  'icon-192.png',
+  'icon-512.png',
+  'apple-touch-icon.png'
 ];
 
-// Install event - cache core assets
+// Install event - cache core assets with resolved URLs
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[SW] Precaching core assets');
-      return cache.addAll(PRECACHE_ASSETS);
+      console.log('[SW] Precaching core assets for scope:', SW_SCOPE);
+      // Resolve relative paths to absolute URLs based on SW scope
+      const urlsToCache = PRECACHE_ASSETS.map(path => resolveUrl(path));
+      return cache.addAll(urlsToCache);
     })
   );
   // Force immediate activation
@@ -78,7 +87,7 @@ self.addEventListener('fetch', (event) => {
             if (cachedResponse) return cachedResponse;
             // Return offline page for navigation requests
             if (isNavigationRequest) {
-              return caches.match(OFFLINE_URL);
+              return caches.match(resolveUrl(OFFLINE_URL));
             }
             return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
           });
