@@ -1,11 +1,45 @@
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig, loadEnv, Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
+// Plugin to inject build timestamp for cache-busting
+function cacheBustPlugin(): Plugin {
+  const buildTime = Date.now();
+  return {
+    name: 'cache-bust',
+    transformIndexHtml(html) {
+      // Add cache-busting query string to script/link tags and meta tag with build time
+      return html
+        .replace(
+          '</head>',
+          `  <meta name="build-version" content="${buildTime}">\n  </head>`
+        );
+    },
+    generateBundle(_, bundle) {
+      // Add _headers file for Netlify/Cloudflare Pages with cache control
+      this.emitFile({
+        type: 'asset',
+        fileName: '_headers',
+        source: `/*
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+  Expires: 0
+
+/*.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+`
+      });
+    }
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  // Load env file based on `mode` in the current working directory.
+  // Load env file based on \`mode\` in the current working directory.
   const env = loadEnv(mode, process.cwd(), '');
   
   return {
@@ -18,7 +52,7 @@ export default defineConfig(({ mode }) => {
         overlay: false,
       },
     },
-    plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+    plugins: [react(), cacheBustPlugin(), mode === "development" && componentTagger()].filter(Boolean),
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),

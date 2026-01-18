@@ -48,15 +48,21 @@ export function usePWA() {
   }, []);
 
   useEffect(() => {
-    // BUG FIX #4: Better service worker registration with error handling
+    // BUG FIX #4: Better service worker registration - FULLY NON-BLOCKING
     if ('serviceWorker' in navigator) {
-      // Defer SW registration to not block initial render
+      // CRITICAL: Defer SW registration significantly to ensure app loads first
       const registerSW = async () => {
         try {
+          // Add timeout to prevent hanging
+          const timeoutPromise = new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('SW registration timeout')), 10000)
+          );
+          
           // Use simple relative path - works from any hosting location
-          const reg = await navigator.serviceWorker.register('./sw.js', { scope: './' });
+          const regPromise = navigator.serviceWorker.register('./sw.js', { scope: './' });
+          
+          const reg = await Promise.race([regPromise, timeoutPromise]);
           setRegistration(reg);
-          console.log('[PWA] Service worker registered successfully');
 
           // Check for updates
           reg.addEventListener('updatefound', () => {
@@ -75,17 +81,13 @@ export function usePWA() {
             reg.update().catch(() => {});
           }, 60 * 60 * 1000); // Check every hour
         } catch (err) {
-          console.warn('[PWA] Service worker registration failed:', err);
-          // Don't block app functionality if SW fails
+          // Silently fail - app should work without SW
         }
       };
 
-      // Use requestIdleCallback if available, otherwise setTimeout
-      if ('requestIdleCallback' in window) {
-        (window as Window & { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(registerSW);
-      } else {
-        setTimeout(registerSW, 1000);
-      }
+      // CRITICAL: Wait 3 seconds after page load before even attempting SW registration
+      // This ensures the app is fully loaded and interactive first
+      setTimeout(registerSW, 3000);
     }
   }, []);
 

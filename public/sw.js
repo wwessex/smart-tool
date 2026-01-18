@@ -1,6 +1,6 @@
 // BUG FIX #6: Use relative paths for subfolder deployments
 // Increment this version when deploying new builds
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v6';
 const CACHE_NAME = `smart-tool-${CACHE_VERSION}`;
 
 // Get the base path from the service worker's location (supports subfolders)
@@ -8,6 +8,14 @@ const SW_SCOPE = self.registration?.scope || self.location.href.replace(/sw\.js$
 
 // Helper to resolve relative URLs to the SW scope
 const resolveUrl = (path) => new URL(path, SW_SCOPE).href;
+
+// CRITICAL: Skip SW fetch handling during initial page load to prevent blocking
+let appLoaded = false;
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'APP_LOADED') {
+    appLoaded = true;
+  }
+});
 
 const OFFLINE_URL = 'offline.html'; // Relative path
 
@@ -62,6 +70,12 @@ self.addEventListener('fetch', (event) => {
 
   // Skip chrome-extension and other non-http requests
   if (!event.request.url.startsWith('http')) return;
+  
+  // CRITICAL: During first load, let browser handle requests normally
+  // This prevents SW from interfering with initial page load
+  if (!appLoaded && event.request.mode === 'navigate') {
+    return; // Let browser handle navigation normally
+  }
 
   const url = new URL(event.request.url);
   const isNavigationRequest = event.request.mode === 'navigate';

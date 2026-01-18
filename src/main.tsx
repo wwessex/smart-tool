@@ -37,3 +37,12 @@ createRoot(document.getElementById("root")!).render(
     <App />
   </ErrorBoundary>
 );
+
+// Signal to service worker that app has loaded successfully
+if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+  navigator.serviceWorker.controller.postMessage({ type: 'APP_LOADED' });
+}
+// Also signal when SW becomes active
+navigator.serviceWorker?.ready.then(reg => {
+  reg.active?.postMessage({ type: 'APP_LOADED' });
+});
