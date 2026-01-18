@@ -44,10 +44,13 @@ interface UseTransformersLLMState {
   selectedModel: string | null;
 }
 
+// Transformers.js can return either chat format (array of messages) or raw text format (string)
+type GeneratedOutput = Array<{ role: string; content: string }> | string;
+
 type TextGenerationPipeline = (
   messages: Array<{ role: string; content: string }>,
   options?: { max_new_tokens?: number; do_sample?: boolean; temperature?: number }
-) => Promise<Array<{ generated_text: Array<{ role: string; content: string }> }>>;
+) => Promise<Array<{ generated_text: GeneratedOutput }>>;
 
 // Detect mobile device - these have memory constraints that prevent local LLM
 const isMobileDevice = (): boolean => {
@@ -268,10 +271,43 @@ export function useTransformersLLM() {
           temperature: 0.7,
         });
 
-        // Extract the assistant's response
-        const generatedMessages = result[0]?.generated_text;
-        const lastMessage = generatedMessages?.[generatedMessages.length - 1];
-        const content = lastMessage?.role === "assistant" ? lastMessage.content : "";
+        // Transformers.js text-generation returns different formats depending on model
+        // For chat models, it returns { generated_text: Array<{role, content}> }
+        // For non-chat, it returns { generated_text: string }
+        let content = "";
+        const generated = result[0]?.generated_text;
+        
+        if (Array.isArray(generated)) {
+          // Chat format: find the last assistant message
+          const lastAssistant = [...generated].reverse().find(
+            (m: { role: string; content: string }) => m.role === "assistant"
+          );
+          content = lastAssistant?.content || "";
+        } else if (typeof generated === "string") {
+          // Raw text format: extract the response after the prompt
+          // The model appends to the input, so we need to find new content
+          const lastUserMessage = messages[messages.length - 1]?.content || "";
+          const promptEnd = generated.lastIndexOf(lastUserMessage);
+          if (promptEnd >= 0) {
+            content = generated.slice(promptEnd + lastUserMessage.length).trim();
+          } else {
+            content = generated;
+          }
+          // Clean up common artifacts
+          content = content
+            .replace(/^[\s\n]*<\|assistant\|>[\s\n]*/i, "")
+            .replace(/^[\s\n]*assistant:[\s\n]*/i, "")
+            .replace(/<\|end\|>/gi, "")
+            .replace(/<\|eot_id\|>/gi, "")
+            .trim();
+        }
+        
+        console.log("[LLM] Generated content:", content.slice(0, 100) + (content.length > 100 ? "..." : ""));
+
+        if (!content) {
+          console.warn("[LLM] Empty response from model");
+          throw new Error("Model returned empty response");
+        }
 
         // Simulate streaming by yielding chunks
         const words = content.split(" ");
@@ -286,11 +322,12 @@ export function useTransformersLLM() {
         }
       } catch (err) {
         if (!abortRef.current) {
-          console.error("Chat error:", err);
+          console.error("[LLM] Chat error:", err);
           setState((prev) => ({
             ...prev,
             error: err instanceof Error ? err.message : "Generation failed",
           }));
+          throw err; // Re-throw so generate() can catch it
         }
       } finally {
         setState((prev) => ({ ...prev, isGenerating: false }));
@@ -303,10 +340,19 @@ export function useTransformersLLM() {
   const generate = useCallback(
     async (userMessage: string, systemPrompt?: string): Promise<string> => {
       let fullResponse = "";
-      for await (const chunk of chat([{ role: "user", content: userMessage }], systemPrompt)) {
-        fullResponse += chunk;
+      try {
+        for await (const chunk of chat([{ role: "user", content: userMessage }], systemPrompt)) {
+          fullResponse += chunk;
+        }
+      } catch (err) {
+        console.error("[LLM] Generate failed:", err);
+        throw err; // Let caller handle fallback
       }
-      return fullResponse.trim();
+      const trimmed = fullResponse.trim();
+      if (!trimmed) {
+        throw new Error("Generated response is empty");
+      }
+      return trimmed;
     },
     [chat]
   );
