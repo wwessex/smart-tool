@@ -1,73 +1,164 @@
-# Welcome to your Lovable project
+# smart-tool
 
-## Project info
+Smart Tool is a TypeScript-first toolkit that provides [short summary of primary purpose — e.g., a collection of utilities, CLI helpers, or domain-specific tooling]. It aims to be small, well-tested, and easy to integrate into TypeScript projects.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+- Primary language: TypeScript (≈96% of the codebase)
+- Additional files: HTML, CSS, and a small amount of JavaScript
 
-## How can I edit this code?
+## Features
 
-There areseveral ways of editing your application.
+- Core utilities for [describe main feature area, e.g., "data transformation", "project scaffolding", "API client helpers"]
+- Small, modular functions with strong TypeScript types
+- CLI entrypoint (if applicable) for common workflows
+- Well-structured tests and build pipeline
+- Extensible configuration and plugin-friendly design
 
-**Use Lovable**
+> Replace the bracketed phrases above with project-specific descriptions if you want the README to reflect exact functionality.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Installation
 
-Changes made via Lovable will be committed automatically to this repo.
+Install from npm:
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```bash
+npm install --save smart-tool
+# or
+yarn add smart-tool
 ```
 
-**Edit a file directly in GitHub**
+If this repository is intended to be used locally or as a dev tool, install dev dependencies and build:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+git clone https://github.com/wwessex/smart-tool.git
+cd smart-tool
+npm install
+npm run build
+```
 
-**Use GitHub Codespaces**
+## Quick start / Usage
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Example (importing from TypeScript):
 
-## What technologies are used for this project?
+```ts
+import { exampleFunction } from 'smart-tool';
 
-This project is built with:
+const result = exampleFunction({ /* options */ });
+console.log(result);
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+If the project exposes a CLI:
 
-## How can I deploy this project?
+```bash
+npx smart-tool command --option value
+# or after building locally
+node ./dist/cli.js command --option value
+```
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+Include a short, copy-pastable example showing the most common use-case for your users.
 
-## Can I connect a custom domain to my Lovable project?
+## Configuration
 
-Yes, you can!
+smart-tool supports configuration via:
+- config file (e.g., `smarttool.config.{ts,js,json}`)
+- environment variables (prefix SMART_TOOL_)
+- programmatic API (pass an options object to the initializer)
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+Example config snippet:
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+```js
+// smarttool.config.js
+module.exports = {
+  optionA: true,
+  apiKey: process.env.SMART_TOOL_API_KEY,
+};
+```
+
+## Development
+
+Scripts (add or adjust to match package.json):
+
+```bash
+# Install dependencies
+npm install
+
+# Build TypeScript
+npm run build
+
+# Run tests
+npm test
+
+# Run linter
+npm run lint
+
+# Run typecheck
+npm run typecheck
+```
+
+Suggested package.json scripts (if not already present):
+
+```json
+{
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest",
+    "lint": "eslint . --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit"
+  }
+}
+```
+
+Adjust test runner and linters to match the repository's current setup (Jest, Vitest, ESLint, etc.).
+
+## Contributing
+
+Contributions are welcome!
+
+- Open an issue describing the problem or feature
+- Fork the repo and create a feature branch
+- Run tests and linters before submitting a PR
+- Follow the existing code style and TypeScript conventions
+- Provide tests for new features and bug fixes
+
+Suggested branch / PR workflow:
+1. Create a branch: `git checkout -b feat/short-description`
+2. Make changes, run tests: `npm test`
+3. Open a PR with a clear description and link any related issues
+
+## Testing & CI
+
+- The repository is TypeScript-first; ensure changes pass `npm run typecheck`.
+- Tests should run in CI (GitHub Actions suggested). Example GitHub Actions job:
+  - install Node
+  - install dependencies
+  - run typecheck, lint, build, and tests
+
+If you want, I can draft a GitHub Actions workflow file for this repo.
+
+## API / Reference
+
+Add a short API reference here or link to a docs folder. Example:
+
+- `exampleFunction(options)` — do X, returns Y
+- `anotherUtility(input)` — does Z
+
+## License
+
+Specify the license (e.g., MIT). Example:
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+## Maintainers / Contact
+
+Maintainer: wwessex
+
+For questions or help, open an issue or contact the maintainer via GitHub.
+
+## Roadmap / TODO
+
+- Document public API in more detail
+- Add more examples and recipes in `/docs`
+- Improve test coverage for edge cases
+- (Replace with your project-specific roadmap items)
+
+## Acknowledgements
+
+Mention libraries, inspirations, or contributors.
