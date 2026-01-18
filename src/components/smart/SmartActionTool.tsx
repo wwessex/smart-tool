@@ -293,9 +293,12 @@ const aiHasConsent = useAIConsent();
   useEffect(() => {
     // Only regenerate if output came from form, not from AI fix or manual edit
     if (outputSource === 'ai') {
-      // Reset to form source so future form edits will regenerate
-      setOutputSource('form');
-      return;
+      // Delay reset to 'form' until after debounce settles, so smartCheck
+      // uses the AI-fixed output long enough for the UI to update properly
+      const timer = setTimeout(() => {
+        setOutputSource('form');
+      }, 200); // Slightly longer than debounce (150ms) to ensure check completes
+      return () => clearTimeout(timer);
     }
     if (outputSource === 'manual') {
       return; // Don't overwrite manual edits until form changes
