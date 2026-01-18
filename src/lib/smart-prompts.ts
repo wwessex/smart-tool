@@ -1,5 +1,6 @@
 /**
  * AI Prompts for SMART Action Tool
+ * Optimized for both small local LLMs (135M-500M) and cloud AI
  */
 
 export const IMPROVE_PROMPT = `You are a SMART action improvement specialist for employment advisors. Your job is to enhance employment-related actions to be more Specific, Measurable, Achievable, Relevant, and Time-bound.
@@ -99,6 +100,8 @@ export const WIZARD_PROMPTS = {
 };
 
 // ===== AI DRAFT PROMPTS FOR LOCAL LLM =====
+// These are optimized for small LLMs (135M-500M parameters)
+// Keep prompts concise and structured for better results
 
 export const DRAFT_ACTION_PROMPT = `You are a SMART action writer for UK employment advisors.
 
@@ -116,12 +119,26 @@ Write a specific, actionable SMART action that:
 
 Respond with ONLY the action text (1-2 sentences). No explanation, no quotes.`;
 
+// Compact version for smaller models
+export const DRAFT_ACTION_PROMPT_COMPACT = `Write a SMART employment action.
+Participant: {forename}
+Barrier: {barrier}
+Deadline: {targetDate}
+
+Format: "{forename} will [specific action] by {targetDate}."
+One sentence only.`;
+
 export const DRAFT_HELP_PROMPT = `Given this SMART action:
 "{action}"
 
 Write a brief explanation (1 sentence) of how completing this action will help {forename} move towards employment.
 
 Respond with ONLY the help text. No explanation, no quotes. Example format: "get shortlisted for interviews"`;
+
+// Compact version
+export const DRAFT_HELP_PROMPT_COMPACT = `Action: "{action}"
+
+How will this help {forename} find work? One phrase, no quotes.`;
 
 export const DRAFT_OUTCOME_PROMPT = `You are writing an expected outcome for a task-based SMART action.
 
@@ -132,3 +149,30 @@ Write what {forename} will achieve or learn from this activity.
 Start with "{forename} will..."
 
 Respond with ONLY the outcome text (1-2 sentences). No explanation, no quotes.`;
+
+// Compact version
+export const DRAFT_OUTCOME_PROMPT_COMPACT = `Activity: {task}
+Participant: {forename}
+
+What will {forename} gain? One sentence starting with "{forename} will..."`;
+
+// Helper to select appropriate prompt based on model size
+export function getPromptForModel(
+  promptType: 'action' | 'help' | 'outcome',
+  modelId?: string,
+  isCompact: boolean = false
+): string {
+  // Use compact prompts for smallest models or when explicitly requested
+  const useCompact = isCompact || (modelId && modelId.includes('135M'));
+  
+  switch (promptType) {
+    case 'action':
+      return useCompact ? DRAFT_ACTION_PROMPT_COMPACT : DRAFT_ACTION_PROMPT;
+    case 'help':
+      return useCompact ? DRAFT_HELP_PROMPT_COMPACT : DRAFT_HELP_PROMPT;
+    case 'outcome':
+      return useCompact ? DRAFT_OUTCOME_PROMPT_COMPACT : DRAFT_OUTCOME_PROMPT;
+    default:
+      return DRAFT_ACTION_PROMPT;
+  }
+}

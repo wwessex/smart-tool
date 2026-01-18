@@ -41,6 +41,52 @@ export function parseTimescaleToTargetISO(baseISO: string, timescale: string): s
   return baseISO;
 }
 
+// Fuzzy barrier mappings for common variations that don't exactly match library keys
+const FUZZY_BARRIER_MAP: Record<string, string> = {
+  "time management": "Motivation",
+  "punctuality": "Transport",
+  "getting to work": "Transport",
+  "travel to work": "Transport",
+  "commute": "Transport",
+  "commuting": "Transport",
+  "bus": "Transport",
+  "train": "Transport",
+  "driving": "Transport",
+  "nervous": "Confidence",
+  "shy": "Confidence",
+  "self esteem": "Confidence",
+  "self-esteem": "Confidence",
+  "scared": "Mental Wellbeing",
+  "worried": "Mental Wellbeing",
+  "stressed": "Mental Wellbeing",
+  "anxious": "Mental Wellbeing",
+  "can't read": "Literacy and/or Numeracy",
+  "can't write": "Literacy and/or Numeracy",
+  "struggle with reading": "Literacy and/or Numeracy",
+  "struggle to read": "Literacy and/or Numeracy",
+  "spelling": "Literacy and/or Numeracy",
+  "maths": "Literacy and/or Numeracy",
+  "no computer": "Digital Hardware & Connectivity",
+  "no laptop": "Digital Hardware & Connectivity",
+  "no internet": "Digital Hardware & Connectivity",
+  "struggle with technology": "Digital Skills",
+  "not good with computers": "Digital Skills",
+  "can't use computer": "Digital Skills",
+  "scared of interviews": "Interviews",
+  "interview nerves": "Interviews",
+  "job interviews": "Interviews",
+  "work experience": "Work History",
+  "never worked": "Work History",
+  "employment gap": "Work History",
+  "gap in cv": "Work History",
+  "caring for": "Caring Responsibilities",
+  "look after": "Caring Responsibilities",
+  "carer": "Caring Responsibilities",
+  "dependent": "Caring Responsibilities",
+  "childcare": "Caring Responsibilities",
+  "children": "Caring Responsibilities",
+};
+
 export function pickLibraryKey(barrier: string): string {
   const b = (barrier || "").trim().toLowerCase();
   if (!b) return "";
@@ -63,15 +109,20 @@ export function pickLibraryKey(barrier: string): string {
   
   // Semantic matches for common variations
   const semanticMatches: Record<string, string[]> = {
-    "Autism": ["autistic", "asd", "asperger", "autism spectrum"],
-    "Learning Difficulties": ["learning disability", "developmental delay", "global developmental", "intellectual disability", "special needs", "learning need"],
-    "ADHD": ["attention deficit", "add", "hyperactivity", "concentration"],
-    "Health Condition": ["health", "illness", "medical", "chronic", "physical health"],
-    "Disability": ["disabled", "physical disability", "impairment"],
-    "Mental Wellbeing": ["mental health", "anxiety", "depression", "stress", "wellbeing", "psychological"],
-    "Literacy and/or Numeracy": ["literacy", "numeracy", "reading", "writing", "maths", "dyslexia", "dyscalculia"],
-    "Digital Skills": ["computer", "digital", "it skills", "technology", "internet"],
-    "Communication Skills": ["speech", "language", "communication", "stammer", "stutter"],
+    "Autism": ["autistic", "asd", "asperger", "autism spectrum", "on the spectrum"],
+    "Learning Difficulties": ["learning disability", "developmental delay", "global developmental", "intellectual disability", "special needs", "learning need", "slow learner"],
+    "ADHD": ["attention deficit", "add", "hyperactivity", "concentration", "focus issues", "distracted", "impulsive"],
+    "Health Condition": ["health", "illness", "medical", "chronic", "physical health", "pain", "fatigue", "disability"],
+    "Disability": ["disabled", "physical disability", "impairment", "mobility", "wheelchair", "walking"],
+    "Mental Wellbeing": ["mental health", "anxiety", "depression", "stress", "wellbeing", "psychological", "panic", "ptsd", "trauma"],
+    "Literacy and/or Numeracy": ["literacy", "numeracy", "reading", "writing", "maths", "dyslexia", "dyscalculia", "english", "esol"],
+    "Digital Skills": ["computer", "digital", "it skills", "technology", "internet", "online", "typing", "email"],
+    "Communication Skills": ["speech", "language", "communication", "stammer", "stutter", "verbal", "speaking", "telephone"],
+    "Confidence": ["confidence", "self-belief", "belief in", "assertive", "assertiveness", "speaking up"],
+    "Motivation": ["motivation", "motivated", "enthusiasm", "interest", "focus", "purpose", "direction", "drive"],
+    "Interviews": ["interview", "interviewing", "interview skills", "mock interview"],
+    "Transport": ["transport", "travel", "commute", "bus", "train", "car", "driving", "licence", "license"],
+    "Caring Responsibilities": ["childcare", "child care", "children", "carer", "caring", "dependents", "family"],
   };
   
   for (const [key, variations] of Object.entries(semanticMatches)) {
@@ -82,14 +133,34 @@ export function pickLibraryKey(barrier: string): string {
     }
   }
   
+  // Try fuzzy matching as final fallback
+  for (const [fuzzyTerm, category] of Object.entries(FUZZY_BARRIER_MAP)) {
+    if (b.includes(fuzzyTerm)) {
+      return category;
+    }
+  }
+  
   return "";
 }
 
 export function resolvePlaceholders(str: string, ctx: { targetPretty: string; n?: number; forename?: string }): string {
-  return (str || "")
+  let result = (str || "")
     .split("{targetDate}").join(ctx.targetPretty)
     .split("{n}").join(String(ctx.n ?? 2))
     .split("{forename}").join(ctx.forename || "[Name]");
+  
+  // Check for any remaining unresolved placeholders and warn
+  const remaining = result.match(/\{[^}]+\}/g);
+  if (remaining && remaining.length > 0) {
+    console.warn('[SmartUtils] Unresolved placeholders:', remaining);
+    // Replace with sensible defaults
+    result = result
+      .replace(/\{name\}/gi, ctx.forename || "[Name]")
+      .replace(/\{date\}/gi, ctx.targetPretty)
+      .replace(/\{[^}]+\}/g, "[...]"); // Fallback for any remaining
+  }
+  
+  return result;
 }
 
 function lowerFirstLetter(s: string): string {
