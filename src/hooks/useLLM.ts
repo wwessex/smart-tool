@@ -170,9 +170,9 @@ export function useLLM() {
         loadingStatus: "Loading AI engine (this may take a moment)...",
       }));
 
-      // Create worker - use base-relative path for public folder file
-      // @vite-ignore is needed because this is a runtime URL, not a bundled module
-      worker = new Worker(/* @vite-ignore */ new URL("llm-worker.js", document.baseURI), {
+      // Create worker - resolve path relative to current location for subfolder deployments
+      const workerUrl = new URL("./llm-worker.js", window.location.href).href;
+      worker = new Worker(workerUrl, {
         type: "module",
       });
 
