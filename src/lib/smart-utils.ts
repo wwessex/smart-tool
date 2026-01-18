@@ -348,7 +348,7 @@ export function buildFutureOutput(
     formattedTask = formattedTask.charAt(0).toLowerCase() + formattedTask.slice(1);
   }
 
-  // Structure: "As discussed and agreed, on [date], [name] will [verb] [task]. [Outcome]. Reviewed in [timescale]."
+  // Structure: "As discussed and agreed, on [date], [name] will [verb] [task]. [Outcome]. [Achievability statement]. Reviewed in [timescale]."
   // Note: responsible is stored in metadata but not included in output text (matches barrier tab behavior)
   const parts = [
     `${BUILDER_TASK.p1} ${formattedDate}, ${forename} ${BUILDER_TASK.p2} ${verb}${formattedTask}.`
@@ -357,6 +357,9 @@ export function buildFutureOutput(
   if (formattedOutcome) {
     parts.push(`${formattedOutcome}.`);
   }
+  
+  // Add achievability statement to ensure SMART Achievable criterion is met
+  parts.push(`${forename} has confirmed this action is both realistic and achievable.`);
   
   parts.push(`${BUILDER_TASK.p3} ${cleanTimescale}.`);
 

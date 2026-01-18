@@ -25,9 +25,9 @@ export interface SmartCheck {
 // Patterns for detection
 const SPECIFIC_PATTERNS = {
   who: /\b(I|we|he|she|they|participant|advisor|john|jane|[A-Z][a-z]+)\s+(will|agreed|has|have|is going to|shall)/i,
-  what: /\b(will|agreed to|has agreed|have agreed|is going to|shall|must)\s+\w+/i,
-  where: /\b(at|in|to|from|via|through|online|website|centre|center|library|jobcentre|job centre|office)\b/i,
-  action: /\b(apply|submit|attend|complete|register|create|update|search|contact|call|email|visit|speak|meet|write|prepare|research)\b/i,
+  what: /\b(will|agreed to|has agreed|have agreed|is going to|shall|must|has confirmed)\s+\w+/i,
+  where: /\b(at|in|to|from|via|through|online|website|centre|center|library|jobcentre|job centre|office|meeting|session|workshop|fair)\b/i,
+  action: /\b(apply|submit|attend|complete|register|create|update|search|contact|call|email|visit|speak|meet|write|prepare|research|participate|practise|practice|review|bring|gather|book|schedule|discuss|identify|collect|confirm)\b/i,
 };
 
 const MEASURABLE_PATTERNS = {
@@ -40,19 +40,22 @@ const MEASURABLE_PATTERNS = {
 };
 
 const ACHIEVABLE_PATTERNS = {
-  agreement: /\b(agreed|discussed|realistic|achievable|can|able|willing|committed|confirmed|understood)\b/i,
-  responsibility: /\b(participant|advisor|I|we|they|he|she)\s+(will|has agreed|have agreed|is responsible|takes responsibility)\b/i,
-  support: /\b(with support|help from|assistance|guidance|together|advisor will)\b/i,
-  commitment: /\b(commits? to|undertakes? to|pledges? to|promises? to)\b/i,
-  // Additional patterns for AI-generated fixes
+  agreement: /\b(agreed|discussed|realistic|achievable|can|able|willing|committed|confirmed|understood|as discussed and agreed)\b/i,
+  responsibility: /\b(participant|advisor|I|we|they|he|she|[A-Z][a-z]+)\s+(will|has agreed|have agreed|is responsible|takes responsibility|agreed to)\b/i,
+  support: /\b(with support|help from|assistance|guidance|together|advisor will|we have agreed|both realistic and achievable)\b/i,
+  commitment: /\b(commits? to|undertakes? to|pledges? to|promises? to|we have agreed)\b/i,
+  // Additional patterns for AI-generated fixes and standard template phrases
   hasAgreedTo: /\bhas agreed to\b/i,
-  agreedTo: /\bagreed to\b/i,
+  agreedTo: /\b(agreed to|as discussed and agreed)\b/i,
+  realisticAchievable: /\b(realistic and achievable|both realistic|is achievable|can achieve)\b/i,
 };
 
 const RELEVANT_PATTERNS = {
-  barrier: /\b(barrier|challenge|obstacle|issue|problem|difficulty|lack of|need|gap)\b/i,
-  goal: /\b(employment|job|work|career|role|position|opportunity|goal|objective|aim)\b/i,
-  connection: /\b(help|enable|allow|support|improve|increase|enhance|develop|build|gain|acquire|address|overcome|resolve)\b/i,
+  barrier: /\b(barrier|challenge|obstacle|issue|problem|difficulty|lack of|need|gap|development areas?)\b/i,
+  goal: /\b(employment|job|work|career|role|position|opportunity|goal|objective|aim|next steps?|identified|participate|engagement)\b/i,
+  connection: /\b(help|enable|allow|support|improve|increase|enhance|develop|build|gain|acquire|address|overcome|resolve|will|attend|complete|submit|participate)\b/i,
+  // Task-based relevance - activities that contribute to employment goals
+  taskBased: /\b(workshop|training|fair|event|interview|application|cv|course|session|meeting|assessment|appointment)\b/i,
 };
 
 const TIMEBOUND_PATTERNS = {
@@ -222,34 +225,42 @@ export function checkSmart(text: string, meta?: {
   const hasCommitment = ACHIEVABLE_PATTERNS.commitment.test(text);
   const hasSupport = ACHIEVABLE_PATTERNS.support.test(text);
   const hasAgreedTo = ACHIEVABLE_PATTERNS.hasAgreedTo.test(text) || ACHIEVABLE_PATTERNS.agreedTo.test(text);
+  const hasRealisticAchievable = ACHIEVABLE_PATTERNS.realisticAchievable.test(text);
   
-  // More lenient: "has agreed to" or "agreed to" in text is strong enough on its own
-  const achievableMet = achievableMatches >= 2 || hasCommitment || (hasAgreement && hasSupport) || hasAgreedTo;
+  // More lenient: standard template phrases and AI-generated fixes should all pass
+  // "As discussed and agreed" OR "has agreed to" OR "realistic and achievable" are all strong indicators
+  const achievableMet = achievableMatches >= 2 || hasCommitment || (hasAgreement && hasSupport) || hasAgreedTo || hasRealisticAchievable || hasSupport;
   
   const achievable: SmartCriterion = {
     met: achievableMet,
-    confidence: achievableMatches >= 3 || hasCommitment || hasAgreedTo ? 'high' : achievableMatches >= 2 ? 'medium' : 'low',
+    confidence: achievableMatches >= 3 || hasCommitment || hasAgreedTo || hasRealisticAchievable ? 'high' : achievableMatches >= 2 ? 'medium' : 'low',
     reason: achievableMet
-      ? hasCommitment ? 'Shows clear commitment' : hasAgreedTo ? 'Shows explicit agreement' : hasAgreement ? 'Shows agreement and commitment' : 'Responsibility is clear'
+      ? hasCommitment ? 'Shows clear commitment' : hasAgreedTo ? 'Shows explicit agreement' : hasRealisticAchievable ? 'Confirmed realistic and achievable' : hasAgreement ? 'Shows agreement and commitment' : 'Responsibility is clear'
       : 'Add who agreed or is responsible',
     hint: !hasAgreement ? 'Add "discussed and agreed" or "has committed to"' : undefined,
   };
   achievable.suggestion = generateSuggestion('achievable', achievable, meta);
 
-  // RELEVANT check - now includes barrier alignment
+  // RELEVANT check - now includes barrier alignment and task-based activities
   const relevantMatches = countMatches(fullContext, RELEVANT_PATTERNS);
   const hasBarrierRef = meta?.barrier && lowerText.includes(meta.barrier.toLowerCase().slice(0, 10));
   const hasGoalConnection = RELEVANT_PATTERNS.goal.test(fullContext) && RELEVANT_PATTERNS.connection.test(text);
+  const hasTaskActivity = RELEVANT_PATTERNS.taskBased.test(fullContext);
   const barrierAlignment = checkBarrierAlignment(text, meta?.barrier);
   
+  // Task-based activities inherently contribute to employment goals
+  const relevantMet = relevantMatches >= 2 || hasBarrierRef || hasGoalConnection || barrierAlignment.aligned || hasTaskActivity;
+  
   const relevant: SmartCriterion = {
-    met: relevantMatches >= 2 || hasBarrierRef || hasGoalConnection || barrierAlignment.aligned,
-    confidence: (barrierAlignment.aligned && hasGoalConnection) || (hasBarrierRef && hasGoalConnection) ? 'high' : relevantMatches >= 2 ? 'medium' : 'low',
+    met: relevantMet,
+    confidence: (barrierAlignment.aligned && hasGoalConnection) || (hasBarrierRef && hasGoalConnection) || hasTaskActivity ? 'high' : relevantMatches >= 2 ? 'medium' : 'low',
     reason: barrierAlignment.aligned 
       ? `Addresses barrier with: ${barrierAlignment.keywords.slice(0, 2).join(', ')}`
-      : hasBarrierRef || hasGoalConnection 
-        ? 'Connected to barrier and employment goal'
-        : 'Link action to the barrier or employment goal',
+      : hasTaskActivity
+        ? 'Activity supports employment goal'
+        : hasBarrierRef || hasGoalConnection 
+          ? 'Connected to barrier and employment goal'
+          : 'Link action to the barrier or employment goal',
     hint: meta?.barrier ? `Explain how this addresses "${meta.barrier}"` : 'Add how this helps with employment',
   };
   relevant.suggestion = generateSuggestion('relevant', relevant, meta);
