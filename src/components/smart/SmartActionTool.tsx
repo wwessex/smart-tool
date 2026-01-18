@@ -1895,6 +1895,15 @@ When given context about a participant, provide suggestions to improve their SMA
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <h2 className="font-bold text-lg">History</h2>
                 <div className="flex gap-2 flex-wrap">
+                  <Button 
+                    size="sm" 
+                    onClick={handleSave}
+                    disabled={!output.trim() || (storage.minScoreEnabled && smartCheck.overallScore < storage.minScoreThreshold)}
+                    className="bg-primary hover:bg-primary/90"
+                    aria-label="Save current action to history"
+                  >
+                    Save to History
+                  </Button>
                   <Button size="sm" variant="outline" onClick={handleExport}>Export</Button>
                   <label className="cursor-pointer">
                     <Button size="sm" variant="outline" asChild><span>Import</span></Button>
