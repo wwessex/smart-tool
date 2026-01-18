@@ -1141,12 +1141,27 @@ When given context about a participant, provide suggestions to improve their SMA
 
                   {/* Data Retention Section */}
                   <div className="p-4 rounded-lg border bg-card space-y-4">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-5 h-5 text-primary" />
-                      <h3 className="font-bold">Data Retention</h3>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-5 h-5 text-primary" />
+                        <h3 className="font-bold">Data Retention</h3>
+                      </div>
+                      {/* Retention Status Badge */}
+                      <div className={cn(
+                        "flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium",
+                        storage.retentionEnabled
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" 
+                          : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                      )}>
+                        <div className={cn(
+                          "w-2 h-2 rounded-full",
+                          storage.retentionEnabled ? "bg-emerald-500" : "bg-amber-500"
+                        )} />
+                        {storage.retentionEnabled ? `${storage.retentionDays} day retention` : "Retention disabled"}
+                      </div>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Automatically delete old history items to comply with data minimisation principles.
+                      Automatically delete old history items to comply with data minimisation principles (UK GDPR Article 5).
                     </p>
                     
                     <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -1182,15 +1197,110 @@ When given context about a participant, provide suggestions to improve their SMA
                       )}
                     </div>
                     
-                    {storage.retentionEnabled && (
-                      <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
-                        <Clock className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                        <p className="text-xs text-muted-foreground">
-                          Actions older than {storage.retentionDays} days will be automatically deleted when you open the app. 
-                          You currently have {storage.history.length} action{storage.history.length === 1 ? '' : 's'} in history.
-                        </p>
-                      </div>
-                    )}
+                    {/* Retention Statistics Panel */}
+                    {(() => {
+                      const stats = storage.getRetentionStats();
+                      return (
+                        <div className="space-y-3 pt-2 border-t">
+                          <h4 className="text-sm font-medium text-muted-foreground">Current Status</h4>
+                          
+                          {/* Stats Grid */}
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div className="p-2 rounded-lg bg-muted/50">
+                              <p className="text-muted-foreground">Total actions</p>
+                              <p className="font-semibold text-foreground">{stats.totalItems}</p>
+                            </div>
+                            <div className={cn(
+                              "p-2 rounded-lg",
+                              storage.retentionEnabled && stats.itemsAtRisk > 0
+                                ? "bg-amber-500/10"
+                                : "bg-muted/50"
+                            )}>
+                              <p className="text-muted-foreground">
+                                {storage.retentionEnabled ? "Items pending deletion" : "Items older than policy"}
+                              </p>
+                              <p className={cn(
+                                "font-semibold",
+                                storage.retentionEnabled && stats.itemsAtRisk > 0
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : "text-foreground"
+                              )}>
+                                {stats.itemsAtRisk}
+                              </p>
+                            </div>
+                            <div className="p-2 rounded-lg bg-muted/50">
+                              <p className="text-muted-foreground">Last cleanup</p>
+                              <p className="font-semibold text-foreground">
+                                {stats.lastCleanupDate 
+                                  ? stats.lastCleanupDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                                  : 'Never'
+                                }
+                              </p>
+                            </div>
+                            <div className="p-2 rounded-lg bg-muted/50">
+                              <p className="text-muted-foreground">Oldest action</p>
+                              <p className="font-semibold text-foreground">
+                                {stats.oldestItemDate 
+                                  ? stats.oldestItemDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                                  : 'N/A'
+                                }
+                              </p>
+                            </div>
+                          </div>
+                          
+                          {/* Retention cutoff info */}
+                          {storage.retentionEnabled && (
+                            <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                              <Clock className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                              <div className="text-xs text-muted-foreground space-y-1">
+                                <p>
+                                  <strong>Retention policy:</strong> Actions older than {storage.retentionDays} days are automatically deleted when you open the app.
+                                </p>
+                                <p>
+                                  <strong>Cutoff date:</strong> {stats.retentionCutoffDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                </p>
+                                {stats.itemsAtRisk > 0 && (
+                                  <p className="text-amber-600 dark:text-amber-400">
+                                    {stats.itemsAtRisk} action{stats.itemsAtRisk === 1 ? '' : 's'} will be deleted on next app load.
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {!storage.retentionEnabled && (
+                            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                              <p className="text-xs text-amber-600 dark:text-amber-400">
+                                Automatic retention is disabled. Your action history will be kept indefinitely. 
+                                Consider enabling retention to comply with data minimisation principles.
+                              </p>
+                            </div>
+                          )}
+                          
+                          {/* Manual Cleanup Button */}
+                          {storage.retentionEnabled && stats.itemsAtRisk > 0 && (
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => {
+                                if (confirm(`Are you sure you want to delete ${stats.itemsAtRisk} action${stats.itemsAtRisk === 1 ? '' : 's'} older than ${storage.retentionDays} days? This cannot be undone.`)) {
+                                  const { deletedCount } = storage.forceCleanupOldHistory();
+                                  toast({
+                                    title: 'Cleanup complete',
+                                    description: `${deletedCount} action${deletedCount === 1 ? '' : 's'} ${deletedCount === 1 ? 'was' : 'were'} deleted.`,
+                                  });
+                                }
+                              }}
+                              className="gap-2 w-full sm:w-auto"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Delete {stats.itemsAtRisk} Old Action{stats.itemsAtRisk === 1 ? '' : 's'} Now
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Privacy & Data Section - GDPR Compliance */}

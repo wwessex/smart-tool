@@ -414,6 +414,85 @@ const exportAllData = useCallback(() => {
     return hoursSinceLastCheck >= 24;
   }, []);
 
+  // Get retention statistics for transparency
+  const getRetentionStats = useCallback(() => {
+    const now = new Date();
+    const cutoffDate = new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000);
+    
+    let itemsAtRisk = 0;
+    let oldestItemDate: Date | null = null;
+    let newestItemDate: Date | null = null;
+    
+    // Calculate items that would be deleted if retention is enabled
+    history.forEach(item => {
+      const itemDate = new Date(item.createdAt);
+      
+      // Track oldest and newest
+      if (!oldestItemDate || itemDate < oldestItemDate) {
+        oldestItemDate = itemDate;
+      }
+      if (!newestItemDate || itemDate > newestItemDate) {
+        newestItemDate = itemDate;
+      }
+      
+      // Count items at risk
+      if (itemDate < cutoffDate) {
+        itemsAtRisk++;
+      }
+    });
+
+    // Get last cleanup timestamp
+    const lastCleanupRaw = localStorage.getItem(STORAGE.lastRetentionCheck);
+    const lastCleanupDate = lastCleanupRaw ? new Date(lastCleanupRaw) : null;
+
+    // Calculate storage usage estimate (rough bytes)
+    const storageEstimate = history.reduce((acc, item) => {
+      return acc + JSON.stringify(item).length;
+    }, 0);
+
+    return {
+      totalItems: history.length,
+      itemsAtRisk,
+      oldestItemDate,
+      newestItemDate,
+      lastCleanupDate,
+      retentionCutoffDate: cutoffDate,
+      storageEstimateBytes: storageEstimate,
+    };
+  }, [history, retentionDays]);
+
+  // Force cleanup regardless of last check time (manual trigger)
+  const forceCleanupOldHistory = useCallback((): { deletedCount: number; deletedItems: HistoryItem[] } => {
+    if (!retentionEnabled) {
+      return { deletedCount: 0, deletedItems: [] };
+    }
+
+    const now = new Date();
+    const cutoffDate = new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000);
+    
+    const deletedItems: HistoryItem[] = [];
+    const remainingItems: HistoryItem[] = [];
+    
+    history.forEach(item => {
+      const itemDate = new Date(item.createdAt);
+      if (itemDate < cutoffDate) {
+        deletedItems.push(item);
+      } else {
+        remainingItems.push(item);
+      }
+    });
+
+    if (deletedItems.length > 0) {
+      setHistory(remainingItems);
+      safeSetItem(STORAGE.history, JSON.stringify(remainingItems));
+    }
+
+    // Update last check timestamp
+    safeSetItem(STORAGE.lastRetentionCheck, now.toISOString());
+
+    return { deletedCount: deletedItems.length, deletedItems };
+  }, [history, retentionEnabled, retentionDays]);
+
   return {
     barriers,
     timescales,
@@ -444,6 +523,8 @@ const exportAllData = useCallback(() => {
     updateParticipantLanguage,
     cleanupOldHistory,
     shouldRunCleanup,
+    getRetentionStats,
+    forceCleanupOldHistory,
     exportAllData,
     deleteAllData
   };
