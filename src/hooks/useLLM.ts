@@ -170,8 +170,9 @@ export function useLLM() {
         loadingStatus: "Loading AI engine (this may take a moment)...",
       }));
 
-      // Create worker
-      worker = new Worker(new URL("./llm-worker.js", import.meta.url), {
+      // Create worker - use base-relative path for public folder file
+      // @vite-ignore is needed because this is a runtime URL, not a bundled module
+      worker = new Worker(/* @vite-ignore */ new URL("llm-worker.js", document.baseURI), {
         type: "module",
       });
 
