@@ -54,6 +54,8 @@ import { SMART_TOOL_SHORTCUTS } from '@/lib/smart-tool-shortcuts';
 
 import { safeRemoveItem } from '@/lib/storage-utils';
 import { SmartHeader } from './SmartHeader';
+import { NowForm } from './NowForm';
+import { FutureForm } from './FutureForm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -925,311 +927,38 @@ When given context about a participant, provide suggestions to improve their SMA
 
             <AnimatePresence mode="wait">
             {mode === 'now' ? (
-              <motion.div 
-                key="now-form"
-                id="now-form-panel"
-                role="tabpanel"
-                aria-labelledby="now-tab"
-                className="space-y-4"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: 0.3 }}
-              >
-                <div className="flex flex-col sm:flex-row">
-                  <div className="space-y-2 shrink-0 mb-4 sm:mb-0 sm:mr-6" style={{ width: 'clamp(140px, 40%, 220px)' }}>
-                    <label htmlFor="meeting-date" className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                      During our meeting on…
-                      <AnimatePresence>
-                        {nowDateWarning && (
-                          <motion.span
-                            initial={{ scale: 0, rotate: -180 }}
-                            animate={{ scale: [1, 1.2, 1], rotate: 0 }}
-                            exit={{ scale: 0, rotate: 180 }}
-                            transition={{ duration: 0.4, ease: "easeOut" }}
-                          >
-                            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" />
-                          </motion.span>
-                        )}
-                      </AnimatePresence>
-                    </label>
-                    <div className="relative">
-                      <InputGlow show={!!nowDateWarning} variant="warning" />
-                      <Input
-                        id="meeting-date"
-                        type="date"
-                        value={nowForm.date}
-                        onChange={e => setNowForm(prev => ({ ...prev, date: e.target.value }))}
-                        max={today}
-                        className={`${getFieldClass(!!nowForm.date)} ${nowDateWarning ? 'border-amber-500 focus-visible:ring-amber-500' : ''}`}
-                        aria-describedby={nowDateWarning ? "date-warning" : undefined}
-                        aria-invalid={!!nowDateWarning}
-                      />
-                    </div>
-                    <WarningText show={!!nowDateWarning} variant="warning" id="date-warning">
-                      {nowDateWarning}
-                    </WarningText>
-                  </div>
-                  <div className="space-y-2 flex-1 min-w-0">
-                    <label htmlFor="participant-name" className="text-sm font-medium text-muted-foreground">Participant forename</label>
-                    <Input
-                      id="participant-name"
-                      value={nowForm.forename}
-                      onChange={e => setNowForm(prev => ({ ...prev, forename: e.target.value }))}
-                      placeholder="e.g. John"
-                      list="recent-names"
-                      autoComplete="off"
-                      className={getFieldClass(!!nowForm.forename.trim())}
-                    />
-                    <datalist id="recent-names">
-                      {storage.recentNames.map(n => <option key={n} value={n} />)}
-                    </datalist>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-muted-foreground">What identified barrier needs to be addressed?</label>
-                  <ComboboxInput
-                    value={nowForm.barrier}
-                    onChange={(value) => setNowForm(prev => ({ ...prev, barrier: value }))}
-                    options={storage.barriers}
-                    placeholder="Select or type your own…"
-                    emptyMessage="No barriers found."
-                    className={getFieldClass(!!nowForm.barrier.trim())}
-                  />
-                  <p className="text-xs text-muted-foreground">Tip: you can type your own barrier if it isn't listed.</p>
-                </div>
-
-                <div data-tutorial="ai-assist" className="border border-primary/20 rounded-xl p-4 gradient-subtle space-y-3">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <span className="font-semibold text-sm flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-primary" />
-                      Advisor assist
-                    </span>
-                    <div className="flex gap-2">
-                      <LLMChatButton
-                        trigger={
-                          <Button size="sm" variant="outline" className="border-primary/30 hover:bg-primary/10">
-                            <Bot className="w-3 h-3 mr-1" /> AI Chat
-                          </Button>
-                        }
-                        systemPrompt={llmSystemPrompt}
-                        initialContext={buildLLMContext()}
-                      />
-                      <Button size="sm" onClick={handleAIDraft} className="bg-primary hover:bg-primary/90 shadow-md">
-                        <Sparkles className="w-3 h-3 mr-1" /> AI draft
-                      </Button>
-                    </div>
-                  </div>
-                  <Input
-                    value={suggestQuery}
-                    onChange={e => setSuggestQuery(e.target.value)}
-                    placeholder="Filter suggestions (optional)…"
-                    className="text-sm bg-background/80"
-                    aria-label="Filter action suggestions"
-                  />
-                  {/* BUG FIX #3: Added proper styling for suggestion chips */}
-                  <div className="flex flex-wrap gap-2">
-                    {suggestions.map((s, i) => (
-                      <motion.button
-                        key={i}
-                        type="button"
-                        onClick={() => handleInsertSuggestion(s)}
-                        className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-full border border-primary/30 bg-background hover:bg-primary/10 hover:border-primary/50 transition-colors"
-                        whileHover={{ scale: 1.05, y: -2 }}
-                        whileTap={{ scale: 0.95 }}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: i * 0.03 }}
-                      >
-                        <span>{s.title}</span>
-                        <span className="text-xs text-primary px-2 py-0.5 rounded-full bg-primary/10">insert</span>
-                      </motion.button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-muted-foreground">To address this, we have discussed that…</label>
-                  <Textarea
-                    value={nowForm.action}
-                    onChange={e => setNowForm(prev => ({ ...prev, action: e.target.value }))}
-                    placeholder="Start with the participant's name. Include what they will do, by when, and where if relevant."
-                    rows={4}
-                    spellCheck
-                    data-field="action"
-                    className={getFieldClass(!!nowForm.action.trim())}
-                  />
-                </div>
-
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">Who is responsible?</label>
-                    <ComboboxInput
-                      value={nowForm.responsible}
-                      onChange={(value) => setNowForm(prev => ({ ...prev, responsible: value }))}
-                      options={['Participant', 'Advisor', 'I']}
-                      placeholder="Select or type…"
-                      emptyMessage="No options found."
-                      className={getFieldClass(!!nowForm.responsible)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">This action will help…</label>
-                    <Input
-                      value={nowForm.help}
-                      onChange={e => setNowForm(prev => ({ ...prev, help: e.target.value }))}
-                      placeholder="How will it help?"
-                      className={getFieldClass(!!nowForm.help.trim())}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-muted-foreground">This will be reviewed in…</label>
-                  <ComboboxInput
-                    value={nowForm.timescale}
-                    onChange={(value) => setNowForm(prev => ({ ...prev, timescale: value }))}
-                    options={storage.timescales}
-                    placeholder="Select timescale…"
-                    emptyMessage="No timescales found."
-                    className={getFieldClass(!!nowForm.timescale)}
-                    data-field="timescale"
-                  />
-                </div>
-              </motion.div>
+              <NowForm
+                form={nowForm}
+                onFormChange={(updates) => setNowForm(prev => ({ ...prev, ...updates }))}
+                today={today}
+                dateWarning={nowDateWarning}
+                barriers={storage.barriers}
+                timescales={storage.timescales}
+                recentNames={storage.recentNames}
+                suggestions={suggestions}
+                suggestQuery={suggestQuery}
+                onSuggestQueryChange={setSuggestQuery}
+                onInsertSuggestion={handleInsertSuggestion}
+                onAIDraft={handleAIDraft}
+                showValidation={showValidation}
+                llmSystemPrompt={llmSystemPrompt}
+                llmContext={buildLLMContext()}
+              />
             ) : (
-              <motion.div 
-                key="future-form"
-                id="future-form-panel"
-                role="tabpanel"
-                aria-labelledby="future-tab"
-                className="space-y-4"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.3 }}
-              >
-                <p className="text-sm text-muted-foreground">Schedule a future task, event, or activity for the participant.</p>
-                
-                <div className="flex flex-col sm:flex-row">
-                  <div className="space-y-2 shrink-0 mb-4 sm:mb-0 sm:mr-6" style={{ width: 'clamp(140px, 40%, 220px)' }}>
-                    <label htmlFor="scheduled-date" className="text-sm font-medium text-muted-foreground">Scheduled date</label>
-                    <div className="relative">
-                      <InputGlow show={!!futureDateError} variant="error" />
-                      <Input
-                        id="scheduled-date"
-                        type="date"
-                        value={futureForm.date}
-                        onChange={e => setFutureForm(prev => ({ ...prev, date: e.target.value }))}
-                        min={today}
-                        className={`${getFieldClass(!!futureForm.date && !futureDateError)} ${futureDateError ? 'border-destructive' : ''}`}
-                        aria-describedby={futureDateError ? "future-date-error" : undefined}
-                        aria-invalid={!!futureDateError}
-                      />
-                    </div>
-                    {/* BUG FIX #1: Show error for past dates */}
-                    <WarningText show={!!futureDateError} variant="error" id="future-date-error">
-                      {futureDateError}
-                    </WarningText>
-                  </div>
-                  <div className="space-y-2 flex-1 min-w-0">
-                    <label htmlFor="future-participant-name" className="text-sm font-medium text-muted-foreground">Participant forename</label>
-                    <Input
-                      id="future-participant-name"
-                      value={futureForm.forename}
-                      onChange={e => setFutureForm(prev => ({ ...prev, forename: e.target.value }))}
-                      placeholder="e.g. John"
-                      list="recent-names"
-                      autoComplete="off"
-                      className={getFieldClass(!!futureForm.forename.trim())}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-muted-foreground">Activity or event</label>
-                  <Textarea
-                    value={futureForm.task}
-                    onChange={e => setFutureForm(prev => ({ ...prev, task: e.target.value }))}
-                    placeholder="e.g. Christmas Job Fair at Twickenham Stadium"
-                    rows={2}
-                    spellCheck
-                    className={getFieldClass(!!futureForm.task.trim())}
-                  />
-                  <p className="text-xs text-muted-foreground">Describe the task, event, or activity they will attend.</p>
-                </div>
-
-                {/* Advisor Assist - Task-based */}
-                <div className="border border-primary/20 rounded-xl p-4 gradient-subtle space-y-3">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <span className="font-semibold text-sm flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-primary" />
-                      Advisor assist
-                    </span>
-                    <div className="flex gap-2">
-                      <LLMChatButton
-                        trigger={
-                          <Button size="sm" variant="outline" className="border-primary/30 hover:bg-primary/10">
-                            <Bot className="w-3 h-3 mr-1" /> AI Chat
-                          </Button>
-                        }
-                        systemPrompt={llmSystemPrompt}
-                        initialContext={buildLLMContext()}
-                      />
-                      <Button size="sm" onClick={handleAIDraft} className="bg-primary hover:bg-primary/90 shadow-md">
-                        <Sparkles className="w-3 h-3 mr-1" /> AI draft
-                      </Button>
-                    </div>
-                  </div>
-                  {/* BUG FIX #3: Added proper styling for task-based suggestion buttons */}
-                  <div className="flex flex-wrap gap-2">
-                    {suggestions.map((s, i) => (
-                      <motion.button
-                        key={i}
-                        type="button"
-                        onClick={() => handleInsertSuggestion(s)}
-                        className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-full border border-primary/30 bg-background hover:bg-primary/10 hover:border-primary/50 transition-colors"
-                        whileHover={{ scale: 1.05, y: -2 }}
-                        whileTap={{ scale: 0.95 }}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: i * 0.03 }}
-                      >
-                        <span>{s.title}</span>
-                        <span className="text-xs text-primary px-2 py-0.5 rounded-full bg-primary/10">insert</span>
-                      </motion.button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-muted-foreground">What will happen / expected outcome?</label>
-                  <Textarea
-                    value={futureForm.outcome}
-                    onChange={e => setFutureForm(prev => ({ ...prev, outcome: e.target.value }))}
-                    placeholder="e.g. will speak with employers about warehouse roles and collect contact details"
-                    rows={4}
-                    spellCheck
-                    data-field="outcome"
-                    className={getFieldClass(!!futureForm.outcome.trim())}
-                  />
-                  <p className="text-xs text-muted-foreground">Describe what the participant will do or achieve. Use AI draft for suggestions.</p>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-muted-foreground">This will be reviewed in…</label>
-                  <ComboboxInput
-                    value={futureForm.timescale}
-                    onChange={(value) => setFutureForm(prev => ({ ...prev, timescale: value }))}
-                    options={storage.timescales}
-                    placeholder="Select timescale…"
-                    emptyMessage="No timescales found."
-                    className={getFieldClass(!!futureForm.timescale)}
-                    data-field="timescale"
-                  />
-                </div>
-              </motion.div>
+              <FutureForm
+                form={futureForm}
+                onFormChange={(updates) => setFutureForm(prev => ({ ...prev, ...updates }))}
+                today={today}
+                dateError={futureDateError}
+                timescales={storage.timescales}
+                recentNames={storage.recentNames}
+                suggestions={suggestions}
+                onInsertSuggestion={handleInsertSuggestion}
+                onAIDraft={handleAIDraft}
+                showValidation={showValidation}
+                llmSystemPrompt={llmSystemPrompt}
+                llmContext={buildLLMContext()}
+              />
             )}
             </AnimatePresence>
 
