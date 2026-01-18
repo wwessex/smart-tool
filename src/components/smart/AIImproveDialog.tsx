@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wand2, Check, X, ArrowRight, Loader2, AlertCircle, RefreshCw, Shield } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -39,6 +39,8 @@ export function AIImproveDialog({
   const hasConsent = useAIConsent();
   const [result, setResult] = useState<ImproveResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState('');
+  const announcementTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const errorMessage = error ?? cloudError;
 
   const unmetCriteria = [
@@ -53,6 +55,7 @@ export function AIImproveDialog({
     clearError();
     setError(null);
     setResult(null);
+    setAnnouncement('');
 
     const prompt = IMPROVE_PROMPT
       .replace('{action}', originalAction)
@@ -76,6 +79,12 @@ export function AIImproveDialog({
           explanation: parsed.explanation || '',
           changes: Array.isArray(parsed.changes) ? parsed.changes : [],
         });
+        // Announce availability of the generated improvement for screen readers.
+        if (announcementTimerRef.current) clearTimeout(announcementTimerRef.current);
+        setAnnouncement('');
+        announcementTimerRef.current = setTimeout(() => {
+          setAnnouncement('Improved action ready.');
+        }, 50);
       } else {
         throw new Error('Invalid response format');
       }
@@ -83,6 +92,12 @@ export function AIImproveDialog({
       setError(err instanceof Error ? err.message : 'Failed to improve action');
     }
   }, [chat, originalAction, barrier, forename, smartCheck.overallScore, unmetCriteria, clearError]);
+
+  useEffect(() => {
+    return () => {
+      if (announcementTimerRef.current) clearTimeout(announcementTimerRef.current);
+    };
+  }, []);
 
   const handleDismissError = useCallback(() => {
     setError(null);
@@ -116,6 +131,9 @@ export function AIImproveDialog({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+          <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+            {announcement}
+          </div>
           {/* Original Action */}
           <div className="space-y-2">
             <h4 className="text-sm font-medium text-muted-foreground">Original Action</h4>
@@ -194,6 +212,7 @@ export function AIImproveDialog({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="p-4 rounded-lg bg-destructive/10 border border-destructive/20"
+              role="alert"
             >
               <div className="flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-destructive shrink-0" />
@@ -224,11 +243,15 @@ export function AIImproveDialog({
               >
                 {/* Improved Action */}
                 <div className="space-y-2">
-                  <h4 className="text-sm font-medium flex items-center gap-2 text-green-600">
+                  <h4 id="improved-action-heading" className="text-sm font-medium flex items-center gap-2 text-green-600">
                     <Check className="w-4 h-4" />
                     Improved Action
                   </h4>
-                  <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-sm whitespace-pre-wrap">
+                  <div
+                    role="region"
+                    aria-labelledby="improved-action-heading"
+                    className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-sm whitespace-pre-wrap"
+                  >
                     {result.improved}
                   </div>
                 </div>

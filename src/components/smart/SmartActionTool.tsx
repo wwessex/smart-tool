@@ -154,6 +154,8 @@ const aiHasConsent = useAIConsent();
   const [output, setOutput] = useState('');
   const [outputSource, setOutputSource] = useState<'form' | 'ai' | 'manual'>('form');
   const [translatedOutput, setTranslatedOutput] = useState<string | null>(null);
+  const [outputAnnouncement, setOutputAnnouncement] = useState('');
+  const outputAnnouncementTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showValidation, setShowValidation] = useState(false);
   const [suggestQuery, setSuggestQuery] = useState('');
   const [historySearch, setHistorySearch] = useState('');
@@ -183,6 +185,25 @@ const aiHasConsent = useAIConsent();
     checkOrientation();
     window.addEventListener('resize', checkOrientation);
     return () => window.removeEventListener('resize', checkOrientation);
+  }, []);
+
+  const announceOutputUpdate = useCallback((message: string) => {
+    if (outputAnnouncementTimerRef.current) {
+      clearTimeout(outputAnnouncementTimerRef.current);
+    }
+    // Clear first to ensure repeated messages are announced.
+    setOutputAnnouncement('');
+    outputAnnouncementTimerRef.current = setTimeout(() => {
+      setOutputAnnouncement(message);
+    }, 50);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (outputAnnouncementTimerRef.current) {
+        clearTimeout(outputAnnouncementTimerRef.current);
+      }
+    };
   }, []);
 
   // GDPR: Auto-cleanup old history items on load
@@ -259,6 +280,7 @@ const aiHasConsent = useAIConsent();
     if (!isValid) {
       if (force) {
         setOutput('Please complete all fields to generate an action.');
+        announceOutputUpdate('Missing required fields. Action not generated.');
         toast({ title: 'Missing fields', description: 'Please complete all required fields.', variant: 'destructive' });
       } else {
         setOutput('');
@@ -277,6 +299,7 @@ const aiHasConsent = useAIConsent();
         nowForm.timescale
       );
       setOutput(text);
+      if (force) announceOutputUpdate('Generated action updated.');
     } else {
       const text = buildFutureOutput(
         futureForm.date,
@@ -286,8 +309,9 @@ const aiHasConsent = useAIConsent();
         futureForm.timescale
       );
       setOutput(text);
+      if (force) announceOutputUpdate('Generated action updated.');
     }
-  }, [mode, nowForm, futureForm, validateNow, validateFuture, toast]);
+  }, [mode, nowForm, futureForm, validateNow, validateFuture, toast, announceOutputUpdate]);
 
   // Auto-generate on form changes (skip when output was set by AI fix)
   useEffect(() => {
@@ -358,7 +382,8 @@ const aiHasConsent = useAIConsent();
     translation.clearTranslation();
     setShowValidation(false);
     setSuggestQuery('');
-  }, [mode, today, translation]);
+    announceOutputUpdate('Form and generated action cleared.');
+  }, [mode, today, translation, announceOutputUpdate]);
 
   // Handle translation
   const handleTranslate = useCallback(async () => {
@@ -371,12 +396,13 @@ const aiHasConsent = useAIConsent();
     const result = await translation.translate(output, storage.participantLanguage);
     if (result) {
       setTranslatedOutput(result.translated);
+      announceOutputUpdate(`Translation ready in ${result.languageName}.`);
       toast({ 
         title: 'Translated!', 
         description: `Action translated to ${result.languageName}.` 
       });
     }
-  }, [output, storage.participantLanguage, translation, toast]);
+  }, [output, storage.participantLanguage, translation, toast, announceOutputUpdate]);
 
   // Handle language change
   const handleLanguageChange = useCallback((language: string) => {
@@ -484,6 +510,7 @@ const aiHasConsent = useAIConsent();
     }
     setOutput(item.text || '');
     setShowValidation(false);
+    announceOutputUpdate('Saved action loaded into the output editor.');
     toast({ title: 'Loaded', description: 'Edit and regenerate as needed.' });
   };
 
@@ -751,6 +778,7 @@ When given context about a participant, provide suggestions to improve their SMA
           // because buildNowOutput/buildFutureOutput would reconstruct 
           // the text differently. The fixed text IS the complete output.
           setOutput(fixedAction);
+          announceOutputUpdate(`${criterionLabel} fixed. Generated action updated.`);
           
           // Clear any existing translation as the text changed
           setTranslatedOutput(null);
@@ -776,7 +804,7 @@ When given context about a participant, provide suggestions to improve their SMA
     } finally {
       setFixingCriterion(null);
     }
-  }, [output, mode, nowForm, futureForm, cloudAI, toast]);
+  }, [output, mode, nowForm, futureForm, cloudAI, toast, announceOutputUpdate]);
 
   const handleRetryFix = useCallback(() => {
     if (!lastFixAttempt) return;
@@ -1773,8 +1801,11 @@ When given context about a participant, provide suggestions to improve their SMA
           >
             <div className="flex items-end justify-between gap-4 flex-wrap">
               <div>
-                <h2 className="font-bold text-lg">Generated action</h2>
-                <p className="text-xs text-muted-foreground">Proofread before pasting into important documents.</p>
+                <h2 id="generated-action-heading" className="font-bold text-lg">Generated action</h2>
+                <p id="generated-action-help" className="text-xs text-muted-foreground">Proofread before pasting into important documents.</p>
+                <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+                  {outputAnnouncement}
+                </div>
               </div>
               <div className="flex gap-2">
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -1833,8 +1864,8 @@ When given context about a participant, provide suggestions to improve their SMA
                     value={output}
                     onChange={e => { setOutput(e.target.value); setOutputSource('manual'); setTranslatedOutput(null); }}
                     placeholder="Generated action will appear here… You can also edit the text directly."
-                    aria-label="Generated SMART action text"
-                    aria-describedby={translatedOutput ? "output-label-en" : undefined}
+                    aria-labelledby={translatedOutput ? "generated-action-heading output-label-en" : "generated-action-heading"}
+                    aria-describedby="generated-action-help"
                     className={cn(
                       "min-h-[120px] p-5 rounded-xl border-2 border-dashed border-border bg-muted/30 leading-relaxed resize-y",
                       copied && "border-accent bg-accent/10 shadow-glow",
@@ -1849,10 +1880,14 @@ When given context about a participant, provide suggestions to improve their SMA
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                   >
-                    <p className="text-xs font-medium text-muted-foreground mb-2">
+                    <p id="output-label-translated" className="text-xs font-medium text-muted-foreground mb-2">
                       {SUPPORTED_LANGUAGES[storage.participantLanguage]?.flag} {SUPPORTED_LANGUAGES[storage.participantLanguage]?.nativeName?.toUpperCase()}
                     </p>
-                    <div className="p-5 rounded-xl border-2 border-primary/30 bg-primary/5 leading-relaxed whitespace-pre-wrap text-sm">
+                    <div
+                      role="region"
+                      aria-labelledby="output-label-translated"
+                      className="p-5 rounded-xl border-2 border-primary/30 bg-primary/5 leading-relaxed whitespace-pre-wrap text-sm"
+                    >
                       {translatedOutput}
                     </div>
                   </motion.div>
