@@ -60,38 +60,73 @@ class LazyErrorBoundary extends Component<
   }
 }
 
-// BUG FIX #2: Loading fallback with timeout
+// BUG FIX #2: Loading fallback with progressive timeout stages
 const PageLoader = () => {
-  const [showTimeout, setShowTimeout] = useState(false);
+  const [stage, setStage] = useState<'loading' | 'slow' | 'stuck'>('loading');
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowTimeout(true), 8000);
-    return () => clearTimeout(timer);
+    // First stage: show "slow" message after 5 seconds
+    const slowTimer = setTimeout(() => setStage('slow'), 5000);
+    // Second stage: show "stuck" message after 10 seconds
+    const stuckTimer = setTimeout(() => setStage('stuck'), 10000);
+    return () => {
+      clearTimeout(slowTimer);
+      clearTimeout(stuckTimer);
+    };
   }, []);
+
+  const handleClearCacheAndReload = async () => {
+    try {
+      // Clear all caches
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+      }
+      
+      // Unregister service workers
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map(reg => reg.unregister()));
+      }
+      
+      // Force hard reload with cache bust
+      const baseUrl = window.location.href.split('#')[0].split('?')[0];
+      window.location.href = `${baseUrl}?cache_bust=${Date.now()}`;
+    } catch (error) {
+      // Fallback to simple reload
+      window.location.reload();
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="flex flex-col items-center gap-3 text-center p-4">
+      <div className="flex flex-col items-center gap-3 text-center p-4 max-w-sm">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        <p className="text-sm text-muted-foreground">Loading...</p>
-        {showTimeout && (
-          <div className="mt-4 space-y-2">
+        <p className="text-sm text-muted-foreground">Loading SMART Action Tool...</p>
+        
+        {stage === 'slow' && (
+          <p className="text-xs text-muted-foreground animate-pulse">
+            Still loading, please wait...
+          </p>
+        )}
+        
+        {stage === 'stuck' && (
+          <div className="mt-4 space-y-3 p-4 rounded-lg border border-border bg-card">
+            <p className="text-sm font-medium text-foreground">
+              Loading is taking longer than expected
+            </p>
             <p className="text-xs text-muted-foreground">
-              Taking longer than expected...
+              This might be due to cached files or a slow connection.
             </p>
             <button
-              onClick={() => {
-                if ('caches' in window) {
-                  caches.keys().then(names => {
-                    names.forEach(name => caches.delete(name));
-                  });
-                }
-                window.location.reload();
-              }}
-              className="text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+              onClick={handleClearCacheAndReload}
+              className="w-full px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
             >
-              Clear cache & retry
+              Clear cache & reload
             </button>
+            <p className="text-xs text-muted-foreground">
+              If the problem persists, try opening in a private/incognito window.
+            </p>
           </div>
         )}
       </div>
