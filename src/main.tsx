@@ -25,6 +25,20 @@ class ErrorBoundary extends Component<
           <pre style={{ color: 'red', whiteSpace: 'pre-wrap' }}>
             {this.state.error?.message}
           </pre>
+          <button 
+            onClick={() => window.location.reload()} 
+            style={{ 
+              marginTop: '1rem', 
+              padding: '0.5rem 1rem', 
+              cursor: 'pointer',
+              background: '#e89309',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.25rem'
+            }}
+          >
+            Reload Page
+          </button>
         </div>
       );
     }
@@ -32,17 +46,39 @@ class ErrorBoundary extends Component<
   }
 }
 
-createRoot(document.getElementById("root")!).render(
-  <ErrorBoundary>
-    <App />
-  </ErrorBoundary>
-);
+// Hide loading screen once React mounts
+const hideLoadingScreen = () => {
+  const loadingContainer = document.querySelector('.loading-container');
+  if (loadingContainer) {
+    loadingContainer.remove();
+  }
+};
+
+// Mount the app
+const root = document.getElementById("root");
+if (root) {
+  createRoot(root).render(
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  );
+  // Hide loading screen after React mounts
+  hideLoadingScreen();
+}
 
 // Signal to service worker that app has loaded successfully
-if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-  navigator.serviceWorker.controller.postMessage({ type: 'APP_LOADED' });
-}
-// Also signal when SW becomes active
-navigator.serviceWorker?.ready.then(reg => {
-  reg.active?.postMessage({ type: 'APP_LOADED' });
+// Only do this AFTER React has successfully mounted
+requestAnimationFrame(() => {
+  if ('serviceWorker' in navigator) {
+    // Signal existing controller
+    if (navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'APP_LOADED' });
+    }
+    // Also signal when SW becomes active
+    navigator.serviceWorker.ready.then(reg => {
+      reg.active?.postMessage({ type: 'APP_LOADED' });
+    }).catch(() => {
+      // Silently ignore - SW might not be available
+    });
+  }
 });
