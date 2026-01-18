@@ -52,7 +52,7 @@ import { useKeyboardShortcuts, groupShortcuts, createShortcutMap, ShortcutConfig
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FIX_CRITERION_PROMPT, CRITERION_GUIDANCE, DRAFT_ACTION_PROMPT, DRAFT_HELP_PROMPT, DRAFT_OUTCOME_PROMPT } from '@/lib/smart-prompts';
 import { SMART_TOOL_SHORTCUTS } from '@/lib/smart-tool-shortcuts';
-import { useLLM, RECOMMENDED_MODELS } from '@/hooks/useLLM';
+import { useTransformersLLM, RECOMMENDED_MODELS } from '@/hooks/useTransformersLLM';
 
 /**
  * Safely remove from localStorage, catching any errors.
@@ -136,7 +136,7 @@ export function SmartActionTool() {
   const cloudAI = useCloudAI();
   const aiHasConsent = useAIConsent();
   const localSync = useLocalSync();
-  const llm = useLLM();
+  const llm = useTransformersLLM();
   const today = todayISO();
   
   // AI Draft state
@@ -539,20 +539,9 @@ export function SmartActionTool() {
       }
     }
 
-    // If LLM is not ready, show picker or use template fallback
+    // If LLM is not ready, show picker (Transformers.js works on all browsers via WASM fallback)
     if (!llm.isReady) {
-      // Check if WebGPU is available
-      const webgpuCheck = await llm.checkWebGPU();
-      if (!webgpuCheck.available) {
-        // No WebGPU, use template fallback
-        if (mode === 'now') {
-          templateDraftNow();
-        } else {
-          templateDraftFuture();
-        }
-        return;
-      }
-      // Show model picker
+      // Show model picker - Transformers.js supports both WebGPU and WASM
       setShowLLMPicker(true);
       return;
     }
