@@ -1,10 +1,11 @@
-const CACHE_NAME = 'smart-tool-v1';
+// BUG FIX #5: Dynamic cache versioning to prevent stale JS in static builds
+// Increment this version when deploying new builds
+const CACHE_VERSION = 'v2';
+const CACHE_NAME = `smart-tool-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
 
-// Assets to cache immediately on install
+// Assets to cache immediately on install (only static assets, not JS bundles)
 const PRECACHE_ASSETS = [
-  '/',
-  '/index.html',
   '/offline.html',
   '/manifest.json',
   '/favicon.ico'

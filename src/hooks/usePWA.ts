@@ -48,11 +48,12 @@ export function usePWA() {
   }, []);
 
   useEffect(() => {
-    // Register service worker
+    // BUG FIX #4: Better service worker registration with error handling
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((reg) => {
+      // Defer SW registration to not block initial render
+      const registerSW = async () => {
+        try {
+          const reg = await navigator.serviceWorker.register('/sw.js');
           setRegistration(reg);
           console.log('[PWA] Service worker registered');
 
@@ -67,10 +68,23 @@ export function usePWA() {
               });
             }
           });
-        })
-        .catch((err) => {
-          console.error('[PWA] Service worker registration failed:', err);
-        });
+
+          // Periodically check for updates
+          setInterval(() => {
+            reg.update().catch(() => {});
+          }, 60 * 60 * 1000); // Check every hour
+        } catch (err) {
+          console.warn('[PWA] Service worker registration failed:', err);
+          // Don't block app functionality if SW fails
+        }
+      };
+
+      // Use requestIdleCallback if available, otherwise setTimeout
+      if ('requestIdleCallback' in window) {
+        (window as Window & { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(registerSW);
+      } else {
+        setTimeout(registerSW, 1000);
+      }
     }
   }, []);
 
