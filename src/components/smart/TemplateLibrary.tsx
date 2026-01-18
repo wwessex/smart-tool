@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookMarked, Plus, Trash2, Edit2, Check, X, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -38,14 +38,15 @@ interface TemplateLibraryProps {
   };
 }
 
-export function TemplateLibrary({
+// BUG FIX #1: Use forwardRef to prevent React warning about refs on function components
+export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(function TemplateLibrary({
   templates,
   onSaveTemplate,
   onDeleteTemplate,
   onInsertTemplate,
   currentMode,
   currentForm,
-}: TemplateLibraryProps) {
+}, ref) {
   const { toast } = useToast();
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
@@ -93,7 +94,7 @@ export function TemplateLibrary({
   };
 
   return (
-    <div className="flex gap-2">
+    <div ref={ref} className="flex gap-2">
       {/* Save as Template Button */}
       <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
         <DialogTrigger asChild>
@@ -277,4 +278,4 @@ export function TemplateLibrary({
       </Dialog>
     </div>
   );
-}
+});
