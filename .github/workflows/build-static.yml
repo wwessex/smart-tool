@@ -24,10 +24,10 @@ jobs:
         run: bun install
       
       - name: Run ESLint
-        run: bun run lint || echo "Lint completed with warnings"
+        run: bun run lint
       
       - name: Type check
-        run: bun run tsc --noEmit || echo "Type check completed"
+        run: bun run typecheck
 
   # Test job
   test:
@@ -45,7 +45,7 @@ jobs:
         run: bun install
       
       - name: Run tests
-        run: bun run test || echo "No tests configured"
+        run: bun run test
 
   # Build job
   build:
