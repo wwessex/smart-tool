@@ -152,7 +152,7 @@
 
   <body>
     <div id="root">
-      <div class="loading-container">
+      <div class="loading-container" id="initial-loader">
         <div class="loading-spinner"></div>
         <p class="loading-text">Loading SMART Action Tool...</p>
         <noscript>
@@ -160,6 +160,13 @@
         </noscript>
       </div>
     </div>
+    <!-- Fallback: hide loader after 15 seconds no matter what -->
+    <script>
+      window.__loaderTimeout = setTimeout(function() {
+        var loader = document.getElementById('initial-loader');
+        if (loader) loader.style.display = 'none';
+      }, 15000);
+    </script>
     <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>
