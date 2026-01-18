@@ -54,6 +54,20 @@ export interface HistoryItem {
   };
 }
 
+export interface ImportedSettings {
+  minScoreEnabled?: boolean;
+  minScoreThreshold?: number;
+}
+
+export interface ImportData {
+  history?: HistoryItem[];
+  barriers?: string[];
+  timescales?: string[];
+  recentNames?: string[];
+  templates?: ActionTemplate[];
+  settings?: ImportedSettings;
+}
+
 function loadList<T>(key: string, fallback: T[]): T[] {
   try {
     const raw = safeLocalStorageGetItem(key);
@@ -156,7 +170,7 @@ export function useSmartStorage() {
     });
   }, []);
 
-  const importData = useCallback((data: { history?: HistoryItem[]; barriers?: string[]; timescales?: string[]; templates?: ActionTemplate[] }) => {
+  const importData = useCallback((data: ImportData) => {
     if (Array.isArray(data.history)) {
       setHistory(data.history);
       safeLocalStorageSetItem(STORAGE.history, JSON.stringify(data.history));
@@ -169,9 +183,24 @@ export function useSmartStorage() {
       setTimescales(data.timescales);
       saveList(STORAGE.timescales, data.timescales);
     }
+    if (Array.isArray(data.recentNames)) {
+      setRecentNames(data.recentNames);
+      saveList(STORAGE.recentNames, data.recentNames);
+    }
     if (Array.isArray(data.templates)) {
       setTemplates(data.templates);
       saveList(STORAGE.templates, data.templates);
+    }
+    if (data.settings) {
+      if (typeof data.settings.minScoreEnabled === 'boolean') {
+        setMinScoreEnabled(data.settings.minScoreEnabled);
+        safeLocalStorageSetItem(STORAGE.minScoreEnabled, String(data.settings.minScoreEnabled));
+      }
+      if (typeof data.settings.minScoreThreshold === 'number') {
+        const clamped = Math.max(1, Math.min(5, Math.round(data.settings.minScoreThreshold)));
+        setMinScoreThreshold(clamped);
+        safeLocalStorageSetItem(STORAGE.minScoreThreshold, String(clamped));
+      }
     }
   }, []);
 
