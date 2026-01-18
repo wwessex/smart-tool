@@ -348,24 +348,14 @@ export function buildFutureOutput(
     formattedTask = formattedTask.charAt(0).toLowerCase() + formattedTask.slice(1);
   }
 
-  // Structure: "As discussed and agreed, on [date], [name] will [verb] [task]. [Outcome]. [Responsible]. Reviewed in [timescale]."
+  // Structure: "As discussed and agreed, on [date], [name] will [verb] [task]. [Outcome]. Reviewed in [timescale]."
+  // Note: responsible is stored in metadata but not included in output text (matches barrier tab behavior)
   const parts = [
     `${BUILDER_TASK.p1} ${formattedDate}, ${forename} ${BUILDER_TASK.p2} ${verb}${formattedTask}.`
   ];
   
   if (formattedOutcome) {
     parts.push(`${formattedOutcome}.`);
-  }
-  
-  // Add responsibility clause if specified
-  if (responsible && responsible !== 'Participant alone') {
-    if (responsible === 'Participant with advisor support') {
-      parts.push(`${forename} will complete this with support from their advisor.`);
-    } else if (responsible === 'Advisor on behalf of participant') {
-      parts.push(`The advisor has agreed to support ${forename} with this action.`);
-    } else if (responsible === 'Third party support') {
-      parts.push(`${forename} will receive support from a third party to complete this.`);
-    }
   }
   
   parts.push(`${BUILDER_TASK.p3} ${cleanTimescale}.`);

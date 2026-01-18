@@ -1637,21 +1637,14 @@ When given context about a participant, provide suggestions to improve their SMA
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Who is responsible?</label>
-                  <Select
+                  <ComboboxInput
                     value={futureForm.responsible}
-                    onValueChange={(value) => setFutureForm(prev => ({ ...prev, responsible: value }))}
-                  >
-                    <SelectTrigger className={getFieldClass(!!futureForm.responsible)}>
-                      <SelectValue placeholder="Select…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Participant alone">Participant alone</SelectItem>
-                      <SelectItem value="Participant with advisor support">Participant with advisor support</SelectItem>
-                      <SelectItem value="Advisor on behalf of participant">Advisor on behalf of participant</SelectItem>
-                      <SelectItem value="Third party support">Third party support</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">Who will ensure this action happens?</p>
+                    onChange={(value) => setFutureForm(prev => ({ ...prev, responsible: value }))}
+                    options={['Participant', 'Advisor', 'I']}
+                    placeholder="Select or type…"
+                    emptyMessage="No options found."
+                    className={getFieldClass(!!futureForm.responsible)}
+                  />
                 </div>
 
                 {/* Advisor Assist - Task-based */}
