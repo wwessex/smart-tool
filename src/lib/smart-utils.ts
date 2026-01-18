@@ -250,13 +250,25 @@ export function buildNowOutput(
   const escapedName = forename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   
   // Remove various phrase patterns that would duplicate with the template:
-  // - "John will ..."
-  // - "john has agreed to ..."
-  // - "John commits to ..."
-  // - "John will commit to ..."
+  // - "{Name} will ..."
+  // - "{Name} has agreed to ..."
+  // - "{Name} commits to ..."
+  // - "{Name} plans to ..."
   // These all start with the participant's name followed by commitment language
+  // The name is dynamically escaped so this works for any forename (John, Sarah, etc.)
   const redundantPhrasePattern = new RegExp(
-    `^${escapedName}\\s+(?:will\\s+)?(?:has\\s+agreed\\s+to|agrees\\s+to|commits?\\s+to|has\\s+committed\\s+to|is\\s+going\\s+to|is\\s+committed\\s+to|shall|will)\\s+`,
+    `^${escapedName}\\s+(?:will\\s+)?(?:` +
+    `has\\s+agreed\\s+to|agrees\\s+to|` +
+    `commits?\\s+to|has\\s+committed\\s+to|` +
+    `is\\s+going\\s+to|is\\s+committed\\s+to|` +
+    `has\\s+decided\\s+to|decides?\\s+to|` +
+    `plans?\\s+to|is\\s+planning\\s+to|` +
+    `intends?\\s+to|is\\s+intending\\s+to|` +
+    `aims?\\s+to|is\\s+aiming\\s+to|` +
+    `wants?\\s+to|wishes?\\s+to|` +
+    `needs?\\s+to|` +
+    `shall|will` +
+    `)\\s+`,
     'i'
   );
   
