@@ -368,12 +368,15 @@ export function ActionWizard({ mode, barriers, timescales, recentNames, onComple
           className="p-3 rounded-lg bg-muted/50 border"
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
+          role="region"
+          aria-labelledby="wizard-preview-label"
+          aria-live="polite"
         >
-          <p className="text-xs font-medium text-muted-foreground mb-2">Preview</p>
-          <div className="flex flex-wrap gap-2">
+          <p id="wizard-preview-label" className="text-xs font-medium text-muted-foreground mb-2">Preview</p>
+          <div className="flex flex-wrap gap-2" role="list" aria-label="Form fields completed so far">
             {Object.entries(formData).filter(([_, v]) => v).map(([key, value]) => (
-              <span key={key} className="text-xs px-2 py-1 rounded bg-primary/10 text-primary">
-                {key}: {value.slice(0, 20)}{value.length > 20 ? '...' : ''}
+              <span key={key} className="text-xs px-2 py-1 rounded bg-primary/10 text-primary" role="listitem">
+                <span className="sr-only">{key}:</span> {key}: {value.slice(0, 20)}{value.length > 20 ? '...' : ''}
               </span>
             ))}
           </div>

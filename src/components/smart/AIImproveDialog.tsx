@@ -9,6 +9,7 @@ import { SmartCheck } from '@/lib/smart-checker';
 import { IMPROVE_PROMPT } from '@/lib/smart-prompts';
 import { cn } from '@/lib/utils';
 import { WarningBox } from './WarningBox';
+import { useSRAnnouncement } from '@/components/ui/sr-announcement';
 
 interface AIImproveDialogProps {
   open: boolean;
@@ -40,6 +41,9 @@ export function AIImproveDialog({
   const [result, setResult] = useState<ImproveResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const errorMessage = error ?? cloudError;
+  
+  // Screen reader announcement hook for accessibility
+  const { announce, AnnouncementRegion } = useSRAnnouncement('polite');
 
   const unmetCriteria = [
     !smartCheck.specific.met && 'Specific',
@@ -71,18 +75,25 @@ export function AIImproveDialog({
       const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        setResult({
+        const improvedResult = {
           improved: parsed.improved || '',
           explanation: parsed.explanation || '',
           changes: Array.isArray(parsed.changes) ? parsed.changes : [],
-        });
+        };
+        setResult(improvedResult);
+        
+        // Announce improvement to screen readers
+        const changeCount = improvedResult.changes.length;
+        announce(`Improvement generated with ${changeCount} ${changeCount === 1 ? 'change' : 'changes'}. Review the improved action below.`);
       } else {
         throw new Error('Invalid response format');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to improve action');
+      const errorMsg = err instanceof Error ? err.message : 'Failed to improve action';
+      setError(errorMsg);
+      announce(`Error: ${errorMsg}`);
     }
-  }, [chat, originalAction, barrier, forename, smartCheck.overallScore, unmetCriteria, clearError]);
+  }, [chat, originalAction, barrier, forename, smartCheck.overallScore, unmetCriteria, clearError, announce]);
 
   const handleDismissError = useCallback(() => {
     setError(null);
@@ -116,10 +127,19 @@ export function AIImproveDialog({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+          {/* Screen reader announcements */}
+          <AnnouncementRegion />
+          
           {/* Original Action */}
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium text-muted-foreground">Original Action</h4>
-            <div className="p-3 rounded-lg bg-muted/50 border text-sm whitespace-pre-wrap">
+          <div className="space-y-2" role="region" aria-labelledby="original-action-label">
+            <h4 id="original-action-label" className="text-sm font-medium text-muted-foreground">Original Action</h4>
+            <div 
+              className="p-3 rounded-lg bg-muted/50 border text-sm whitespace-pre-wrap"
+              role="textbox"
+              aria-readonly="true"
+              aria-label="Original action text"
+              tabIndex={0}
+            >
               {originalAction || 'No action text provided'}
             </div>
             <div className="flex gap-2 text-xs">
@@ -223,32 +243,38 @@ export function AIImproveDialog({
                 className="space-y-4"
               >
                 {/* Improved Action */}
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium flex items-center gap-2 text-green-600">
-                    <Check className="w-4 h-4" />
+                <div className="space-y-2" role="region" aria-labelledby="improved-action-label" aria-live="polite">
+                  <h4 id="improved-action-label" className="text-sm font-medium flex items-center gap-2 text-green-600">
+                    <Check className="w-4 h-4" aria-hidden="true" />
                     Improved Action
                   </h4>
-                  <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-sm whitespace-pre-wrap">
+                  <div 
+                    className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-sm whitespace-pre-wrap"
+                    role="textbox"
+                    aria-readonly="true"
+                    aria-label="AI-improved action text"
+                    tabIndex={0}
+                  >
                     {result.improved}
                   </div>
                 </div>
 
                 {/* Explanation */}
                 {result.explanation && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-muted-foreground">Why it's better</h4>
+                  <div className="space-y-2" role="region" aria-labelledby="explanation-label">
+                    <h4 id="explanation-label" className="text-sm font-medium text-muted-foreground">Why it's better</h4>
                     <p className="text-sm text-muted-foreground">{result.explanation}</p>
                   </div>
                 )}
 
                 {/* Changes Made */}
                 {result.changes.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-muted-foreground">Changes Made</h4>
-                    <ul className="space-y-1">
+                  <div className="space-y-2" role="region" aria-labelledby="changes-label">
+                    <h4 id="changes-label" className="text-sm font-medium text-muted-foreground">Changes Made</h4>
+                    <ul className="space-y-1" aria-label="List of changes made to improve the action">
                       {result.changes.map((change, i) => (
                         <li key={i} className="flex items-start gap-2 text-sm">
-                          <ArrowRight className="w-3 h-3 text-primary shrink-0 mt-1" />
+                          <ArrowRight className="w-3 h-3 text-primary shrink-0 mt-1" aria-hidden="true" />
                           <span>{change}</span>
                         </li>
                       ))}

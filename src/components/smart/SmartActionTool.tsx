@@ -7,6 +7,7 @@ import { useTranslation, SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
 import { useCloudAI } from '@/hooks/useCloudAI';
 import { useAIConsent } from '@/hooks/useAIConsent';
 import { parseSmartToolImportFile } from '@/lib/smart-portability';
+import { useSRAnnouncement } from '@/components/ui/sr-announcement';
 import { 
   todayISO, 
   buildNowOutput, 
@@ -131,8 +132,11 @@ export function SmartActionTool() {
   const storage = useSmartStorage();
   const translation = useTranslation();
   const cloudAI = useCloudAI();
-const aiHasConsent = useAIConsent();
+  const aiHasConsent = useAIConsent();
   const today = todayISO();
+  
+  // Screen reader announcement hook for accessibility
+  const { announce: announceOutput, AnnouncementRegion: OutputAnnouncementRegion } = useSRAnnouncement('polite');
 
   const [mode, setMode] = useState<Mode>('now');
   const [nowForm, setNowForm] = useState<NowForm>({
@@ -277,6 +281,10 @@ const aiHasConsent = useAIConsent();
         nowForm.timescale
       );
       setOutput(text);
+      // Announce to screen readers when output is generated via button click
+      if (force) {
+        announceOutput('SMART action generated. Review the output in the Generated action section.');
+      }
     } else {
       const text = buildFutureOutput(
         futureForm.date,
@@ -286,8 +294,12 @@ const aiHasConsent = useAIConsent();
         futureForm.timescale
       );
       setOutput(text);
+      // Announce to screen readers when output is generated via button click
+      if (force) {
+        announceOutput('SMART action generated. Review the output in the Generated action section.');
+      }
     }
-  }, [mode, nowForm, futureForm, validateNow, validateFuture, toast]);
+  }, [mode, nowForm, futureForm, validateNow, validateFuture, toast, announceOutput]);
 
   // Auto-generate on form changes (skip when output was set by AI fix)
   useEffect(() => {
@@ -375,8 +387,10 @@ const aiHasConsent = useAIConsent();
         title: 'Translated!', 
         description: `Action translated to ${result.languageName}.` 
       });
+      // Announce translation completion to screen readers
+      announceOutput(`Action translated to ${result.languageName}. Translation is displayed below the original text.`);
     }
-  }, [output, storage.participantLanguage, translation, toast]);
+  }, [output, storage.participantLanguage, translation, toast, announceOutput]);
 
   // Handle language change
   const handleLanguageChange = useCallback((language: string) => {
@@ -760,6 +774,9 @@ When given context about a participant, provide suggestions to improve their SMA
             description: whatChanged,
             duration: 4000
           });
+          
+          // Announce AI fix completion to screen readers
+          announceOutput(`${criterionLabel} criterion fixed. ${whatChanged}. Review the updated action in the output area.`);
         } else {
           throw new Error('Empty response from AI');
         }
@@ -776,7 +793,7 @@ When given context about a participant, provide suggestions to improve their SMA
     } finally {
       setFixingCriterion(null);
     }
-  }, [output, mode, nowForm, futureForm, cloudAI, toast]);
+  }, [output, mode, nowForm, futureForm, cloudAI, toast, announceOutput]);
 
   const handleRetryFix = useCallback(() => {
     if (!lastFixAttempt) return;
@@ -1771,20 +1788,23 @@ When given context about a participant, provide suggestions to improve their SMA
             variants={slideInRight}
             transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
           >
+            {/* Screen reader announcement region for output changes */}
+            <OutputAnnouncementRegion />
+            
             <div className="flex items-end justify-between gap-4 flex-wrap">
               <div>
-                <h2 className="font-bold text-lg">Generated action</h2>
-                <p className="text-xs text-muted-foreground">Proofread before pasting into important documents.</p>
+                <h2 id="output-section-heading" className="font-bold text-lg">Generated action</h2>
+                <p id="output-section-description" className="text-xs text-muted-foreground">Proofread before pasting into important documents.</p>
               </div>
               <div className="flex gap-2">
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                   <Button size="sm" onClick={handleCopy} className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm">
-                    <Copy className="w-4 h-4 mr-1" /> Copy
+                    <Copy className="w-4 h-4 mr-1" aria-hidden="true" /> Copy
                   </Button>
                 </motion.div>
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                   <Button size="sm" variant="outline" onClick={handleDownload}>
-                    <Download className="w-4 h-4 mr-1" /> .txt
+                    <Download className="w-4 h-4 mr-1" aria-hidden="true" /> .txt
                   </Button>
                 </motion.div>
               </div>
@@ -1826,15 +1846,16 @@ When given context about a participant, provide suggestions to improve their SMA
                 className="space-y-4"
               >
                 {/* English output */}
-                <div>
+                <div role="region" aria-labelledby="output-section-heading">
                   {translatedOutput && <p id="output-label-en" className="text-xs font-medium text-muted-foreground mb-2">🇬🇧 ENGLISH</p>}
                   <Textarea
                     id="action-output"
                     value={output}
                     onChange={e => { setOutput(e.target.value); setOutputSource('manual'); setTranslatedOutput(null); }}
                     placeholder="Generated action will appear here… You can also edit the text directly."
-                    aria-label="Generated SMART action text"
-                    aria-describedby={translatedOutput ? "output-label-en" : undefined}
+                    aria-label="Generated SMART action output"
+                    aria-labelledby={translatedOutput ? "output-label-en output-section-heading" : "output-section-heading"}
+                    aria-describedby="output-section-description"
                     className={cn(
                       "min-h-[120px] p-5 rounded-xl border-2 border-dashed border-border bg-muted/30 leading-relaxed resize-y",
                       copied && "border-accent bg-accent/10 shadow-glow",
@@ -1848,11 +1869,21 @@ When given context about a participant, provide suggestions to improve their SMA
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
+                    role="region"
+                    aria-labelledby="translated-output-label"
+                    aria-live="polite"
                   >
-                    <p className="text-xs font-medium text-muted-foreground mb-2">
-                      {SUPPORTED_LANGUAGES[storage.participantLanguage]?.flag} {SUPPORTED_LANGUAGES[storage.participantLanguage]?.nativeName?.toUpperCase()}
+                    <p id="translated-output-label" className="text-xs font-medium text-muted-foreground mb-2">
+                      <span aria-hidden="true">{SUPPORTED_LANGUAGES[storage.participantLanguage]?.flag} </span>
+                      <span>{SUPPORTED_LANGUAGES[storage.participantLanguage]?.nativeName?.toUpperCase()} translation</span>
                     </p>
-                    <div className="p-5 rounded-xl border-2 border-primary/30 bg-primary/5 leading-relaxed whitespace-pre-wrap text-sm">
+                    <div 
+                      className="p-5 rounded-xl border-2 border-primary/30 bg-primary/5 leading-relaxed whitespace-pre-wrap text-sm"
+                      role="textbox"
+                      aria-readonly="true"
+                      aria-label={`Translated action in ${SUPPORTED_LANGUAGES[storage.participantLanguage]?.nativeName || storage.participantLanguage}`}
+                      tabIndex={0}
+                    >
                       {translatedOutput}
                     </div>
                   </motion.div>
