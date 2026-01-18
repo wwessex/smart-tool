@@ -1,6 +1,6 @@
 // BUG FIX #6: Use relative paths for subfolder deployments
 // Increment this version when deploying new builds
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const CACHE_NAME = `smart-tool-${CACHE_VERSION}`;
 
 // Get the base path from the service worker's location (supports subfolders)
@@ -13,6 +13,8 @@ const OFFLINE_URL = 'offline.html'; // Relative path
 
 // Assets to cache immediately on install (relative paths for subfolder support)
 const PRECACHE_ASSETS = [
+  '', // Root index
+  'index.html',
   'offline.html',
   'manifest.json',
   'favicon.ico',
@@ -66,9 +68,13 @@ self.addEventListener('fetch', (event) => {
   const isJSFile = url.pathname.endsWith('.js');
   const isHTMLFile = url.pathname.endsWith('.html') || url.pathname === '/' || !url.pathname.includes('.');
   
-  // CRITICAL: For HTML and JS files, ALWAYS use network-first
+  // Hashed assets (e.g., index-abc123.js) are immutable - use cache-first
+  const isHashedAsset = /\.[a-f0-9]{8,}\.(js|css)$/.test(url.pathname);
+  
+  // CRITICAL: For HTML and non-hashed JS files, ALWAYS use network-first
   // This prevents stale JavaScript from being served after deployments
-  if (isNavigationRequest || isJSFile || isHTMLFile) {
+  // Hashed assets are immutable and safe to cache-first
+  if (isNavigationRequest || isHTMLFile || (isJSFile && !isHashedAsset)) {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
