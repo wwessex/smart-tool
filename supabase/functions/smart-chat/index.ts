@@ -1,10 +1,37 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// SECURITY: Configure allowed origins for CORS
+// In production, restrict to your actual domain(s)
+const ALLOWED_ORIGINS = [
+  // Production domains
+  "https://wwessex.github.io",
+  // Add your custom domain here if applicable
+  // "https://smart-action-tool.example.com",
+];
+
+// Development origins (only used when not in production)
+const DEV_ORIGINS = [
+  "http://localhost:8080",
+  "http://localhost:5173",
+  "http://127.0.0.1:8080",
+  "http://127.0.0.1:5173",
+];
+
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin") || "";
+  
+  // Check if origin is allowed
+  const isAllowed = ALLOWED_ORIGINS.includes(origin) || 
+    (Deno.env.get("DENO_DEPLOYMENT_ID") === undefined && DEV_ORIGINS.includes(origin));
+  
+  return {
+    "Access-Control-Allow-Origin": isAllowed ? origin : ALLOWED_ORIGINS[0] || "",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
 
 // Input validation schemas
 const MessageSchema = z.object({
@@ -80,6 +107,8 @@ function simpleHash(str: string): string {
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
