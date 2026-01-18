@@ -171,7 +171,7 @@ export function useLLM() {
       }));
 
       // Create worker
-      worker = new Worker(new URL("/llm-worker.js", import.meta.url), {
+      worker = new Worker(new URL("./llm-worker.js", import.meta.url), {
         type: "module",
       });
 
