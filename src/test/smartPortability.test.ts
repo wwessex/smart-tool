@@ -114,5 +114,75 @@ describe("smart portability", () => {
     expect(exported.recentNames).toEqual(["John", "Alice"]);
     expect(exported.settings.participantLanguage).toBe("es");
   });
+
+  it("import validation accepts templates, recentNames, and settings", () => {
+    // Verify schema explicitly includes all expected fields
+    const fullPayload = {
+      version: 2,
+      exportedAt: "2026-01-02T00:00:00.000Z",
+      history: [sampleHistoryItem],
+      barriers: ["Confidence", "Transport"],
+      timescales: ["2 weeks", "1 month"],
+      recentNames: ["John", "Jane", "Bob"],
+      templates: [sampleTemplate],
+      settings: {
+        minScoreEnabled: true,
+        minScoreThreshold: 3,
+        retentionEnabled: true,
+        retentionDays: 60,
+        participantLanguage: "fr",
+      },
+    };
+
+    const parsed = parseSmartToolImportFile(fullPayload);
+
+    // Verify all fields are properly parsed
+    expect(parsed.history).toHaveLength(1);
+    expect(parsed.barriers).toEqual(["Confidence", "Transport"]);
+    expect(parsed.timescales).toEqual(["2 weeks", "1 month"]);
+    expect(parsed.recentNames).toEqual(["John", "Jane", "Bob"]);
+    expect(parsed.templates).toHaveLength(1);
+    expect(parsed.templates?.[0]?.name).toBe("CV update");
+    expect(parsed.settings?.minScoreEnabled).toBe(true);
+    expect(parsed.settings?.minScoreThreshold).toBe(3);
+    expect(parsed.settings?.retentionEnabled).toBe(true);
+    expect(parsed.settings?.retentionDays).toBe(60);
+    expect(parsed.settings?.participantLanguage).toBe("fr");
+  });
+
+  it("storage importData properly stores templates, recentNames, and settings", () => {
+    localStorage.clear();
+
+    const { result } = renderHook(() => useSmartStorage());
+
+    // Import data with all fields
+    act(() => {
+      result.current.importData({
+        templates: [sampleTemplate],
+        recentNames: ["Alice", "Bob"],
+        settings: {
+          minScoreEnabled: true,
+          minScoreThreshold: 4,
+          retentionEnabled: false,
+          retentionDays: 120,
+          participantLanguage: "de",
+        },
+      });
+    });
+
+    // Verify templates are stored
+    expect(result.current.templates).toHaveLength(1);
+    expect(result.current.templates[0].name).toBe("CV update");
+
+    // Verify recentNames are stored
+    expect(result.current.recentNames).toEqual(["Alice", "Bob"]);
+
+    // Verify settings are stored
+    expect(result.current.minScoreEnabled).toBe(true);
+    expect(result.current.minScoreThreshold).toBe(4);
+    expect(result.current.retentionEnabled).toBe(false);
+    expect(result.current.retentionDays).toBe(120);
+    expect(result.current.participantLanguage).toBe("de");
+  });
 });
 

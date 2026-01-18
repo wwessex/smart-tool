@@ -1901,7 +1901,7 @@ When given context about a participant, provide suggestions to improve their SMA
                       accept="application/json" 
                       className="hidden" 
                       onChange={handleImport}
-                      aria-label="Import history from JSON file"
+                      aria-label="Import data from JSON file"
                     />
                   </label>
                   <Button 
