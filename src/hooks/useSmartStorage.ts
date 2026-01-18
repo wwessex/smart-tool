@@ -136,6 +136,13 @@ export function useSmartStorage() {
   const [minScoreThreshold, setMinScoreThreshold] = useState<number>(() => loadNumber(STORAGE.minScoreThreshold, 5));
   const [retentionEnabled, setRetentionEnabled] = useState<boolean>(() => loadBoolean(STORAGE.retentionEnabled, true));
   const [retentionDays, setRetentionDays] = useState<number>(() => loadNumber(STORAGE.retentionDays, DEFAULT_RETENTION_DAYS));
+  const [lastRetentionCheck, setLastRetentionCheck] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(STORAGE.lastRetentionCheck);
+    } catch {
+      return null;
+    }
+  });
   const [participantLanguage, setParticipantLanguage] = useState<string>(() => {
     try {
       return localStorage.getItem(STORAGE.participantLanguage) || 'none';
@@ -349,6 +356,7 @@ const exportAllData = useCallback(() => {
     setMinScoreThreshold(5);
     setRetentionEnabled(true);
     setRetentionDays(DEFAULT_RETENTION_DAYS);
+    setLastRetentionCheck(null);
     setParticipantLanguage('none');
   }, []);
 
@@ -397,7 +405,9 @@ const exportAllData = useCallback(() => {
     }
 
     // Update last check timestamp
-    safeSetItem(STORAGE.lastRetentionCheck, now.toISOString());
+    const iso = now.toISOString();
+    safeSetItem(STORAGE.lastRetentionCheck, iso);
+    setLastRetentionCheck(iso);
 
     return { deletedCount: deletedItems.length, deletedItems };
   }, [history, retentionEnabled, retentionDays]);
@@ -424,6 +434,7 @@ const exportAllData = useCallback(() => {
     minScoreThreshold,
     retentionEnabled,
     retentionDays,
+    lastRetentionCheck,
     participantLanguage,
     updateBarriers,
     resetBarriers,
