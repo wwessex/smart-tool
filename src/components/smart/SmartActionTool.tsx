@@ -73,7 +73,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3, Shield, FileDown, Clock, Languages, Loader2, RefreshCw, Cloud, CloudOff, Check, ExternalLink, FolderSync, FolderOpen } from 'lucide-react';
+import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3, Shield, FileDown, Clock, Languages, Loader2, RefreshCw, Cloud, CloudOff, Check, ExternalLink, FolderSync, FolderOpen, FileArchive } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -1184,120 +1184,141 @@ When given context about a participant, provide suggestions to improve their SMA
                     </Button>
                   </div>
 
-                  {/* Local Folder Sync Section */}
+                  {/* Local Folder Sync / Export Section */}
                   <div className="p-4 rounded-lg border bg-card space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <FolderSync className="w-5 h-5 text-primary" />
-                        <h3 className="font-bold">Folder Sync</h3>
+                        {localSync.isSupported ? (
+                          <FolderSync className="w-5 h-5 text-primary" />
+                        ) : (
+                          <FileArchive className="w-5 h-5 text-primary" />
+                        )}
+                        <h3 className="font-bold">{localSync.isSupported ? 'Folder Sync' : 'Export Actions'}</h3>
                       </div>
-                      {localSync.isConnected && (
+                      {localSync.isSupported && localSync.isConnected && (
                         <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                           <Check className="w-3 h-3" />
                           Connected
                         </div>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Save actions to a folder on your device. Tip: Select your OneDrive or Google Drive folder for automatic cloud sync!
-                    </p>
 
-                    {/* Browser not supported warning */}
-                    {!localSync.isSupported && (
-                      <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                        <p className="text-xs text-amber-700 dark:text-amber-300">
-                          Your browser doesn't support folder sync. Use Chrome or Edge on desktop for this feature.
+                    {/* Different content based on browser support */}
+                    {localSync.isSupported ? (
+                      <>
+                        <p className="text-xs text-muted-foreground">
+                          Save actions to a folder on your device. Tip: Select your OneDrive or Google Drive folder for automatic cloud sync!
                         </p>
-                      </div>
-                    )}
 
-                    {/* Connection status and controls */}
-                    {localSync.isSupported && (
-                      <div className="space-y-3">
-                        {localSync.isConnected ? (
-                          <>
-                            {/* Folder info */}
-                            <div className="p-3 rounded-lg bg-muted/50 space-y-1">
-                              <p className="text-sm font-medium flex items-center gap-2">
-                                <FolderOpen className="w-4 h-4 text-muted-foreground" />
-                                {localSync.folderName}
-                              </p>
-                              {localSync.lastSync && (
-                                <p className="text-xs text-muted-foreground">
-                                  Last sync: {new Date(localSync.lastSync).toLocaleString()}
+                        {/* Connection status and controls */}
+                        <div className="space-y-3">
+                          {localSync.isConnected ? (
+                            <>
+                              {/* Folder info */}
+                              <div className="p-3 rounded-lg bg-muted/50 space-y-1">
+                                <p className="text-sm font-medium flex items-center gap-2">
+                                  <FolderOpen className="w-4 h-4 text-muted-foreground" />
+                                  {localSync.folderName}
                                 </p>
-                              )}
-                            </div>
-
-                            {/* Action buttons */}
-                            <div className="flex gap-2">
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                onClick={() => localSync.selectFolder()}
-                                className="flex-1 gap-1.5"
-                              >
-                                <RefreshCw className="w-3.5 h-3.5" />
-                                Change Folder
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                onClick={() => localSync.disconnect()}
-                                className="flex-1 gap-1.5"
-                              >
-                                <CloudOff className="w-3.5 h-3.5" />
-                                Disconnect
-                              </Button>
-                            </div>
-
-                            <label className="flex items-center gap-3 cursor-pointer">
-                              <input 
-                                type="checkbox" 
-                                checked={localSync.syncEnabled} 
-                                onChange={e => localSync.setSyncEnabled(e.target.checked)}
-                                className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
-                              />
-                              <span className="text-sm font-medium">Sync when saving to history</span>
-                            </label>
-
-                            {localSync.syncEnabled && (
-                              <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
-                                <FolderSync className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                                <p className="text-xs text-muted-foreground">
-                                  Each saved action will be written as a .txt file to your selected folder.
-                                </p>
+                                {localSync.lastSync && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Last sync: {new Date(localSync.lastSync).toLocaleString()}
+                                  </p>
+                                )}
                               </div>
-                            )}
-                          </>
-                        ) : (
-                          <Button 
-                            onClick={() => localSync.selectFolder()}
-                            disabled={localSync.isConnecting}
-                            className="w-full gap-2"
-                          >
-                            {localSync.isConnecting ? (
-                              <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                Selecting...
-                              </>
-                            ) : (
-                              <>
-                                <FolderOpen className="w-4 h-4" />
-                                Choose Folder
-                              </>
-                            )}
-                          </Button>
-                        )}
 
-                        {localSync.error && (
-                          <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                            <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-                            <p className="text-xs text-destructive">{localSync.error}</p>
-                          </div>
-                        )}
-                      </div>
+                              {/* Action buttons */}
+                              <div className="flex gap-2">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  onClick={() => localSync.selectFolder()}
+                                  className="flex-1 gap-1.5"
+                                >
+                                  <RefreshCw className="w-3.5 h-3.5" />
+                                  Change Folder
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  onClick={() => localSync.disconnect()}
+                                  className="flex-1 gap-1.5"
+                                >
+                                  <CloudOff className="w-3.5 h-3.5" />
+                                  Disconnect
+                                </Button>
+                              </div>
+
+                              <label className="flex items-center gap-3 cursor-pointer">
+                                <input 
+                                  type="checkbox" 
+                                  checked={localSync.syncEnabled} 
+                                  onChange={e => localSync.setSyncEnabled(e.target.checked)}
+                                  className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
+                                />
+                                <span className="text-sm font-medium">Sync when saving to history</span>
+                              </label>
+
+                              {localSync.syncEnabled && (
+                                <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                                  <FolderSync className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                                  <p className="text-xs text-muted-foreground">
+                                    Each saved action will be written as a .txt file to your selected folder.
+                                  </p>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <Button 
+                              onClick={() => localSync.selectFolder()}
+                              disabled={localSync.isConnecting}
+                              className="w-full gap-2"
+                            >
+                              {localSync.isConnecting ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  Selecting...
+                                </>
+                              ) : (
+                                <>
+                                  <FolderOpen className="w-4 h-4" />
+                                  Choose Folder
+                                </>
+                              )}
+                            </Button>
+                          )}
+
+                          {localSync.error && (
+                            <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                              <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                              <p className="text-xs text-destructive">{localSync.error}</p>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      /* Safari/Firefox fallback - ZIP download */
+                      <>
+                        <p className="text-xs text-muted-foreground">
+                          Your browser doesn't support automatic folder sync, but you can download your actions as a ZIP file.
+                        </p>
+                        
+                        <Button 
+                          onClick={() => localSync.downloadAllAsZip(storage.history)}
+                          disabled={storage.history.length === 0}
+                          className="w-full gap-2"
+                        >
+                          <FileArchive className="w-4 h-4" />
+                          Download All as ZIP ({storage.history.length} action{storage.history.length !== 1 ? 's' : ''})
+                        </Button>
+
+                        <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 border border-border/50">
+                          <Download className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                          <p className="text-xs text-muted-foreground">
+                            Tip: Save the ZIP to your OneDrive or iCloud folder for cloud backup! For automatic sync, use Chrome or Edge on desktop.
+                          </p>
+                        </div>
+                      </>
                     )}
                   </div>
 

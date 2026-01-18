@@ -373,6 +373,53 @@ export function useLocalSync() {
     setState(prev => ({ ...prev, error: null }));
   }, []);
 
+  /**
+   * Download a single action as a .txt file (Safari/Firefox fallback)
+   */
+  const downloadAction = useCallback((item: HistoryItem) => {
+    const filename = generateFilename(item);
+    const content = formatActionForFile(item);
+    
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, []);
+
+  /**
+   * Download all history items as a ZIP file (Safari/Firefox fallback)
+   */
+  const downloadAllAsZip = useCallback(async (items: HistoryItem[]) => {
+    if (items.length === 0) return;
+    
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+    
+    const folder = zip.folder('SMART-Actions');
+    items.forEach(item => {
+      const filename = generateFilename(item);
+      const content = formatActionForFile(item);
+      folder?.file(filename, content);
+    });
+    
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `SMART-Actions-${new Date().toISOString().slice(0, 10)}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, []);
+
   return {
     ...state,
     selectFolder,
@@ -381,6 +428,8 @@ export function useLocalSync() {
     setSyncEnabled,
     clearError,
     requestPermission,
+    downloadAction,
+    downloadAllAsZip,
   };
 }
 
