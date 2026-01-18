@@ -27,6 +27,7 @@ import { ActionWizard } from './ActionWizard';
 import { AIImproveDialog } from './AIImproveDialog';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { OnboardingTutorial, useOnboarding } from './OnboardingTutorial';
+import { useOneDrive } from '@/hooks/useOneDrive';
 
 // Lazy load HistoryInsights as it uses recharts which is a heavy dependency
 const HistoryInsights = lazy(() => import('./HistoryInsights').then(module => ({ default: module.HistoryInsights })));
@@ -72,7 +73,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3, Shield, FileDown, Clock, Languages, Loader2, RefreshCw } from 'lucide-react';
+import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3, Shield, FileDown, Clock, Languages, Loader2, RefreshCw, Cloud, CloudOff, Check, ExternalLink } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -132,8 +133,10 @@ export function SmartActionTool() {
   const storage = useSmartStorage();
   const translation = useTranslation();
   const cloudAI = useCloudAI();
-const aiHasConsent = useAIConsent();
+  const aiHasConsent = useAIConsent();
+  const oneDrive = useOneDrive();
   const today = todayISO();
+  const [oneDriveClientIdInput, setOneDriveClientIdInput] = useState('');
 
   const [mode, setMode] = useState<Mode>('now');
   const [nowForm, setNowForm] = useState<NowForm>({
@@ -422,7 +425,7 @@ const aiHasConsent = useAIConsent();
     return checkSmart(checkableOutput, meta);
   }, [checkableOutput, mode, nowForm.forename, nowForm.barrier, nowForm.timescale, nowForm.date, futureForm.forename, futureForm.task, futureForm.timescale, futureForm.date]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!output.trim()) {
       toast({ title: 'Nothing to save', description: 'Generate an action first.', variant: 'destructive' });
       return;
@@ -461,8 +464,37 @@ const aiHasConsent = useAIConsent();
     };
 
     storage.addToHistory(item);
-    toast({ title: 'Saved!', description: translatedOutput ? 'Action with translation saved to history.' : 'Action saved to history.' });
-  }, [output, storage, smartCheck.overallScore, mode, nowForm, futureForm, translatedOutput, toast]);
+
+    // OneDrive sync if enabled
+    if (oneDrive.isConnected && oneDrive.syncEnabled) {
+      try {
+        const success = await oneDrive.uploadAction(item);
+        if (success) {
+          toast({ 
+            title: 'Saved & Synced!', 
+            description: translatedOutput 
+              ? 'Action with translation saved and synced to OneDrive.' 
+              : 'Action saved and synced to OneDrive.' 
+          });
+        } else {
+          toast({ 
+            title: 'Saved locally', 
+            description: 'Action saved but OneDrive sync failed. Check connection in Settings.',
+            variant: 'default'
+          });
+        }
+      } catch (err) {
+        console.error('OneDrive sync error:', err);
+        toast({ 
+          title: 'Saved locally', 
+          description: 'Action saved but OneDrive sync failed.',
+          variant: 'default'
+        });
+      }
+    } else {
+      toast({ title: 'Saved!', description: translatedOutput ? 'Action with translation saved to history.' : 'Action saved to history.' });
+    }
+  }, [output, storage, smartCheck.overallScore, mode, nowForm, futureForm, translatedOutput, toast, oneDrive]);
 
   const handleAIDraft = useCallback(() => {
     if (mode === 'now') {
@@ -1151,6 +1183,138 @@ When given context about a participant, provide suggestions to improve their SMA
                       <Sparkles className="w-4 h-4" />
                       Replay Tutorial
                     </Button>
+                  </div>
+
+                  {/* OneDrive Sync Section */}
+                  <div className="p-4 rounded-lg border bg-card space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Cloud className="w-5 h-5 text-primary" />
+                        <h3 className="font-bold">OneDrive Sync</h3>
+                      </div>
+                      {oneDrive.isConnected && (
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                          <Check className="w-3 h-3" />
+                          Connected
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Automatically save actions to your OneDrive in a folder called "SMART Tool Actions".
+                    </p>
+
+                    {/* Azure AD Client ID input */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                        Azure AD Client ID
+                        <a 
+                          href="https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline inline-flex items-center gap-1"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span className="text-xs">Get one</span>
+                        </a>
+                      </label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={oneDriveClientIdInput || oneDrive.clientId}
+                          onChange={e => setOneDriveClientIdInput(e.target.value)}
+                          placeholder="e.g. 12345678-1234-1234-1234-123456789abc"
+                          className="font-mono text-sm"
+                        />
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            if (oneDriveClientIdInput.trim()) {
+                              oneDrive.updateClientId(oneDriveClientIdInput.trim());
+                              toast({ title: 'Client ID saved', description: 'You can now connect to OneDrive.' });
+                            }
+                          }}
+                          disabled={!oneDriveClientIdInput.trim() || oneDriveClientIdInput === oneDrive.clientId}
+                        >
+                          Save
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Register an app in Azure Portal with "Files.ReadWrite" permission. Use your app's Client ID here.
+                      </p>
+                    </div>
+
+                    {/* Connection status and controls */}
+                    {oneDrive.hasValidClientId && (
+                      <div className="space-y-3 pt-2 border-t border-border/50">
+                        {oneDrive.isConnected ? (
+                          <>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-medium">{oneDrive.userEmail}</p>
+                                {oneDrive.lastSync && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Last sync: {new Date(oneDrive.lastSync).toLocaleString()}
+                                  </p>
+                                )}
+                              </div>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => oneDrive.disconnect()}
+                                className="gap-1.5"
+                              >
+                                <CloudOff className="w-3.5 h-3.5" />
+                                Disconnect
+                              </Button>
+                            </div>
+
+                            <label className="flex items-center gap-3 cursor-pointer">
+                              <input 
+                                type="checkbox" 
+                                checked={oneDrive.syncEnabled} 
+                                onChange={e => oneDrive.setSyncEnabled(e.target.checked)}
+                                className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
+                              />
+                              <span className="text-sm font-medium">Sync when saving to history</span>
+                            </label>
+
+                            {oneDrive.syncEnabled && (
+                              <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                                <Cloud className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                                <p className="text-xs text-muted-foreground">
+                                  Each saved action will be uploaded as a .txt file to your OneDrive's "SMART Tool Actions" folder.
+                                </p>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <Button 
+                            onClick={() => oneDrive.connect()}
+                            disabled={oneDrive.isConnecting}
+                            className="w-full gap-2"
+                          >
+                            {oneDrive.isConnecting ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Connecting...
+                              </>
+                            ) : (
+                              <>
+                                <Cloud className="w-4 h-4" />
+                                Connect to OneDrive
+                              </>
+                            )}
+                          </Button>
+                        )}
+
+                        {oneDrive.error && (
+                          <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                            <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                            <p className="text-xs text-destructive">{oneDrive.error}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Data Retention Section */}
