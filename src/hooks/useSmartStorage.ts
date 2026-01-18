@@ -9,6 +9,7 @@ const STORAGE = {
   templates: "smartTool.templates",
   minScoreEnabled: "smartTool.minScoreEnabled",
   minScoreThreshold: "smartTool.minScoreThreshold",
+  confirmClearEnabled: "smartTool.confirmClearEnabled",
   gdprConsent: "smartTool.gdprConsent",
   onboardingComplete: "smartTool.onboardingComplete",
   retentionDays: "smartTool.retentionDays",
@@ -56,6 +57,7 @@ export interface HistoryItem {
 export interface SmartToolSettings {
   minScoreEnabled?: boolean;
   minScoreThreshold?: number;
+  confirmClearEnabled?: boolean;
   retentionEnabled?: boolean;
   retentionDays?: number;
   participantLanguage?: string;
@@ -134,6 +136,7 @@ export function useSmartStorage() {
   const [templates, setTemplates] = useState<ActionTemplate[]>(() => loadList(STORAGE.templates, []));
   const [minScoreEnabled, setMinScoreEnabled] = useState<boolean>(() => loadBoolean(STORAGE.minScoreEnabled, false));
   const [minScoreThreshold, setMinScoreThreshold] = useState<number>(() => loadNumber(STORAGE.minScoreThreshold, 5));
+  const [confirmClearEnabled, setConfirmClearEnabled] = useState<boolean>(() => loadBoolean(STORAGE.confirmClearEnabled, true));
   const [retentionEnabled, setRetentionEnabled] = useState<boolean>(() => loadBoolean(STORAGE.retentionEnabled, true));
   const [retentionDays, setRetentionDays] = useState<number>(() => loadNumber(STORAGE.retentionDays, DEFAULT_RETENTION_DAYS));
   const [participantLanguage, setParticipantLanguage] = useState<string>(() => {
@@ -243,6 +246,10 @@ if (data.settings && typeof data.settings === 'object') {
         setMinScoreThreshold(clamped);
         localStorage.setItem(STORAGE.minScoreThreshold, String(clamped));
       }
+      if (typeof data.settings.confirmClearEnabled === 'boolean') {
+        setConfirmClearEnabled(data.settings.confirmClearEnabled);
+        localStorage.setItem(STORAGE.confirmClearEnabled, String(data.settings.confirmClearEnabled));
+      }
       if (typeof data.settings.retentionEnabled === 'boolean') {
         setRetentionEnabled(data.settings.retentionEnabled);
         localStorage.setItem(STORAGE.retentionEnabled, String(data.settings.retentionEnabled));
@@ -299,6 +306,11 @@ if (data.settings && typeof data.settings === 'object') {
     safeSetItem(STORAGE.minScoreThreshold, String(clamped));
   }, []);
 
+  const updateConfirmClearEnabled = useCallback((enabled: boolean) => {
+    setConfirmClearEnabled(enabled);
+    safeSetItem(STORAGE.confirmClearEnabled, String(enabled));
+  }, []);
+
   // Export all data for GDPR data portability
   // Uses flat structure to ensure round-trip compatibility with import
 const exportAllData = useCallback(() => {
@@ -313,6 +325,7 @@ const exportAllData = useCallback(() => {
       settings: {
         minScoreEnabled,
         minScoreThreshold,
+        confirmClearEnabled,
         retentionEnabled,
         retentionDays,
         participantLanguage,
@@ -327,6 +340,7 @@ const exportAllData = useCallback(() => {
     templates,
     minScoreEnabled,
     minScoreThreshold,
+    confirmClearEnabled,
     retentionEnabled,
     retentionDays,
     participantLanguage,
@@ -347,6 +361,7 @@ const exportAllData = useCallback(() => {
     setTemplates([]);
     setMinScoreEnabled(false);
     setMinScoreThreshold(5);
+    setConfirmClearEnabled(true);
     setRetentionEnabled(true);
     setRetentionDays(DEFAULT_RETENTION_DAYS);
     setParticipantLanguage('none');
@@ -422,6 +437,7 @@ const exportAllData = useCallback(() => {
     templates,
     minScoreEnabled,
     minScoreThreshold,
+    confirmClearEnabled,
     retentionEnabled,
     retentionDays,
     participantLanguage,
@@ -439,6 +455,7 @@ const exportAllData = useCallback(() => {
     updateTemplate,
     updateMinScoreEnabled,
     updateMinScoreThreshold,
+    updateConfirmClearEnabled,
     updateRetentionEnabled,
     updateRetentionDays,
     updateParticipantLanguage,

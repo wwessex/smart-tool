@@ -71,6 +71,16 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3, Shield, FileDown, Clock, Languages, Loader2, RefreshCw } from 'lucide-react';
 import { useTheme } from 'next-themes';
@@ -174,6 +184,7 @@ const aiHasConsent = useAIConsent();
     criterion: 'specific' | 'measurable' | 'achievable' | 'relevant' | 'timeBound';
     suggestion: string;
   } | null>(null);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
 
   // Detect landscape orientation
   useEffect(() => {
@@ -346,7 +357,7 @@ const aiHasConsent = useAIConsent();
     URL.revokeObjectURL(url);
   }, [output, translatedOutput, storage.participantLanguage, mode, toast]);
 
-  const handleClear = useCallback(() => {
+  const performClear = useCallback(() => {
     if (mode === 'now') {
       setNowForm({ date: today, forename: '', barrier: '', action: '', responsible: '', help: '', timescale: '' });
     } else {
@@ -359,6 +370,43 @@ const aiHasConsent = useAIConsent();
     setShowValidation(false);
     setSuggestQuery('');
   }, [mode, today, translation]);
+
+  const isClearRisk = useMemo(() => {
+    const nowDirty =
+      nowForm.date !== today ||
+      !!nowForm.forename.trim() ||
+      !!nowForm.barrier.trim() ||
+      !!nowForm.action.trim() ||
+      !!nowForm.responsible.trim() ||
+      !!nowForm.help.trim() ||
+      !!nowForm.timescale;
+
+    const futureDirty =
+      futureForm.date !== today ||
+      !!futureForm.forename.trim() ||
+      !!futureForm.task.trim() ||
+      !!futureForm.outcome.trim() ||
+      !!futureForm.timescale;
+
+    const activeDirty = mode === 'now' ? nowDirty : futureDirty;
+    const outputDirty = !!output.trim() || !!translatedOutput;
+    const miscDirty = !!suggestQuery.trim() || showValidation;
+
+    return activeDirty || outputDirty || miscDirty;
+  }, [mode, nowForm, futureForm, today, output, translatedOutput, suggestQuery, showValidation]);
+
+  const handleClear = useCallback(() => {
+    if (storage.confirmClearEnabled && isClearRisk) {
+      setClearConfirmOpen(true);
+      return;
+    }
+    performClear();
+  }, [storage.confirmClearEnabled, isClearRisk, performClear]);
+
+  const handleConfirmClear = useCallback(() => {
+    performClear();
+    setClearConfirmOpen(false);
+  }, [performClear]);
 
   // Handle translation
   const handleTranslate = useCallback(async () => {
@@ -1047,6 +1095,27 @@ When given context about a participant, provide suggestions to improve their SMA
                       </div>
                     </div>
                   </div>
+
+                {/* Confirmations */}
+                <div className="p-4 rounded-lg border bg-card space-y-4">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-primary" />
+                    <h3 className="font-bold">Confirmations</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Reduce accidental data loss by confirming destructive actions.
+                  </p>
+
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={storage.confirmClearEnabled}
+                      onChange={e => storage.updateConfirmClearEnabled(e.target.checked)}
+                      className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
+                    />
+                    <span className="text-sm font-medium">Confirm before clearing the form</span>
+                  </label>
+                </div>
                 
                   {/* Quality Enforcement Section */}
                   <div className="p-4 rounded-lg border bg-card space-y-4">
@@ -2024,6 +2093,27 @@ When given context about a participant, provide suggestions to improve their SMA
         open={privacySettingsOpen} 
         onOpenChange={setPrivacySettingsOpen} 
       />
+
+      {/* Clear confirmation */}
+      <AlertDialog open={clearConfirmOpen} onOpenChange={setClearConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear this form?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the current inputs and generated output. This can’t be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmClear}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Clear
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
