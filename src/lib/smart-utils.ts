@@ -137,10 +137,12 @@ export function pickTaskKey(taskDesc: string): string {
   if (!t) return "default";
   
   if (/job\s*fair|careers?\s*fair|recruitment\s*(event|fair)/i.test(t)) return "job fair";
-  if (/workshop|session|group|course|training/i.test(t)) return "workshop";
-  if (/interview|mock/i.test(t)) return "interview";
-  if (/cv|resume|curriculum/i.test(t)) return "cv";
+  if (/interview|mock\s*interview/i.test(t)) return "interview";
+  if (/cv|resume|curriculum\s*vitae/i.test(t)) return "cv";
   if (/application|apply|applying/i.test(t)) return "application";
+  if (/training|course|module|certification/i.test(t)) return "training";
+  if (/appointment|meeting|review|assessment|one.to.one|1.to.1|drop.in/i.test(t)) return "appointment";
+  if (/workshop|session|group|seminar|webinar/i.test(t)) return "workshop";
   
   return "default";
 }

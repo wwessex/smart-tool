@@ -86,498 +86,609 @@ export const GUIDANCE = [
 ];
 
 // Advisor assist: curated suggestions per barrier (runs instantly, offline)
+// NOTE: Suggestions are designed to be practical and avoid assuming resources advisors may not have.
+// Use concrete free resources where possible, or flexible language that advisors can adapt.
 export const ACTION_LIBRARY: Record<string, Array<{title: string; action: string; help: string}>> = {
   "Housing": [
     {
-      "title": "Contact Housing Options team",
-      "action": "Contact the local council Housing Options team to discuss current housing situation and next steps by {targetDate}.",
+      "title": "Contact Housing Options",
+      "action": "Contact the local council's Housing Options team (find details at gov.uk/find-local-council) to discuss current housing situation and next steps by {targetDate}.",
       "help": "you access appropriate housing support and reduce risk of homelessness."
     },
     {
       "title": "Gather housing documents",
-      "action": "Gather key housing documents (tenancy agreement, ID, recent correspondence) and bring them to our next appointment on {targetDate}.",
+      "action": "Gather key housing documents (tenancy agreement, ID, any recent letters about housing) and bring them to our next appointment on {targetDate}.",
       "help": "us make referrals and evidence your situation quickly."
     },
     {
-      "title": "Search & shortlist properties",
-      "action": "Spend 30 minutes, three times this week, searching and shortlisting affordable properties on two approved sites, and save the links by {targetDate}.",
+      "title": "Search properties online",
+      "action": "Spend 30 minutes, three times this week, searching for affordable properties on Rightmove, Zoopla, or SpareRoom and save at least 5 links by {targetDate}.",
       "help": "you move towards stable accommodation."
     }
   ],
   "Finance": [
     {
       "title": "Create a simple budget",
-      "action": "Create a weekly budget listing income and essential outgoings, using the provided template, and bring it completed by {targetDate}.",
+      "action": "Create a weekly budget by writing down all income and essential outgoings on paper or using the free Money Helper budget planner at moneyhelper.org.uk, and bring it completed by {targetDate}.",
       "help": "you understand where your money is going and identify savings."
     },
     {
       "title": "Check benefits entitlement",
-      "action": "Use a benefits calculator to check entitlement and note any actions needed (claims, updates) by {targetDate}.",
+      "action": "Use the free Turn2us benefits calculator at benefits-calculator.turn2us.org.uk to check entitlement and note any actions needed (new claims, updates) by {targetDate}.",
       "help": "you maximise income and reduce financial pressure."
     },
     {
       "title": "Set up payment plan",
-      "action": "Contact your creditor to request an affordable repayment plan and record the outcome by {targetDate}.",
+      "action": "Contact your creditor by phone or letter to request an affordable repayment plan you can manage, and write down what was agreed by {targetDate}.",
       "help": "you stabilise finances and avoid arrears escalating."
+    },
+    {
+      "title": "Get free debt advice",
+      "action": "Contact StepChange (0800 138 1111) or Citizens Advice for free, confidential debt advice and note the next steps suggested by {targetDate}.",
+      "help": "you access expert support to manage debt."
     }
   ],
   "Transport": [
     {
       "title": "Plan route to appointments",
-      "action": "Plan and save a reliable route to your appointments (including costs and timings) and confirm you can attend by {targetDate}.",
+      "action": "Use Google Maps or Traveline (traveline.info) to plan your route to appointments, noting costs and journey times, and confirm you can attend by {targetDate}.",
       "help": "you attend reliably and reduce missed sessions."
     },
     {
-      "title": "Apply for travel support",
-      "action": "Complete the travel support application (if eligible) and submit required evidence by {targetDate}.",
-      "help": "remove cost as a barrier to attendance and job search."
+      "title": "Research travel discounts",
+      "action": "Research available travel discounts (e.g., jobseeker bus passes, railcards, cycle schemes) in your area and note which ones you may be eligible for by {targetDate}.",
+      "help": "reduce travel costs as a barrier to job search."
+    },
+    {
+      "title": "Explore alternative transport",
+      "action": "Research alternative transport options for getting to work (walking, cycling, car-sharing, community transport) and identify what might work for your target job location by {targetDate}.",
+      "help": "widen the range of jobs you can realistically apply for."
     }
   ],
   "Job Search": [
     {
       "title": "Set job search routine",
-      "action": "Complete two job searches per week using agreed sites, saving at least three suitable roles each time, by {targetDate}.",
+      "action": "Complete two job searches per week using Indeed, Reed, or Find a Job (findajob.dwp.gov.uk), saving at least three suitable roles each time, by {targetDate}.",
       "help": "build momentum and increase chances of interviews."
     },
     {
       "title": "Create job alerts",
-      "action": "Set up job alerts for your target role and location on two job boards by {targetDate}.",
-      "help": "you see suitable vacancies quickly."
+      "action": "Set up email job alerts for your target role and location on Indeed and one other job site (e.g., Reed, CV-Library) by {targetDate}.",
+      "help": "you see suitable vacancies as soon as they're posted."
+    },
+    {
+      "title": "Register on job sites",
+      "action": "Create or update your profile on at least two job sites (e.g., Indeed, Reed, LinkedIn) with your skills and job preferences by {targetDate}.",
+      "help": "make you visible to employers searching for candidates."
     }
   ],
   "Job Applications": [
     {
-      "title": "Submit applications",
-      "action": "Submit {n} quality applications for suitable roles, tailored to the job description, by {targetDate}.",
+      "title": "Submit quality applications",
+      "action": "Submit {n} quality applications for suitable roles, tailoring each application to match the job description, by {targetDate}.",
       "help": "increase your chances of securing interviews."
     },
     {
-      "title": "Track applications",
-      "action": "Start an application tracker (role, company, date applied, outcome) and update it after every application until {targetDate}.",
-      "help": "you stay organised and follow up effectively."
+      "title": "Track your applications",
+      "action": "Start an application tracker (a simple list or spreadsheet noting: job title, company, date applied, outcome) and update it after every application by {targetDate}.",
+      "help": "you stay organised and follow up on applications effectively."
+    },
+    {
+      "title": "Prepare application answers",
+      "action": "Write answers to common application questions (e.g., 'Why do you want this job?', 'Describe your relevant experience') and save them to reuse and adapt by {targetDate}.",
+      "help": "speed up future applications and improve quality."
     }
   ],
   "CV": [
     {
       "title": "Update CV for target role",
-      "action": "Update your CV for your target role, including a tailored profile and recent achievements, and send it to me by {targetDate}.",
+      "action": "Update your CV for your target role, including a tailored profile statement and your most relevant experience, and bring it to our next meeting or email it by {targetDate}.",
       "help": "present your skills clearly to employers."
     },
     {
       "title": "Add STAR examples",
-      "action": "Write two STAR examples for key skills in your CV (e.g., teamwork, reliability) and add them to your notes by {targetDate}.",
-      "help": "strengthen applications and interview answers."
+      "action": "Write two examples using the STAR method (Situation, Task, Action, Result) for key skills like teamwork or problem-solving, and keep them in your notes by {targetDate}.",
+      "help": "strengthen applications and prepare you for interviews."
+    },
+    {
+      "title": "Get CV feedback",
+      "action": "Ask someone you trust (advisor, friend, family member) to review your CV and suggest improvements by {targetDate}.",
+      "help": "spot errors and improve how your CV reads to employers."
     }
   ],
   "Interviews": [
     {
       "title": "Prepare interview answers",
-      "action": "Prepare answers to five common interview questions for your target role and practise them twice before {targetDate}.",
+      "action": "Prepare answers to five common interview questions for your target role (search 'common interview questions' online for examples) and practise saying them aloud by {targetDate}.",
       "help": "improve confidence and interview performance."
     },
     {
-      "title": "Mock interview",
-      "action": "Book and attend a mock interview session, bringing the job description and your CV, by {targetDate}.",
-      "help": "identify improvements before real interviews."
+      "title": "Practise mock interview",
+      "action": "Practise a mock interview with your advisor, a friend, or family member, using questions relevant to your target role, by {targetDate}.",
+      "help": "identify areas to improve before real interviews."
+    },
+    {
+      "title": "Research the employer",
+      "action": "Before any interview, research the employer (their website, recent news, what they do) and prepare two questions to ask them, by {targetDate}.",
+      "help": "show genuine interest and stand out to employers."
     }
   ],
   "Confidence": [
     {
-      "title": "Confidence actions",
-      "action": "Identify three strengths you can evidence with examples, write them down, and bring them to our next meeting by {targetDate}.",
-      "help": "build confidence and communicate strengths to employers."
+      "title": "Identify your strengths",
+      "action": "Write down three strengths you have with a real example for each (e.g., 'I'm reliable - I never missed a shift at my last job') and bring them to our next meeting by {targetDate}.",
+      "help": "build confidence and communicate your value to employers."
     },
     {
-      "title": "Small exposure step",
-      "action": "Take one small agreed step towards your goal (e.g., make one phone call or attend one service) and note how it went by {targetDate}.",
+      "title": "Take a small step",
+      "action": "Take one small step towards your goal this week (e.g., make one phone enquiry, visit one employer, send one application) and note how it went by {targetDate}.",
       "help": "reduce anxiety and build confidence through progress."
+    },
+    {
+      "title": "Positive reflection",
+      "action": "At the end of each day this week, write down one thing that went well (however small) and bring your notes to our next meeting by {targetDate}.",
+      "help": "build a more positive mindset for job searching."
     }
   ],
   "Motivation": [
     {
       "title": "Set a weekly goal",
-      "action": "Set one realistic weekly goal linked to your job goal, complete it, and report back on progress by {targetDate}.",
+      "action": "Set one realistic weekly goal linked to your job search (e.g., 'Apply for 2 jobs', 'Update my CV'), complete it, and tell me how it went by {targetDate}.",
       "help": "maintain motivation through achievable milestones."
     },
     {
-      "title": "Routine planning",
-      "action": "Create a simple weekly routine including job search time and wellbeing breaks, and try it for one week by {targetDate}.",
+      "title": "Create a simple routine",
+      "action": "Create a simple weekly routine that includes dedicated job search time and breaks for wellbeing, and try following it for one week by {targetDate}.",
       "help": "build structure and consistency."
+    },
+    {
+      "title": "Identify your 'why'",
+      "action": "Write down your main reasons for wanting to work (e.g., income, independence, social contact, career goals) and bring them to our next meeting by {targetDate}.",
+      "help": "remind yourself of your motivation when job searching feels hard."
     }
   ],
   "Substance Misuse": [
     {
-      "title": "Contact support service",
-      "action": "Contact the agreed local support service to arrange an initial appointment and confirm the date/time by {targetDate}.",
+      "title": "Contact FRANK helpline",
+      "action": "Contact FRANK (0300 123 6600 or talktofrank.com) for confidential drug advice, or discuss options for local support services with your advisor, by {targetDate}.",
       "help": "you access specialist support and stabilise routines."
     },
     {
-      "title": "Attend appointment",
-      "action": "Attend the scheduled support appointment and note any next steps agreed by {targetDate}.",
+      "title": "Attend support appointment",
+      "action": "Attend the scheduled support appointment and write down any next steps agreed by {targetDate}.",
       "help": "move forward with the support plan."
+    },
+    {
+      "title": "Identify triggers",
+      "action": "Identify two situations that make things harder and one thing that helps you cope with each, and discuss them at our next meeting by {targetDate}.",
+      "help": "develop awareness and practical coping strategies."
     }
   ],
   "Mental Wellbeing": [
     {
-      "title": "Contact wellbeing service",
-      "action": "Contact the agreed wellbeing or mental health service to arrange an initial appointment by {targetDate}.",
+      "title": "Self-refer to NHS talking therapies",
+      "action": "Self-refer to NHS Talking Therapies (search 'NHS talking therapies' + your area, or ask your GP) to access free counselling support by {targetDate}.",
       "help": "you access professional support to improve mental wellbeing."
     },
     {
       "title": "Practise self-care activity",
-      "action": "Practise one agreed self-care activity (e.g., walking, journaling) at least three times this week and note how it went by {targetDate}.",
+      "action": "Choose one self-care activity (e.g., a daily walk, listening to music, journaling) and do it at least three times this week, noting how it made you feel, by {targetDate}.",
       "help": "build healthy routines and improve overall wellbeing."
     },
     {
-      "title": "Identify triggers",
-      "action": "Identify and write down two situations that affect your wellbeing and one coping strategy for each by {targetDate}.",
-      "help": "develop awareness and practical coping skills."
+      "title": "Contact Samaritans if struggling",
+      "action": "If you're struggling, contact Samaritans (call 116 123, free, 24/7) to talk things through, and let me know how you're doing at our next meeting by {targetDate}.",
+      "help": "you access immediate support when needed."
+    },
+    {
+      "title": "Use NHS mental health resources",
+      "action": "Visit nhs.uk/mental-health and read about one topic relevant to you (e.g., managing anxiety, low mood), noting any tips to try, by {targetDate}.",
+      "help": "develop practical coping skills using trusted information."
     }
   ],
   "Digital Skills": [
     {
-      "title": "Complete digital skills course",
-      "action": "Complete the first module of the agreed online digital skills course and save the certificate by {targetDate}.",
+      "title": "Complete free online course",
+      "action": "Complete one module of a free digital skills course (e.g., Learn My Way at learnmyway.com, or Google Digital Garage at grow.google/intl/uk) by {targetDate}.",
       "help": "develop essential digital skills for job searching and employment."
     },
     {
       "title": "Practise email skills",
-      "action": "Practise writing a professional email (e.g., job enquiry) and send it to me for feedback by {targetDate}.",
+      "action": "Practise writing a professional email (e.g., a job enquiry or thank-you email) and show it to your advisor for feedback by {targetDate}.",
       "help": "build confidence in professional digital communication."
+    },
+    {
+      "title": "Use a computer at the library",
+      "action": "Visit your local library to use the free computers and internet for job searching, and complete at least one job-related task there by {targetDate}.",
+      "help": "you have regular access to digital tools for your job search."
+    },
+    {
+      "title": "Learn to search for jobs online",
+      "action": "Practise searching for jobs on Indeed or Find a Job (findajob.dwp.gov.uk) and save three suitable vacancies by {targetDate}.",
+      "help": "build confidence using job search websites independently."
     }
   ],
   "Communication Skills": [
     {
-      "title": "Practise speaking skills",
-      "action": "Practise introducing yourself professionally in under one minute and record or rehearse it three times by {targetDate}.",
+      "title": "Practise your introduction",
+      "action": "Practise introducing yourself professionally in under one minute (your name, experience, what you're looking for) and rehearse it at least three times by {targetDate}.",
       "help": "build confidence for interviews and networking."
     },
     {
-      "title": "Attend communication workshop",
-      "action": "Book and attend the communication or presentation skills workshop by {targetDate}.",
-      "help": "develop skills for workplace communication."
+      "title": "Practise phone skills",
+      "action": "Practise making a phone call (e.g., calling to ask about a job vacancy) with your advisor or a trusted person before making a real call by {targetDate}.",
+      "help": "build confidence for phone conversations with employers."
+    },
+    {
+      "title": "Prepare talking points",
+      "action": "Write down three key points you want to make about yourself to employers (your skills, experience, enthusiasm) and practise saying them aloud by {targetDate}.",
+      "help": "communicate clearly and confidently."
     }
   ],
   "Caring Responsibilities": [
     {
-      "title": "Explore childcare options",
-      "action": "Research and note down two local childcare options (including costs and availability) by {targetDate}.",
+      "title": "Research childcare options",
+      "action": "Research local childcare options using childcarechoices.gov.uk (including costs and tax-free childcare) and note down two possibilities by {targetDate}.",
       "help": "identify solutions to balance caring and work commitments."
     },
     {
-      "title": "Contact support for carers",
-      "action": "Contact the local carers' support service to discuss available support and respite options by {targetDate}.",
-      "help": "access support that enables you to pursue employment."
+      "title": "Contact Carers UK",
+      "action": "Contact Carers UK helpline (0808 808 7777) or visit carersuk.org to find out about support and benefits for carers by {targetDate}.",
+      "help": "access support that may help you pursue employment."
+    },
+    {
+      "title": "Explore flexible work options",
+      "action": "Research jobs that offer flexible working (part-time, remote, term-time, shift patterns) that would fit around your caring responsibilities by {targetDate}.",
+      "help": "find realistic employment options that work with your situation."
     }
   ],
   "Qualifications": [
     {
-      "title": "Research courses",
-      "action": "Research and shortlist two relevant courses or qualifications that support your job goal by {targetDate}.",
+      "title": "Research free courses",
+      "action": "Research free courses available to you (e.g., Skills Bootcamps, adult education, OpenLearn at open.edu) and shortlist two that support your job goal by {targetDate}.",
       "help": "identify training opportunities to improve employability."
     },
     {
-      "title": "Apply for course",
-      "action": "Complete the application for the agreed course and submit it with required documents by {targetDate}.",
-      "help": "progress your learning and qualifications."
+      "title": "Check course funding",
+      "action": "Find out if you're eligible for free or funded training (many courses are free for unemployed adults) by contacting a local college or using the National Careers Service by {targetDate}.",
+      "help": "access training without cost being a barrier."
+    },
+    {
+      "title": "Contact National Careers Service",
+      "action": "Contact the National Careers Service (0800 100 900 or nationalcareers.service.gov.uk) for free advice on courses and qualifications by {targetDate}.",
+      "help": "get expert guidance on training and career options."
     }
   ],
   "Job Goal": [
     {
       "title": "Define job goal",
-      "action": "Write down your target job role, including the type of work, hours, and location preferences, and bring it to our next meeting by {targetDate}.",
+      "action": "Write down your target job role, including: type of work, preferred hours, acceptable travel distance, and minimum pay needed, and bring it to our next meeting by {targetDate}.",
       "help": "focus your job search on realistic and achievable goals."
     },
     {
       "title": "Research target role",
-      "action": "Research the skills and qualifications needed for your target role and note any gaps by {targetDate}.",
+      "action": "Research what skills and qualifications employers ask for in your target role (look at 5 job adverts) and note any gaps to work on by {targetDate}.",
       "help": "identify steps to become more competitive for your target job."
+    },
+    {
+      "title": "Explore career ideas",
+      "action": "Use the National Careers Service website (nationalcareers.service.gov.uk/explore-careers) to explore job roles that match your interests and skills by {targetDate}.",
+      "help": "discover realistic job options you may not have considered."
     }
   ],
   "Photo ID": [
     {
       "title": "Apply for provisional licence",
-      "action": "{forename} has agreed to apply for a provisional driving licence online at gov.uk by {targetDate}. This will provide valid photo ID for employment.",
-      "help": "Costs £34, takes 2-3 weeks to arrive."
+      "action": "{forename} has agreed to apply for a provisional driving licence online at gov.uk/apply-first-provisional-driving-licence by {targetDate}. This provides valid photo ID for employment. Cost: £34, delivery: 2-3 weeks.",
+      "help": "Provisional licences are widely accepted as photo ID."
     },
     {
       "title": "Apply for PASS card",
-      "action": "{forename} will apply for a CitizenCard or similar PASS-approved ID card by {targetDate}. Advisor will provide guidance on the application process.",
-      "help": "PASS cards are accepted as proof of age ID."
+      "action": "{forename} will apply for a CitizenCard (citizencard.com) or My ID card (myidcard.co.uk) by {targetDate}. Cost: around £15, delivery: 1-2 weeks.",
+      "help": "PASS cards are accepted as proof of age and ID."
     },
     {
-      "title": "Request passport application",
-      "action": "{forename} has agreed to complete and submit a passport application with advisor support by {targetDate}. This will serve as primary photo ID.",
-      "help": "Standard passport costs £82.50, allow 10 weeks processing."
+      "title": "Check free ID schemes",
+      "action": "{forename} will check if there are any local schemes offering free or subsidised ID (some councils and charities help with this) by asking at Citizens Advice or the library by {targetDate}.",
+      "help": "access ID without cost being a barrier."
     }
   ],
   "Digital Hardware & Connectivity": [
     {
       "title": "Library computer access",
-      "action": "{forename} will register for free computer access at the local library by {targetDate} to enable job searching and applications.",
-      "help": "Libraries offer free internet and often have printing facilities."
+      "action": "{forename} will visit the local library to register for free computer and internet access by {targetDate}. Libraries offer free Wi-Fi, computers, and often printing.",
+      "help": "you have a reliable place to do job searching and applications."
     },
     {
-      "title": "Digital skills assessment",
-      "action": "{forename} has agreed to complete a basic digital skills assessment with advisor support by {targetDate} to identify training needs.",
-      "help": "Helps identify specific areas for development."
+      "title": "Explore free Wi-Fi options",
+      "action": "{forename} will identify places with free Wi-Fi for job searching (libraries, community centres, some cafés) and make a list by {targetDate}.",
+      "help": "you can get online even without home internet."
     },
     {
-      "title": "Smartphone support",
-      "action": "{forename} will explore options for low-cost smartphone access through the relevant provider by {targetDate} to access job apps and emails.",
-      "help": "Some providers offer discounted plans for jobseekers."
+      "title": "Research low-cost phone options",
+      "action": "{forename} will research low-cost SIM-only mobile plans (e.g., Giffgaff, Smarty, Lebara) or pay-as-you-go options for calls and data by {targetDate}.",
+      "help": "stay contactable for employers without high costs."
+    },
+    {
+      "title": "Check device access schemes",
+      "action": "{forename} will ask at the library or Citizens Advice about any local schemes offering free or low-cost devices (tablets, laptops) for job seekers by {targetDate}.",
+      "help": "access a device for job searching."
     }
   ],
   "Literacy and/or Numeracy": [
     {
-      "title": "Skills assessment",
-      "action": "{forename} has agreed to complete an initial literacy and numeracy assessment by {targetDate} to identify support needs.",
-      "help": "Assessments are confidential and help tailor support."
+      "title": "Explore free Functional Skills",
+      "action": "{forename} will contact a local adult education provider or search for 'free functional skills courses' in their area to find out about English and maths support by {targetDate}.",
+      "help": "Functional Skills courses are usually free for adults."
     },
     {
-      "title": "Enrol in basic skills course",
-      "action": "{forename} will enrol in a free functional skills course at a local provider by {targetDate} to improve confidence with reading, writing, or maths.",
-      "help": "Functional Skills courses are free for adults."
+      "title": "Use free learning apps",
+      "action": "{forename} will try a free learning app (e.g., BBC Skillswise at bbc.co.uk/teach/skillswise, or Duolingo for English) for 15 minutes, three times this week, by {targetDate}.",
+      "help": "practise skills in a flexible, low-pressure way."
     },
     {
-      "title": "One-to-one support",
-      "action": "{forename} has agreed to attend one-to-one support sessions with a tutor to work on specific literacy or numeracy goals by {targetDate}.",
-      "help": "Individual support can be arranged through local providers."
+      "title": "Discuss support needs",
+      "action": "{forename} will discuss any reading, writing, or maths challenges openly with their advisor by {targetDate} so we can find the right support together.",
+      "help": "ensure support is tailored to your actual needs."
+    },
+    {
+      "title": "Practise form-filling",
+      "action": "{forename} will practise filling in a sample job application form with advisor support by {targetDate} to build confidence.",
+      "help": "prepare for real applications."
     }
   ],
   "Transferable Skills": [
     {
-      "title": "Skills audit",
-      "action": "{forename} will complete a transferable skills audit with advisor support by {targetDate} to identify strengths from previous experience.",
+      "title": "List your transferable skills",
+      "action": "{forename} will write down skills from previous experience (paid work, volunteering, home, hobbies) that could apply to other jobs, with advisor support, by {targetDate}.",
       "help": "Many skills transfer across different sectors."
     },
     {
       "title": "Identify target sectors",
-      "action": "{forename} has agreed to research potential sectors where current skills could be applied by {targetDate}.",
-      "help": "Focus on industries with skills shortages."
+      "action": "{forename} will research two sectors where their current skills are in demand (e.g., hospitality, retail, care, logistics) by {targetDate}.",
+      "help": "focus job search on realistic opportunities."
     },
     {
       "title": "Update CV with skills",
-      "action": "{forename} will update CV to highlight transferable skills relevant to target roles by {targetDate}.",
-      "help": "Use action words and specific examples."
+      "action": "{forename} will update their CV to clearly list transferable skills with examples of where they used them by {targetDate}.",
+      "help": "show employers what you can offer."
     }
   ],
   "Learning Capability": [
     {
-      "title": "Learning style assessment",
-      "action": "{forename} has agreed to complete a learning styles assessment by {targetDate} to understand preferred learning methods.",
-      "help": "Helps identify most effective training approaches."
+      "title": "Discuss learning preferences",
+      "action": "{forename} will discuss how they learn best (e.g., watching, doing, reading, listening) with their advisor by {targetDate} so training can be matched to their style.",
+      "help": "find the most effective way for you to learn."
     },
     {
-      "title": "Arrange learning support",
-      "action": "{forename} will meet with the learning provider by {targetDate} to discuss any learning support needs or reasonable adjustments.",
-      "help": "Support may include extra time, different formats, or assistive technology."
+      "title": "Request learning support",
+      "action": "{forename} will ask any training provider about available support (e.g., extra time, one-to-one help, different formats) before starting a course by {targetDate}.",
+      "help": "ensure support is in place from the start."
     },
     {
-      "title": "Set learning goals",
-      "action": "{forename} has agreed to identify specific learning goals related to employment by {targetDate} with advisor support.",
-      "help": "Clear goals help track progress and motivation."
+      "title": "Set small learning goals",
+      "action": "{forename} will set one small learning goal related to their job search (e.g., learn to use one new website, practise one skill) and complete it by {targetDate}.",
+      "help": "build confidence through achievable progress."
     }
   ],
   "Previous Work History": [
     {
-      "title": "Employment history review",
-      "action": "{forename} will complete an employment history timeline with advisor support by {targetDate} to identify gaps and talking points.",
-      "help": "Preparing explanations for gaps builds confidence."
+      "title": "Complete employment timeline",
+      "action": "{forename} will write out their employment history (dates, job titles, main duties) with advisor support by {targetDate}, noting any gaps that may need explaining.",
+      "help": "prepare for applications and interviews."
     },
     {
-      "title": "Reference identification",
-      "action": "{forename} has agreed to identify potential references from previous roles or volunteering by {targetDate}.",
-      "help": "References can include volunteer supervisors, tutors, or community leaders."
+      "title": "Identify references",
+      "action": "{forename} will identify two people who could provide a reference (e.g., previous manager, volunteer supervisor, tutor, community leader) and check they're willing by {targetDate}.",
+      "help": "have references ready when employers ask."
     },
     {
-      "title": "Volunteering to build recent history",
-      "action": "{forename} will apply to volunteer with organisations by {targetDate} to build recent work experience.",
-      "help": "Short-term volunteering can provide recent references."
+      "title": "Prepare gap explanations",
+      "action": "{forename} will prepare brief, honest explanations for any gaps in work history (e.g., caring, health, study) with advisor support by {targetDate}.",
+      "help": "answer questions about gaps confidently."
     }
   ],
   "Social & Support Networks": [
     {
-      "title": "Identify support contacts",
-      "action": "{forename} will identify supportive people in their network who can help with job search by {targetDate}.",
-      "help": "Support network might include family, friends, community groups."
+      "title": "Identify your supporters",
+      "action": "{forename} will write down names of people who could support their job search (family, friends, former colleagues) and what each might help with by {targetDate}.",
+      "help": "use your existing network for support."
     },
     {
-      "title": "Join community group",
-      "action": "{forename} has agreed to research and attend local community groups or job clubs by {targetDate}.",
-      "help": "Groups provide peer support and networking opportunities."
+      "title": "Find a local job club",
+      "action": "{forename} will search for local job clubs or employment support groups (check library noticeboards, council websites, or Facebook groups) and attend one by {targetDate}.",
+      "help": "get peer support and practical help."
     },
     {
-      "title": "Mentoring referral",
-      "action": "{forename} will be referred to a mentoring service by {targetDate} for additional one-to-one support during job search.",
-      "help": "Mentors can provide guidance and encouragement."
+      "title": "Tell someone about your job search",
+      "action": "{forename} will tell at least one trusted person about the kind of work they're looking for by {targetDate} - many jobs come through word of mouth.",
+      "help": "people can't help if they don't know you're looking."
     }
   ],
   "English Language (ESOL)": [
     {
-      "title": "ESOL assessment",
-      "action": "{forename} will attend an ESOL assessment at the local provider by {targetDate} to determine current level and support needs.",
-      "help": "Assessment helps identify appropriate class level."
+      "title": "Find ESOL classes",
+      "action": "{forename} will search for free ESOL classes in their area (try local colleges, community centres, or search 'free ESOL classes near me') and find out about enrolment by {targetDate}.",
+      "help": "many ESOL classes are free and focus on everyday and work English."
     },
     {
-      "title": "Enrol in ESOL course",
-      "action": "{forename} has agreed to enrol in an ESOL course at the local provider by {targetDate} to improve workplace English.",
-      "help": "Many ESOL courses focus on employment-related vocabulary."
+      "title": "Practise English daily",
+      "action": "{forename} will practise English for 15 minutes daily using a free app (e.g., Duolingo, BBC Learning English at bbc.co.uk/learningenglish) by {targetDate}.",
+      "help": "build skills through regular practice."
     },
     {
-      "title": "Practice speaking English",
-      "action": "{forename} will attend English conversation practice sessions by {targetDate} to build speaking confidence.",
-      "help": "Speaking practice helps prepare for interviews."
+      "title": "Practise speaking English",
+      "action": "{forename} will find opportunities to practise speaking English (e.g., conversation groups, speaking with advisor, everyday situations) at least twice before {targetDate}.",
+      "help": "build confidence for interviews and work."
     }
   ],
   "Autism": [
     {
-      "title": "Discuss workplace adjustments",
-      "action": "{forename} will identify reasonable workplace adjustments they may need (e.g., quiet space, clear instructions, routine) and discuss them with their advisor by {targetDate}.",
-      "help": "understand what adjustments will help in employment."
+      "title": "Identify helpful adjustments",
+      "action": "{forename} will think about what helps them work well (e.g., quiet environment, clear written instructions, routine, advance notice of changes) and write these down with advisor support by {targetDate}.",
+      "help": "prepare to discuss reasonable adjustments with employers."
     },
     {
-      "title": "Create communication profile",
-      "action": "{forename} will create a simple communication profile explaining their preferences and any adjustments needed, with advisor support, by {targetDate}.",
-      "help": "communicate needs clearly to future employers."
+      "title": "Create a one-page profile",
+      "action": "{forename} will create a simple one-page profile about how they work best and any support they find helpful, to share with employers if they choose, by {targetDate}.",
+      "help": "communicate your needs clearly when you're ready."
     },
     {
-      "title": "Access specialist support",
-      "action": "{forename} will be referred to a specialist autism employment service for tailored support by {targetDate}.",
-      "help": "access specialist guidance for employment."
+      "title": "Research autism employment support",
+      "action": "{forename} will research autism employment support in their area (try searching 'autism employment support' + your area, or ask about Access to Work) by {targetDate}.",
+      "help": "access specialist support if it would help."
     },
     {
-      "title": "Practise interview scenarios",
-      "action": "{forename} will practise interview scenarios with advisor support, focusing on structured responses and managing sensory needs, by {targetDate}.",
-      "help": "build confidence for interviews."
+      "title": "Prepare for interviews differently",
+      "action": "{forename} will discuss with their advisor how to prepare for interviews in a way that works for them (e.g., written questions in advance, practising set answers, managing sensory needs) by {targetDate}.",
+      "help": "approach interviews in a way that suits you."
     }
   ],
   "Learning Difficulties": [
     {
-      "title": "Arrange learning support assessment",
-      "action": "{forename} will attend a learning support assessment by {targetDate} to identify any reasonable adjustments needed for training or employment.",
-      "help": "understand specific support needs."
+      "title": "Discuss support needs",
+      "action": "{forename} will discuss what support helps them learn and work effectively (e.g., clear simple instructions, more time, practical demonstrations) with their advisor by {targetDate}.",
+      "help": "ensure the right support is in place."
     },
     {
-      "title": "Explore supported employment",
-      "action": "{forename} will be referred to a supported employment service by {targetDate} for tailored job search support.",
-      "help": "access specialist employment support."
+      "title": "Research supported employment",
+      "action": "{forename} will research supported employment services in their area (search 'supported employment' + your area, or ask at the Job Centre) by {targetDate}.",
+      "help": "access tailored job search support if helpful."
     },
     {
-      "title": "Break down tasks",
-      "action": "{forename} and advisor will break down job search tasks into smaller steps with visual checklists by {targetDate}.",
-      "help": "make progress manageable and clear."
+      "title": "Break down job search tasks",
+      "action": "{forename} and advisor will create a simple step-by-step checklist for the next job search task, breaking it into small manageable steps, by {targetDate}.",
+      "help": "make progress feel manageable and clear."
     },
     {
-      "title": "Identify job match",
-      "action": "{forename} will discuss strengths and interests with advisor to identify suitable job roles by {targetDate}.",
-      "help": "focus job search on appropriate roles."
+      "title": "Identify good job matches",
+      "action": "{forename} will discuss their interests and strengths with their advisor to identify job types that would suit them by {targetDate}.",
+      "help": "focus on jobs where you'll thrive."
     }
   ],
   "ADHD": [
     {
-      "title": "Create structured routine",
-      "action": "{forename} will create a structured daily routine for job search activities with advisor support by {targetDate}.",
-      "help": "build consistent job search habits."
+      "title": "Create a simple routine",
+      "action": "{forename} will create a simple daily or weekly routine for job search activities (writing it down or using a planner) with advisor support by {targetDate}.",
+      "help": "build structure that supports focus."
     },
     {
-      "title": "Use reminder systems",
-      "action": "{forename} will set up phone reminders or calendar alerts for appointments and deadlines by {targetDate}.",
+      "title": "Set up reminders",
+      "action": "{forename} will set up phone alarms, calendar reminders, or sticky notes for important appointments and deadlines by {targetDate}.",
       "help": "stay on track with commitments."
     },
     {
-      "title": "Break tasks into chunks",
-      "action": "{forename} will break job applications into 15-minute focused sessions with breaks, completing {n} applications by {targetDate}.",
-      "help": "make tasks more manageable."
+      "title": "Use short focused sessions",
+      "action": "{forename} will try working on job applications in 15-20 minute focused sessions with short breaks, completing {n} applications by {targetDate}.",
+      "help": "make tasks feel more manageable."
     },
     {
-      "title": "Discuss workplace strategies",
-      "action": "{forename} will identify workplace strategies that help with focus and organisation by {targetDate}.",
-      "help": "prepare for success in employment."
+      "title": "Identify what helps you focus",
+      "action": "{forename} will think about what helps them focus and stay organised (e.g., quiet space, music, lists, body doubling) and try using one strategy this week by {targetDate}.",
+      "help": "find strategies that work for you."
     }
   ],
   "Health Condition": [
     {
       "title": "Discuss work limitations",
-      "action": "{forename} will discuss any work limitations or adjustments needed due to health condition with advisor by {targetDate}.",
-      "help": "identify suitable roles and adjustments."
+      "action": "{forename} will discuss with their advisor any limitations or adjustments they may need in work due to their health condition by {targetDate}.",
+      "help": "identify suitable roles and plan for reasonable adjustments."
     },
     {
-      "title": "Access to Work application",
-      "action": "{forename} will explore Access to Work support and begin an application if eligible by {targetDate}.",
-      "help": "access funding for workplace adjustments."
+      "title": "Research Access to Work",
+      "action": "{forename} will research Access to Work (gov.uk/access-to-work) to understand what support may be available and whether to apply, by {targetDate}.",
+      "help": "Access to Work can fund adjustments and support in employment."
     },
     {
-      "title": "Flexible working research",
-      "action": "{forename} will research roles offering flexible working arrangements that accommodate health needs by {targetDate}.",
+      "title": "Search for flexible roles",
+      "action": "{forename} will search for jobs that offer flexibility (part-time, remote working, flexible hours) that would accommodate their health needs by {targetDate}.",
       "help": "find sustainable employment options."
     },
     {
-      "title": "Fit note discussion",
-      "action": "{forename} will discuss fit note recommendations with GP and share relevant information with advisor by {targetDate}.",
-      "help": "ensure appropriate support is in place."
+      "title": "Review fit note if applicable",
+      "action": "{forename} will discuss any current or recent fit note with their advisor by {targetDate} to ensure the job search takes health advice into account.",
+      "help": "job search is aligned with medical guidance."
     }
   ],
   "Disability": [
     {
-      "title": "Discuss reasonable adjustments",
-      "action": "{forename} will identify reasonable adjustments needed for work and discuss how to communicate these to employers by {targetDate}.",
-      "help": "prepare for disclosure conversations."
+      "title": "Identify reasonable adjustments",
+      "action": "{forename} will think about what adjustments they may need in work (e.g., equipment, flexible hours, accessibility) and discuss them with their advisor by {targetDate}.",
+      "help": "prepare to request reasonable adjustments."
     },
     {
-      "title": "Access to Work referral",
-      "action": "{forename} will be supported to apply for Access to Work funding by {targetDate}.",
-      "help": "access support and equipment for employment."
+      "title": "Apply for Access to Work",
+      "action": "{forename} will start an Access to Work application at gov.uk/access-to-work with advisor support if eligible by {targetDate}.",
+      "help": "Access to Work can fund equipment, support, and travel costs."
     },
     {
-      "title": "Disability Confident employers",
-      "action": "{forename} will identify and target Disability Confident employers in their local area by {targetDate}.",
-      "help": "focus on inclusive employers."
+      "title": "Find Disability Confident employers",
+      "action": "{forename} will search for Disability Confident employers (look for the logo on job adverts, or search 'Disability Confident employers' + your area) by {targetDate}.",
+      "help": "focus on employers committed to inclusive hiring."
     },
     {
-      "title": "Support worker discussion",
-      "action": "{forename} will discuss whether a job coach or support worker would help in employment by {targetDate}.",
-      "help": "explore available support options."
+      "title": "Decide about disclosure",
+      "action": "{forename} will discuss with their advisor whether, when, and how to tell employers about their disability, preparing what to say if they choose to, by {targetDate}.",
+      "help": "make informed choices about disclosure."
     }
   ]
 };
 
+// Fallback suggestions when no specific barrier match is found
+// These are intentionally generic but still actionable
 export const FALLBACK_SUGGESTIONS = [
-  {"title": "Book an appointment", "action": "Book an appointment with the relevant service and confirm the date/time by {targetDate}.", "help": "you access the right support quickly."} ,
-  {"title": "Gather key documents", "action": "Gather the key documents needed (ID, letters, evidence) and bring them to our next appointment on {targetDate}.", "help": "us take the next steps without delay."} ,
-  {"title": "Make one call", "action": "Make the agreed phone call to the relevant organisation and note the outcome by {targetDate}.", "help": "move the situation forward."} ,
-  {"title": "Complete an online form", "action": "Complete the required online form and save confirmation/receipt by {targetDate}.", "help": "progress the next stage."} ,
-  {"title": "Create a simple plan", "action": "Write a short step-by-step plan for what you will do next, and share it at our next review by {targetDate}.", "help": "keep actions clear and achievable."}
+  {"title": "Make a phone call", "action": "Make a phone call to [who?] about [what?] and write down what was agreed by {targetDate}.", "help": "move things forward and have a clear record."} ,
+  {"title": "Gather documents", "action": "Gather the documents you need (e.g., ID, letters, proof of address) and bring them to our next appointment on {targetDate}.", "help": "us take the next steps without delay."} ,
+  {"title": "Research online", "action": "Spend 30 minutes researching [topic] online and write down what you found by {targetDate}.", "help": "you make informed decisions."} ,
+  {"title": "Complete a form", "action": "Complete the [form name] form and save a copy or screenshot of the confirmation by {targetDate}.", "help": "progress to the next stage."} ,
+  {"title": "Write a simple plan", "action": "Write down the steps you will take to [goal] and bring your plan to our next meeting by {targetDate}.", "help": "keep actions clear and achievable."},
+  {"title": "Contact Citizens Advice", "action": "Contact Citizens Advice (citizensadvice.org.uk or 0800 144 8848) about [issue] and note their advice by {targetDate}.", "help": "you get expert, free advice on your situation."}
 ];
 
 // Task-based suggestions for scheduling future activities
+// These are practical outcomes that don't assume specific resources or services
 export const TASK_SUGGESTIONS: Record<string, Array<{title: string; outcome: string}>> = {
   "job fair": [
-    {"title": "Job fair attendance", "outcome": "[Name] will speak with employers about available roles, collect contact details, and identify potential opportunities to follow up on."},
-    {"title": "Networking practice", "outcome": "[Name] will practise introducing themselves to employers and talking about their skills and experience."},
-    {"title": "CV handout", "outcome": "[Name] will hand out copies of their CV to employers and ask about current vacancies."}
+    {"title": "Speak with employers", "outcome": "[Name] will speak with at least 3 employers about available roles, ask about their application process, and collect any contact details or cards."},
+    {"title": "Practise introductions", "outcome": "[Name] will practise introducing themselves to employers and talking about their skills and what they're looking for."},
+    {"title": "Give out CVs", "outcome": "[Name] will bring copies of their CV and hand them to employers at relevant stalls, asking about current vacancies."},
+    {"title": "Research opportunities", "outcome": "[Name] will note down at least 5 companies or roles to research further after the event."}
   ],
   "workshop": [
-    {"title": "Skills workshop", "outcome": "[Name] will participate fully in the session and apply what they learn to their job search."},
-    {"title": "Group session", "outcome": "[Name] will take part in group activities and engage with other participants to build confidence."},
-    {"title": "Training session", "outcome": "[Name] will complete the training and receive a certificate to add to their CV."}
+    {"title": "Participate and take notes", "outcome": "[Name] will participate fully in the session, take notes on key points, and identify one thing to apply to their job search."},
+    {"title": "Engage with others", "outcome": "[Name] will take part in group activities and speak with at least one other participant to share experiences."},
+    {"title": "Complete any tasks", "outcome": "[Name] will complete any tasks or activities during the session and ask questions if unsure."}
   ],
   "interview": [
-    {"title": "Mock interview", "outcome": "[Name] will complete a mock interview, practise answering competency questions, and receive feedback on areas to improve."},
-    {"title": "Interview preparation", "outcome": "[Name] will prepare STAR examples for common interview questions and build confidence for upcoming interviews."},
-    {"title": "Interview attendance", "outcome": "[Name] will attend the interview, present themselves professionally, and follow up afterwards regardless of outcome."}
+    {"title": "Complete mock interview", "outcome": "[Name] will complete a mock interview, practise answering questions out loud, and note feedback on areas to improve."},
+    {"title": "Prepare STAR examples", "outcome": "[Name] will prepare answers to common interview questions using the STAR method (Situation, Task, Action, Result)."},
+    {"title": "Attend real interview", "outcome": "[Name] will attend the interview on time, dressed appropriately, and follow up with the employer afterwards regardless of outcome."},
+    {"title": "Research the employer", "outcome": "[Name] will research the employer before the interview and prepare at least two questions to ask them."}
   ],
   "cv": [
-    {"title": "CV review session", "outcome": "[Name] will review and update their CV with support, focusing on key sections to better highlight their skills."},
-    {"title": "CV creation", "outcome": "[Name] will create a tailored CV with support from their advisor."}
+    {"title": "Review and update CV", "outcome": "[Name] will review and update their CV, focusing on making their experience and skills clear to employers."},
+    {"title": "Get CV feedback", "outcome": "[Name] will bring their CV for review and make improvements based on feedback."},
+    {"title": "Tailor CV to role", "outcome": "[Name] will update their CV to match a specific job they're interested in."}
   ],
   "application": [
-    {"title": "Application support", "outcome": "[Name] will complete and submit an application with support."},
-    {"title": "Application practice", "outcome": "[Name] will practise completing application forms and answering competency questions."}
+    {"title": "Complete application", "outcome": "[Name] will complete the application, checking it carefully before submitting."},
+    {"title": "Practise application answers", "outcome": "[Name] will practise answering common application questions and save their answers for future use."},
+    {"title": "Submit by deadline", "outcome": "[Name] will submit the completed application before the closing date, saving a copy for their records."}
+  ],
+  "appointment": [
+    {"title": "Attend appointment", "outcome": "[Name] will attend the appointment on time and note down any next steps or actions agreed."},
+    {"title": "Prepare questions", "outcome": "[Name] will prepare questions or topics to discuss at the appointment in advance."},
+    {"title": "Follow up actions", "outcome": "[Name] will complete any actions agreed at the appointment by the next review date."}
+  ],
+  "training": [
+    {"title": "Complete training", "outcome": "[Name] will attend and complete the training session, asking questions if anything is unclear."},
+    {"title": "Apply learning", "outcome": "[Name] will identify one thing from the training to apply to their job search and try it within a week."},
+    {"title": "Obtain certificate", "outcome": "[Name] will complete the training and obtain any certificate or evidence of completion."}
   ],
   "default": [
-    {"title": "General activity", "outcome": "[Name] will participate fully and identify next steps towards their employment goal."},
-    {"title": "Review meeting", "outcome": "[Name] will review progress towards their employment goals and agree priorities for the coming weeks."},
-    {"title": "Support session", "outcome": "[Name] will receive support and develop a clearer plan for moving forward."}
+    {"title": "Participate fully", "outcome": "[Name] will participate fully in this activity and identify one next step for their job search afterwards."},
+    {"title": "Review progress", "outcome": "[Name] will review progress towards their employment goals and agree clear priorities for the coming weeks."},
+    {"title": "Discuss support needs", "outcome": "[Name] will discuss what support would be most helpful and agree actions for moving forward."},
+    {"title": "Set specific goals", "outcome": "[Name] will set at least one specific, achievable goal to complete before the next meeting."}
   ]
 };
