@@ -387,6 +387,30 @@ const aiHasConsent = useAIConsent();
     }
   }, [storage, translation]);
 
+  // Debounce output for SMART checking to avoid running on every keystroke
+  const debouncedOutput = useDebounce(output, 150);
+  
+  // SMART Check - auto-detect elements with debounced input for performance
+  const smartCheck = useMemo((): SmartCheck => {
+    if (!debouncedOutput.trim()) {
+      return {
+        specific: { met: false, confidence: 'low', reason: 'Generate an action first' },
+        measurable: { met: false, confidence: 'low', reason: 'Add dates or quantities' },
+        achievable: { met: false, confidence: 'low', reason: 'Show agreement' },
+        relevant: { met: false, confidence: 'low', reason: 'Link to barrier' },
+        timeBound: { met: false, confidence: 'low', reason: 'Add review date' },
+        overallScore: 0,
+        warnings: [],
+      };
+    }
+    
+    const meta = mode === 'now' 
+      ? { forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, date: nowForm.date }
+      : { forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, date: futureForm.date };
+    
+    return checkSmart(debouncedOutput, meta);
+  }, [debouncedOutput, mode, nowForm.forename, nowForm.barrier, nowForm.timescale, nowForm.date, futureForm.forename, futureForm.task, futureForm.timescale, futureForm.date]);
+
   const handleSave = useCallback(() => {
     if (!output.trim()) {
       toast({ title: 'Nothing to save', description: 'Generate an action first.', variant: 'destructive' });
@@ -540,30 +564,6 @@ const aiHasConsent = useAIConsent();
       h.meta.barrier?.toLowerCase().includes(q)
     );
   }, [storage.history, historySearch]);
-
-  // Debounce output for SMART checking to avoid running on every keystroke
-  const debouncedOutput = useDebounce(output, 150);
-  
-  // SMART Check - auto-detect elements with debounced input for performance
-  const smartCheck = useMemo((): SmartCheck => {
-    if (!debouncedOutput.trim()) {
-      return {
-        specific: { met: false, confidence: 'low', reason: 'Generate an action first' },
-        measurable: { met: false, confidence: 'low', reason: 'Add dates or quantities' },
-        achievable: { met: false, confidence: 'low', reason: 'Show agreement' },
-        relevant: { met: false, confidence: 'low', reason: 'Link to barrier' },
-        timeBound: { met: false, confidence: 'low', reason: 'Add review date' },
-        overallScore: 0,
-        warnings: [],
-      };
-    }
-    
-    const meta = mode === 'now' 
-      ? { forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, date: nowForm.date }
-      : { forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, date: futureForm.date };
-    
-    return checkSmart(debouncedOutput, meta);
-  }, [debouncedOutput, mode, nowForm.forename, nowForm.barrier, nowForm.timescale, nowForm.date, futureForm.forename, futureForm.task, futureForm.timescale, futureForm.date]);
 
   // Handle template insertion
   const handleInsertTemplate = useCallback((template: ActionTemplate) => {
