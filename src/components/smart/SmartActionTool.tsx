@@ -907,7 +907,7 @@ When given context about a participant, provide suggestions to improve their SMA
                   className="overflow-hidden min-w-0"
                 >
                   <h1 className={cn(
-                    "font-extrabold tracking-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent truncate",
+                    "font-extrabold tracking-tight bg-gradient-to-r from-primary via-amber-500 to-orange-400 dark:from-primary dark:via-amber-400 dark:to-orange-300 bg-clip-text text-transparent truncate",
                     isLandscape ? "text-base" : "text-sm sm:text-xl"
                   )}>
                     <span className="hidden xs:inline">SMART Action Support Tool</span>
