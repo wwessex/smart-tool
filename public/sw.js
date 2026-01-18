@@ -1,14 +1,17 @@
 // BUG FIX #5: Dynamic cache versioning to prevent stale JS in static builds
 // Increment this version when deploying new builds
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = `smart-tool-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
 
-// Assets to cache immediately on install (only static assets, not JS bundles)
+// Assets to cache immediately on install (only truly static assets, NOT JS bundles)
 const PRECACHE_ASSETS = [
   '/offline.html',
   '/manifest.json',
-  '/favicon.ico'
+  '/favicon.ico',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/apple-touch-icon.png'
 ];
 
 // Install event - cache core assets
@@ -19,10 +22,11 @@ self.addEventListener('install', (event) => {
       return cache.addAll(PRECACHE_ASSETS);
     })
   );
+  // Force immediate activation
   self.skipWaiting();
 });
 
-// Activate event - clean up old caches
+// Activate event - clean up old caches immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -36,10 +40,11 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
+  // Take control of all clients immediately
   self.clients.claim();
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - NETWORK FIRST for HTML and JS, cache fallback for assets
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
@@ -47,11 +52,46 @@ self.addEventListener('fetch', (event) => {
   // Skip chrome-extension and other non-http requests
   if (!event.request.url.startsWith('http')) return;
 
+  const url = new URL(event.request.url);
+  const isNavigationRequest = event.request.mode === 'navigate';
+  const isJSFile = url.pathname.endsWith('.js');
+  const isHTMLFile = url.pathname.endsWith('.html') || url.pathname === '/' || !url.pathname.includes('.');
+  
+  // CRITICAL: For HTML and JS files, ALWAYS use network-first
+  // This prevents stale JavaScript from being served after deployments
+  if (isNavigationRequest || isJSFile || isHTMLFile) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          // Only cache successful responses
+          if (response && response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          // Fallback to cache only if network fails
+          return caches.match(event.request).then((cachedResponse) => {
+            if (cachedResponse) return cachedResponse;
+            // Return offline page for navigation requests
+            if (isNavigationRequest) {
+              return caches.match(OFFLINE_URL);
+            }
+            return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+          });
+        })
+    );
+    return;
+  }
+
+  // For static assets (images, fonts, css), use cache-first strategy
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      // Return cached response if available
       if (cachedResponse) {
-        // Fetch updated version in background
+        // Update cache in background
         event.waitUntil(
           fetch(event.request).then((response) => {
             if (response && response.status === 200) {
@@ -64,10 +104,9 @@ self.addEventListener('fetch', (event) => {
         return cachedResponse;
       }
 
-      // Try network first
+      // Fetch from network and cache
       return fetch(event.request)
         .then((response) => {
-          // Cache successful responses
           if (response && response.status === 200) {
             const responseClone = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
@@ -77,10 +116,6 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() => {
-          // Return offline page for navigation requests
-          if (event.request.mode === 'navigate') {
-            return caches.match(OFFLINE_URL);
-          }
           return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
         });
     })
