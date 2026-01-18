@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect, memo, lazy, Suspense, useRef } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { motion, AnimatePresence } from 'framer-motion';
 import { z } from 'zod';
@@ -26,29 +26,12 @@ import { LLMChatButton } from './LLMChat';
 import { ActionWizard } from './ActionWizard';
 import { AIImproveDialog } from './AIImproveDialog';
 import { ShortcutsHelp } from './ShortcutsHelp';
-import { OnboardingTutorial, useOnboarding } from './OnboardingTutorial';
-
-// Lazy load HistoryInsights as it uses recharts which is a heavy dependency
-const HistoryInsights = lazy(() => import('./HistoryInsights').then(module => ({ default: module.HistoryInsights })));
-
-// Skeleton loader for lazy-loaded components
-const InsightsSkeleton = () => (
-  <div className="space-y-4 animate-pulse">
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      {[1, 2, 3, 4].map(i => (
-        <div key={i} className="h-20 rounded-xl bg-muted" />
-      ))}
-    </div>
-    <div className="h-48 rounded-xl bg-muted" />
-  </div>
-);
+import { OnboardingTutorial } from './OnboardingTutorial';
 import { FloatingToolbar } from './FloatingToolbar';
 import { Footer } from './Footer';
-import { ManageConsentDialog, getStoredConsent } from './CookieConsent';
-import { LanguageSelector } from './LanguageSelector';
-import { WarningBox, WarningText, InputGlow } from './WarningBox';
+import { ManageConsentDialog } from './CookieConsent';
+import { WarningBox } from './WarningBox';
 import { useKeyboardShortcuts, groupShortcuts, createShortcutMap, ShortcutConfig } from '@/hooks/useKeyboardShortcuts';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FIX_CRITERION_PROMPT, CRITERION_GUIDANCE } from '@/lib/smart-prompts';
 import { SMART_TOOL_SHORTCUTS } from '@/lib/smart-tool-shortcuts';
 
@@ -56,13 +39,15 @@ import { safeRemoveItem } from '@/lib/storage-utils';
 import { SmartHeader } from './SmartHeader';
 import { NowForm } from './NowForm';
 import { FutureForm } from './FutureForm';
+import { OutputPanel } from './OutputPanel';
+import { HistoryPanel } from './HistoryPanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Copy, Download, Trash2, History, Edit, Sparkles, Bot, AlertTriangle, Wand2, BarChart3, Languages, Loader2, RefreshCw } from 'lucide-react';
+import { Sparkles, AlertTriangle, Wand2, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ComboboxInput } from './ComboboxInput';
 
@@ -113,14 +98,12 @@ const aiHasConsent = useAIConsent();
   const [translatedOutput, setTranslatedOutput] = useState<string | null>(null);
   const [showValidation, setShowValidation] = useState(false);
   const [suggestQuery, setSuggestQuery] = useState('');
-  const [historySearch, setHistorySearch] = useState('');
   const [copied, setCopied] = useState(false);
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
   const [wizardMode, setWizardMode] = useState(false);
   const [improveDialogOpen, setImproveDialogOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
-  const [historyTab, setHistoryTab] = useState<'history' | 'insights'>('history');
   const [privacySettingsOpen, setPrivacySettingsOpen] = useState(false);
   const [fixingCriterion, setFixingCriterion] = useState<string | null>(null);
   const [lastFixAttempt, setLastFixAttempt] = useState<{
@@ -483,16 +466,6 @@ const aiHasConsent = useAIConsent();
       toast({ title: 'Inserted', description: 'Suggestion added.' });
     }
   };
-
-  const filteredHistory = useMemo(() => {
-    const q = historySearch.toLowerCase();
-    if (!q) return storage.history;
-    return storage.history.filter(h =>
-      h.text.toLowerCase().includes(q) ||
-      h.meta.forename?.toLowerCase().includes(q) ||
-      h.meta.barrier?.toLowerCase().includes(q)
-    );
-  }, [storage.history, historySearch]);
 
   // Debounce output for SMART checking to avoid running on every keystroke
   const debouncedOutput = useDebounce(output, 150);
@@ -1038,235 +1011,36 @@ When given context about a participant, provide suggestions to improve their SMA
             variants={slideInRight}
             transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
           >
-            <div className="flex items-end justify-between gap-4 flex-wrap">
-              <div>
-                <h2 className="font-bold text-lg">Generated action</h2>
-                <p className="text-xs text-muted-foreground">Proofread before pasting into important documents.</p>
-              </div>
-              <div className="flex gap-2">
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button size="sm" onClick={handleCopy} className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm">
-                    <Copy className="w-4 h-4 mr-1" /> Copy
-                  </Button>
-                </motion.div>
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button size="sm" variant="outline" onClick={handleDownload}>
-                    <Download className="w-4 h-4 mr-1" /> .txt
-                  </Button>
-                </motion.div>
-              </div>
-            </div>
+            <OutputPanel
+              output={output}
+              onOutputChange={(value) => { setOutput(value); setOutputSource('manual'); setTranslatedOutput(null); }}
+              translatedOutput={translatedOutput}
+              copied={copied}
+              onCopy={handleCopy}
+              onDownload={handleDownload}
+              participantLanguage={storage.participantLanguage}
+              onLanguageChange={handleLanguageChange}
+              isTranslating={translation.isTranslating}
+              translationError={translation.error}
+              onTranslate={handleTranslate}
+              smartCheck={smartCheck}
+              onFixCriterion={handleFixCriterion}
+              fixingCriterion={fixingCriterion}
+              aiError={cloudAI.error}
+              onClearAIError={() => cloudAI.clearError()}
+              lastFixAttempt={lastFixAttempt}
+              onRetryFix={handleRetryFix}
+            />
 
-            {/* Language selector and translate button */}
-            <div className="flex items-center gap-3 flex-wrap p-3 rounded-lg bg-muted/30 border border-border/50">
-              <LanguageSelector 
-                value={storage.participantLanguage} 
-                onChange={handleLanguageChange}
-                disabled={translation.isTranslating}
-              />
-              {storage.participantLanguage !== 'none' && output.trim() && (
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={handleTranslate}
-                  disabled={translation.isTranslating}
-                  className="border-primary/30 hover:bg-primary/10"
-                >
-                  {translation.isTranslating ? (
-                    <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Translating...</>
-                  ) : (
-                    <><Languages className="w-4 h-4 mr-1" /> Translate</>
-                  )}
-                </Button>
-              )}
-              {translation.error && (
-                <span className="text-xs text-destructive">{translation.error}</span>
-              )}
-            </div>
-
-            <AnimatePresence mode="wait">
-              <motion.div 
-                key="output-container"
-                initial={{ opacity: 0.5, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.2 }}
-                className="space-y-4"
-              >
-                {/* English output */}
-                <div>
-                  {translatedOutput && <p id="output-label-en" className="text-xs font-medium text-muted-foreground mb-2">🇬🇧 ENGLISH</p>}
-                  <Textarea
-                    id="action-output"
-                    value={output}
-                    onChange={e => { setOutput(e.target.value); setOutputSource('manual'); setTranslatedOutput(null); }}
-                    placeholder="Generated action will appear here… You can also edit the text directly."
-                    aria-label="Generated SMART action text"
-                    aria-describedby={translatedOutput ? "output-label-en" : undefined}
-                    className={cn(
-                      "min-h-[120px] p-5 rounded-xl border-2 border-dashed border-border bg-muted/30 leading-relaxed resize-y",
-                      copied && "border-accent bg-accent/10 shadow-glow",
-                      !output && "text-muted-foreground"
-                    )}
-                  />
-                </div>
-                
-                {/* Translated output */}
-                {translatedOutput && storage.participantLanguage !== 'none' && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    <p className="text-xs font-medium text-muted-foreground mb-2">
-                      {SUPPORTED_LANGUAGES[storage.participantLanguage]?.flag} {SUPPORTED_LANGUAGES[storage.participantLanguage]?.nativeName?.toUpperCase()}
-                    </p>
-                    <div className="p-5 rounded-xl border-2 border-primary/30 bg-primary/5 leading-relaxed whitespace-pre-wrap text-sm">
-                      {translatedOutput}
-                    </div>
-                  </motion.div>
-                )}
-              </motion.div>
-            </AnimatePresence>
-
-            {cloudAI.error && (
-              <WarningBox variant="error" title="AI request failed">
-                <div className="space-y-2">
-                  <p>{cloudAI.error}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {lastFixAttempt && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleRetryFix}
-                        disabled={!!fixingCriterion}
-                        className="bg-background text-foreground"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                        Retry AI fix
-                      </Button>
-                    )}
-                    <Button size="sm" variant="ghost" onClick={() => cloudAI.clearError()} className="text-foreground">
-                      Dismiss
-                    </Button>
-                  </div>
-                </div>
-              </WarningBox>
-            )}
-
-            {/* SMART Checklist */}
-            <SmartChecklist check={smartCheck} onFixCriterion={handleFixCriterion} fixingCriterion={fixingCriterion} />
-
-            {/* History with Tabs */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-4 flex-wrap">
-                <h2 className="font-bold text-lg">History</h2>
-                <div className="flex gap-2 flex-wrap">
-                  <Button size="sm" variant="outline" onClick={handleExport}>Export</Button>
-                  <label className="cursor-pointer">
-                    <Button size="sm" variant="outline" asChild><span>Import</span></Button>
-                    <input 
-                      type="file" 
-                      accept="application/json" 
-                      className="hidden" 
-                      onChange={handleImport}
-                      aria-label="Import history from JSON file"
-                    />
-                  </label>
-                  <Button 
-                    size="sm" 
-                    variant="destructive" 
-                    onClick={() => {
-                      storage.clearHistory();
-                      toast({ title: 'Cleared', description: 'History cleared.' });
-                    }}
-                    aria-label="Clear all history"
-                  >
-                    <Trash2 className="w-4 h-4" aria-hidden="true" />
-                    <span className="sr-only">Clear history</span>
-                  </Button>
-                </div>
-              </div>
-
-              <Tabs data-tutorial="history" value={historyTab} onValueChange={(v) => setHistoryTab(v as 'history' | 'insights')}>
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="history" className="flex items-center gap-2">
-                    <History className="w-4 h-4" /> History
-                  </TabsTrigger>
-                  <TabsTrigger value="insights" className="flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4" /> Insights
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="history" className="mt-4 space-y-4">
-                  <Input
-                    value={historySearch}
-                    onChange={e => setHistorySearch(e.target.value)}
-                    placeholder="Search history…"
-                    className="text-sm"
-                    aria-label="Search history"
-                    type="search"
-                  />
-
-                  <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
-                    {filteredHistory.length === 0 ? (
-                      <div className="p-6 rounded-xl border-2 border-dashed text-sm text-muted-foreground text-center">
-                        {historySearch ? 'No matching items found.' : 'No saved items yet. Generate and save actions to build your history.'}
-                      </div>
-                    ) : (
-                      <ul role="list" aria-label="Saved actions history">
-                        {filteredHistory.map((h, index) => (
-                          <li 
-                            key={h.id} 
-                            className="p-4 rounded-xl border border-border/50 bg-muted/30 space-y-3 hover:border-primary/30 transition-colors animate-slide-in mb-3 last:mb-0"
-                            style={{ animationDelay: `${index * 0.05}s` }}
-                          >
-                            <div className="flex flex-wrap gap-2 text-xs">
-                              <span className={cn(
-                                "px-2 py-0.5 rounded-full font-medium",
-                                h.mode === 'now' ? "bg-primary/10 text-primary" : "bg-accent/10 text-accent"
-                              )}>
-                                {h.mode === 'now' ? 'Barrier to action' : 'Task-based'}
-                              </span>
-                              <span className="text-muted-foreground">
-                                {new Date(h.createdAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
-                              </span>
-                              {h.meta.forename && (
-                                <span className="text-muted-foreground">• {h.meta.forename}</span>
-                              )}
-                            </div>
-                            <p className="text-sm whitespace-pre-wrap leading-relaxed">{h.text}</p>
-                            <div className="flex gap-2" role="group" aria-label="Action buttons">
-                              <Button size="sm" variant="outline" onClick={() => handleEditHistory(h)} aria-label={`Edit action for ${h.meta.forename || 'participant'}`}>
-                                <Edit className="w-3 h-3 mr-1" aria-hidden="true" /> Edit
-                              </Button>
-                              <Button size="sm" variant="ghost" onClick={() => {
-                                navigator.clipboard.writeText(h.text);
-                                toast({ title: 'Copied!' });
-                              }} aria-label="Copy action text">
-                                <Copy className="w-3 h-3" aria-hidden="true" />
-                                <span className="sr-only">Copy</span>
-                              </Button>
-                              <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => {
-                                storage.deleteFromHistory(h.id);
-                                toast({ title: 'Deleted' });
-                              }} aria-label={`Delete action for ${h.meta.forename || 'participant'}`}>
-                                <Trash2 className="w-3 h-3" aria-hidden="true" />
-                                <span className="sr-only">Delete</span>
-                              </Button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="insights" className="mt-4">
-                  <Suspense fallback={<InsightsSkeleton />}>
-                    <HistoryInsights history={storage.history} />
-                  </Suspense>
-                </TabsContent>
-              </Tabs>
-            </div>
+            <HistoryPanel
+              history={storage.history}
+              onEditHistory={handleEditHistory}
+              onDeleteHistory={storage.deleteFromHistory}
+              onClearHistory={storage.clearHistory}
+              onExport={handleExport}
+              onImport={handleImport}
+              onToast={toast}
+            />
           </motion.div>
         </motion.div>
       </main>
