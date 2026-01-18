@@ -1,23 +1,17 @@
-import { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bot,
   Send,
   Square,
-  Cpu,
-  Cloud,
-  Download,
   Trash2,
   Sparkles,
   User,
   AlertCircle,
-  HardDrive,
-  Chrome,
   Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
@@ -27,17 +21,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-// Note: useWebGPUSupport no longer needed - Transformers.js works with WASM fallback
-import { useTransformersLLM, ChatMessage, RECOMMENDED_MODELS, checkIsMobile } from "@/hooks/useTransformersLLM";
 import { useCloudAI } from "@/hooks/useCloudAI";
 import { useAIConsent } from "@/hooks/useAIConsent";
 import { cn } from "@/lib/utils";
 
-// Check if Safari browser
-const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-// Check if mobile device
-const isMobile = checkIsMobile();
+interface ChatMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
 
 interface LLMChatProps {
   trigger?: React.ReactNode;
@@ -46,8 +37,6 @@ interface LLMChatProps {
   onResponse?: (response: string) => void;
 }
 
-type AIMode = "cloud" | "local";
-
 export function LLMChat({
   trigger,
   systemPrompt = "You are a helpful AI assistant. Be concise and helpful.",
@@ -55,8 +44,6 @@ export function LLMChat({
   onResponse,
 }: LLMChatProps) {
   const [open, setOpen] = useState(false);
-  // Local AI not supported on mobile due to memory constraints
-  const localAISupported = !isMobile;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -79,7 +66,6 @@ export function LLMChat({
           systemPrompt={systemPrompt}
           initialContext={initialContext}
           onResponse={onResponse}
-          localAISupported={localAISupported}
         />
       </DialogContent>
     </Dialog>
@@ -90,20 +76,13 @@ interface AIChatContentProps {
   systemPrompt: string;
   initialContext?: string;
   onResponse?: (response: string) => void;
-  localAISupported: boolean;
 }
 
 function AIChatContent({
   systemPrompt,
   initialContext,
   onResponse,
-  localAISupported,
 }: AIChatContentProps) {
-  // Default to cloud - it's faster and more reliable for most users
-  // Local AI is available as an option when webGPU is supported
-  const [mode, setMode] = useState<AIMode>("cloud");
-  
-  const localAI = useTransformersLLM();
   const cloudAI = useCloudAI();
   const cloudHasConsent = useAIConsent();
 
@@ -114,22 +93,15 @@ function AIChatContent({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const isGenerating = mode === "local" ? localAI.isGenerating : cloudAI.isGenerating;
-  const isReady = mode === "local" ? localAI.isReady : (cloudHasConsent ? true : false); // Cloud requires consent
-  const error = mode === "local" ? localAI.error : cloudAI.error;
-  const isLoading = mode === "local" ? localAI.isLoading : false;
-  const loadingProgress = localAI.loadingProgress;
-  const loadingStatus = localAI.loadingStatus;
+  const isGenerating = cloudAI.isGenerating;
+  const isReady = cloudHasConsent;
+  const error = cloudAI.error;
   const lastMessage = messages[messages.length - 1];
   const canRetry = !isGenerating && lastMessage?.role === "user";
 
   const clearActiveError = useCallback(() => {
-    if (mode === "local") {
-      localAI.clearError();
-    } else {
-      cloudAI.clearError();
-    }
-  }, [mode, localAI, cloudAI]);
+    cloudAI.clearError();
+  }, [cloudAI]);
 
   const retryLastMessage = useCallback(async () => {
     const currentLast = messages[messages.length - 1];
@@ -140,9 +112,7 @@ function AIChatContent({
     let fullResponse = "";
 
     try {
-      const chatFn = mode === "local" ? localAI.chat : cloudAI.chat;
-
-      for await (const chunk of chatFn(messages, systemPrompt)) {
+      for await (const chunk of cloudAI.chat(messages, systemPrompt)) {
         fullResponse += chunk;
         setStreamingContent(fullResponse);
       }
@@ -157,7 +127,7 @@ function AIChatContent({
     } catch (err) {
       console.error("Chat retry error:", err);
     }
-  }, [isGenerating, messages, mode, localAI, cloudAI, systemPrompt, onResponse, clearActiveError]);
+  }, [isGenerating, messages, cloudAI, systemPrompt, onResponse, clearActiveError]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -175,8 +145,7 @@ function AIChatContent({
 
   const handleSend = useCallback(async () => {
     if (!input.trim() || isGenerating) return;
-    if (mode === "local" && !localAI.isReady) return;
-    if (mode === "cloud" && !cloudHasConsent) return;
+    if (!cloudHasConsent) return;
 
     const userMessage: ChatMessage = { role: "user", content: input.trim() };
     const newMessages = [...messages, userMessage];
@@ -187,9 +156,7 @@ function AIChatContent({
     let fullResponse = "";
 
     try {
-      const chatFn = mode === "local" ? localAI.chat : cloudAI.chat;
-      
-      for await (const chunk of chatFn(newMessages, systemPrompt)) {
+      for await (const chunk of cloudAI.chat(newMessages, systemPrompt)) {
         fullResponse += chunk;
         setStreamingContent(fullResponse);
       }
@@ -204,7 +171,7 @@ function AIChatContent({
     } catch (err) {
       console.error("Chat error:", err);
     }
-  }, [input, isGenerating, mode, localAI, cloudAI, messages, systemPrompt, onResponse, cloudHasConsent]);
+  }, [input, isGenerating, cloudAI, messages, systemPrompt, onResponse, cloudHasConsent]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -219,194 +186,17 @@ function AIChatContent({
   };
 
   const handleAbort = () => {
-    if (mode === "local") {
-      localAI.abort();
-    } else {
-      cloudAI.abort();
-    }
+    cloudAI.abort();
   };
-
-  // Show model selection for local mode (desktop only)
-  if (mode === "local" && !localAI.isReady && !localAI.isLoading) {
-    return (
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <ModeTabs mode={mode} setMode={setMode} localAISupported={localAISupported} />
-        <div className="flex-1 p-6 space-y-4 overflow-y-auto">
-          {/* Mobile warning - local AI not available */}
-          {isMobile && (
-            <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
-              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              <AlertTitle className="text-amber-800 dark:text-amber-300">Not Available on Mobile</AlertTitle>
-              <AlertDescription className="text-amber-700 dark:text-amber-400">
-                <p className="text-xs">
-                  Local AI requires more memory than mobile browsers can provide. 
-                  Use Cloud AI instead, or access Local AI from a desktop browser.
-                </p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => setMode("cloud")}
-                  className="mt-2 h-7 text-xs"
-                >
-                  <Cloud className="h-3 w-3 mr-1" />
-                  Switch to Cloud AI
-                </Button>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Safari info - Transformers.js uses WASM fallback */}
-          {!isMobile && isSafari && (
-            <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800">
-              <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-              <AlertTitle className="text-blue-800 dark:text-blue-300">Safari Mode</AlertTitle>
-              <AlertDescription className="text-blue-700 dark:text-blue-400">
-                <p className="text-xs">
-                  Local AI will use WASM (compatible mode). This works on all browsers but may be slower than WebGPU.
-                </p>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {!isMobile && (
-            <>
-              <div className="text-center space-y-2">
-                <HardDrive className="h-12 w-12 mx-auto text-muted-foreground" />
-                <h3 className="font-semibold">Select an AI Model</h3>
-                <p className="text-sm text-muted-foreground">
-                  Models run entirely in your browser. Downloaded once, cached locally.
-                </p>
-              </div>
-
-              {localAI.error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{localAI.error}</AlertDescription>
-                </Alert>
-              )}
-
-              <div className="grid gap-2">
-                {localAI.supportedModels.map((model) => (
-                  <button
-                    key={model.id}
-                    onClick={() => localAI.loadModel(model.id)}
-                    className="flex items-center gap-3 p-4 rounded-lg border bg-card hover:bg-accent transition-colors text-left"
-                  >
-                    <Download className="h-5 w-5 text-muted-foreground shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium">{model.name}</div>
-                      <div className="text-sm text-muted-foreground truncate">
-                        {model.description}
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="shrink-0">
-                      {model.size}
-                    </Badge>
-                  </button>
-                ))}
-              </div>
-
-              <p className="text-xs text-center text-muted-foreground">
-                First download may take a few minutes depending on your connection.
-                <br />
-                <span className="text-amber-600 dark:text-amber-400">Note: Only available on desktop browsers.</span>
-              </p>
-            </>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Loading view for local mode
-  if (mode === "local" && isLoading) {
-    const isInitializing = loadingProgress === 0;
-    const selectedModelInfo = RECOMMENDED_MODELS.find(m => m.id === localAI.selectedModel);
-    
-    return (
-      <div className="flex-1 flex flex-col">
-        <ModeTabs mode={mode} setMode={setMode} localAISupported={localAISupported} />
-        <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-4">
-          <div className="relative">
-            <Cpu className="h-16 w-16 text-primary animate-pulse" />
-            <Sparkles className="h-6 w-6 text-primary absolute -top-1 -right-1 animate-bounce" />
-          </div>
-          
-          {/* Large percentage display */}
-          <div className="text-center">
-            <div className="text-4xl font-bold text-primary tabular-nums">
-              {isInitializing ? "—" : `${loadingProgress}%`}
-            </div>
-            {selectedModelInfo && (
-              <p className="text-sm text-muted-foreground mt-1">
-                {selectedModelInfo.name} ({selectedModelInfo.size})
-              </p>
-            )}
-          </div>
-          
-          <div className="w-full max-w-sm space-y-2">
-            {/* Progress bar */}
-            {isInitializing ? (
-              <div className="h-3 w-full bg-secondary rounded-full overflow-hidden">
-                <div 
-                  className="h-full w-1/3 bg-primary rounded-full"
-                  style={{
-                    animation: "shimmer 1.5s ease-in-out infinite",
-                  }}
-                />
-                <style>{`
-                  @keyframes shimmer {
-                    0% { transform: translateX(-100%); }
-                    100% { transform: translateX(400%); }
-                  }
-                `}</style>
-              </div>
-            ) : (
-              <Progress value={loadingProgress} className="h-3" />
-            )}
-            <p className="text-sm text-center font-medium">
-              {loadingStatus || "Starting AI engine..."}
-            </p>
-          </div>
-
-          <p className="text-xs text-center text-muted-foreground max-w-xs">
-            {isInitializing 
-              ? "Connecting to CDN and initializing WebGPU..."
-              : loadingProgress < 100
-                ? "Downloading model files. They'll be cached for instant loading next time."
-                : "Finalizing setup..."}
-          </p>
-          
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => setMode("cloud")}
-            className="mt-2"
-          >
-            <Cloud className="h-4 w-4 mr-2" />
-            Switch to Cloud AI (instant)
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   // Chat view
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <ModeTabs mode={mode} setMode={setMode} localAISupported={localAISupported} />
-      
       {/* Status bar */}
       <div className="px-4 py-2 border-b bg-muted/30 flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm">
           <div className="h-2 w-2 rounded-full bg-green-500" />
-          <span className="text-muted-foreground">
-            {mode === "cloud" ? (
-              "Cloud AI (Gemini)"
-            ) : (
-              RECOMMENDED_MODELS.find((m) => m.id === localAI.selectedModel)?.name || "Local Model"
-            )}
-          </span>
+          <span className="text-muted-foreground">Cloud AI (Gemini)</span>
         </div>
         <Button
           variant="ghost"
@@ -421,27 +211,13 @@ function AIChatContent({
       </div>
 
       {/* Cloud AI Consent Warning */}
-      {mode === "cloud" && !cloudHasConsent && (
+      {!cloudHasConsent && (
         <div className="px-4 py-2">
           <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
             <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             <AlertTitle className="text-amber-800 dark:text-amber-300 text-sm">AI Consent Required</AlertTitle>
             <AlertDescription className="text-xs text-amber-700 dark:text-amber-400 space-y-2">
               <p>Cloud AI requires consent to process your messages. Enable AI features in your privacy settings.</p>
-              {localAISupported && (
-                <p className="font-medium">Alternatively, switch to Local AI which runs entirely in your browser without sending data externally.</p>
-              )}
-              {localAISupported && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => setMode("local")}
-                  className="mt-2 h-7 text-xs border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900/50"
-                >
-                  <HardDrive className="h-3 w-3 mr-1" />
-                  Use Local AI (No Consent Required)
-                </Button>
-              )}
             </AlertDescription>
           </Alert>
         </div>
@@ -455,9 +231,7 @@ function AIChatContent({
               <Bot className="h-12 w-12 mx-auto mb-2 opacity-50" />
               <p className="text-sm">Start a conversation with AI</p>
               <p className="text-xs mt-1">
-                {mode === "cloud" 
-                  ? (cloudHasConsent ? "Powered by Gemini" : "Enable AI consent to start") 
-                  : "Running locally in your browser"}
+                {cloudHasConsent ? "Powered by Gemini" : "Enable AI consent to start"}
               </p>
             </div>
           )}
@@ -520,7 +294,7 @@ function AIChatContent({
       {/* Error display */}
       {error && (
         <div className="px-4 py-2">
-          {mode === "cloud" && (error.toLowerCase().includes("fetch") || error.toLowerCase().includes("network")) ? (
+          {(error.toLowerCase().includes("fetch") || error.toLowerCase().includes("network")) ? (
             <Alert className="py-2 bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
               <Globe className="h-4 w-4 text-amber-600 dark:text-amber-400" />
               <AlertTitle className="text-amber-800 dark:text-amber-300 text-sm">Connection Blocked</AlertTitle>
@@ -531,7 +305,6 @@ function AIChatContent({
                   <li>Use your phone's mobile hotspot</li>
                   <li>Connect to a personal/home network</li>
                   <li>Ask IT to whitelist *.supabase.co</li>
-                  {localAISupported && <li>Switch to Local AI mode (runs offline)</li>}
                 </ul>
                 <div className="flex flex-wrap gap-2">
                   {canRetry && (
@@ -552,20 +325,6 @@ function AIChatContent({
                   >
                     Dismiss
                   </Button>
-                  {localAISupported && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => {
-                        setMode("local");
-                        cloudAI.clearError();
-                      }}
-                      className="h-7 text-xs border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900/50"
-                    >
-                      <HardDrive className="h-3 w-3 mr-1" />
-                      Try Local AI Instead
-                    </Button>
-                  )}
                 </div>
               </AlertDescription>
             </Alert>
@@ -610,7 +369,7 @@ function AIChatContent({
           ) : (
             <Button
               onClick={handleSend}
-              disabled={!input.trim() || (mode === "cloud" && !cloudHasConsent)}
+              disabled={!input.trim() || !cloudHasConsent}
               size="icon"
               className="shrink-0"
             >
@@ -621,53 +380,6 @@ function AIChatContent({
         <p className="text-xs text-muted-foreground mt-2 text-center">
           Press Enter to send • Shift+Enter for new line
         </p>
-      </div>
-    </div>
-  );
-}
-
-interface ModeTabsProps {
-  mode: AIMode;
-  setMode: (mode: AIMode) => void;
-  localAISupported: boolean;
-}
-
-function ModeTabs({ mode, setMode, localAISupported }: ModeTabsProps) {
-  return (
-    <div className="px-4 pt-2 pb-0">
-      <div className="flex gap-1 p-1 bg-muted rounded-lg">
-        <button
-          onClick={() => setMode("cloud")}
-          className={cn(
-            "flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors",
-            mode === "cloud"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <Cloud className="h-4 w-4" />
-          Cloud AI
-        </button>
-        <button
-          onClick={() => localAISupported && setMode("local")}
-          disabled={!localAISupported}
-          className={cn(
-            "flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors",
-            mode === "local"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground",
-            !localAISupported && "opacity-50 cursor-not-allowed"
-          )}
-          title={!localAISupported ? "Local AI not available" : undefined}
-        >
-          <Cpu className="h-4 w-4" />
-          Local AI
-          {!localAISupported && (
-            <Badge variant="outline" className="text-[10px] px-1 py-0">
-              N/A
-            </Badge>
-          )}
-        </button>
       </div>
     </div>
   );
