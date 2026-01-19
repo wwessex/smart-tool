@@ -50,7 +50,7 @@ import { LanguageSelector } from './LanguageSelector';
 import { WarningBox, WarningText, InputGlow } from './WarningBox';
 import { useKeyboardShortcuts, groupShortcuts, createShortcutMap, ShortcutConfig } from '@/hooks/useKeyboardShortcuts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FIX_CRITERION_PROMPT, CRITERION_GUIDANCE, DRAFT_ACTION_PROMPT, DRAFT_HELP_PROMPT, DRAFT_OUTCOME_PROMPT } from '@/lib/smart-prompts';
+import { FIX_CRITERION_PROMPT, CRITERION_GUIDANCE, DRAFT_ACTION_PROMPT, DRAFT_HELP_PROMPT, DRAFT_OUTCOME_PROMPT, getHelpSubject } from '@/lib/smart-prompts';
 import { SMART_TOOL_SHORTCUTS } from '@/lib/smart-tool-shortcuts';
 import { useTransformersLLM, RECOMMENDED_MODELS } from '@/hooks/useTransformersLLM';
 
@@ -591,10 +591,11 @@ export function SmartActionTool() {
         
         const action = await llm.generate(actionPrompt);
         
-        // Generate help
+        // Generate help - use correct subject based on responsible person
+        const helpSubject = getHelpSubject(nowForm.forename, nowForm.responsible);
         const helpPrompt = DRAFT_HELP_PROMPT
           .replace('{action}', action)
-          .replace('{forename}', nowForm.forename);
+          .replace(/{subject}/g, helpSubject);
         
         const help = await llm.generate(helpPrompt);
         
@@ -820,9 +821,10 @@ When given context about a participant, provide suggestions to improve their SMA
               .replace(/{targetDate}/g, targetDate);
             return await llm.generate(actionPrompt);
           } else {
+            const helpSubject = getHelpSubject(context.forename || '', context.responsible || 'Advisor');
             const helpPrompt = DRAFT_HELP_PROMPT
               .replace('{action}', context.action || '')
-              .replace('{forename}', context.forename || '');
+              .replace(/{subject}/g, helpSubject);
             return await llm.generate(helpPrompt);
           }
         } else if (mode === 'future' && field === 'outcome') {
