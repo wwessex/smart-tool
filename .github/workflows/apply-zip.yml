@@ -12,7 +12,7 @@ on:
         required: true
         default: "main"
       clean_before:
-        description: "Clean repo first (keeps .git, .github, imports)"
+        description: "Clean repo first (keeps .git, .github, imports, supabase, tmp)"
         required: true
         default: "true"
 
@@ -37,6 +37,8 @@ jobs:
             echo "ZIP not found: ${{ inputs.zip_path }}"
             echo "Repo root contents:"
             ls -la
+            echo "imports contents (if folder exists):"
+            ls -la imports || true
             exit 1
           fi
 
@@ -60,6 +62,29 @@ jobs:
           fi
           echo "PAYLOAD=$PAYLOAD" >> $GITHUB_ENV
           echo "Using payload root: $PAYLOAD"
+          echo "Payload top-level:"
+          ls -la "$PAYLOAD"
+
+      - name: Validate ZIP contains expected files
+        run: |
+          set -e
+          # Expect prompt pack in public so it ends up in dist at build time
+          if [ ! -f "$PAYLOAD/public/prompt-pack.json" ]; then
+            echo "Missing public/prompt-pack.json in ZIP payload"
+            echo "Payload public/ contents:"
+            ls -la "$PAYLOAD/public" || true
+            exit 1
+          fi
+
+          # Expect admin playbook page
+          if [ ! -f "$PAYLOAD/src/pages/AdminPromptPack.tsx" ]; then
+            echo "Missing src/pages/AdminPromptPack.tsx in ZIP payload"
+            echo "Payload src/pages contents:"
+            ls -la "$PAYLOAD/src/pages" || true
+            exit 1
+          fi
+
+          echo "ZIP payload validation OK."
 
       - name: Clean repo (optional)
         if: ${{ inputs.clean_before == 'true' }}
@@ -67,7 +92,8 @@ jobs:
           set -e
           shopt -s dotglob
           for item in *; do
-            if [ "$item" = ".git" ] || [ "$item" = ".github" ] || [ "$item" = "imports" ]; then
+            # keep git + workflows + imports + your existing backend folders
+            if [ "$item" = ".git" ] || [ "$item" = ".github" ] || [ "$item" = "imports" ] || [ "$item" = "supabase" ] || [ "$item" = "tmp" ]; then
               continue
             fi
             rm -rf "$item"
@@ -76,12 +102,28 @@ jobs:
       - name: Copy extracted files into repo root (overwrite)
         run: |
           set -e
-          # rsync makes overwrites safe and fast
           rsync -a --delete \
             --exclude ".git" \
             --exclude ".github" \
             --exclude "imports" \
+            --exclude "supabase" \
+            --exclude "tmp" \
             "$PAYLOAD"/ ./
+
+      - name: Validate repo now contains expected files
+        run: |
+          set -e
+          if [ ! -f "public/prompt-pack.json" ]; then
+            echo "Repo missing public/prompt-pack.json after apply"
+            ls -la public || true
+            exit 1
+          fi
+          if [ ! -f "src/pages/AdminPromptPack.tsx" ]; then
+            echo "Repo missing src/pages/AdminPromptPack.tsx after apply"
+            ls -la src/pages || true
+            exit 1
+          fi
+          echo "Repo validation OK after apply."
 
       - name: Commit and push
         run: |
