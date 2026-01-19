@@ -12,7 +12,7 @@ on:
         required: true
         default: "main"
       clean_before:
-        description: "Clean repo first (keeps .git, .github, imports, supabase, tmp)"
+        description: "Clean repo first (keeps .git, .github, imports, supabase, tmp, .env*)"
         required: true
         default: "true"
 
@@ -35,9 +35,9 @@ jobs:
           set -e
           if [ ! -f "${{ inputs.zip_path }}" ]; then
             echo "ZIP not found: ${{ inputs.zip_path }}"
-            echo "Repo root contents:"
+            echo "Repo root:"
             ls -la
-            echo "imports contents (if folder exists):"
+            echo "imports (if present):"
             ls -la imports || true
             exit 1
           fi
@@ -48,41 +48,41 @@ jobs:
           rm -rf /tmp/applyzip
           mkdir -p /tmp/applyzip
           unzip -q "${{ inputs.zip_path }}" -d /tmp/applyzip
+          echo "Extracted top-level:"
+          ls -la /tmp/applyzip
 
-      - name: Detect payload root (handle single top-level folder)
+      - name: Detect payload root (find folder containing package.json)
         run: |
           set -e
           ROOT="/tmp/applyzip"
-          COUNT_DIRS=$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
-          COUNT_FILES=$(find "$ROOT" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')
-          if [ "$COUNT_DIRS" = "1" ] && [ "$COUNT_FILES" = "0" ]; then
-            PAYLOAD=$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | head -n 1)
-          else
-            PAYLOAD="$ROOT"
-          fi
-          echo "PAYLOAD=$PAYLOAD" >> $GITHUB_ENV
-          echo "Using payload root: $PAYLOAD"
-          echo "Payload top-level:"
-          ls -la "$PAYLOAD"
 
-      - name: Validate ZIP contains expected files
+          # Find all package.json (up to 4 levels deep) and pick the SHORTEST path (closest to ROOT)
+          PKG_CANDIDATES=$(find "$ROOT" -maxdepth 4 -type f -name package.json -print || true)
+          if [ -z "$PKG_CANDIDATES" ]; then
+            echo "No package.json found in extracted ZIP (maxdepth 4)."
+            echo "Top-level extract:"
+            ls -la "$ROOT"
+            exit 1
+          fi
+
+          # Choose shortest path
+          PKG=$(echo "$PKG_CANDIDATES" | awk '{ print length($0) " " $0 }' | sort -n | head -n 1 | cut -d' ' -f2-)
+          PAYLOAD=$(dirname "$PKG")
+
+          echo "Using payload root: $PAYLOAD"
+          echo "PAYLOAD=$PAYLOAD" >> $GITHUB_ENV
+
+          echo "Payload listing:"
+          ls -la "$PAYLOAD"
+          test -f "$PAYLOAD/package.json"
+
+      - name: Validate ZIP contains expected (latest) files
         run: |
           set -e
-          # Expect prompt pack in public so it ends up in dist at build time
-          if [ ! -f "$PAYLOAD/public/prompt-pack.json" ]; then
-            echo "Missing public/prompt-pack.json in ZIP payload"
-            echo "Payload public/ contents:"
-            ls -la "$PAYLOAD/public" || true
-            exit 1
-          fi
 
-          # Expect admin playbook page
-          if [ ! -f "$PAYLOAD/src/pages/AdminPromptPack.tsx" ]; then
-            echo "Missing src/pages/AdminPromptPack.tsx in ZIP payload"
-            echo "Payload src/pages contents:"
-            ls -la "$PAYLOAD/src/pages" || true
-            exit 1
-          fi
+          # Expected in latest version:
+          test -f "$PAYLOAD/public/prompt-pack.json" || (echo "Missing public/prompt-pack.json in ZIP payload" && exit 1)
+          test -f "$PAYLOAD/src/pages/AdminPromptPack.tsx" || (echo "Missing src/pages/AdminPromptPack.tsx in ZIP payload" && exit 1)
 
           echo "ZIP payload validation OK."
 
@@ -92,8 +92,8 @@ jobs:
           set -e
           shopt -s dotglob
           for item in *; do
-            # keep git + workflows + imports + your existing backend folders
-            if [ "$item" = ".git" ] || [ "$item" = ".github" ] || [ "$item" = "imports" ] || [ "$item" = "supabase" ] || [ "$item" = "tmp" ]; then
+            # Keep git + workflows + imports + backend folders + env files
+            if [ "$item" = ".git" ] || [ "$item" = ".github" ] || [ "$item" = "imports" ] || [ "$item" = "supabase" ] || [ "$item" = "tmp" ] || [ "$item" = ".env" ] || [ "$item" = ".env.example" ]; then
               continue
             fi
             rm -rf "$item"
@@ -108,21 +108,15 @@ jobs:
             --exclude "imports" \
             --exclude "supabase" \
             --exclude "tmp" \
+            --exclude ".env" \
+            --exclude ".env.example" \
             "$PAYLOAD"/ ./
 
       - name: Validate repo now contains expected files
         run: |
           set -e
-          if [ ! -f "public/prompt-pack.json" ]; then
-            echo "Repo missing public/prompt-pack.json after apply"
-            ls -la public || true
-            exit 1
-          fi
-          if [ ! -f "src/pages/AdminPromptPack.tsx" ]; then
-            echo "Repo missing src/pages/AdminPromptPack.tsx after apply"
-            ls -la src/pages || true
-            exit 1
-          fi
+          test -f "public/prompt-pack.json" || (echo "Repo missing public/prompt-pack.json after apply" && exit 1)
+          test -f "src/pages/AdminPromptPack.tsx" || (echo "Repo missing src/pages/AdminPromptPack.tsx after apply" && exit 1)
           echo "Repo validation OK after apply."
 
       - name: Commit and push
@@ -131,7 +125,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Safety check: ensure workflow still exists
+          # Safety: ensure workflow remains
           test -f ".github/workflows/apply-zip.yml"
 
           git add -A
@@ -140,5 +134,6 @@ jobs:
             exit 0
           fi
 
-          git commit -m "Apply ZIP package to repo"
+          git commit -m "Apply ZIP package to repo (${{
+            inputs.zip_path }})"
           git push origin "${{ inputs.target_branch }}"
