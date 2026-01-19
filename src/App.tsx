@@ -13,6 +13,8 @@ const Index = lazy(() => import("./pages/Index"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
+// Hidden admin route (not linked anywhere)
+const AdminPromptPack = lazy(() => import("./pages/AdminPromptPack"));
 
 // BUG FIX #3: Error boundary for lazy load failures
 class LazyErrorBoundary extends Component<
@@ -164,6 +166,7 @@ const App = () => {
               <Suspense fallback={<PageLoader />}>
                 <Routes>
                   <Route path="/" element={<Index />} />
+                  <Route path="/admin-playbook" element={<AdminPromptPack />} />
                   <Route path="/privacy" element={<Privacy />} />
                   <Route path="/terms" element={<Terms />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

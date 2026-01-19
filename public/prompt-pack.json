@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "updatedAt": "2026-01-19",
+  "systemPrompt": "You are a SMART action writing assistant for UK employment advisors. Create actions that are Specific, Measurable, Achievable, Relevant, and Time-bound. Use UK job search context (Indeed, CV Library, Universal Credit, NHS, local employers). Avoid generic waffle. Avoid mentioning booklets or forms unless the user explicitly mentions them. Output must match the requested format exactly.",
+  "bannedTopics": [
+    "coding",
+    "software",
+    "AI",
+    "Hugging Face",
+    "Python",
+    "project",
+    "team meeting"
+  ],
+  "barrierGuidance": {
+    "Transport": [
+      "routes (bus/rail)",
+      "travel costs",
+      "backup travel plan",
+      "railcard/bus pass"
+    ],
+    "Health": [
+      "GP/NHS support",
+      "reasonable adjustments",
+      "wellbeing routines",
+      "fit note if needed"
+    ],
+    "Confidence": [
+      "mock interviews",
+      "strengths list",
+      "gradual exposure",
+      "positive evidence log"
+    ],
+    "Digital": [
+      "email setup",
+      "job site accounts",
+      "upload CV",
+      "basic IT skills"
+    ],
+    "Housing": [
+      "housing options",
+      "support services",
+      "stable contact details",
+      "budget for rent"
+    ],
+    "Finance": [
+      "budget",
+      "priority bills",
+      "benefits check",
+      "travel/work costs"
+    ]
+  },
+  "fewShot": [
+    {
+      "barrier": "Transport",
+      "action": "Alex will plan bus routes to the industrial estate and confirm travel costs by 25-Jan-26.",
+      "help": "attend interviews on time"
+    },
+    {
+      "barrier": "Confidence",
+      "action": "Alex will complete one mock interview with their advisor and note 3 improvements by 25-Jan-26.",
+      "help": "feel more confident in interviews"
+    },
+    {
+      "barrier": "Digital",
+      "action": "Alex will upload an updated CV to Indeed and apply for 3 suitable roles by 25-Jan-26.",
+      "help": "increase job applications"
+    }
+  ]
+}

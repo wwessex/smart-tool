@@ -50,9 +50,11 @@ import { LanguageSelector } from './LanguageSelector';
 import { WarningBox, WarningText, InputGlow } from './WarningBox';
 import { useKeyboardShortcuts, groupShortcuts, createShortcutMap, ShortcutConfig } from '@/hooks/useKeyboardShortcuts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FIX_CRITERION_PROMPT, CRITERION_GUIDANCE, DRAFT_ACTION_PROMPT, DRAFT_HELP_PROMPT, DRAFT_OUTCOME_PROMPT, getHelpSubject } from '@/lib/smart-prompts';
+import { FIX_CRITERION_PROMPT, CRITERION_GUIDANCE, getHelpSubject } from '@/lib/smart-prompts';
 import { SMART_TOOL_SHORTCUTS } from '@/lib/smart-tool-shortcuts';
-import { useTransformersLLM, RECOMMENDED_MODELS } from '@/hooks/useTransformersLLM';
+import { useTransformersLLM } from '@/hooks/useTransformersLLM';
+import { usePromptPack } from '@/hooks/usePromptPack';
+import { buildSystemPrompt, buildDraftActionPrompt, buildDraftHelpPrompt, buildDraftOutcomePrompt, sanitizeOneSentence, sanitizeOnePhrase, DEFAULT_PROMPT_PACK } from '@/lib/prompt-pack';
 
 /**
  * Safely remove from localStorage, catching any errors.
@@ -136,8 +138,10 @@ export function SmartActionTool() {
   const cloudAI = useCloudAI();
   const aiHasConsent = useAIConsent();
   const localSync = useLocalSync();
-  const llm = useTransformersLLM();
+  const llm = useTransformersLLM({ allowMobileLLM: storage.allowMobileLLM });
+  const { pack: promptPack, source: promptPackSource } = usePromptPack();
   const today = todayISO();
+  const effectivePromptPack = promptPack || DEFAULT_PROMPT_PACK;
   
   // AI Draft state
   const [aiDrafting, setAIDrafting] = useState(false);
@@ -581,33 +585,32 @@ export function SmartActionTool() {
         const targetISO = parseTimescaleToTargetISO(nowForm.date || today, timescale);
         const targetDate = formatDDMMMYY(targetISO);
         
-        // Generate action
-        const actionPrompt = DRAFT_ACTION_PROMPT
-          .replace(/{forename}/g, nowForm.forename)
-          .replace(/{barrier}/g, nowForm.barrier)
-          .replace(/{responsible}/g, nowForm.responsible || 'Advisor')
-          .replace(/{timescale}/g, timescale)
-          .replace(/{targetDate}/g, targetDate);
-        
-        const action = await llm.generate(actionPrompt);
+        // Generate action (backend-taught prompt pack)
+        const actionPrompt = buildDraftActionPrompt(effectivePromptPack, {
+          forename: nowForm.forename,
+          barrier: nowForm.barrier,
+          targetDate,
+          responsible: nowForm.responsible || 'Advisor',
+        });
+        const action = sanitizeOneSentence(await llm.generate(actionPrompt, llmSystemPrompt, 'action'));
         
         // Generate help - use correct subject based on responsible person
         const helpSubject = getHelpSubject(nowForm.forename, nowForm.responsible);
-        const helpPrompt = DRAFT_HELP_PROMPT
-          .replace('{action}', action)
-          .replace(/{subject}/g, helpSubject);
-        
-        const help = await llm.generate(helpPrompt);
+        const helpPrompt = buildDraftHelpPrompt(effectivePromptPack, {
+          action,
+          subject: helpSubject,
+        });
+        const help = sanitizeOnePhrase(await llm.generate(helpPrompt, llmSystemPrompt, 'help'));
         
         setNowForm(prev => ({ ...prev, action, help }));
         toast({ title: 'AI Draft ready', description: 'Generated with local AI. Edit as needed.' });
       } else {
         // Generate outcome
-        const outcomePrompt = DRAFT_OUTCOME_PROMPT
-          .replace(/{forename}/g, futureForm.forename)
-          .replace(/{task}/g, futureForm.task);
-        
-        const outcome = await llm.generate(outcomePrompt);
+        const outcomePrompt = buildDraftOutcomePrompt(effectivePromptPack, {
+          forename: futureForm.forename,
+          task: futureForm.task,
+        });
+        const outcome = sanitizeOneSentence(await llm.generate(outcomePrompt, llmSystemPrompt, 'outcome'));
         setFutureForm(prev => ({ ...prev, outcome }));
         toast({ title: 'AI Draft ready', description: 'Generated with local AI. Edit as needed.' });
       }
@@ -622,7 +625,7 @@ export function SmartActionTool() {
     } finally {
       setAIDrafting(false);
     }
-  }, [mode, nowForm, futureForm, llm, today, templateDraftNow, templateDraftFuture, toast, storage.aiDraftMode]);
+  }, [mode, nowForm, futureForm, llm, today, templateDraftNow, templateDraftFuture, toast, storage.aiDraftMode, effectivePromptPack, llmSystemPrompt]);
 
   const handleEditHistory = (item: HistoryItem) => {
     setMode(item.mode);
@@ -750,16 +753,8 @@ export function SmartActionTool() {
     }
   }, [mode, nowForm, futureForm]);
 
-  const llmSystemPrompt = `You are a SMART action writing assistant for employment advisors. Help create Specific, Measurable, Achievable, Relevant, and Time-bound actions.
-
-Key principles:
-- Actions should address barriers to employment
-- Include specific dates and review periods  
-- Identify who is responsible for each step
-- Focus on what the participant will DO, not just learn
-- Be concise and actionable
-
-When given context about a participant, provide suggestions to improve their SMART action.`;
+  // Backend-taught prompt pack (cached locally). This is NOT user-learned.
+  const llmSystemPrompt = buildSystemPrompt(effectivePromptPack);
 
   const handleExport = () => {
     // Use the same format as exportAllData for consistency and full round-trip support
@@ -813,25 +808,27 @@ When given context about a participant, provide suggestions to improve their SMA
           const targetDate = formatDDMMMYY(targetISO);
           
           if (field === 'action') {
-            const actionPrompt = DRAFT_ACTION_PROMPT
-              .replace(/{forename}/g, context.forename || '')
-              .replace(/{barrier}/g, context.barrier || '')
-              .replace(/{responsible}/g, context.responsible || 'Advisor')
-              .replace(/{timescale}/g, timescale)
-              .replace(/{targetDate}/g, targetDate);
-            return await llm.generate(actionPrompt);
+            const actionPrompt = buildDraftActionPrompt(effectivePromptPack, {
+              forename: context.forename || '',
+              barrier: context.barrier || '',
+              targetDate,
+              responsible: context.responsible || 'Advisor',
+            });
+            return sanitizeOneSentence(await llm.generate(actionPrompt, llmSystemPrompt, 'action'));
           } else {
             const helpSubject = getHelpSubject(context.forename || '', context.responsible || 'Advisor');
-            const helpPrompt = DRAFT_HELP_PROMPT
-              .replace('{action}', context.action || '')
-              .replace(/{subject}/g, helpSubject);
-            return await llm.generate(helpPrompt);
+            const helpPrompt = buildDraftHelpPrompt(effectivePromptPack, {
+              action: context.action || '',
+              subject: helpSubject,
+            });
+            return sanitizeOnePhrase(await llm.generate(helpPrompt, llmSystemPrompt, 'help'));
           }
         } else if (mode === 'future' && field === 'outcome') {
-          const outcomePrompt = DRAFT_OUTCOME_PROMPT
-            .replace(/{forename}/g, context.forename || '')
-            .replace(/{task}/g, context.task || '');
-          return await llm.generate(outcomePrompt);
+          const outcomePrompt = buildDraftOutcomePrompt(effectivePromptPack, {
+            forename: context.forename || '',
+            task: context.task || '',
+          });
+          return sanitizeOneSentence(await llm.generate(outcomePrompt, llmSystemPrompt, 'outcome'));
         }
       } catch (err) {
         console.warn('LLM wizard draft failed, falling back to templates:', err);
@@ -858,7 +855,7 @@ When given context about a participant, provide suggestions to improve their SMA
       }
     }
     return '';
-  }, [mode, nowForm.date, today, llm]);
+  }, [mode, nowForm.date, today, llm, effectivePromptPack, llmSystemPrompt]);
 
   // Handle AI improve apply
   const handleApplyImprovement = useCallback((improvedAction: string) => {
@@ -1316,7 +1313,7 @@ When given context about a participant, provide suggestions to improve their SMA
                         <div>
                           <span className="text-sm font-medium">Use Local AI</span>
                           <p className="text-xs text-muted-foreground">
-                            AI-generated suggestions (requires model download, desktop only)
+                            AI-generated suggestions (requires a one-time model download in this browser)
                           </p>
                         </div>
                       </label>
@@ -1338,16 +1335,41 @@ When given context about a participant, provide suggestions to improve their SMA
                       </label>
                     </div>
                     
-                    {/* Model Selection (only shown when AI mode selected and not on mobile) */}
-                    {storage.aiDraftMode === 'ai' && !llm.isMobile && (
+
+
+                    {/* iOS / mobile enable (experimental) */}
+                    {storage.aiDraftMode === 'ai' && llm.deviceInfo?.isIOS && llm.isMobile && (
+                      <div className="pt-4 border-t space-y-3">
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={storage.allowMobileLLM} 
+                            onChange={e => storage.updateAllowMobileLLM(e.target.checked)}
+                            className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary mt-0.5"
+                          />
+                          <div>
+                            <span className="text-sm font-medium">Enable Local AI on iPhone/iPad (experimental)</span>
+                            <p className="text-xs text-muted-foreground">
+                              iPhone is limited to the smallest model and shorter outputs to reduce memory use.
+                            </p>
+                          </div>
+                        </label>
+                      </div>
+                    )}
+
+                    {/* Model Selection (shown when AI mode is enabled and device is allowed) */}
+                    {storage.aiDraftMode === 'ai' && llm.canUseLocalAI && (
                       <div className="pt-4 border-t space-y-3">
                         <h4 className="text-sm font-medium">AI Model</h4>
+                        <p className="text-xs text-muted-foreground">
+                          AI playbook v{effectivePromptPack.version} ({promptPackSource || 'default'})
+                        </p>
                         
                         {llm.isReady && (
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
                               <Check className="w-4 h-4" />
-                              {RECOMMENDED_MODELS.find(m => m.id === llm.selectedModel)?.name || 'Model'} loaded
+                              {llm.supportedModels.find(m => m.id === llm.selectedModel)?.name || 'Model'} loaded
                             </div>
                             <Button 
                               variant="ghost" 
@@ -1377,7 +1399,7 @@ When given context about a participant, provide suggestions to improve their SMA
                         
                         {!llm.isReady && !llm.isLoading && (
                           <div className="space-y-2">
-                            {RECOMMENDED_MODELS.map((model) => (
+                            {llm.supportedModels.map((model) => (
                               <button
                                 key={model.id}
                                 onClick={() => llm.loadModel(model.id)}
@@ -1403,11 +1425,11 @@ When given context about a participant, provide suggestions to improve their SMA
                     )}
                     
                     {/* Mobile warning */}
-                    {llm.isMobile && storage.aiDraftMode === 'ai' && (
+                    {!llm.canUseLocalAI && storage.aiDraftMode === 'ai' && (
                       <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
                         <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                         <p className="text-xs text-amber-700 dark:text-amber-400">
-                          Local AI is not available on mobile devices. Template mode will be used instead.
+                          Local AI is disabled for this device right now. Enable the iPhone/iPad toggle above (if available) or use Smart Templates instead.
                         </p>
                       </div>
                     )}
@@ -2554,7 +2576,7 @@ When given context about a participant, provide suggestions to improve their SMA
               </div>
             ) : (
               <div className="space-y-2">
-                {RECOMMENDED_MODELS.map((model) => (
+                {llm.supportedModels.map((model) => (
                   <button
                     key={model.id}
                     onClick={async () => {
