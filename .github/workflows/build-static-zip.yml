@@ -26,6 +26,14 @@ jobs:
       - name: Build (Vite -> dist/)
         run: npm run build
 
+      - name: Write build info into dist
+        run: |
+          set -e
+          test -d dist
+          echo "commit=$(git rev-parse HEAD)" > dist/BUILD_INFO.txt
+          echo "branch=${GITHUB_REF_NAME}" >> dist/BUILD_INFO.txt
+          echo "built_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> dist/BUILD_INFO.txt
+
       - name: Create ZIP from dist
         run: |
           set -e
