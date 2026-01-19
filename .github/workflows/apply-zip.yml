@@ -1,18 +1,18 @@
-name: Apply ZIP to repo
+name: Apply ZIP package to repo
 
 on:
   workflow_dispatch:
     inputs:
       zip_path:
-        description: "Path to ZIP in the repo (e.g. imports/smart-tool-admin-playbook.zip)"
+        description: "Path to ZIP inside the repo (e.g. imports/smart-tool-admin-playbook.zip)"
         required: true
         default: "imports/smart-tool-admin-playbook.zip"
       target_branch:
-        description: "Branch to write changes to"
+        description: "Branch to apply changes to"
         required: true
         default: "main"
       clean_before:
-        description: "Delete existing repo files first (keeps .git, .github, imports)"
+        description: "Clean repo first (keeps .git, .github, imports)"
         required: true
         default: "true"
 
@@ -35,6 +35,7 @@ jobs:
           set -e
           if [ ! -f "${{ inputs.zip_path }}" ]; then
             echo "ZIP not found: ${{ inputs.zip_path }}"
+            echo "Repo root contents:"
             ls -la
             exit 1
           fi
@@ -46,11 +47,10 @@ jobs:
           mkdir -p /tmp/applyzip
           unzip -q "${{ inputs.zip_path }}" -d /tmp/applyzip
 
-      - name: Normalize extracted root (handle single top-level folder)
+      - name: Detect payload root (handle single top-level folder)
         run: |
           set -e
           ROOT="/tmp/applyzip"
-          # If exactly one directory at root, use that as the payload root
           COUNT_DIRS=$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
           COUNT_FILES=$(find "$ROOT" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')
           if [ "$COUNT_DIRS" = "1" ] && [ "$COUNT_FILES" = "0" ]; then
@@ -59,6 +59,7 @@ jobs:
             PAYLOAD="$ROOT"
           fi
           echo "PAYLOAD=$PAYLOAD" >> $GITHUB_ENV
+          echo "Using payload root: $PAYLOAD"
 
       - name: Clean repo (optional)
         if: ${{ inputs.clean_before == 'true' }}
@@ -66,26 +67,29 @@ jobs:
           set -e
           shopt -s dotglob
           for item in *; do
-            # keep git metadata, workflow, and your uploaded zips folder
             if [ "$item" = ".git" ] || [ "$item" = ".github" ] || [ "$item" = "imports" ]; then
               continue
             fi
             rm -rf "$item"
           done
 
-      - name: Copy extracted files into repo root
+      - name: Copy extracted files into repo root (overwrite)
         run: |
           set -e
-          # Use rsync so overwrites are clean and fast
-          rsync -a --delete --exclude '.git' --exclude '.github' --exclude 'imports' "$PAYLOAD"/ ./
+          # rsync makes overwrites safe and fast
+          rsync -a --delete \
+            --exclude ".git" \
+            --exclude ".github" \
+            --exclude "imports" \
+            "$PAYLOAD"/ ./
 
-      - name: Commit changes
+      - name: Commit and push
         run: |
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Safety: ensure we didn't wipe the workflow itself
+          # Safety check: ensure workflow still exists
           test -f ".github/workflows/apply-zip.yml"
 
           git add -A
