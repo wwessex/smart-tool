@@ -1,7 +1,7 @@
 /**
  * SMART Action Checker
  * Auto-detects Specific, Measurable, Achievable, Relevant, Time-bound elements
- * Enhanced with semantic scoring, weak language detection, and barrier alignment
+ * Enhanced with semantic scoring, weak language detection, barrier alignment, and caching
  */
 
 export interface SmartCriterion {
@@ -22,7 +22,55 @@ export interface SmartCheck {
   warnings: string[]; // Semantic warnings (weak language, etc.)
 }
 
-// Patterns for detection
+// ============= LRU Cache for checkSmart results =============
+interface CacheEntry {
+  result: SmartCheck;
+  timestamp: number;
+}
+
+const CACHE_MAX_SIZE = 100;
+const CACHE_TTL_MS = 60000; // 1 minute TTL
+const smartCheckCache = new Map<string, CacheEntry>();
+
+function getCacheKey(text: string, meta?: { forename?: string; barrier?: string; timescale?: string; date?: string }): string {
+  return `${text}|${meta?.forename ?? ''}|${meta?.barrier ?? ''}|${meta?.timescale ?? ''}|${meta?.date ?? ''}`;
+}
+
+function getFromCache(key: string): SmartCheck | null {
+  const entry = smartCheckCache.get(key);
+  if (!entry) return null;
+  
+  // Check TTL
+  if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
+    smartCheckCache.delete(key);
+    return null;
+  }
+  
+  return entry.result;
+}
+
+function setInCache(key: string, result: SmartCheck): void {
+  // Evict oldest entries if cache is full
+  if (smartCheckCache.size >= CACHE_MAX_SIZE) {
+    const oldestKey = smartCheckCache.keys().next().value;
+    if (oldestKey) smartCheckCache.delete(oldestKey);
+  }
+  
+  smartCheckCache.set(key, { result, timestamp: Date.now() });
+}
+
+// Export for testing/debugging
+export function clearSmartCache(): void {
+  smartCheckCache.clear();
+}
+
+export function getSmartCacheStats(): { size: number; maxSize: number } {
+  return { size: smartCheckCache.size, maxSize: CACHE_MAX_SIZE };
+}
+
+// ============= Pre-compiled Patterns (memoized) =============
+// Patterns are now compiled once at module load, not on each call
+
 const SPECIFIC_PATTERNS = {
   who: /\b(I|we|he|she|they|participant|advisor|john|jane|[A-Z][a-z]+)\s+(will|agreed|has|have|is going to|shall)/i,
   what: /\b(will|agreed to|has agreed|have agreed|is going to|shall|must|has confirmed)\s+\w+/i,
@@ -30,10 +78,12 @@ const SPECIFIC_PATTERNS = {
   action: /\b(apply|submit|attend|complete|register|create|update|search|contact|call|email|visit|speak|meet|write|prepare|research|participate|practise|practice|review|bring|gather|book|schedule|discuss|identify|collect|confirm)\b/i,
 };
 
+// Enhanced date pattern - catches more formats
+const ENHANCED_DATE_PATTERN = /\b(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{1,2}[-\s]*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[-\s]*\d{2,4}|\d{1,2}(st|nd|rd|th)?[-\s]*(of[-\s]*)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[-\s]*,?[-\s]*\d{0,4}|(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[-\s]*\d{1,2}(st|nd|rd|th)?[-\s]*,?[-\s]*\d{0,4}|by\s+(next\s+)?\w+day|within\s+\d+\s*(days?|weeks?|months?)|end\s+of\s+(this|next)\s+(week|month)|next\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|week|month))\b/i;
+
 const MEASURABLE_PATTERNS = {
-  // Fixed date pattern to handle formats like "30-Jan-26", "30 Jan 26", "30/01/26"
   quantity: /\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten|several|multiple|at least|minimum|maximum)\b/i,
-  date: /\b(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{1,2}[-\s]*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[-\s]*\d{2,4}|\d{1,2}(st|nd|rd|th)?[-\s]*(of[-\s]*)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)|by\s+\w+day|within\s+\d+\s*(days?|weeks?|months?))\b/i,
+  date: ENHANCED_DATE_PATTERN,
   frequency: /\b(daily|weekly|monthly|every\s+\w+|twice|once|per\s+(day|week|month))\b/i,
   target: /\b(applications?|interviews?|contacts?|calls?|jobs?|opportunities|employers?)\b/i,
   outcome: /\b(result|outcome|achieve|complete|finish|receive|submit|attend|obtain|acquire|gain|secure|present|findings|review)\b/i,
@@ -44,7 +94,6 @@ const ACHIEVABLE_PATTERNS = {
   responsibility: /\b(participant|advisor|I|we|they|he|she|[A-Z][a-z]+)\s+(will|has agreed|have agreed|is responsible|takes responsibility|agreed to)\b/i,
   support: /\b(with support|help from|assistance|guidance|together|advisor will|we have agreed|both realistic and achievable)\b/i,
   commitment: /\b(commits? to|undertakes? to|pledges? to|promises? to|we have agreed)\b/i,
-  // Additional patterns for AI-generated fixes and standard template phrases
   hasAgreedTo: /\bhas agreed to\b/i,
   agreedTo: /\b(agreed to|as discussed and agreed)\b/i,
   realisticAchievable: /\b(realistic and achievable|both realistic|is achievable|can achieve)\b/i,
@@ -54,15 +103,13 @@ const RELEVANT_PATTERNS = {
   barrier: /\b(barrier|challenge|obstacle|issue|problem|difficulty|lack of|need|gap|development areas?)\b/i,
   goal: /\b(employment|job|work|career|role|position|opportunity|goal|objective|aim|next steps?|identified|participate|engagement)\b/i,
   connection: /\b(help|enable|allow|support|improve|increase|enhance|develop|build|gain|acquire|address|overcome|resolve|will|attend|complete|submit|participate)\b/i,
-  // Task-based relevance - activities that contribute to employment goals
   taskBased: /\b(workshop|training|fair|event|interview|application|cv|course|session|meeting|assessment|appointment)\b/i,
 };
 
 const TIMEBOUND_PATTERNS = {
   deadline: /\b(by|before|until|within|no later than)\s+(\d|next|this|end of)/i,
   review: /\b(review(ed)?|check|follow[- ]?up|progress|revisit)\s*(in|on|at|within|after)?\s*(\d+\s*)?(days?|weeks?|months?|next)?/i,
-  // Fixed to match hyphenated dates like "30-Jan-26" as well as spaced dates
-  specific_date: /\b\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}\b|\b\d{1,2}[-\s]*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[-\s]*\d{2,4}\b|\b\d{1,2}(st|nd|rd|th)?[-\s]*(of[-\s]*)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i,
+  specific_date: ENHANCED_DATE_PATTERN,
   timeframe: /\b(today|tomorrow|this week|next week|this month|next month|immediate|soon)\b/i,
 };
 
@@ -76,32 +123,47 @@ const WEAK_PATTERNS = {
 // Strong action verbs that indicate commitment
 const STRONG_VERB_PATTERN = /\b(will|shall|agrees to|commits to|is responsible for|has agreed to|undertakes to)\b/i;
 
-// Barrier-to-action keyword mappings for better relevance detection
+// Enhanced barrier-to-action keyword mappings
 const BARRIER_KEYWORDS: Record<string, string[]> = {
-  'transport': ['bus', 'train', 'travel', 'route', 'journey', 'commute', 'driving', 'license', 'licence', 'car'],
-  'childcare': ['childcare', 'nursery', 'school', 'pick up', 'drop off', 'hours', 'flexible', 'children'],
-  'cv': ['cv', 'resume', 'application', 'experience', 'skills', 'template', 'format', 'update'],
-  'confidence': ['confidence', 'interview', 'practice', 'skills', 'presentation', 'anxiety', 'support'],
-  'digital': ['computer', 'online', 'internet', 'email', 'website', 'digital', 'technology', 'access'],
-  'health': ['health', 'medical', 'doctor', 'gp', 'appointment', 'condition', 'support', 'wellbeing'],
-  'housing': ['housing', 'accommodation', 'rent', 'address', 'stable', 'home', 'council'],
-  'training': ['training', 'course', 'qualification', 'certificate', 'learn', 'skill', 'develop'],
-  'experience': ['experience', 'volunteer', 'placement', 'internship', 'work trial', 'reference'],
-  'id': ['id', 'passport', 'driving licence', 'birth certificate', 'proof', 'identity', 'document'],
-  'disclosure': ['disclosure', 'dbs', 'criminal', 'record', 'conviction', 'background'],
-  'language': ['english', 'esol', 'language', 'speak', 'communicate', 'interpreter', 'translation'],
-  'finance': ['money', 'debt', 'budget', 'benefit', 'income', 'payment', 'financial', 'bank'],
-  'interview': ['interview', 'prepare', 'practice', 'questions', 'answers', 'technique', 'mock'],
-  'sector': ['sector', 'industry', 'field', 'career', 'pathway', 'options', 'explore', 'research'],
+  'transport': ['bus', 'train', 'travel', 'route', 'journey', 'commute', 'driving', 'license', 'licence', 'car', 'taxi', 'cycle', 'cycling', 'walk', 'walking', 'fare', 'ticket'],
+  'childcare': ['childcare', 'nursery', 'school', 'pick up', 'drop off', 'hours', 'flexible', 'children', 'family', 'wrap around', 'breakfast club', 'after school'],
+  'cv': ['cv', 'resume', 'application', 'experience', 'skills', 'template', 'format', 'update', 'covering letter', 'cover letter', 'personal statement'],
+  'confidence': ['confidence', 'interview', 'practice', 'skills', 'presentation', 'anxiety', 'support', 'self-esteem', 'nervous', 'shy', 'assertive'],
+  'digital': ['computer', 'online', 'internet', 'email', 'website', 'digital', 'technology', 'access', 'laptop', 'phone', 'tablet', 'wifi', 'broadband', 'software'],
+  'health': ['health', 'medical', 'doctor', 'gp', 'appointment', 'condition', 'support', 'wellbeing', 'mental', 'physical', 'disability', 'sick', 'illness'],
+  'housing': ['housing', 'accommodation', 'rent', 'address', 'stable', 'home', 'council', 'homeless', 'shelter', 'tenancy', 'landlord'],
+  'training': ['training', 'course', 'qualification', 'certificate', 'learn', 'skill', 'develop', 'nvq', 'gcse', 'maths', 'english', 'functional skills'],
+  'experience': ['experience', 'volunteer', 'placement', 'internship', 'work trial', 'reference', 'work experience', 'sector-based'],
+  'id': ['id', 'passport', 'driving licence', 'birth certificate', 'proof', 'identity', 'document', 'national insurance', 'ni number', 'share code'],
+  'disclosure': ['disclosure', 'dbs', 'criminal', 'record', 'conviction', 'background', 'spent', 'unspent', 'rehabilitation'],
+  'language': ['english', 'esol', 'language', 'speak', 'communicate', 'interpreter', 'translation', 'fluent', 'vocabulary', 'grammar'],
+  'finance': ['money', 'debt', 'budget', 'benefit', 'income', 'payment', 'financial', 'bank', 'universal credit', 'uc', 'sanction', 'arrears'],
+  'interview': ['interview', 'prepare', 'practice', 'questions', 'answers', 'technique', 'mock', 'star', 'competency'],
+  'sector': ['sector', 'industry', 'field', 'career', 'pathway', 'options', 'explore', 'research', 'labour market', 'vacancies'],
+  'motivation': ['motivation', 'routine', 'punctuality', 'time management', 'goal', 'focus', 'direction', 'purpose'],
+  'interviews': ['interview', 'prepare', 'practice', 'mock', 'questions', 'technique', 'presentation', 'assessment centre'],
+  'literacy': ['reading', 'writing', 'literacy', 'numeracy', 'maths', 'english', 'spelling', 'grammar', 'dyslexia'],
 };
 
-function countMatches(text: string, patterns: Record<string, RegExp>): number {
-  return Object.values(patterns).filter(pattern => pattern.test(text)).length;
+// ============= Optimized Pattern Matching =============
+// Cache pattern test results within a single checkSmart call
+function countMatchesWithCache(text: string, patterns: Record<string, RegExp>, cache: Map<string, boolean>): number {
+  let count = 0;
+  for (const [key, pattern] of Object.entries(patterns)) {
+    const cacheKey = `${key}:${pattern.source}`;
+    let result = cache.get(cacheKey);
+    if (result === undefined) {
+      result = pattern.test(text);
+      cache.set(cacheKey, result);
+    }
+    if (result) count++;
+  }
+  return count;
 }
 
 function hasWeakLanguage(text: string): { hasWeak: boolean; matches: string[] } {
   const matches: string[] = [];
-  for (const [key, pattern] of Object.entries(WEAK_PATTERNS)) {
+  for (const [, pattern] of Object.entries(WEAK_PATTERNS)) {
     const match = text.match(pattern);
     if (match) {
       matches.push(match[0].toLowerCase());
@@ -110,27 +172,46 @@ function hasWeakLanguage(text: string): { hasWeak: boolean; matches: string[] } 
   return { hasWeak: matches.length > 0, matches };
 }
 
-function checkBarrierAlignment(action: string, barrier?: string): { aligned: boolean; keywords: string[] } {
-  if (!barrier) return { aligned: false, keywords: [] };
+function checkBarrierAlignment(action: string, barrier?: string): { aligned: boolean; keywords: string[]; confidence: 'high' | 'medium' | 'low' } {
+  if (!barrier) return { aligned: false, keywords: [], confidence: 'low' };
   
   const barrierLower = barrier.toLowerCase();
   const actionLower = action.toLowerCase();
+  const matchedKeywords: string[] = [];
   
-  // Find matching barrier category
+  // Check all barrier categories for matches
   for (const [category, keywords] of Object.entries(BARRIER_KEYWORDS)) {
-    if (barrierLower.includes(category) || keywords.some(kw => barrierLower.includes(kw))) {
-      // Check if action mentions relevant keywords
-      const matchedKeywords = keywords.filter(kw => actionLower.includes(kw));
-      if (matchedKeywords.length > 0) {
-        return { aligned: true, keywords: matchedKeywords };
-      }
+    // Check if barrier mentions this category
+    const barrierMatchesCategory = barrierLower.includes(category) || keywords.some(kw => barrierLower.includes(kw));
+    
+    if (barrierMatchesCategory) {
+      // Find all matching keywords in action
+      const actionMatches = keywords.filter(kw => actionLower.includes(kw));
+      matchedKeywords.push(...actionMatches);
     }
   }
   
-  // Fallback: check if barrier words appear in action
+  // Remove duplicates
+  const uniqueKeywords = [...new Set(matchedKeywords)];
+  
+  // Determine confidence based on number of matches
+  let confidence: 'high' | 'medium' | 'low' = 'low';
+  if (uniqueKeywords.length >= 3) confidence = 'high';
+  else if (uniqueKeywords.length >= 1) confidence = 'medium';
+  
+  if (uniqueKeywords.length > 0) {
+    return { aligned: true, keywords: uniqueKeywords, confidence };
+  }
+  
+  // Fallback: check if any barrier words (>3 chars) appear in action
   const barrierWords = barrierLower.split(/\s+/).filter(w => w.length > 3);
   const matchedWords = barrierWords.filter(w => actionLower.includes(w));
-  return { aligned: matchedWords.length > 0, keywords: matchedWords };
+  
+  return { 
+    aligned: matchedWords.length > 0, 
+    keywords: matchedWords,
+    confidence: matchedWords.length >= 2 ? 'medium' : 'low'
+  };
 }
 
 function generateSuggestion(key: string, criterion: SmartCriterion, meta?: {
@@ -166,12 +247,27 @@ function generateSuggestion(key: string, criterion: SmartCriterion, meta?: {
   }
 }
 
+// ============= Weighted Confidence Scoring =============
+function calculateConfidence(matches: number, thresholds: { high: number; medium: number }): 'high' | 'medium' | 'low' {
+  if (matches >= thresholds.high) return 'high';
+  if (matches >= thresholds.medium) return 'medium';
+  return 'low';
+}
+
 export function checkSmart(text: string, meta?: {
   forename?: string;
   barrier?: string;
   timescale?: string;
   date?: string;
 }): SmartCheck {
+  // Check cache first
+  const cacheKey = getCacheKey(text, meta);
+  const cached = getFromCache(cacheKey);
+  if (cached) return cached;
+
+  // Pattern match cache for this call
+  const patternCache = new Map<string, boolean>();
+  
   const lowerText = text.toLowerCase();
   const fullContext = [text, meta?.barrier, meta?.timescale].filter(Boolean).join(' ');
   const warnings: string[] = [];
@@ -189,13 +285,13 @@ export function checkSmart(text: string, meta?: {
   }
 
   // SPECIFIC check
-  const specificMatches = countMatches(text, SPECIFIC_PATTERNS);
-  const hasForename = meta?.forename && text.toLowerCase().includes(meta.forename.toLowerCase());
+  const specificMatches = countMatchesWithCache(text, SPECIFIC_PATTERNS, patternCache);
+  const hasForename = meta?.forename && lowerText.includes(meta.forename.toLowerCase());
   const specificScore = specificMatches + (hasForename ? 1 : 0);
   
   const specific: SmartCriterion = {
     met: specificScore >= 2,
-    confidence: specificScore >= 3 ? 'high' : specificScore >= 2 ? 'medium' : 'low',
+    confidence: calculateConfidence(specificScore, { high: 3, medium: 2 }),
     reason: specificScore >= 2 
       ? `Contains ${hasForename ? 'name, ' : ''}action, and context`
       : 'Add WHO will do WHAT and WHERE',
@@ -204,14 +300,14 @@ export function checkSmart(text: string, meta?: {
   specific.suggestion = generateSuggestion('specific', specific, meta);
 
   // MEASURABLE check
-  const measurableMatches = countMatches(fullContext, MEASURABLE_PATTERNS);
+  const measurableMatches = countMatchesWithCache(fullContext, MEASURABLE_PATTERNS, patternCache);
   const hasDate = MEASURABLE_PATTERNS.date.test(fullContext);
   const hasQuantity = MEASURABLE_PATTERNS.quantity.test(text);
   const hasOutcome = MEASURABLE_PATTERNS.outcome.test(text);
   
   const measurable: SmartCriterion = {
     met: measurableMatches >= 2 || (hasDate && (hasQuantity || hasOutcome)),
-    confidence: measurableMatches >= 3 ? 'high' : measurableMatches >= 2 ? 'medium' : 'low',
+    confidence: calculateConfidence(measurableMatches, { high: 3, medium: 2 }),
     reason: measurableMatches >= 2 || (hasDate && (hasQuantity || hasOutcome))
       ? [hasDate && 'date', hasQuantity && 'quantity', hasOutcome && !hasQuantity && 'outcome'].filter(Boolean).join(' and ') || 'Has measurable elements'
       : 'Add a specific date or quantity',
@@ -219,16 +315,14 @@ export function checkSmart(text: string, meta?: {
   };
   measurable.suggestion = generateSuggestion('measurable', measurable, meta);
 
-  // ACHIEVABLE check - check for agreement language with more flexibility
-  const achievableMatches = countMatches(text, ACHIEVABLE_PATTERNS);
+  // ACHIEVABLE check
+  const achievableMatches = countMatchesWithCache(text, ACHIEVABLE_PATTERNS, patternCache);
   const hasAgreement = ACHIEVABLE_PATTERNS.agreement.test(text);
   const hasCommitment = ACHIEVABLE_PATTERNS.commitment.test(text);
   const hasSupport = ACHIEVABLE_PATTERNS.support.test(text);
   const hasAgreedTo = ACHIEVABLE_PATTERNS.hasAgreedTo.test(text) || ACHIEVABLE_PATTERNS.agreedTo.test(text);
   const hasRealisticAchievable = ACHIEVABLE_PATTERNS.realisticAchievable.test(text);
   
-  // More lenient: standard template phrases and AI-generated fixes should all pass
-  // "As discussed and agreed" OR "has agreed to" OR "realistic and achievable" are all strong indicators
   const achievableMet = achievableMatches >= 2 || hasCommitment || (hasAgreement && hasSupport) || hasAgreedTo || hasRealisticAchievable || hasSupport;
   
   const achievable: SmartCriterion = {
@@ -241,21 +335,26 @@ export function checkSmart(text: string, meta?: {
   };
   achievable.suggestion = generateSuggestion('achievable', achievable, meta);
 
-  // RELEVANT check - now includes barrier alignment and task-based activities
-  const relevantMatches = countMatches(fullContext, RELEVANT_PATTERNS);
-  const hasBarrierRef = meta?.barrier && lowerText.includes(meta.barrier.toLowerCase().slice(0, 10));
+  // RELEVANT check - now includes barrier alignment with improved matching
+  const relevantMatches = countMatchesWithCache(fullContext, RELEVANT_PATTERNS, patternCache);
+  const hasBarrierRef = meta?.barrier && lowerText.includes(meta.barrier.toLowerCase().split(/\s+/)[0]); // First word only for partial match
   const hasGoalConnection = RELEVANT_PATTERNS.goal.test(fullContext) && RELEVANT_PATTERNS.connection.test(text);
   const hasTaskActivity = RELEVANT_PATTERNS.taskBased.test(fullContext);
   const barrierAlignment = checkBarrierAlignment(text, meta?.barrier);
   
-  // Task-based activities inherently contribute to employment goals
   const relevantMet = relevantMatches >= 2 || hasBarrierRef || hasGoalConnection || barrierAlignment.aligned || hasTaskActivity;
+  
+  // Determine confidence with weighted approach
+  let relevantConfidence: 'high' | 'medium' | 'low' = 'low';
+  if (barrierAlignment.aligned && barrierAlignment.confidence === 'high') relevantConfidence = 'high';
+  else if ((barrierAlignment.aligned && hasGoalConnection) || (hasBarrierRef && hasGoalConnection) || hasTaskActivity) relevantConfidence = 'high';
+  else if (relevantMatches >= 2 || barrierAlignment.aligned) relevantConfidence = 'medium';
   
   const relevant: SmartCriterion = {
     met: relevantMet,
-    confidence: (barrierAlignment.aligned && hasGoalConnection) || (hasBarrierRef && hasGoalConnection) || hasTaskActivity ? 'high' : relevantMatches >= 2 ? 'medium' : 'low',
+    confidence: relevantConfidence,
     reason: barrierAlignment.aligned 
-      ? `Addresses barrier with: ${barrierAlignment.keywords.slice(0, 2).join(', ')}`
+      ? `Addresses barrier with: ${barrierAlignment.keywords.slice(0, 3).join(', ')}`
       : hasTaskActivity
         ? 'Activity supports employment goal'
         : hasBarrierRef || hasGoalConnection 
@@ -266,13 +365,13 @@ export function checkSmart(text: string, meta?: {
   relevant.suggestion = generateSuggestion('relevant', relevant, meta);
 
   // TIME-BOUND check
-  const timeboundMatches = countMatches(fullContext, TIMEBOUND_PATTERNS);
+  const timeboundMatches = countMatchesWithCache(fullContext, TIMEBOUND_PATTERNS, patternCache);
   const hasTimescale = !!meta?.timescale;
   const hasSpecificDate = TIMEBOUND_PATTERNS.specific_date.test(fullContext);
   
   const timeBound: SmartCriterion = {
     met: timeboundMatches >= 1 || hasTimescale,
-    confidence: (hasSpecificDate && hasTimescale) ? 'high' : timeboundMatches >= 1 ? 'medium' : 'low',
+    confidence: (hasSpecificDate && hasTimescale) ? 'high' : hasSpecificDate || timeboundMatches >= 2 ? 'medium' : 'low',
     reason: hasTimescale || timeboundMatches >= 1
       ? `${hasSpecificDate ? 'Has deadline' : ''}${hasSpecificDate && hasTimescale ? ' and ' : ''}${hasTimescale ? 'review scheduled' : ''}`
       : 'Add a deadline or review date',
@@ -280,17 +379,16 @@ export function checkSmart(text: string, meta?: {
   };
   timeBound.suggestion = generateSuggestion('timeBound', timeBound, meta);
 
-  // Calculate overall score with semantic penalty
+  // Calculate overall score
   const criteria = [specific, measurable, achievable, relevant, timeBound];
   const overallScore = criteria.filter(c => c.met).length;
   
-  // Semantic penalty for weak language (reduce effective score for display purposes)
-  // Note: We don't actually reduce the score number, but we add warnings
+  // Semantic warning for weak language with high score
   if (weakCheck.hasWeak && overallScore >= 4) {
     warnings.push('Score is high but weak language may undermine the action\'s clarity.');
   }
 
-  return {
+  const result: SmartCheck = {
     specific,
     measurable,
     achievable,
@@ -299,6 +397,11 @@ export function checkSmart(text: string, meta?: {
     overallScore,
     warnings,
   };
+
+  // Cache the result
+  setInCache(cacheKey, result);
+
+  return result;
 }
 
 export function getSmartLabel(score: number): string {
