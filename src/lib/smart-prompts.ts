@@ -101,60 +101,80 @@ export const WIZARD_PROMPTS = {
 
 // ===== AI DRAFT PROMPTS FOR LOCAL LLM =====
 // These are optimized for small LLMs (135M-500M parameters)
-// Keep prompts concise and structured for better results
+// Keep prompts concise, direct, and context-specific
+// CRITICAL: Include negative instructions to prevent off-topic generation
 
-export const DRAFT_ACTION_PROMPT = `You are a SMART action writer for UK employment advisors.
+export const DRAFT_ACTION_PROMPT = `TASK: Write ONE employment action sentence.
 
-Participant: {forename}
-Barrier to work: {barrier}
-Responsible person: {responsible}
-Review timescale: {timescale}
-Target date: {targetDate}
+CONTEXT:
+- Person: {forename}
+- Barrier: {barrier}
+- Deadline: {targetDate}
+- Supporter: {responsible}
 
-Write a specific, actionable SMART action that:
-1. Starts with "{forename} will..."
-2. Includes a specific, measurable task
-3. Has a clear deadline (use {targetDate})
-4. Directly addresses the "{barrier}" barrier
+RULES:
+1. Start with "{forename} will"
+2. Include specific task related to "{barrier}"
+3. End with "by {targetDate}"
+4. Employment focus only - job search, skills, interviews, CV, etc.
 
-Respond with ONLY the action text (1-2 sentences). No explanation, no quotes.`;
+WRONG: "working on a project", "learning Python", "Hugging Face", "team meeting"
+RIGHT: "{forename} will apply for 3 jobs on Indeed by {targetDate}."
 
-// Compact version for smaller models
-export const DRAFT_ACTION_PROMPT_COMPACT = `Write a SMART employment action.
-Participant: {forename}
+OUTPUT: One sentence only, no quotes.`;
+
+// Compact version for smaller models - even more direct
+export const DRAFT_ACTION_PROMPT_COMPACT = `Write ONE job search action for {forename}.
+
 Barrier: {barrier}
 Deadline: {targetDate}
 
-Format: "{forename} will [specific action] by {targetDate}."
-One sentence only.`;
+Format: "{forename} will [job search action] by {targetDate}."
 
-export const DRAFT_HELP_PROMPT = `Given this SMART action:
-"{action}"
+NOT about: projects, coding, teams, AI, meetings.
+ONLY about: jobs, CV, interviews, applications, skills.
 
-Write a brief explanation (1 sentence) of how completing this action will help {forename} move towards employment.
+One sentence:`;
 
-Respond with ONLY the help text. No explanation, no quotes. Example format: "get shortlisted for interviews"`;
+// Help prompts - use {subject} placeholder which will be "I" or forename
+export const DRAFT_HELP_PROMPT = `Given this action: "{action}"
+
+How will completing this help {subject} get a job?
+Write a brief benefit (one phrase).
+
+Examples:
+- "get shortlisted for interviews"
+- "have a stronger CV"
+- "feel more confident"
+
+OUTPUT: One phrase, no quotes, no "This will help".`;
 
 // Compact version
 export const DRAFT_HELP_PROMPT_COMPACT = `Action: "{action}"
 
-How will this help {forename} find work? One phrase, no quotes.`;
+Job benefit for {subject}? One phrase:`;
 
-export const DRAFT_OUTCOME_PROMPT = `You are writing an expected outcome for a task-based SMART action.
+export const DRAFT_OUTCOME_PROMPT = `TASK: Write what {forename} will achieve from this activity.
 
-Participant: {forename}
-Activity/Event: {task}
+Activity: {task}
 
-Write what {forename} will achieve or learn from this activity.
-Start with "{forename} will..."
+RULES:
+1. Start with "{forename} will"
+2. Focus on employment benefit (job skills, confidence, knowledge)
+3. One or two sentences max
 
-Respond with ONLY the outcome text (1-2 sentences). No explanation, no quotes.`;
+WRONG: "complete the project", "learn new technologies"
+RIGHT: "{forename} will gain interview skills and feel more confident meeting employers."
+
+OUTPUT: One sentence, no quotes.`;
 
 // Compact version
 export const DRAFT_OUTCOME_PROMPT_COMPACT = `Activity: {task}
-Participant: {forename}
 
-What will {forename} gain? One sentence starting with "{forename} will..."`;
+What will {forename} gain for job search?
+Format: "{forename} will [employment benefit]."
+
+One sentence:`;
 
 // Helper to select appropriate prompt based on model size
 export function getPromptForModel(
@@ -175,4 +195,15 @@ export function getPromptForModel(
     default:
       return DRAFT_ACTION_PROMPT;
   }
+}
+
+// Helper to get correct subject for help prompt based on responsible person
+export function getHelpSubject(forename: string, responsible: string): string {
+  const lowerResp = responsible.toLowerCase().trim();
+  // If responsible is "I" or "Advisor", the help describes benefit to the participant
+  // But the language should match first-person if "I" was selected as the participant
+  if (lowerResp === 'i') {
+    return 'me';  // First person - "help me get..."
+  }
+  return forename;  // Third person - "help John get..."
 }
