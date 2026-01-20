@@ -22,7 +22,9 @@ export const RECOMMENDED_MODELS: ModelInfo[] = [
     description: "Smallest and fastest",
   },
   {
-    id: "Qwen/Qwen2.5-0.5B-Instruct",
+    // The upstream Qwen repo doesn't contain the ONNX artifacts Transformers.js expects.
+    // Use an ONNX-converted repo so downloads don't 404 on Safari/desktop.
+    id: "onnx-community/Qwen2.5-0.5B-Instruct-ONNX-GQA",
     name: "Qwen 2.5 0.5B",
     size: "~600MB",
     description: "Best quality for size",
