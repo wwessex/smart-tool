@@ -83,18 +83,12 @@ export default defineConfig(({ mode }) => {
       },
       // Reduce chunk size warnings threshold
       chunkSizeWarningLimit: 500,
-      // Use terser for minification for maximum Safari compatibility.
-      // Some Safari builds have been observed to throw TDZ errors with esbuild-minified bundles.
-      minify: 'terser',
-      terserOptions: {
-        // Prevent a handful of aggressive transforms that historically broke Safari
-        safari10: true,
-        format: { comments: false },
-      },
+      // Use esbuild for minification (built-in, fastest)
+      minify: 'esbuild',
       // Disable source maps for production (smaller bundle)
       sourcemap: false,
-      // Slightly lower target to improve Safari compatibility
-      target: 'es2019',
+      // Target modern browsers for smaller bundles
+      target: 'es2020',
       // CSS code splitting
       cssCodeSplit: true,
       // Enable tree shaking report in build output
@@ -111,6 +105,12 @@ export default defineConfig(({ mode }) => {
       ],
       // Exclude heavy deps from pre-bundling if not needed immediately
       exclude: ['@mlc-ai/web-llm'],
+
+      // Some deps (e.g. transformers.js) contain BigInt literals (0n/1n) which require ES2020+.
+      // Ensure the dependency pre-bundler doesn't downlevel to ES2019.
+      esbuildOptions: {
+        target: 'es2020',
+      },
     },
     // Enable CSS minification
     css: {
@@ -118,8 +118,15 @@ export default defineConfig(({ mode }) => {
     },
     // Performance: Reduce bundle analysis time
     esbuild: {
+      // Keep ES2020 so BigInt literals used by some deps don't break builds.
+      target: 'es2020',
+
       // Remove console.logs in production
       drop: mode === 'production' ? ['console', 'debugger'] : [],
+      // Minify whitespace and identifiers
+      minifyIdentifiers: true,
+      minifySyntax: true,
+      minifyWhitespace: true,
     },
   };
 });
