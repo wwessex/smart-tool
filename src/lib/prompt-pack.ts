@@ -209,12 +209,12 @@ function normalize(s: string): string {
   return (s || "").toLowerCase();
 }
 
-function applyExampleTemplate(template: string, params: { forename: string; targetDate: string }): string {
+function applyExampleTemplate(template: string, params: { forename: string; targetDate: string; targetTime?: string }): string {
   let t = (template || "").trim();
   // Replace common placeholder tokens with runtime values.
   // Teacher tool stores examples using [NAME] and [DATE] so we can safely substitute.
-  const nameTokens = ["[NAME]", "{NAME}", "<NAME>", "%(NAME)%", "{{NAME}}"];
-  const dateTokens = ["[DATE]", "{DATE}", "<DATE>", "%(DATE)%", "{{DATE}}"];
+  const nameTokens = ["[NAME]", "[NAME}", "{NAME}", "<NAME>", "%(NAME)%", "{{NAME}}", "{name}", "[name]", "[name}"];
+  const dateTokens = ["[DATE]", "[DATE}", "{DATE}", "<DATE>", "%(DATE)%", "{{DATE}}", "{date}", "[date]", "[date}"];
   for (const tok of nameTokens) {
     t = t.split(tok).join(params.forename);
     t = t.split(tok.toLowerCase()).join(params.forename);
@@ -222,6 +222,12 @@ function applyExampleTemplate(template: string, params: { forename: string; targ
   for (const tok of dateTokens) {
     t = t.split(tok).join(params.targetDate);
     t = t.split(tok.toLowerCase()).join(params.targetDate);
+  }
+  const timeTokens = ["[TIME]", "[TIME}", "{TIME}", "<TIME>", "%(TIME)%", "{{TIME}}", "{time}", "[time]", "[time}", "[Time}"];
+  const timeValue = (params.targetTime || "").trim() || "TBC";
+  for (const tok of timeTokens) {
+    t = t.split(tok).join(timeValue);
+    t = t.split(tok.toLowerCase()).join(timeValue);
   }
   return t;
 }
@@ -250,6 +256,7 @@ export function buildDraftActionPrompt(pack: PromptPack, params: {
   forename: string;
   barrier: string;
   targetDate: string;
+  targetTime?: string;
   responsible: string;
 }): string {
   const barrierKey = pickBarrierKey(params.barrier, pack.barrierGuidance);
@@ -264,22 +271,23 @@ export function buildDraftActionPrompt(pack: PromptPack, params: {
 
   // Keep it short for small models, but include ONE example if available.
   const exampleBlock = ex
-    ? `EXAMPLE (style + format):\nAction: ${applyExampleTemplate(ex.action, { forename: params.forename, targetDate: params.targetDate })}\nBenefit: ${ex.help}\n`
+    ? `EXAMPLE (style + format):\nAction: ${applyExampleTemplate(ex.action, { forename: params.forename, targetDate: params.targetDate, targetTime: params.targetTime })}\nBenefit: ${ex.help}\n`
     : "";
 
   return [
     "TASK: Write ONE employment action sentence.",
-    "FORMAT: '{forename} will ... by {targetDate}.'.",
+    "FORMAT: '{forename} will ... by {targetDate}.' (or use 'on {targetDate} at {targetTime}' if a time is provided).",
     "RULES:",
     `1) Must start with '${params.forename} will'`,
     "2) Must include a measurable element (number or clear deliverable)",
     `3) Must be relevant to the barrier: '${params.barrier}'`,
-    `4) Must end with 'by ${params.targetDate}'`,
+    `4) Must include the deadline date '${params.targetDate}'${params.targetTime ? ` and time '${params.targetTime}'` : ''}`,
     `5) Avoid: ${banned || "off-topic content"}`,
     "CONTEXT:",
     `- Person: ${params.forename}`,
     `- Barrier: ${params.barrier}`,
     `- Deadline: ${params.targetDate}`,
+    params.targetTime ? `- Time: ${params.targetTime}` : '',
     `- Supporter: ${params.responsible || "Advisor"}`,
     guidanceLine,
     exampleBlock ? "" : "",

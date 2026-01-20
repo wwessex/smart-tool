@@ -30,7 +30,7 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function normalizeTeacherExample(example: string, opts: { replaceName?: string; replaceDate?: string }): string {
+function normalizeTeacherExample(example: string, opts: { replaceName?: string; replaceDate?: string; replaceTime?: string }): string {
   let t = (example || "").trim();
 
   // Replace an explicit name/date entered by the admin with placeholders.
@@ -43,11 +43,22 @@ function normalizeTeacherExample(example: string, opts: { replaceName?: string; 
     t = t.replace(re, "[DATE]");
   }
 
+  if (opts.replaceTime && opts.replaceTime.trim()) {
+    const re = new RegExp(escapeRegExp(opts.replaceTime.trim()), "g");
+    t = t.replace(re, "[TIME]");
+  }
+
   // Normalise common placeholder token variants to our standard.
   t = t.replace(/\{\s*name\s*\}/gi, "[NAME]");
   t = t.replace(/\{\s*date\s*\}/gi, "[DATE]");
   t = t.replace(/\[\s*date\s*\]/gi, "[DATE]");
   t = t.replace(/\[\s*name\s*\]/gi, "[NAME]");
+  t = t.replace(/\{\s*time\s*\}/gi, "[TIME]");
+  t = t.replace(/\[\s*time\s*\]/gi, "[TIME]");
+  // Fix common bracket typos like [NAME} or [Time}
+  t = t.replace(/\[\s*name\s*\}/gi, "[NAME]");
+  t = t.replace(/\[\s*date\s*\}/gi, "[DATE]");
+  t = t.replace(/\[\s*time\s*\}/gi, "[TIME]");
 
   return t;
 }
@@ -84,6 +95,8 @@ export default function AdminPromptPack() {
   const [teacherHelp, setTeacherHelp] = useState<string>("");
   const [teacherReplaceName, setTeacherReplaceName] = useState<string>("");
   const [teacherReplaceDate, setTeacherReplaceDate] = useState<string>("");
+  const [teacherReplaceTime, setTeacherReplaceTime] = useState<string>("");
+  const [teacherReplaceTime, setTeacherReplaceTime] = useState<string>("");
 
   // Prefill editor from current live pack (if available)
   useEffect(() => {
@@ -250,6 +263,7 @@ export default function AdminPromptPack() {
     example = normalizeTeacherExample(example, {
       replaceName: teacherReplaceName,
       replaceDate: teacherReplaceDate,
+      replaceTime: teacherReplaceTime,
     });
 
     // 2) If the admin didn't use placeholders but wrote 'Alex will ...', convert the leading name.
@@ -265,6 +279,14 @@ export default function AdminPromptPack() {
       const byDate = example.match(/\\bby\s+([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{1,2}\/[0-9]{1,2}\/[0-9]{2,4}|[0-9]{1,2}-[A-Za-z]{3}-[0-9]{2,4})\\b/);
       if (byDate && byDate[1]) {
         example = example.replace(byDate[1], "[DATE]");
+      }
+    }
+
+    // 4) If the admin didn't use a time placeholder, convert the first obvious time after 'at'.
+    if (!/\[TIME\]/i.test(example)) {
+      const atTime = example.match(/\bat\s+([0-9]{1,2}(?::[0-9]{2})?\s?(?:am|pm)\b|[0-9]{1,2}\s?(?:am|pm)\b|[0-9]{1,2}:[0-9]{2}\b)\b/i);
+      if (atTime && atTime[1]) {
+        example = example.replace(atTime[1], "[TIME]");
       }
     }
 
@@ -305,6 +327,8 @@ export default function AdminPromptPack() {
     setTeacherHelp("");
     setTeacherReplaceName("");
     setTeacherReplaceDate("");
+    setTeacherReplaceTime("");
+    setTeacherReplaceTime("");
     toast({ title: "Reset", description: "SMART Teacher cleared." });
   };
 
@@ -360,12 +384,12 @@ export default function AdminPromptPack() {
               <CardHeader>
                 <CardTitle className="text-lg">SMART Teacher (guided)</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Teach the playbook by example. Use <code>[NAME]</code> and <code>[DATE]</code> placeholders in examples.
-                  The app will substitute the participant name/date at runtime.
+                  Teach the playbook by example. Use <code>[NAME]</code>, <code>[DATE]</code>, and <code>[TIME]</code> placeholders in examples.
+                  The app will substitute the participant name/date/time at runtime.
                 </p>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="space-y-2">
                     <label className="text-xs font-medium">Barrier / task</label>
                     <Input
@@ -397,7 +421,7 @@ export default function AdminPromptPack() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="space-y-2">
                     <label className="text-xs font-medium">Name in example to replace (optional)</label>
                     <Input
@@ -412,6 +436,15 @@ export default function AdminPromptPack() {
                       value={teacherReplaceDate}
                       onChange={(e) => setTeacherReplaceDate(e.target.value)}
                       placeholder="e.g. 25-Jan-26"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium">Time in example to replace (optional)</label>
+                    <Input
+                      value={teacherReplaceTime}
+                      onChange={(e) => setTeacherReplaceTime(e.target.value)}
+                      placeholder="e.g. 11am"
                     />
                   </div>
                 </div>

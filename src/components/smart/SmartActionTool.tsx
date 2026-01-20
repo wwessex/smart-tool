@@ -113,6 +113,7 @@ type Mode = 'now' | 'future';
 
 interface NowForm {
   date: string;
+  time: string;
   forename: string;
   barrier: string;
   action: string;
@@ -152,6 +153,7 @@ export function SmartActionTool() {
   const [mode, setMode] = useState<Mode>('now');
   const [nowForm, setNowForm] = useState<NowForm>({
     date: today,
+    time: '',
     forename: '',
     barrier: '',
     action: '',
@@ -456,7 +458,7 @@ export function SmartActionTool() {
     storage.addRecentName(forename);
 
     const baseMeta = mode === 'now' 
-      ? { date: nowForm.date, forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
+      ? { date: nowForm.date, time: nowForm.time, forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
       : { date: futureForm.date, forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, responsible: futureForm.responsible, reason: futureForm.outcome };
 
     // Include translation in history if available
@@ -592,6 +594,7 @@ export function SmartActionTool() {
           forename: nowForm.forename,
           barrier: nowForm.barrier,
           targetDate,
+          targetTime: nowForm.time || "",
           responsible: nowForm.responsible || 'Advisor',
         });
         const action = sanitizeOneSentence(await llm.generate(actionPrompt, llmSystemPrompt, 'action'));
@@ -634,6 +637,7 @@ export function SmartActionTool() {
     if (item.mode === 'now') {
       setNowForm({
         date: item.meta.date || today,
+        time: (item.meta as any).time || '',
         forename: item.meta.forename || '',
         barrier: item.meta.barrier || '',
         action: item.meta.action || '',
@@ -813,6 +817,7 @@ export function SmartActionTool() {
               forename: context.forename || '',
               barrier: context.barrier || '',
               targetDate,
+              targetTime: nowForm.time || "",
               responsible: context.responsible || 'Advisor',
             });
             return sanitizeOneSentence(await llm.generate(actionPrompt, llmSystemPrompt, 'action'));
@@ -1892,6 +1897,19 @@ export function SmartActionTool() {
                     <WarningText show={!!nowDateWarning} variant="warning" id="date-warning">
                       {nowDateWarning}
                     </WarningText>
+
+                    <div className="space-y-2">
+                      <label htmlFor="meeting-time" className="text-sm font-medium text-muted-foreground">
+                        Time (optional)
+                      </label>
+                      <Input
+                        id="meeting-time"
+                        value={nowForm.time}
+                        onChange={e => setNowForm(prev => ({ ...prev, time: e.target.value }))}
+                        placeholder="e.g. 11am"
+                        autoComplete="off"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2 flex-1 min-w-0">
                     <label htmlFor="participant-name" className="text-sm font-medium text-muted-foreground">Participant forename</label>
