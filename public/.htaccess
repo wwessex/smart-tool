@@ -1,43 +1,33 @@
-# SMART Tool - SPA routing + sensible caching
+# SPA routing for Vite/React
+# Works when deployed at a sub-path (as long as this file sits alongside index.html)
 
-Options -Indexes
-RewriteEngine On
+<IfModule mod_rewrite.c>
+  Options -MultiViews
+  RewriteEngine On
 
-# If you're in /smart-action-tool-webapp/, keep this:
-RewriteBase /smart-action-tool-webapp/
+  # If the requested path is a real file or directory, serve it
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
 
-# --- Serve existing files/folders directly ---
-RewriteCond %{REQUEST_FILENAME} -f [OR]
-RewriteCond %{REQUEST_FILENAME} -d
-RewriteRule ^ - [L]
-
-# --- SPA fallback (only if using BrowserRouter) ---
-# If you are using HashRouter (#/routes), this rewrite is not strictly required,
-# but it does not hurt.
-RewriteRule ^ index.html [L]
-
-# --- Caching for static assets ---
-<IfModule mod_expires.c>
-  ExpiresActive On
-  ExpiresByType text/css "access plus 7 days"
-  ExpiresByType application/javascript "access plus 7 days"
-  ExpiresByType application/json "access plus 1 hour"
-  ExpiresByType image/svg+xml "access plus 30 days"
-  ExpiresByType image/png "access plus 30 days"
-  ExpiresByType image/jpeg "access plus 30 days"
-  ExpiresByType font/woff2 "access plus 30 days"
+  # Otherwise, route everything to the SPA entry
+  RewriteRule . index.html [L]
 </IfModule>
 
-<IfModule mod_headers.c>
-  # Avoid caching HTML so updates appear immediately
-  <FilesMatch "\.(html)$">
-    Header set Cache-Control "no-cache, no-store, must-revalidate"
-    Header set Pragma "no-cache"
-    Header set Expires "0"
-  </FilesMatch>
+# Correct MIME for WebAssembly (needed for some local-LLM / ONNX runtimes)
+AddType application/wasm .wasm
 
-  # Cache hashed assets longer (Vite outputs hashed filenames)
-  <FilesMatch "\.(js|css|woff2|png|jpg|jpeg|svg)$">
-    Header set Cache-Control "public, max-age=604800, immutable"
+# Sensible caching: cache hashed assets aggressively, keep HTML fresh
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|mjs|css|png|jpg|jpeg|gif|svg|webp|ico|woff2?|wasm)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
+  <FilesMatch "^(index\.html)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
+
+# Optional compression
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/plain text/html text/css application/javascript application/json application/wasm image/svg+xml
 </IfModule>

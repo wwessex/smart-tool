@@ -143,7 +143,12 @@ function getPromptPackUrl(): string {
   // Vite env var (optional): VITE_PROMPT_PACK_URL=https://.../prompt-pack.json
   // Default: served from /public/prompt-pack.json
   const envUrl = (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_PROMPT_PACK_URL;
-  return envUrl || "/prompt-pack.json";
+  if (envUrl) return envUrl;
+
+  // When hosted in a sub-folder (e.g. /smart-tool/), using an absolute path
+  // would incorrectly point to the site root. Vite exposes BASE_URL for this.
+  const base = (import.meta as any).env?.BASE_URL || "/";
+  return `${base}prompt-pack.json`;
 }
 
 function isValidPack(pack: unknown): pack is PromptPack {
