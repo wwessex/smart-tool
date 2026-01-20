@@ -177,6 +177,14 @@ All colors MUST be HSL.
     @apply bg-background text-foreground antialiased;
     min-height: 100%;
     font-family: var(--font-sans);
+
+    /* Glassmorphism backdrop */
+    background:
+      radial-gradient(900px 420px at 12% 12%, rgba(255, 170, 0, 0.18), transparent 60%),
+      radial-gradient(760px 420px at 88% 18%, rgba(0, 140, 255, 0.14), transparent 60%),
+      radial-gradient(680px 460px at 70% 92%, rgba(255, 255, 255, 0.06), transparent 60%),
+      hsl(var(--background));
+    background-attachment: fixed;
   }
 }
 

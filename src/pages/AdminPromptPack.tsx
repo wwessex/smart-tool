@@ -96,7 +96,6 @@ export default function AdminPromptPack() {
   const [teacherReplaceName, setTeacherReplaceName] = useState<string>("");
   const [teacherReplaceDate, setTeacherReplaceDate] = useState<string>("");
   const [teacherReplaceTime, setTeacherReplaceTime] = useState<string>("");
-  const [teacherReplaceTime, setTeacherReplaceTime] = useState<string>("");
 
   // Prefill editor from current live pack (if available)
   useEffect(() => {
@@ -327,7 +326,6 @@ export default function AdminPromptPack() {
     setTeacherHelp("");
     setTeacherReplaceName("");
     setTeacherReplaceDate("");
-    setTeacherReplaceTime("");
     setTeacherReplaceTime("");
     toast({ title: "Reset", description: "SMART Teacher cleared." });
   };

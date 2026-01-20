@@ -1054,15 +1054,21 @@ export function SmartActionTool() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <motion.div 
+            <motion.div
               className={cn(
-                "rounded-xl gradient-primary flex items-center justify-center text-white font-black shadow-glow transition-all duration-200 flex-shrink-0",
-                isLandscape && headerCollapsed ? "w-7 h-7 text-sm" : isLandscape ? "w-8 h-8 text-base" : "w-9 h-9 sm:w-11 sm:h-11 text-lg sm:text-xl"
+                "rounded-xl bg-white/10 border border-white/15 backdrop-blur-md shadow-glow transition-all duration-200 flex-shrink-0 overflow-hidden",
+                isLandscape && headerCollapsed ? "w-7 h-7" : isLandscape ? "w-8 h-8" : "w-9 h-9 sm:w-11 sm:h-11"
               )}
-              whileHover={{ scale: 1.1, rotate: 5 }}
+              whileHover={{ scale: 1.08, rotate: 3 }}
               whileTap={{ scale: 0.95 }}
             >
-              S
+              <img
+                src="/logo-icon.png"
+                alt=""
+                className="w-full h-full object-contain p-1"
+                loading="eager"
+                decoding="async"
+              />
             </motion.div>
             <AnimatePresence mode="wait">
               {!(isLandscape && headerCollapsed) && (
@@ -1073,13 +1079,19 @@ export function SmartActionTool() {
                   transition={{ duration: 0.2 }}
                   className="overflow-hidden min-w-0"
                 >
-                  <h1 className={cn(
-                    "font-extrabold tracking-tight bg-gradient-to-r from-primary via-amber-500 to-orange-400 dark:from-primary dark:via-amber-400 dark:to-orange-300 bg-clip-text text-transparent truncate",
-                    isLandscape ? "text-base" : "text-sm sm:text-xl"
-                  )}>
-                    <span className="hidden xs:inline">SMART Action Support Tool</span>
-                    <span className="xs:hidden">SMART Tool</span>
-                  </h1>
+                  <div className="flex items-center gap-2">
+                    <img
+                      src="/logo-full.png"
+                      alt="SMART Action Support Tool"
+                      className={cn(
+                        "w-auto object-contain",
+                        isLandscape ? "h-6" : "h-5 sm:h-7"
+                      )}
+                      loading="eager"
+                      decoding="async"
+                    />
+                    <span className="sr-only">SMART Action Support Tool</span>
+                  </div>
                   {!isLandscape && <p className="text-xs text-muted-foreground hidden sm:block">by William Wessex</p>}
                 </motion.div>
               )}
