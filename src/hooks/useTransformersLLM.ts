@@ -157,7 +157,9 @@ function getBrowserOptimizations(browser: BrowserInfo): {
     const hasWebGPU = typeof navigator !== 'undefined' && !!(navigator as Navigator & { gpu?: unknown }).gpu;
     return {
       preferWebGPU: hasWebGPU,
-      wasmThreads: 2,
+      // Keep threads at 1 to avoid SharedArrayBuffer/COOP+COEP requirements that can break
+      // local inference on Safari/iPadOS deployments.
+      wasmThreads: 1,
       dtype: 'q4',
       notes: hasWebGPU ? 'Using WebGPU on Safari' : 'Using WASM for Safari compatibility',
     };
@@ -167,7 +169,7 @@ function getBrowserOptimizations(browser: BrowserInfo): {
     // Firefox has threading limitations
     return {
       preferWebGPU: false,
-      wasmThreads: 2,
+      wasmThreads: 1,
       dtype: "q4",
       notes: "Optimized for Firefox (WASM with reduced threads)",
     };

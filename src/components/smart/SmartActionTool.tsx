@@ -557,16 +557,18 @@ export function SmartActionTool() {
       return;
     }
 
-    // On mobile, always use templates (local AI not available due to memory constraints)
-    if (llm.isMobile) {
+    // On mobile/iPad, use templates unless Experimental Local AI is enabled in Settings.
+    // (Previously this always forced templates on mobile even when the experimental toggle was on.)
+    if (llm.isMobile && !llm.canUseLocalAI) {
       if (mode === 'now') {
         templateDraftNow();
       } else {
         templateDraftFuture();
       }
-      toast({ 
-        title: 'Smart templates applied', 
-        description: 'Local AI available on desktop browsers.' 
+      toast({
+        title: 'Smart templates applied',
+        description:
+          'Local AI is disabled on mobile/iPad by default. Enable it in Settings (Experimental) to use Local AI.'
       });
       return;
     }
