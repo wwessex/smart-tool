@@ -269,22 +269,34 @@ export default function AdminPromptPack() {
     }
 
     const next = JSON.parse(JSON.stringify(parsed.value)) as PromptPack;
-    const idx = next.fewShot.findIndex((x) => x.barrier.toLowerCase() === barrier.toLowerCase());
+    // Allow MULTIPLE examples per barrier (append + de-dupe) instead of overwriting.
+    // We keep newest first so Draft tends to use the freshest taught example.
     const entry = {
       barrier,
       action: example,
       help: help || "support progress towards employment",
     };
-    if (idx >= 0) next.fewShot[idx] = entry;
-    else next.fewShot.unshift(entry);
+
+    const sameBarrier = (x: { barrier: string }) => x.barrier.toLowerCase() === barrier.toLowerCase();
+    const normalizeAction = (s: string) => (s || "").trim().replace(/\s+/g, " ").toLowerCase();
+
+    const exists = next.fewShot.some((x) => sameBarrier(x) && normalizeAction((x as any).action) === normalizeAction(entry.action));
+    if (!exists) {
+      next.fewShot.unshift(entry);
+    }
+
+    const count = next.fewShot.filter(sameBarrier).length;
 
     // Bump meta so clients know it changed.
     next.version = Math.max(1, (next.version || 1) + 1);
     next.updatedAt = new Date().toISOString().slice(0, 10);
 
     setEditorText(prettyJson(next));
-    setStatus(`SMART Teacher: added example for '${barrier}' (v${next.version})`);
-    toast({ title: "Taught playbook", description: `Saved example for '${barrier}'.` });
+    setStatus(`SMART Teacher: ${exists ? "example already existed" : "added example"} for '${barrier}' (${count} total) (v${next.version})`);
+    toast({
+      title: exists ? "Already saved" : "Taught playbook",
+      description: exists ? `That example already exists for '${barrier}'.` : `Saved example for '${barrier}' (${count} total).`,
+    });
   };
 
   const handleTeachReset = () => {
