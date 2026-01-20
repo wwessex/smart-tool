@@ -1,27 +1,41 @@
-# SPA routing for Vite/React
-# Works when deployed at a sub-path (as long as this file sits alongside index.html)
+# Apache config for SMART Support Tool (Vite/React SPA)
+# This file is copied into dist/.htaccess during build.
 
+Options -Indexes
+DirectoryIndex index.html
+
+# Correct MIME types (helps shared hosts / Safari)
+<IfModule mod_mime.c>
+  AddType application/javascript .js .mjs
+  AddType text/css .css
+  AddType application/wasm .wasm
+  AddType application/json .json
+</IfModule>
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+
+  # Never cache the SPA shell (prevents stale index.html pointing to missing hashed assets)
+  <FilesMatch "^(index\.html|sw\.js|manifest\.json|offline\.html|prompt-pack\.json)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+
+  # Cache hashed assets long-term
+  <FilesMatch "\.(js|mjs|css|woff2?|ttf|eot|svg|png|jpg|jpeg|gif|ico|webp|wasm)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>
+
+# SPA fallback: serve real files, otherwise index.html
 <IfModule mod_rewrite.c>
   Options -MultiViews
   RewriteEngine On
 
-  # If the requested path is a real file or directory, serve it
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # Otherwise, route everything to the SPA entry
   RewriteRule . index.html [L]
 </IfModule>
-
-# Optional: long-cache fingerprinted assets (safe for Vite assets/*)
-<IfModule mod_headers.c>
-  <FilesMatch "\.(js|css|png|jpg|jpeg|gif|svg|webp|ico|woff2?)$">
-    Header set Cache-Control "public, max-age=31536000, immutable"
-  </FilesMatch>
-  <FilesMatch "\.(html)$">
-    Header set Cache-Control "no-cache"
-  </FilesMatch>
-</IfModule>
-
-AddType application/wasm .wasm

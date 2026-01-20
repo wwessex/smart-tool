@@ -13,8 +13,8 @@ const Index = lazy(() => import("./pages/Index"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
-// Hidden admin route (not linked anywhere)
-const AdminPromptPack = lazy(() => import("./pages/AdminPromptPack"));
+// Admin page: import eagerly to avoid chunk-loading issues on some hosts
+import AdminPromptPack from "./pages/AdminPromptPack";
 
 // BUG FIX #3: Error boundary for lazy load failures
 class LazyErrorBoundary extends Component<
