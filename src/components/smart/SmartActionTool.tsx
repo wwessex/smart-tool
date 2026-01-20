@@ -142,6 +142,8 @@ export function SmartActionTool() {
   const { pack: promptPack, source: promptPackSource } = usePromptPack();
   const today = todayISO();
   const effectivePromptPack = promptPack || DEFAULT_PROMPT_PACK;
+  const llmSystemPrompt = buildSystemPrompt(effectivePromptPack);
+
   
   // AI Draft state
   const [aiDrafting, setAIDrafting] = useState(false);
@@ -754,7 +756,6 @@ export function SmartActionTool() {
   }, [mode, nowForm, futureForm]);
 
   // Backend-taught prompt pack (cached locally). This is NOT user-learned.
-  const llmSystemPrompt = buildSystemPrompt(effectivePromptPack);
 
   const handleExport = () => {
     // Use the same format as exportAllData for consistency and full round-trip support
