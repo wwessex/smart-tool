@@ -83,12 +83,9 @@ export default defineConfig(({ mode }) => {
       },
       // Reduce chunk size warnings threshold
       chunkSizeWarningLimit: 500,
-      // Safari reliability: use terser (esbuild minifier has caused TDZ-style issues in Safari in some builds)
-      minify: 'terser',
-      terserOptions: {
-        // Conservative settings for Safari
-        safari10: true,
-      },
+      // CI reliability: avoid requiring the optional "terser" package.
+      // (If you later want terser again, add it as a dependency and switch back.)
+      minify: 'esbuild',
       // Keep sourcemaps temporarily to make future runtime errors diagnosable
       sourcemap: true,
       // Target modern browsers for smaller bundles
