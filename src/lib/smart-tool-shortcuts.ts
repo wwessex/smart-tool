@@ -43,7 +43,7 @@ export const SMART_TOOL_SHORTCUTS = {
   switchToFuture: {
     key: '2',
     ctrl: true,
-    description: 'Switch to Future mode',
+    description: 'Switch to Task Based Mode',
     category: 'Navigation',
   },
   showShortcutsHelp: {

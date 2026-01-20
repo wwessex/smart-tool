@@ -52,6 +52,7 @@ import { useKeyboardShortcuts, groupShortcuts, createShortcutMap, ShortcutConfig
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FIX_CRITERION_PROMPT, CRITERION_GUIDANCE, getHelpSubject } from '@/lib/smart-prompts';
 import { SMART_TOOL_SHORTCUTS } from '@/lib/smart-tool-shortcuts';
+import logoIcon from '@/assets/logo-icon.png';
 import { useTransformersLLM } from '@/hooks/useTransformersLLM';
 import { usePromptPack } from '@/hooks/usePromptPack';
 import { buildSystemPrompt, buildDraftActionPrompt, buildDraftHelpPrompt, buildDraftOutcomePrompt, sanitizeOneSentence, sanitizeOnePhrase, DEFAULT_PROMPT_PACK } from '@/lib/prompt-pack';
@@ -144,6 +145,36 @@ export function SmartActionTool() {
   const today = todayISO();
   const effectivePromptPack = promptPack || DEFAULT_PROMPT_PACK;
   const llmSystemPrompt = buildSystemPrompt(effectivePromptPack);
+
+  // iOS Safari can aggressively reload tabs under memory pressure. We proactively
+  // unload the local model shortly after generation to free memory, while keeping
+  // the downloaded weights in browser storage/cache.
+  const iosAutoUnloadTimer = useRef<number | null>(null);
+  const scheduleIOSModelUnload = useCallback(() => {
+    // Only do this on mobile (iPhone/iPad) and only when local AI is active.
+    if (!llm.isMobile) return;
+    if (storage.aiDraftMode !== 'local') return;
+    if (iosAutoUnloadTimer.current) {
+      window.clearTimeout(iosAutoUnloadTimer.current);
+      iosAutoUnloadTimer.current = null;
+    }
+    iosAutoUnloadTimer.current = window.setTimeout(() => {
+      try {
+        llm.unload();
+      } catch {
+        // ignore
+      }
+    }, 2500);
+  }, [llm, storage.aiDraftMode]);
+
+  useEffect(() => {
+    return () => {
+      if (iosAutoUnloadTimer.current) {
+        window.clearTimeout(iosAutoUnloadTimer.current);
+        iosAutoUnloadTimer.current = null;
+      }
+    };
+  }, []);
 
   
   // AI Draft state
@@ -611,6 +642,9 @@ export function SmartActionTool() {
         
         setNowForm(prev => ({ ...prev, action, help }));
         toast({ title: 'AI Draft ready', description: 'Generated with local AI. Edit as needed.' });
+
+        // Prevent iOS Safari from reloading the tab under memory pressure.
+        scheduleIOSModelUnload();
       } else {
         // Generate outcome
         const outcomePrompt = buildDraftOutcomePrompt(effectivePromptPack, {
@@ -620,6 +654,9 @@ export function SmartActionTool() {
         const outcome = sanitizeOneSentence(await llm.generate(outcomePrompt, llmSystemPrompt, 'outcome'));
         setFutureForm(prev => ({ ...prev, outcome }));
         toast({ title: 'AI Draft ready', description: 'Generated with local AI. Edit as needed.' });
+
+        // Prevent iOS Safari from reloading the tab under memory pressure.
+        scheduleIOSModelUnload();
       }
     } catch (err) {
       console.warn('LLM draft failed, falling back to templates:', err);
@@ -1065,7 +1102,7 @@ export function SmartActionTool() {
               whileTap={{ scale: 0.95 }}
             >
               <img
-                src={`logo-icon.png`}
+                src={logoIcon}
                 alt=""
                 className="w-full h-full object-contain p-1"
                 loading="eager"

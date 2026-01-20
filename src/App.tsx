@@ -221,6 +221,22 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
+  // Ask for persistent storage early so cached local-model files are less likely to be evicted.
+  // This helps iOS Safari keep downloaded model shards between reloads.
+  useEffect(() => {
+    (async () => {
+      try {
+        // @ts-ignore
+        if (typeof navigator !== 'undefined' && navigator.storage?.persist) {
+          // @ts-ignore
+          await navigator.storage.persist();
+        }
+      } catch {
+        // ignore
+      }
+    })();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem={true}>
