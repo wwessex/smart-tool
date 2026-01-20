@@ -1039,7 +1039,7 @@ export function SmartActionTool() {
       
       {/* Header */}
       <motion.header 
-        className="sticky top-0 z-50 backdrop-blur-xl bg-background/90 border-b border-border shadow-sm"
+        className="sticky top-0 z-50 glass-header"
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
@@ -1080,16 +1080,10 @@ export function SmartActionTool() {
                   className="overflow-hidden min-w-0"
                 >
                   <div className="flex items-center gap-2">
-                    <img
-                      src="/logo-full.png"
-                      alt="SMART Action Support Tool"
-                      className={cn(
-                        "w-auto object-contain",
-                        isLandscape ? "h-6" : "h-5 sm:h-7"
-                      )}
-                      loading="eager"
-                      decoding="async"
-                    />
+
+              <div className="flex flex-col leading-tight min-w-0">
+                <span className="font-semibold tracking-tight text-foreground truncate">SMART Action Support Tool</span>
+              </div>
                     <span className="sr-only">SMART Action Support Tool</span>
                   </div>
                   {!isLandscape && <p className="text-xs text-muted-foreground hidden sm:block">by William Wessex</p>}
@@ -1785,7 +1779,7 @@ export function SmartActionTool() {
         >
           {/* Left Panel - Form or Wizard */}
           <motion.div 
-            className="bg-card border border-border/50 rounded-2xl p-6 space-y-6 shadow-soft"
+            className="glass-panel rounded-2xl p-6 space-y-6 shadow-soft"
             variants={slideInLeft}
             transition={{ duration: 0.4, ease: "easeOut" }}
           >
@@ -2296,7 +2290,7 @@ export function SmartActionTool() {
 
           {/* Right Panel - Output & History */}
           <motion.div 
-            className="bg-card border border-border/50 rounded-2xl p-6 space-y-6 shadow-soft"
+            className="glass-panel rounded-2xl p-6 space-y-6 shadow-soft"
             variants={slideInRight}
             transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
           >
