@@ -1,4 +1,7 @@
-# Apache cache-control headers for SPA deployment
+# Apache cache-control + SPA routing for static deployment
+
+# Safety
+Options -Indexes
 
 # Disable caching for HTML files (always get fresh version)
 <FilesMatch "\.(html)$">
@@ -17,11 +20,30 @@
     AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript application/json
 </IfModule>
 
+# Correct MIME types (some shared hosts are missing these)
+<IfModule mod_mime.c>
+    AddType application/javascript .js
+    AddType text/css .css
+    AddType application/wasm .wasm
+    AddType application/json .json
+    AddType image/svg+xml .svg
+    AddType font/woff2 .woff2
+    AddType font/woff .woff
+    AddType application/octet-stream .bin
+    AddType application/octet-stream .onnx
+    AddType application/octet-stream .data
+    AddType application/octet-stream .pack
+    AddType application/octet-stream .safetensors
+    AddType application/octet-stream .gguf
+    AddType application/octet-stream .ggml
+    AddType application/octet-stream .model
+    AddType application/octet-stream .weights
+    AddType application/octet-stream .params
+</IfModule>
+
 # SPA fallback - redirect all non-file requests to index.html
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteBase /
-    
     # Don't rewrite files or directories
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
