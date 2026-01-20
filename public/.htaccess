@@ -1,31 +1,43 @@
-# Apache cache-control headers for SPA deployment
+# SMART Tool - SPA routing + sensible caching
 
-# Disable caching for HTML files (always get fresh version)
-<FilesMatch "\.(html)$">
+Options -Indexes
+RewriteEngine On
+
+# If you're in /smart-action-tool-webapp/, keep this:
+RewriteBase /smart-action-tool-webapp/
+
+# --- Serve existing files/folders directly ---
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# --- SPA fallback (only if using BrowserRouter) ---
+# If you are using HashRouter (#/routes), this rewrite is not strictly required,
+# but it does not hurt.
+RewriteRule ^ index.html [L]
+
+# --- Caching for static assets ---
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 7 days"
+  ExpiresByType application/javascript "access plus 7 days"
+  ExpiresByType application/json "access plus 1 hour"
+  ExpiresByType image/svg+xml "access plus 30 days"
+  ExpiresByType image/png "access plus 30 days"
+  ExpiresByType image/jpeg "access plus 30 days"
+  ExpiresByType font/woff2 "access plus 30 days"
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Avoid caching HTML so updates appear immediately
+  <FilesMatch "\.(html)$">
     Header set Cache-Control "no-cache, no-store, must-revalidate"
     Header set Pragma "no-cache"
     Header set Expires "0"
-</FilesMatch>
+  </FilesMatch>
 
-# Cache static assets with hashes for 1 year (immutable)
-<FilesMatch "\.(js|css|woff2?|ttf|eot|svg|png|jpg|jpeg|gif|ico|webp)$">
-    Header set Cache-Control "public, max-age=31536000, immutable"
-</FilesMatch>
-
-# Enable gzip compression
-<IfModule mod_deflate.c>
-    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript application/json
-</IfModule>
-
-# SPA fallback - redirect all non-file requests to index.html
-<IfModule mod_rewrite.c>
-    RewriteEngine On
-    RewriteBase /
-    
-    # Don't rewrite files or directories
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    
-    # Rewrite everything else to index.html
-    RewriteRule ^ index.html [L]
+  # Cache hashed assets longer (Vite outputs hashed filenames)
+  <FilesMatch "\.(js|css|woff2|png|jpg|jpeg|svg)$">
+    Header set Cache-Control "public, max-age=604800, immutable"
+  </FilesMatch>
 </IfModule>
