@@ -209,6 +209,24 @@ function normalize(s: string): string {
   return (s || "").toLowerCase();
 }
 
+function applyExampleTemplate(template: string, params: { forename: string; targetDate: string }): string {
+  let t = (template || "").trim();
+  // Replace common placeholder tokens with runtime values.
+  // Teacher tool stores examples using [NAME] and [DATE] so we can safely substitute.
+  const nameTokens = ["[NAME]", "{NAME}", "<NAME>", "%(NAME)%", "{{NAME}}"];
+  const dateTokens = ["[DATE]", "{DATE}", "<DATE>", "%(DATE)%", "{{DATE}}"];
+  for (const tok of nameTokens) {
+    t = t.split(tok).join(params.forename);
+    t = t.split(tok.toLowerCase()).join(params.forename);
+  }
+  for (const tok of dateTokens) {
+    t = t.split(tok).join(params.targetDate);
+    t = t.split(tok.toLowerCase()).join(params.targetDate);
+  }
+  return t;
+}
+
+
 function pickBarrierKey(barrier: string, guidance: Record<string, string[]>): string | null {
   const b = normalize(barrier);
   const keys = Object.keys(guidance);
@@ -246,7 +264,7 @@ export function buildDraftActionPrompt(pack: PromptPack, params: {
 
   // Keep it short for small models, but include ONE example if available.
   const exampleBlock = ex
-    ? `EXAMPLE (style + format):\nAction: ${ex.action}\nBenefit: ${ex.help}\n`
+    ? `EXAMPLE (style + format):\nAction: ${applyExampleTemplate(ex.action, { forename: params.forename, targetDate: params.targetDate })}\nBenefit: ${ex.help}\n`
     : "";
 
   return [
