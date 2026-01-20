@@ -33,14 +33,7 @@ jobs:
       - name: Verify ZIP exists
         run: |
           set -e
-          if [ ! -f "${{ inputs.zip_path }}" ]; then
-            echo "ZIP not found: ${{ inputs.zip_path }}"
-            echo "Repo root:"
-            ls -la
-            echo "imports (if present):"
-            ls -la imports || true
-            exit 1
-          fi
+          test -f "${{ inputs.zip_path }}" || (echo "ZIP not found: ${{ inputs.zip_path }}" && ls -la && ls -la imports || true && exit 1)
 
       - name: Extract ZIP to temp
         run: |
@@ -48,43 +41,31 @@ jobs:
           rm -rf /tmp/applyzip
           mkdir -p /tmp/applyzip
           unzip -q "${{ inputs.zip_path }}" -d /tmp/applyzip
-          echo "Extracted top-level:"
+          echo "Top-level extracted:"
           ls -la /tmp/applyzip
 
       - name: Detect payload root (find folder containing package.json)
         run: |
           set -e
           ROOT="/tmp/applyzip"
-
-          # Find all package.json (up to 4 levels deep) and pick the SHORTEST path (closest to ROOT)
           PKG_CANDIDATES=$(find "$ROOT" -maxdepth 4 -type f -name package.json -print || true)
           if [ -z "$PKG_CANDIDATES" ]; then
             echo "No package.json found in extracted ZIP (maxdepth 4)."
-            echo "Top-level extract:"
             ls -la "$ROOT"
             exit 1
           fi
-
-          # Choose shortest path
           PKG=$(echo "$PKG_CANDIDATES" | awk '{ print length($0) " " $0 }' | sort -n | head -n 1 | cut -d' ' -f2-)
           PAYLOAD=$(dirname "$PKG")
-
-          echo "Using payload root: $PAYLOAD"
           echo "PAYLOAD=$PAYLOAD" >> $GITHUB_ENV
-
-          echo "Payload listing:"
+          echo "Using payload root: $PAYLOAD"
           ls -la "$PAYLOAD"
           test -f "$PAYLOAD/package.json"
 
       - name: Validate ZIP contains expected (latest) files
         run: |
           set -e
-
-          # Expected in latest version:
           test -f "$PAYLOAD/public/prompt-pack.json" || (echo "Missing public/prompt-pack.json in ZIP payload" && exit 1)
           test -f "$PAYLOAD/src/pages/AdminPromptPack.tsx" || (echo "Missing src/pages/AdminPromptPack.tsx in ZIP payload" && exit 1)
-
-          echo "ZIP payload validation OK."
 
       - name: Clean repo (optional)
         if: ${{ inputs.clean_before == 'true' }}
@@ -92,7 +73,6 @@ jobs:
           set -e
           shopt -s dotglob
           for item in *; do
-            # Keep git + workflows + imports + backend folders + env files
             if [ "$item" = ".git" ] || [ "$item" = ".github" ] || [ "$item" = "imports" ] || [ "$item" = "supabase" ] || [ "$item" = "tmp" ] || [ "$item" = ".env" ] || [ "$item" = ".env.example" ]; then
               continue
             fi
@@ -117,7 +97,6 @@ jobs:
           set -e
           test -f "public/prompt-pack.json" || (echo "Repo missing public/prompt-pack.json after apply" && exit 1)
           test -f "src/pages/AdminPromptPack.tsx" || (echo "Repo missing src/pages/AdminPromptPack.tsx after apply" && exit 1)
-          echo "Repo validation OK after apply."
 
       - name: Commit and push
         run: |
@@ -125,15 +104,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Safety: ensure workflow remains
-          test -f ".github/workflows/apply-zip.yml"
-
           git add -A
           if git diff --cached --quiet; then
             echo "No changes to commit."
             exit 0
           fi
-
-          git commit -m "Apply ZIP package to repo (${{
-            inputs.zip_path }})"
+          git commit -m "Apply ZIP package to repo"
           git push origin "${{ inputs.target_branch }}"
