@@ -38,9 +38,7 @@ class LazyErrorBoundary extends Component<
       `URL: ${typeof window !== "undefined" ? window.location.href : "unknown"}`,
       `UA: ${typeof navigator !== "undefined" ? navigator.userAgent : "unknown"}`,
       `Time: ${new Date().toISOString()}`,
-    ].join("
-
-");
+    ].join("\n\n");
 
     console.error("LazyErrorBoundary caught:", error, info);
     this.setState({ details });
