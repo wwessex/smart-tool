@@ -1065,7 +1065,7 @@ export function SmartActionTool() {
               whileTap={{ scale: 0.95 }}
             >
               <img
-                src="/logo-icon.png"
+                src={`logo-icon.png`}
                 alt=""
                 className="w-full h-full object-contain p-1"
                 loading="eager"

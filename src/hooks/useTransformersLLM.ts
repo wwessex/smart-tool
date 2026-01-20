@@ -153,15 +153,21 @@ function getBrowserOptimizations(browser: BrowserInfo): {
   }
   
   if (browser.isSafari) {
-    // Safari 26+ supports WebGPU; prefer it when available, otherwise fall back to WASM.
-    const hasWebGPU = typeof navigator !== 'undefined' && !!(navigator as Navigator & { gpu?: unknown }).gpu;
+    // Safari can expose WebGPU, but iOS/iPadOS is prone to tab reloads during heavy
+    // WebGPU model init (memory/GPU resets). For stability, force WASM on iPhone/iPad.
+    const device = detectDevice();
+    const isIOSFamily = device.isIPhone || device.isIPad;
+    const hasWebGPU =
+      !isIOSFamily &&
+      typeof navigator !== 'undefined' &&
+      !!(navigator as Navigator & { gpu?: unknown }).gpu;
     return {
       preferWebGPU: hasWebGPU,
       // Keep threads at 1 to avoid SharedArrayBuffer/COOP+COEP requirements that can break
       // local inference on Safari/iPadOS deployments.
       wasmThreads: 1,
       dtype: 'q4',
-      notes: hasWebGPU ? 'Using WebGPU on Safari' : 'Using WASM for Safari compatibility',
+      notes: hasWebGPU ? 'Using WebGPU on Safari (desktop)' : 'Using WASM for Safari compatibility',
     };
   }
   
