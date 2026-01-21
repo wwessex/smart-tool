@@ -28,6 +28,7 @@ export interface ActionTemplate {
   name: string;
   mode: 'now' | 'future';
   createdAt: string;
+  time?: string;
   barrier?: string;
   action?: string;
   responsible?: string;

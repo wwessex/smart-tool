@@ -28,6 +28,7 @@ import { AIImproveDialog } from './AIImproveDialog';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { OnboardingTutorial, useOnboarding } from './OnboardingTutorial';
 import { useLocalSync } from '@/hooks/useLocalSync';
+import { copyToClipboard } from '@/lib/clipboard';
 
 // Lazy load HistoryInsights as it uses recharts which is a heavy dependency
 const HistoryInsights = lazy(() => import('./HistoryInsights').then(module => ({ default: module.HistoryInsights })));
@@ -125,6 +126,7 @@ interface NowForm {
 
 interface FutureForm {
   date: string;
+  time: string;
   forename: string;
   task: string;
   responsible: string;
@@ -194,6 +196,7 @@ export function SmartActionTool() {
   });
   const [futureForm, setFutureForm] = useState<FutureForm>({
     date: today,
+    time: '',
     forename: '',
     task: '',
     responsible: '',
@@ -330,6 +333,7 @@ export function SmartActionTool() {
     } else {
       const text = buildFutureOutput(
         futureForm.date,
+        futureForm.time,
         futureForm.forename.trim(),
         futureForm.task.trim(),
         futureForm.responsible,
@@ -369,7 +373,8 @@ export function SmartActionTool() {
         const langInfo = SUPPORTED_LANGUAGES[storage.participantLanguage];
         textToCopy = `=== ENGLISH ===\n${output}\n\n=== ${langInfo?.nativeName?.toUpperCase() || storage.participantLanguage.toUpperCase()} ===\n${translatedOutput}`;
       }
-      await navigator.clipboard.writeText(textToCopy);
+      const ok = await copyToClipboard(textToCopy);
+      if (!ok) throw new Error('copy-failed');
       setCopied(true);
       setTimeout(() => setCopied(false), 400);
       toast({ title: 'Copied!', description: translatedOutput ? 'Both versions copied to clipboard.' : 'Action copied to clipboard.' });
@@ -402,9 +407,9 @@ export function SmartActionTool() {
 
   const handleClear = useCallback(() => {
     if (mode === 'now') {
-      setNowForm({ date: today, forename: '', barrier: '', action: '', responsible: '', help: '', timescale: '' });
+      setNowForm({ date: today, time: '', forename: '', barrier: '', action: '', responsible: '', help: '', timescale: '' });
     } else {
-      setFutureForm({ date: today, forename: '', task: '', responsible: '', outcome: '', timescale: '' });
+      setFutureForm({ date: today, time: '', forename: '', task: '', responsible: '', outcome: '', timescale: '' });
     }
     setOutput('');
     setOutputSource('form');
@@ -465,7 +470,7 @@ export function SmartActionTool() {
     
     const meta = mode === 'now' 
       ? { forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, date: nowForm.date }
-      : { forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, date: futureForm.date };
+      : { forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, date: futureForm.date, time: futureForm.time };
     
     return checkSmart(checkableOutput, meta);
   }, [checkableOutput, mode, nowForm.forename, nowForm.barrier, nowForm.timescale, nowForm.date, futureForm.forename, futureForm.task, futureForm.timescale, futureForm.date]);
@@ -491,7 +496,7 @@ export function SmartActionTool() {
 
     const baseMeta = mode === 'now' 
       ? { date: nowForm.date, time: nowForm.time, forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
-      : { date: futureForm.date, forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, responsible: futureForm.responsible, reason: futureForm.outcome };
+      : { date: futureForm.date, time: futureForm.time, forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, responsible: futureForm.responsible, reason: futureForm.outcome };
 
     // Include translation in history if available
     const item: HistoryItem = {
@@ -688,6 +693,7 @@ export function SmartActionTool() {
     } else {
       setFutureForm({
         date: item.meta.date || today,
+        time: (item.meta as any).time || '',
         forename: item.meta.forename || '',
         task: item.meta.barrier || '',
         responsible: item.meta.responsible || '',
@@ -763,12 +769,17 @@ export function SmartActionTool() {
         action: template.action || prev.action,
         responsible: template.responsible || prev.responsible,
         help: template.help || prev.help,
+        // optional
+        time: (template as any).time || prev.time,
       }));
     } else {
       setFutureForm(prev => ({
         ...prev,
         task: template.task || prev.task,
+        responsible: template.responsible || prev.responsible,
         outcome: template.outcome || prev.outcome,
+        // optional
+        time: (template as any).time || prev.time,
       }));
     }
   }, []);
@@ -790,6 +801,7 @@ export function SmartActionTool() {
       const parts: string[] = [];
       if (futureForm.forename) parts.push(`Participant: ${futureForm.forename}`);
       if (futureForm.task) parts.push(`Activity/event: ${futureForm.task}`);
+      if (futureForm.time) parts.push(`Scheduled time: ${futureForm.time}`);
       if (futureForm.responsible) parts.push(`Who is responsible: ${futureForm.responsible}`);
       if (futureForm.outcome) parts.push(`Expected outcome: ${futureForm.outcome}`);
       if (futureForm.timescale) parts.push(`Review in: ${futureForm.timescale}`);
@@ -2132,6 +2144,19 @@ export function SmartActionTool() {
                     <WarningText show={!!futureDateError} variant="error" id="future-date-error">
                       {futureDateError}
                     </WarningText>
+
+                    <div className="space-y-2">
+                      <label htmlFor="scheduled-time" className="text-sm font-medium text-muted-foreground">
+                        Time (optional)
+                      </label>
+                      <Input
+                        id="scheduled-time"
+                        value={futureForm.time}
+                        onChange={e => setFutureForm(prev => ({ ...prev, time: e.target.value }))}
+                        placeholder="e.g. 11am"
+                        autoComplete="off"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2 flex-1 min-w-0">
                     <label htmlFor="future-participant-name" className="text-sm font-medium text-muted-foreground">Participant forename</label>
@@ -2293,8 +2318,8 @@ export function SmartActionTool() {
                 onInsertTemplate={handleInsertTemplate}
                 currentMode={mode}
                 currentForm={mode === 'now' 
-                  ? { barrier: nowForm.barrier, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
-                  : { task: futureForm.task, responsible: futureForm.responsible, outcome: futureForm.outcome }
+                  ? { barrier: nowForm.barrier, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help, time: nowForm.time }
+                  : { task: futureForm.task, responsible: futureForm.responsible, outcome: futureForm.outcome, time: futureForm.time }
                 }
               />
             </motion.div>
@@ -2543,9 +2568,9 @@ export function SmartActionTool() {
                               <Button size="sm" variant="outline" onClick={() => handleEditHistory(h)} aria-label={`Edit action for ${h.meta.forename || 'participant'}`}>
                                 <Edit className="w-3 h-3 mr-1" aria-hidden="true" /> Edit
                               </Button>
-                              <Button size="sm" variant="ghost" onClick={() => {
-                                navigator.clipboard.writeText(h.text);
-                                toast({ title: 'Copied!' });
+                              <Button size="sm" variant="ghost" onClick={async () => {
+                                const ok = await copyToClipboard(h.text);
+                                toast({ title: ok ? 'Copied!' : 'Copy failed', variant: ok ? undefined : 'destructive' });
                               }} aria-label="Copy action text">
                                 <Copy className="w-3 h-3" aria-hidden="true" />
                                 <span className="sr-only">Copy</span>

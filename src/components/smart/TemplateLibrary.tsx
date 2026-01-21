@@ -12,6 +12,7 @@ export interface ActionTemplate {
   name: string;
   mode: 'now' | 'future';
   createdAt: string;
+  time?: string;
   // For "now" mode
   barrier?: string;
   action?: string;
@@ -98,7 +99,7 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
       {/* Save as Template Button */}
       <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-1.5">
+          <Button type="button" variant="outline" size="sm" className="gap-1.5">
             <Plus className="w-3.5 h-3.5" />
             Save as template
           </Button>
@@ -137,8 +138,8 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
               )}
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setSaveOpen(false)}>Cancel</Button>
-              <Button onClick={handleSave}>Save Template</Button>
+              <Button type="button" variant="outline" onClick={() => setSaveOpen(false)}>Cancel</Button>
+              <Button type="button" onClick={handleSave}>Save Template</Button>
             </div>
           </div>
         </DialogContent>
@@ -147,7 +148,7 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
       {/* Template Library Button */}
       <Dialog open={libraryOpen} onOpenChange={setLibraryOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-1.5">
+          <Button type="button" variant="outline" size="sm" className="gap-1.5">
             <BookMarked className="w-3.5 h-3.5" />
             Templates
             {filteredTemplates.length > 0 && (
@@ -190,7 +191,7 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
                           className="text-sm h-8"
                           autoFocus
                         />
-                        <Button 
+                        <Button type="button" 
                           size="sm" 
                           variant="ghost" 
                           className="h-8 w-8 p-0"
@@ -201,7 +202,7 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
                         >
                           <Check className="w-4 h-4" />
                         </Button>
-                        <Button 
+                        <Button type="button" 
                           size="sm" 
                           variant="ghost" 
                           className="h-8 w-8 p-0"
@@ -220,7 +221,7 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
                             </p>
                           </div>
                           <div className="flex gap-1">
-                            <Button 
+                            <Button type="button" 
                               size="sm" 
                               variant="ghost" 
                               className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
@@ -231,7 +232,7 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </Button>
-                            <Button 
+                            <Button type="button" 
                               size="sm" 
                               variant="ghost" 
                               className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
@@ -260,7 +261,7 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
                           )}
                         </div>
 
-                        <Button 
+                        <Button type="button" 
                           size="sm" 
                           className="w-full"
                           onClick={() => handleInsert(template)}
