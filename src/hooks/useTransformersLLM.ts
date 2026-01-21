@@ -11,9 +11,10 @@ export interface ModelInfo {
 export const RECOMMENDED_MODELS: ModelInfo[] = [
   {
     id: "HuggingFaceTB/SmolLM2-360M-Instruct",
+    // Keep this simple for end users.
     name: "AI Module",
     size: "~500MB",
-    description: "Recommended local AI module",
+    description: "Offline AI drafting module",
   },
 ];
 
@@ -251,6 +252,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
   const browserRef = useRef<BrowserInfo>(detectBrowser());
   const deviceRef = useRef<DeviceInfo>(detectDevice());
   const retryCountRef = useRef<number>(0);
+  const fetchCacheInstalledRef = useRef<boolean>(false);
 
 
   // Device policy: Android remains blocked; iPhone/iPad can be enabled via settings (experimental).
@@ -261,15 +263,17 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
 
   // Filter supported models for this device (keeps iOS stable)
   const supportedModels = useMemo<ModelInfo[]>(() => {
-    if (!device.isMobile) return RECOMMENDED_MODELS;
+    // Android remains blocked.
     if (device.isAndroid) return [];
-    if (!allowMobileLLM) return [];
-    // iOS (experimental): allow the single module only.
+
+    // iPhone/iPad: allow only when the experimental toggle is enabled.
+    if (device.isMobile && !allowMobileLLM) return [];
+
+    // Otherwise (desktop + enabled iOS), allow the single recommended module.
     return RECOMMENDED_MODELS;
   }, [allowMobileLLM]);
 
-
-// iOS memory guardrails
+  // iOS memory guardrails
   const isIOSMobile = device.isIOS && device.isMobile && allowMobileLLM;
   const iosTokenCap = isIOSMobile ? (device.isIPhone ? 64 : 120) : null;
 
@@ -279,15 +283,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
     return supportedModels.some((m) => m.id === modelId);
   }, [supportedModels]);
 
-  
-  // Restore previously selected model (prevents UI forgetting after refresh)
-  useEffect(() => {
-    const saved = typeof localStorage !== "undefined" ? localStorage.getItem("llm_selected_model") : null;
-    if (saved && isModelAvailable(saved)) {
-      setState((prev) => ({ ...prev, selectedModel: saved }));
-    }
-  }, [isModelAvailable]);
-// Check device capabilities - Transformers.js works with both WebGPU and WASM - Transformers.js works with both WebGPU and WASM
+  // Check device capabilities - Transformers.js works with both WebGPU and WASM - Transformers.js works with both WebGPU and WASM
   const checkDevice = useCallback(async (): Promise<{ 
     available: boolean; 
     device: "webgpu" | "wasm"; 
@@ -376,31 +372,65 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
         env.allowLocalModels = false;
         env.useBrowserCache = true;
 
-        // Safari/iOS can evict normal browser cache aggressively. Wrap fetch with CacheStorage
-        // so model shards persist across refreshes when possible.
-        try {
-          const cacheName = "smart-llm-cache-v1";
-          const cachedFetch = async (url: RequestInfo | URL, init?: RequestInit) => {
-            const req = new Request(url, init);
-            if (req.method !== "GET" || typeof caches === "undefined") return fetch(req);
-            const cache = await caches.open(cacheName);
-            const hit = await cache.match(req);
-            if (hit) return hit.clone();
-            const res = await fetch(req);
-            if (res.ok) {
-              try {
-                await cache.put(req, res.clone());
-              } catch {
-                // ignore quota errors
-              }
-            }
-            return res;
-          };
-          (env as any).fetch = cachedFetch;
-        } catch {
-          // ignore
-        }
+        // IMPORTANT:
+        // Many browsers will re-download large model files unless we aggressively cache
+        // cross-origin GET requests. Transformers.js browser caching is best-effort and
+        // can be evicted. This adds an extra layer using CacheStorage + persistent
+        // storage request (done above). This also fixes "model disappears after refresh"
+        // on Chrome/Edge by ensuring bytes are actually cached locally.
+        if (!fetchCacheInstalledRef.current) {
+          try {
+            const cacheName = "smart-tool-llm-cache-v1";
+            const inflight = new Map<string, Promise<Response>>();
+            const originalFetch: typeof fetch = (env as any).fetch || fetch;
 
+            (env as any).fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+              // Only cache GET requests.
+              const method = (init?.method || (input instanceof Request ? input.method : "GET") || "GET").toUpperCase();
+              if (method !== "GET") return originalFetch(input as any, init);
+
+              const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : (input as Request).url;
+
+              // Avoid caching very short lived / non-file requests.
+              // (Models come from huggingface.co / hf.co / cdn-lfs; but we don't hardcode.
+              // We simply cache any http(s) file-like request.)
+              if (!/^https?:\/\//i.test(url)) return originalFetch(input as any, init);
+
+              // De-dupe concurrent fetches.
+              if (inflight.has(url)) return (await inflight.get(url)!)!.clone();
+
+              const p = (async () => {
+                try {
+                  const cache = await caches.open(cacheName);
+                  const cached = await cache.match(url);
+                  if (cached) return cached;
+
+                  // Force a network request; we do our own cache.
+                  const res = await originalFetch(url as any, { ...(init || {}), cache: "no-store" });
+                  if (res && res.ok) {
+                    try {
+                      // Some responses are not cacheable (opaque). Ignore failures.
+                      await cache.put(url, res.clone());
+                    } catch {
+                      // ignore
+                    }
+                  }
+                  return res;
+                } finally {
+                  inflight.delete(url);
+                }
+              })();
+
+              inflight.set(url, p);
+              const out = await p;
+              return out.clone();
+            };
+
+            fetchCacheInstalledRef.current = true;
+          } catch (e) {
+            console.warn("[LLM] CacheStorage fetch wrapper not available:", e);
+          }
+        }
 
         // Backend tuning (safe no-ops if not supported)
         try {
@@ -415,9 +445,21 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
           // ignore
         }
 
+        // If we already have the model files in CacheStorage, show a friendlier status.
+        let hasCachedBytes = false;
+        try {
+          const cache = await caches.open("smart-tool-llm-cache-v1");
+          const sentinel = `https://huggingface.co/${modelId}/resolve/main/config.json`;
+          hasCachedBytes = !!(await cache.match(sentinel));
+        } catch {
+          // ignore
+        }
+
         setState((prev) => ({
           ...prev,
-          loadingStatus: `Downloading model (${optimizations.notes})...`,
+          loadingStatus: hasCachedBytes
+            ? `Loading AI Module from browser storage (${optimizations.notes})...`
+            : `Downloading AI Module (${optimizations.notes})...`,
           loadingProgress: 5,
         }));
 
@@ -530,16 +572,9 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
         isReady: true,
         isWarmedUp: true,
         selectedModel: modelId,
-        
         loadingProgress: 100,
         loadingStatus: "Ready!",
       }));
-      try {
-        localStorage.setItem("llm_selected_model", modelId);
-      } catch {
-        // ignore
-      }
-
     } catch (err) {
       console.error("Failed to load model:", err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load model";

@@ -55,7 +55,7 @@ import { SMART_TOOL_SHORTCUTS } from '@/lib/smart-tool-shortcuts';
 import logoIcon from '@/assets/logo-icon.png';
 import { useTransformersLLM } from '@/hooks/useTransformersLLM';
 import { usePromptPack } from '@/hooks/usePromptPack';
-import { buildSystemPrompt, buildDraftActionPrompt, buildDraftHelpPrompt, buildDraftOutcomePrompt, sanitizeOneSentence, sanitizeOnePhrase, DEFAULT_PROMPT_PACK } from '@/lib/prompt-pack';
+import { buildSystemPrompt, buildDraftActionPrompt, buildDraftHelpPrompt, buildDraftOutcomePrompt, sanitizeActionPhrase, sanitizeOneSentence, sanitizeOnePhrase, DEFAULT_PROMPT_PACK } from '@/lib/prompt-pack';
 
 /**
  * Safely remove from localStorage, catching any errors.
@@ -630,14 +630,7 @@ export function SmartActionTool() {
           targetTime: nowForm.time || "",
           responsible: nowForm.responsible || 'Advisor',
         });
-        let action = sanitizeOneSentence(await llm.generate(actionPrompt, llmSystemPrompt, 'action'));
-        // Quality gate: if output is too short or list-like, retry once with stricter constraints.
-        if (!action) {
-          const retryPrompt = actionPrompt + "\n\nIMPORTANT: Output must be ONE complete sentence. No numbering, no bullets, no placeholders like '1.'.";
-          action = sanitizeOneSentence(await llm.generate(retryPrompt, llmSystemPrompt, 'action'));
-        }
-        if (!action) throw new Error('Local AI produced invalid action');
-
+        const action = sanitizeActionPhrase(await llm.generate(actionPrompt, llmSystemPrompt, 'action'), nowForm.forename);
         
         // Generate help - use correct subject based on responsible person
         const helpSubject = getHelpSubject(nowForm.forename, nowForm.responsible);
@@ -645,18 +638,7 @@ export function SmartActionTool() {
           action,
           subject: helpSubject,
         });
-        let help = sanitizeOnePhrase(await llm.generate(helpPrompt, llmSystemPrompt, 'help'));
-        // Quality gate: avoid empty/first-person/repeating the full action.
-        const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-        const fallbackWhy = `This action supports progress against the selected barrier by creating a clear, measurable next step and maintaining momentum.`;
-        if (!help || (action && norm(help).includes(norm(action)))) {
-          const retryPrompt = helpPrompt + "\n\nIMPORTANT: Do NOT repeat the action. Use different words. No first-person. Output ONE short phrase only.";
-          help = sanitizeOnePhrase(await llm.generate(retryPrompt, llmSystemPrompt, 'help'));
-        }
-        if (!help || (action && norm(help).includes(norm(action)))) {
-          help = fallbackWhy;
-        }
-
+        const help = sanitizeOnePhrase(await llm.generate(helpPrompt, llmSystemPrompt, 'help'));
         
         setNowForm(prev => ({ ...prev, action, help }));
         toast({ title: 'AI Draft ready', description: 'Generated with local AI. Edit as needed.' });
@@ -669,13 +651,7 @@ export function SmartActionTool() {
           forename: futureForm.forename,
           task: futureForm.task,
         });
-        let outcome = sanitizeOneSentence(await llm.generate(outcomePrompt, llmSystemPrompt, 'outcome'));
-        if (!outcome) {
-          const retryPrompt = outcomePrompt + "\n\nIMPORTANT: Output must be ONE complete sentence. No numbering/bullets.";
-          outcome = sanitizeOneSentence(await llm.generate(retryPrompt, llmSystemPrompt, 'outcome'));
-        }
-        if (!outcome) throw new Error('Local AI produced invalid outcome');
-
+        const outcome = sanitizeOneSentence(await llm.generate(outcomePrompt, llmSystemPrompt, 'outcome'));
         setFutureForm(prev => ({ ...prev, outcome }));
         toast({ title: 'AI Draft ready', description: 'Generated with local AI. Edit as needed.' });
 
@@ -883,41 +859,21 @@ export function SmartActionTool() {
               targetTime: nowForm.time || "",
               responsible: context.responsible || 'Advisor',
             });
-            let action = sanitizeOneSentence(await llm.generate(actionPrompt, llmSystemPrompt, 'action'));
-            if (!action) {
-              const retryPrompt = actionPrompt + "\n\nIMPORTANT: Output must be ONE complete sentence. No numbering/bullets.";
-              action = sanitizeOneSentence(await llm.generate(retryPrompt, llmSystemPrompt, 'action'));
-            }
-            if (!action) throw new Error('Local AI produced invalid action');
-            return action;
+            return sanitizeActionPhrase(await llm.generate(actionPrompt, llmSystemPrompt, 'action'), context.forename || '');
           } else {
             const helpSubject = getHelpSubject(context.forename || '', context.responsible || 'Advisor');
             const helpPrompt = buildDraftHelpPrompt(effectivePromptPack, {
               action: context.action || '',
               subject: helpSubject,
             });
-            let help = sanitizeOnePhrase(await llm.generate(helpPrompt, llmSystemPrompt, 'help'));
-            const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-            const fallbackWhy = `This action supports progress against the selected barrier by creating a clear, measurable next step and maintaining momentum.`;
-            if (!help || (context.action && norm(help).includes(norm(context.action)))) {
-              const retryPrompt = helpPrompt + "\n\nIMPORTANT: Do NOT repeat the action. Use different words. No first-person. Output ONE short phrase only.";
-              help = sanitizeOnePhrase(await llm.generate(retryPrompt, llmSystemPrompt, 'help'));
-            }
-            if (!help || (context.action && norm(help).includes(norm(context.action)))) help = fallbackWhy;
-            return help;
+            return sanitizeOnePhrase(await llm.generate(helpPrompt, llmSystemPrompt, 'help'));
           }
         } else if (mode === 'future' && field === 'outcome') {
           const outcomePrompt = buildDraftOutcomePrompt(effectivePromptPack, {
             forename: context.forename || '',
             task: context.task || '',
           });
-          let outcome = sanitizeOneSentence(await llm.generate(outcomePrompt, llmSystemPrompt, 'outcome'));
-          if (!outcome) {
-            const retryPrompt = outcomePrompt + "\n\nIMPORTANT: Output must be ONE complete sentence. No numbering/bullets.";
-            outcome = sanitizeOneSentence(await llm.generate(retryPrompt, llmSystemPrompt, 'outcome'));
-          }
-          if (!outcome) throw new Error('Local AI produced invalid outcome');
-          return outcome;
+          return sanitizeOneSentence(await llm.generate(outcomePrompt, llmSystemPrompt, 'outcome'));
         }
       } catch (err) {
         console.warn('LLM wizard draft failed, falling back to templates:', err);

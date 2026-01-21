@@ -234,7 +234,26 @@ function applyExampleTemplate(template: string, params: { forename: string; targ
     t = t.split(tok).join(timeValue);
     t = t.split(tok.toLowerCase()).join(timeValue);
   }
+
+  // Defensive: if an example was saved with a literal name (e.g. "Alex will"),
+  // treat it as a placeholder so the participant's name is always used.
+  // Only replace tokens that look like a first name immediately before "will".
+  t = t.replace(/(^|[\n\r\t ,.])([A-Z][a-z]{2,20})(?=\s+will\b)/g, `$1${params.forename}`);
   return t;
+}
+
+function toActionPhrase(actionSentence: string): string {
+  const raw = (actionSentence || "").trim();
+  // Remove common leading scaffolding.
+  let t = raw.replace(/^\s*(as\s+discussed\s+and\s+agreed,\s*)/i, "");
+  // Convert "Name will ..." into just the phrase.
+  const m = t.match(/\bwill\s+([\s\S]+)$/i);
+  if (m && m[1]) t = m[1].trim();
+  // Remove any leading "action:" fragments
+  t = t.replace(/^\s*action\s*:\s*/i, "");
+  // Ensure lower-case start (buildNowOutput adds "{name} will")
+  if (t) t = t.charAt(0).toLowerCase() + t.slice(1);
+  return stripTrailingPunctuation(t);
 }
 
 
@@ -275,19 +294,25 @@ export function buildDraftActionPrompt(pack: PromptPack, params: {
   const banned = pack.bannedTopics?.length ? pack.bannedTopics.join(", ") : "";
 
   // Keep it short for small models, but include ONE example if available.
-  const exampleBlock = ex
-    ? `EXAMPLE (style + format):\nAction: ${applyExampleTemplate(ex.action, { forename: params.forename, targetDate: params.targetDate, targetTime: params.targetTime })}\nBenefit: ${ex.help}\n`
+  // IMPORTANT: our UI templates already add "As discussed and agreed, ... {name} will".
+  // So we ask the local model for a verb-phrase only (no names), which avoids name leakage.
+  const examplePhrase = ex
+    ? toActionPhrase(applyExampleTemplate(ex.action, { forename: params.forename, targetDate: params.targetDate, targetTime: params.targetTime }))
+    : "";
+  const exampleBlock = examplePhrase
+    ? `EXAMPLE (just the phrase):\n${examplePhrase}\n(benefit: ${ex!.help})\n`
     : "";
 
   return [
-    "TASK: Write ONE employment action sentence.",
-    "FORMAT: '{forename} will ... by {targetDate}.' (or use 'on {targetDate} at {targetTime}' if a time is provided).",
+    "TASK: Write ONE employment action PHRASE (no name).",
+    "FORMAT: a verb phrase that can follow '{forename} will ...'.",
     "RULES:",
-    `1) Must start with '${params.forename} will'`,
-    "2) Must include a measurable element (number or clear deliverable)",
-    `3) Must be relevant to the barrier: '${params.barrier}'`,
-    `4) Must include the deadline date '${params.targetDate}'${params.targetTime ? ` and time '${params.targetTime}'` : ''}`,
-    `5) Avoid: ${banned || "off-topic content"}`,
+    "1) Do NOT include any person's name.",
+    "2) Do NOT include the word 'will' (the app adds it).",
+    "3) Must include a measurable element (number or clear deliverable).",
+    `4) Must be relevant to the barrier: '${params.barrier}'.`,
+    `5) Must include the deadline '${params.targetDate}'${params.targetTime ? ` and time '${params.targetTime}'` : ''}.`,
+    `6) Avoid: ${banned || "off-topic content"}`,
     "CONTEXT:",
     `- Person: ${params.forename}`,
     `- Barrier: ${params.barrier}`,
@@ -297,10 +322,46 @@ export function buildDraftActionPrompt(pack: PromptPack, params: {
     guidanceLine,
     exampleBlock ? "" : "",
     exampleBlock,
-    "OUTPUT: One sentence only. No quotes. No bullet points.",
+    "OUTPUT: One short phrase only. No quotes. No bullet points.",
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+// -------- Local-AI specific post-processing --------
+
+/**
+ * The app UI renders: "As discussed and agreed, on DATE, {name} ... {name} will {ACTION}."
+ * So Local AI should return only the action phrase.
+ */
+export function sanitizeActionPhrase(text: string, forename: string): string {
+  let t = (text || "").trim();
+  t = t.replace(/^"+|"+$/g, "");
+  t = t.replace(/^\s*(assistant:|<\|assistant\|>)\s*/i, "");
+
+  // Strip any leading wrappers.
+  t = t.replace(/^\s*(as\s+discussed\s+and\s+agreed,\s*)/i, "");
+  t = t.replace(/^\s*action\s*:\s*/i, "");
+
+  // Remove any leading "Name will" (or "Name will action:") so buildNowOutput doesn't double-name.
+  t = t.replace(/^\s*[A-Z][a-z]{2,20}\s+will\s+(?:action\s*:\s*)?/i, "");
+  t = t.replace(new RegExp(`^\\s*${forename.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\s+will\\s+`, "i"), "");
+
+  // If the model still outputs a full sentence, try to extract the phrase after "will".
+  const m = t.match(/\bwill\s+([\s\S]+)$/i);
+  if (m && m[1]) t = m[1].trim();
+
+  // Prevent "Jim will action: Alex will ..." type leakage: replace any other-name-before-will.
+  t = t.replace(/(^|[\n\r\t ,.])([A-Z][a-z]{2,20})(?=\s+will\b)/g, `$1${forename}`);
+  t = t.replace(new RegExp(`\\b${forename}\\s+will\\s+`, "gi"), "");
+
+  // Lowercase start (template adds the capitalised name).
+  t = stripTrailingPunctuation(t.trim());
+  if (t) t = t.charAt(0).toLowerCase() + t.slice(1);
+
+  // Minimal sanity: avoid returning just "1." etc.
+  if (!/[a-z0-9]/i.test(t) || t.length < 4) return "";
+  return t;
 }
 
 export function buildDraftHelpPrompt(pack: PromptPack, params: {
@@ -314,8 +375,6 @@ export function buildDraftHelpPrompt(pack: PromptPack, params: {
     `Who benefits: ${params.subject}`,
     "RULES:",
     "- No full sentences. No 'This will help'.",
-    "- Do not repeat the action sentence; describe the benefit using different words.",
-    "- No first-person (I / my).",
     "- Must be employment-related (applications, interviews, confidence, skills).",
     banned ? `- Avoid: ${banned}` : "",
     "OUTPUT: One phrase only.",
@@ -348,18 +407,12 @@ export function buildDraftOutcomePrompt(pack: PromptPack, params: {
 
 export function sanitizeOneSentence(text: string): string {
   let t = (text || "").trim();
-  // Strip quotes / assistant prefixes
   t = t.replace(/^"+|"+$/g, "");
   t = t.replace(/^\s*(assistant:|<\|assistant\|>)\s*/i, "");
-  // Strip bullets / numbering ("1.", "-", "•")
-  t = t.replace(/^\s*([\-\*\u2022]|\d+\.)\s*/g, "");
   // Keep only first sentence if model rambles.
   const m = t.match(/^(.+?[.!?])\s/);
   if (m && m[1]) t = m[1].trim();
-  // If it is still too short, treat as invalid (caller can retry/fallback)
-  const stripped = t.replace(/[^a-z0-9]+/gi, " ").trim();
-  if (!stripped || stripped.length < 12) return "";
-  // Ensure it ends with punctuation for consistency
+  // Ensure it ends with a period for consistency (unless already ends in ! or ?)
   if (t && !/[.!?]$/.test(t)) t += ".";
   return t;
 }
@@ -367,16 +420,14 @@ export function sanitizeOneSentence(text: string): string {
 export function sanitizeOnePhrase(text: string): string {
   let t = (text || "").trim();
   t = t.replace(/^"+|"+$/g, "");
+  // Strip common prefixes - the UI already adds "This action will help..."
+  t = t.replace(/^\s*(this action will help|this will help|it will help)\s*/i, "");
   t = t.replace(/^\s*(assistant:|<\|assistant\|>)\s*/i, "");
-  // Remove common lead-ins that cause duplication
-  t = t.replace(/^\s*(this will help|it will help|this action will help)\s*/i, "");
-  // Strip bullets / numbering
-  t = t.replace(/^\s*([\-\*\u2022]|\d+\.)\s*/g, "");
   // Remove trailing punctuation that makes it look like a sentence.
   t = t.replace(/[.!?]+$/, "").trim();
-  // Avoid first-person phrasing in the "help" box
-  if (/\b(i|i\x27ve|i have|my)\b/i.test(t)) return "";
-  // Too short? invalid
-  if (t.replace(/[^a-z0-9]+/gi, " ").trim().length < 8) return "";
+
+  // De-dupe an accidental immediate repeat (common on tiny local models)
+  // e.g. "upload a CV by Friday upload a CV by Friday" -> "upload a CV by Friday"
+  t = t.replace(/^(.{10,120})\s+\1$/i, "$1");
   return t;
 }
