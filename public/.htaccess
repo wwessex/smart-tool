@@ -1,41 +1,31 @@
-# Apache config for SMART Support Tool (Vite/React SPA)
-# This file is copied into dist/.htaccess during build.
+# Apache cache-control headers for SPA deployment
 
-Options -Indexes
-DirectoryIndex index.html
-
-# Correct MIME types (helps shared hosts / Safari)
-<IfModule mod_mime.c>
-  AddType application/javascript .js .mjs
-  AddType text/css .css
-  AddType application/wasm .wasm
-  AddType application/json .json
-</IfModule>
-
-<IfModule mod_headers.c>
-  Header always set X-Content-Type-Options "nosniff"
-
-  # Never cache the SPA shell (prevents stale index.html pointing to missing hashed assets)
-  <FilesMatch "^(index\.html|sw\.js|manifest\.json|offline\.html|prompt-pack\.json)$">
+# Disable caching for HTML files (always get fresh version)
+<FilesMatch "\.(html)$">
     Header set Cache-Control "no-cache, no-store, must-revalidate"
     Header set Pragma "no-cache"
     Header set Expires "0"
-  </FilesMatch>
+</FilesMatch>
 
-  # Cache hashed assets long-term
-  <FilesMatch "\.(js|mjs|css|woff2?|ttf|eot|svg|png|jpg|jpeg|gif|ico|webp|wasm)$">
+# Cache static assets with hashes for 1 year (immutable)
+<FilesMatch "\.(js|css|woff2?|ttf|eot|svg|png|jpg|jpeg|gif|ico|webp)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
-  </FilesMatch>
+</FilesMatch>
+
+# Enable gzip compression
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript application/json
 </IfModule>
 
-# SPA fallback: serve real files, otherwise index.html
+# SPA fallback - redirect all non-file requests to index.html
 <IfModule mod_rewrite.c>
-  Options -MultiViews
-  RewriteEngine On
-
-  RewriteCond %{REQUEST_FILENAME} -f [OR]
-  RewriteCond %{REQUEST_FILENAME} -d
-  RewriteRule ^ - [L]
-
-  RewriteRule . index.html [L]
+    RewriteEngine On
+    RewriteBase /
+    
+    # Don't rewrite files or directories
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    
+    # Rewrite everything else to index.html
+    RewriteRule ^ index.html [L]
 </IfModule>

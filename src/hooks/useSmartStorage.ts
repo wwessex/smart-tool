@@ -16,8 +16,7 @@ const STORAGE = {
   lastRetentionCheck: "smartTool.lastRetentionCheck",
   participantLanguage: "smartTool.participantLanguage",
   aiDraftMode: "smartTool.aiDraftMode",
-  preferredLLMModel: "smartTool.preferredLLMModel",
-  allowMobileLLM: "smartTool.allowMobileLLM"
+  preferredLLMModel: "smartTool.preferredLLMModel"
 };
 
 // Default retention period in days
@@ -66,7 +65,6 @@ export interface SmartToolSettings {
   participantLanguage?: string;
   aiDraftMode?: AIDraftMode;
   preferredLLMModel?: string;
-  allowMobileLLM?: boolean;
 }
 
 /**
@@ -166,8 +164,6 @@ export function useSmartStorage() {
       return null;
     }
   });
-  const [allowMobileLLM, setAllowMobileLLM] = useState<boolean>(() => loadBoolean(STORAGE.allowMobileLLM, false));
-
 
   const updateBarriers = useCallback((newBarriers: string[]) => {
     setBarriers(newBarriers);
@@ -289,10 +285,6 @@ if (data.settings && typeof data.settings === 'object') {
         setPreferredLLMModel(data.settings.preferredLLMModel);
         localStorage.setItem(STORAGE.preferredLLMModel, data.settings.preferredLLMModel);
       }
-      if (typeof data.settings.allowMobileLLM === 'boolean') {
-        setAllowMobileLLM(data.settings.allowMobileLLM);
-        localStorage.setItem(STORAGE.allowMobileLLM, data.settings.allowMobileLLM ? "true" : "false");
-      }
     }
   }, []);
 
@@ -355,7 +347,6 @@ const exportAllData = useCallback(() => {
         participantLanguage,
         aiDraftMode,
         preferredLLMModel,
-        allowMobileLLM,
       },
     };
     return exportData;
@@ -372,7 +363,6 @@ const exportAllData = useCallback(() => {
     participantLanguage,
     aiDraftMode,
     preferredLLMModel,
-    allowMobileLLM,
   ]);
 
   // Delete all user data for GDPR right to erasure
@@ -395,7 +385,6 @@ const exportAllData = useCallback(() => {
     setParticipantLanguage('none');
     setAIDraftMode('ai');
     setPreferredLLMModel(null);
-    setAllowMobileLLM(false);
   }, []);
 
   // Update retention settings
@@ -428,11 +417,6 @@ const exportAllData = useCallback(() => {
       safeRemoveItem(STORAGE.preferredLLMModel);
     }
   }, []);
-  const updateAllowMobileLLM = useCallback((enabled: boolean) => {
-    setAllowMobileLLM(enabled);
-    safeSetItem(STORAGE.allowMobileLLM, enabled ? "true" : "false");
-  }, []);
-
 
   // Check and clean up old history items
   // Returns the number of items deleted
@@ -492,7 +476,6 @@ const exportAllData = useCallback(() => {
     participantLanguage,
     aiDraftMode,
     preferredLLMModel,
-    allowMobileLLM,
     updateBarriers,
     resetBarriers,
     updateTimescales,
@@ -512,7 +495,6 @@ const exportAllData = useCallback(() => {
     updateParticipantLanguage,
     updateAIDraftMode,
     updatePreferredLLMModel,
-    updateAllowMobileLLM,
     cleanupOldHistory,
     shouldRunCleanup,
     exportAllData,

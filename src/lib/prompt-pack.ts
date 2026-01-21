@@ -140,15 +140,10 @@ export async function fetchRemotePromptPack(): Promise<PromptPack> {
 }
 
 function getPromptPackUrl(): string {
-  // Optional override: VITE_PROMPT_PACK_URL=https://.../prompt-pack.json
+  // Vite env var (optional): VITE_PROMPT_PACK_URL=https://.../prompt-pack.json
+  // Default: served from /public/prompt-pack.json
   const envUrl = (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_PROMPT_PACK_URL;
-
-  // Default: served from this app's base URL (supports subfolder hosting)
-  // e.g. BASE_URL="/smart-support-tool-webapp/" => "/smart-support-tool-webapp/prompt-pack.json"
-  const base = (import.meta as unknown as { env?: Record<string, string> }).env?.BASE_URL || "/";
-  const normalizedBase = base.endsWith("/") ? base : base + "/";
-
-  return envUrl || `${normalizedBase}prompt-pack.json`;
+  return envUrl || "/prompt-pack.json";
 }
 
 function isValidPack(pack: unknown): pack is PromptPack {
@@ -214,30 +209,6 @@ function normalize(s: string): string {
   return (s || "").toLowerCase();
 }
 
-function applyExampleTemplate(template: string, params: { forename: string; targetDate: string; targetTime?: string }): string {
-  let t = (template || "").trim();
-  // Replace common placeholder tokens with runtime values.
-  // Teacher tool stores examples using [NAME] and [DATE] so we can safely substitute.
-  const nameTokens = ["[NAME]", "[NAME}", "{NAME}", "<NAME>", "%(NAME)%", "{{NAME}}", "{name}", "[name]", "[name}"];
-  const dateTokens = ["[DATE]", "[DATE}", "{DATE}", "<DATE>", "%(DATE)%", "{{DATE}}", "{date}", "[date]", "[date}"];
-  for (const tok of nameTokens) {
-    t = t.split(tok).join(params.forename);
-    t = t.split(tok.toLowerCase()).join(params.forename);
-  }
-  for (const tok of dateTokens) {
-    t = t.split(tok).join(params.targetDate);
-    t = t.split(tok.toLowerCase()).join(params.targetDate);
-  }
-  const timeTokens = ["[TIME]", "[TIME}", "{TIME}", "<TIME>", "%(TIME)%", "{{TIME}}", "{time}", "[time]", "[time}", "[Time}"];
-  const timeValue = (params.targetTime || "").trim() || "TBC";
-  for (const tok of timeTokens) {
-    t = t.split(tok).join(timeValue);
-    t = t.split(tok.toLowerCase()).join(timeValue);
-  }
-  return t;
-}
-
-
 function pickBarrierKey(barrier: string, guidance: Record<string, string[]>): string | null {
   const b = normalize(barrier);
   const keys = Object.keys(guidance);
@@ -261,7 +232,6 @@ export function buildDraftActionPrompt(pack: PromptPack, params: {
   forename: string;
   barrier: string;
   targetDate: string;
-  targetTime?: string;
   responsible: string;
 }): string {
   const barrierKey = pickBarrierKey(params.barrier, pack.barrierGuidance);
@@ -276,23 +246,22 @@ export function buildDraftActionPrompt(pack: PromptPack, params: {
 
   // Keep it short for small models, but include ONE example if available.
   const exampleBlock = ex
-    ? `EXAMPLE (style + format):\nAction: ${applyExampleTemplate(ex.action, { forename: params.forename, targetDate: params.targetDate, targetTime: params.targetTime })}\nBenefit: ${ex.help}\n`
+    ? `EXAMPLE (style + format):\nAction: ${ex.action}\nBenefit: ${ex.help}\n`
     : "";
 
   return [
     "TASK: Write ONE employment action sentence.",
-    "FORMAT: '{forename} will ... by {targetDate}.' (or use 'on {targetDate} at {targetTime}' if a time is provided).",
+    "FORMAT: '{forename} will ... by {targetDate}.'.",
     "RULES:",
     `1) Must start with '${params.forename} will'`,
     "2) Must include a measurable element (number or clear deliverable)",
     `3) Must be relevant to the barrier: '${params.barrier}'`,
-    `4) Must include the deadline date '${params.targetDate}'${params.targetTime ? ` and time '${params.targetTime}'` : ''}`,
+    `4) Must end with 'by ${params.targetDate}'`,
     `5) Avoid: ${banned || "off-topic content"}`,
     "CONTEXT:",
     `- Person: ${params.forename}`,
     `- Barrier: ${params.barrier}`,
     `- Deadline: ${params.targetDate}`,
-    params.targetTime ? `- Time: ${params.targetTime}` : '',
     `- Supporter: ${params.responsible || "Advisor"}`,
     guidanceLine,
     exampleBlock ? "" : "",

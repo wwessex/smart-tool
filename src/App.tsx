@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect, Component, ReactNode, ErrorInfo } from "react";
+import { lazy, Suspense, useState, useEffect, Component, ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,13 +13,13 @@ const Index = lazy(() => import("./pages/Index"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
-// Admin page: import eagerly to avoid chunk-loading issues on some hosts
-import AdminPromptPack from "./pages/AdminPromptPack";
+// Hidden admin route (not linked anywhere)
+const AdminPromptPack = lazy(() => import("./pages/AdminPromptPack"));
 
 // BUG FIX #3: Error boundary for lazy load failures
 class LazyErrorBoundary extends Component<
   { children: ReactNode; fallback?: ReactNode },
-  { hasError: boolean; error?: Error; details?: string }
+  { hasError: boolean; error?: Error }
 > {
   constructor(props: { children: ReactNode; fallback?: ReactNode }) {
     super(props);
@@ -30,103 +30,35 @@ class LazyErrorBoundary extends Component<
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    const details = [
-      `Message: ${error?.message || "unknown"}`,
-      `Stack: ${error?.stack || "none"}`,
-      `Component: ${info?.componentStack || "none"}`,
-      `URL: ${typeof window !== "undefined" ? window.location.href : "unknown"}`,
-      `UA: ${typeof navigator !== "undefined" ? navigator.userAgent : "unknown"}`,
-      `Time: ${new Date().toISOString()}`,
-    ].join("\n\n");
-
-    console.error("LazyErrorBoundary caught:", error, info);
-    this.setState({ details });
-
-    try {
-      sessionStorage.setItem("smarttool:last_error", details);
-    } catch {
-      // ignore
-    }
-  }
-
-  private handleCopy = async () => {
-    const text =
-      this.state.details ||
-      (() => {
-        try {
-          return sessionStorage.getItem("smarttool:last_error") || "";
-        } catch {
-          return "";
-        }
-      })();
-
-    if (!text) return;
-
-    try {
-      await navigator.clipboard.writeText(text);
-      alert("Copied error details to clipboard.");
-    } catch {
-      alert("Couldn’t copy automatically. Screenshot this screen instead.");
-    }
-  };
-
   render() {
-    if (!this.state.hasError) return this.props.children;
-
-    const msg = this.state.error?.message || "Unknown error";
-
-    const details =
-      this.state.details ||
-      (() => {
-        try {
-          return sessionStorage.getItem("smarttool:last_error") || "";
-        } catch {
-          return "";
-        }
-      })();
-
-    return (
-      this.props.fallback || (
-        <div className="min-h-screen bg-background flex items-center justify-center p-4">
-          <div className="max-w-lg w-full text-center space-y-3">
-            <div className="text-6xl">⚠️</div>
+    if (this.state.hasError) {
+      return this.props.fallback || (
+        <div className="min-h-screen flex items-center justify-center bg-background p-4">
+          <div className="text-center space-y-4 max-w-md">
+            <div className="text-4xl">⚠️</div>
             <h2 className="text-xl font-semibold text-foreground">Failed to load page</h2>
-            <p className="text-sm text-muted-foreground">{msg}</p>
-
-            {details ? (
-              <pre className="text-left text-xs whitespace-pre-wrap rounded-md border border-border p-3 max-h-64 overflow-auto">
-                {details}
-              </pre>
-            ) : null}
-
-            <div className="flex gap-2 justify-center">
-              <button
-                onClick={() => {
-                  // Clear caches and reload
-                  if ('caches' in window) {
-                    caches.keys().then(names => {
-                      names.forEach(name => caches.delete(name));
-                    });
-                  }
-                  window.location.reload();
-                }}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-              >
-                Clear cache & reload
-              </button>
-
-              <button
-                onClick={this.handleCopy}
-                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors"
-              >
-                Copy diagnostics
-              </button>
-            </div>
+            <p className="text-sm text-muted-foreground">
+              This might be due to a network issue or cached files.
+            </p>
+            <button
+              onClick={() => {
+                // Clear caches and reload
+                if ('caches' in window) {
+                  caches.keys().then(names => {
+                    names.forEach(name => caches.delete(name));
+                  });
+                }
+                window.location.reload();
+              }}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+            >
+              Clear cache & reload
+            </button>
           </div>
         </div>
-      )
-    );
+      );
+    }
+    return this.props.children;
   }
 }
 
@@ -221,22 +153,6 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
-  // Ask for persistent storage early so cached local-model files are less likely to be evicted.
-  // This helps iOS Safari keep downloaded model shards between reloads.
-  useEffect(() => {
-    (async () => {
-      try {
-        // @ts-ignore
-        if (typeof navigator !== 'undefined' && navigator.storage?.persist) {
-          // @ts-ignore
-          await navigator.storage.persist();
-        }
-      } catch {
-        // ignore
-      }
-    })();
-  }, []);
-
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem={true}>

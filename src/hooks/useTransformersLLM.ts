@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 
 export interface ModelInfo {
   id: string;
@@ -22,9 +22,7 @@ export const RECOMMENDED_MODELS: ModelInfo[] = [
     description: "Smallest and fastest",
   },
   {
-    // The upstream Qwen repo doesn't contain the ONNX artifacts Transformers.js expects.
-    // Use an ONNX-converted repo so downloads don't 404 on Safari/desktop.
-    id: "onnx-community/Qwen2.5-0.5B-Instruct-ONNX-GQA",
+    id: "Qwen/Qwen2.5-0.5B-Instruct",
     name: "Qwen 2.5 0.5B",
     size: "~600MB",
     description: "Best quality for size",
@@ -82,37 +80,6 @@ interface BrowserInfo {
   isLinux: boolean;
 }
 
-
-// Device classification (used to decide whether local LLM is allowed)
-interface DeviceInfo {
-  isIOS: boolean;
-  isIPhone: boolean;
-  isIPad: boolean;
-  isAndroid: boolean;
-  isMobile: boolean;
-}
-
-function detectDevice(): DeviceInfo {
-  if (typeof navigator === "undefined") {
-    return { isIOS: false, isIPhone: false, isIPad: false, isAndroid: false, isMobile: false };
-  }
-
-  const ua = navigator.userAgent || "";
-  const isIPhone = /iPhone|iPod/i.test(ua);
-  // iPadOS 13+ reports as MacIntel + touch points
-  const isIPad = /iPad/i.test(ua) || ((navigator as unknown as { platform?: string; maxTouchPoints?: number }).platform === 'MacIntel' && (navigator as unknown as { maxTouchPoints?: number }).maxTouchPoints && (navigator as unknown as { maxTouchPoints?: number }).maxTouchPoints! > 1);
-  const isIOS = isIPhone || isIPad;
-  const isAndroid = /android/i.test(ua);
-  const isMobile = isIOS || isAndroid;
-
-  return { isIOS, isIPhone, isIPad, isAndroid, isMobile };
-}
-
-export interface UseTransformersLLMOptions {
-  // Allow local LLM on iPhone/iPad (experimental). Android remains blocked.
-  allowMobileLLM?: boolean;
-}
-
 function detectBrowser(): BrowserInfo {
   if (typeof navigator === "undefined") {
     return { isChrome: false, isEdge: false, isSafari: false, isFirefox: false, isMac: false, isWindows: false, isLinux: false };
@@ -153,21 +120,12 @@ function getBrowserOptimizations(browser: BrowserInfo): {
   }
   
   if (browser.isSafari) {
-    // Safari can expose WebGPU, but iOS/iPadOS is prone to tab reloads during heavy
-    // WebGPU model init (memory/GPU resets). For stability, force WASM on iPhone/iPad.
-    const device = detectDevice();
-    const isIOSFamily = device.isIPhone || device.isIPad;
-    const hasWebGPU =
-      !isIOSFamily &&
-      typeof navigator !== 'undefined' &&
-      !!(navigator as Navigator & { gpu?: unknown }).gpu;
+    // Safari WebGPU is experimental, use WASM for stability
     return {
-      preferWebGPU: hasWebGPU,
-      // Keep threads at 1 to avoid SharedArrayBuffer/COOP+COEP requirements that can break
-      // local inference on Safari/iPadOS deployments.
-      wasmThreads: 1,
-      dtype: 'q4',
-      notes: hasWebGPU ? 'Using WebGPU on Safari (desktop)' : 'Using WASM for Safari compatibility',
+      preferWebGPU: false,
+      wasmThreads: 4,
+      dtype: "q4",
+      notes: "Using WASM for Safari compatibility",
     };
   }
   
@@ -175,7 +133,7 @@ function getBrowserOptimizations(browser: BrowserInfo): {
     // Firefox has threading limitations
     return {
       preferWebGPU: false,
-      wasmThreads: 1,
+      wasmThreads: 2,
       dtype: "q4",
       notes: "Optimized for Firefox (WASM with reduced threads)",
     };
@@ -190,11 +148,17 @@ function getBrowserOptimizations(browser: BrowserInfo): {
   };
 }
 
-// Detect mobile device (phones). iPad can be enabled via settings.
+// Detect mobile device - these have memory constraints that prevent local LLM
 const isMobileDevice = (): boolean => {
-  const d = detectDevice();
-  // Treat phones as mobile; iPad is handled separately.
-  return d.isIPhone || d.isAndroid;
+  if (typeof navigator === "undefined") return false;
+  const userAgent = navigator.userAgent || navigator.vendor || (window as unknown as { opera?: string }).opera || "";
+  // iOS detection
+  if (/iPad|iPhone|iPod/.test(userAgent)) return true;
+  // Android detection
+  if (/android/i.test(userAgent)) return true;
+  // Small screen (as fallback for other mobile browsers)
+  if (typeof window !== "undefined" && window.innerWidth < 768) return true;
+  return false;
 };
 
 // Export mobile check for use in other components
@@ -221,34 +185,7 @@ function logPlatformInfo(): void {
   });
 }
 
-// Best-effort attempt to reduce Safari/iOS cache eviction and increase quota.
-async function ensurePersistentStorage(): Promise<{ persisted: boolean; granted: boolean; usage?: number; quota?: number }> {
-  try {
-    const storage = (navigator as Navigator & { storage?: any }).storage;
-    if (!storage) return { persisted: false, granted: false };
-
-    const persisted = typeof storage.persisted === 'function' ? await storage.persisted() : false;
-    let granted = persisted;
-    if (!persisted && typeof storage.persist === 'function') {
-      granted = await storage.persist();
-    }
-
-    let usage: number | undefined;
-    let quota: number | undefined;
-    if (typeof storage.estimate === 'function') {
-      const est = await storage.estimate();
-      usage = est?.usage;
-      quota = est?.quota;
-    }
-
-    return { persisted: persisted || granted, granted, usage, quota };
-  } catch {
-    return { persisted: false, granted: false };
-  }
-}
-
-
-export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
+export function useTransformersLLM() {
   const [state, setState] = useState<UseTransformersLLMState>({
     isLoading: false,
     loadingProgress: 0,
@@ -263,50 +200,28 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
   const pipelineRef = useRef<TextGenerationPipeline | null>(null);
   const abortRef = useRef<boolean>(false);
   const browserRef = useRef<BrowserInfo>(detectBrowser());
-  const deviceRef = useRef<DeviceInfo>(detectDevice());
   const retryCountRef = useRef<number>(0);
 
+  // Is this a mobile device?
+  const isMobile = isMobileDevice();
 
-  // Device policy: Android remains blocked; iPhone/iPad can be enabled via settings (experimental).
-  const device = deviceRef.current;
-  const allowMobileLLM = !!options.allowMobileLLM && device.isIOS;
-  const isMobileBlocked = (device.isAndroid || (device.isIOS && device.isMobile && !allowMobileLLM));
-  const isMobile = device.isMobile;
-
-  // Filter supported models for this device (keeps iOS stable)
-  const supportedModels = useMemo<ModelInfo[]>(() => {
-    if (!device.isMobile) return RECOMMENDED_MODELS;
-    if (device.isAndroid) return [];
-    if (!allowMobileLLM) return [];
-    // iPhone: smallest model only. iPad: allow 135M and 360M.
-    if (device.isIPhone) {
-      return RECOMMENDED_MODELS.filter((m) => m.id === "HuggingFaceTB/SmolLM2-135M-Instruct");
-    }
-    return RECOMMENDED_MODELS.filter((m) => m.id !== "Qwen/Qwen2.5-0.5B-Instruct");
-  }, [allowMobileLLM]);
-
-  // iOS memory guardrails
-  const isIOSMobile = device.isIOS && device.isMobile && allowMobileLLM;
-  const iosTokenCap = isIOSMobile ? (device.isIPhone ? 64 : 120) : null;
-
-
-  // Check if model is in our recommended list (for this device)
+  // Check if model is in our recommended list
   const isModelAvailable = useCallback((modelId: string): boolean => {
-    return supportedModels.some((m) => m.id === modelId);
-  }, [supportedModels]);
+    return RECOMMENDED_MODELS.some((m) => m.id === modelId);
+  }, []);
 
-  // Check device capabilities - Transformers.js works with both WebGPU and WASM - Transformers.js works with both WebGPU and WASM
+  // Check device capabilities - Transformers.js works with both WebGPU and WASM
   const checkDevice = useCallback(async (): Promise<{ 
     available: boolean; 
     device: "webgpu" | "wasm"; 
     error?: string 
   }> => {
-    // Mobile policy
-    if (isMobileBlocked) {
+    // Block mobile devices - they don't have enough memory for local LLMs
+    if (isMobile) {
       return { 
         available: false, 
         device: "wasm",
-        error: device.isAndroid ? "Local AI is not available on Android yet. Use template-based drafting instead." : "Local AI is disabled on iPhone/iPad by default. Enable it in Settings (Experimental Local AI) and use the smallest model." 
+        error: "Local AI is not available on mobile devices due to memory limitations. Use template-based drafting instead." 
       };
     }
 
@@ -371,31 +286,11 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
           loadingStatus: "Loading AI framework...",
         }));
 
-        // Best-effort: request persistent storage (helps Safari keep large model caches)
-        const storageInfo = await ensurePersistentStorage();
-        if (storageInfo.quota && storageInfo.usage) {
-          const freeMB = Math.max(0, (storageInfo.quota - storageInfo.usage) / 1024 / 1024);
-          console.log('[LLM] Storage estimate', { persisted: storageInfo.persisted, freeMB: Math.round(freeMB) });
-        }
-
         const { pipeline, env } = await import("@huggingface/transformers");
 
         // Configure cache and logging
         env.allowLocalModels = false;
         env.useBrowserCache = true;
-
-        // Backend tuning (safe no-ops if not supported)
-        try {
-          const onnx = (env as any).backends?.onnx;
-          if (onnx?.wasm) {
-            if (typeof onnx.wasm.numThreads === 'number' || onnx.wasm.numThreads === undefined) {
-              onnx.wasm.numThreads = optimizations.wasmThreads;
-            }
-            if ("simd" in onnx.wasm) (onnx.wasm as any).simd = true;
-          }
-        } catch {
-          // ignore
-        }
 
         setState((prev) => ({
           ...prev,
@@ -451,11 +346,11 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
 
   // Load a model
   const loadModel = useCallback(async (modelId: string): Promise<void> => {
-    // Mobile policy
-    if (isMobileBlocked) {
+    // Block mobile devices immediately
+    if (isMobile) {
       setState((prev) => ({
         ...prev,
-        error: device.isAndroid ? "Local AI is not available on Android yet. Please use template-based drafting instead." : "Local AI is disabled on iPhone/iPad by default. Enable it in Settings (Experimental Local AI) and use the smallest model.",
+        error: "Local AI is not available on mobile devices due to memory limitations. Please use template-based drafting instead.",
       }));
       return;
     }
@@ -539,29 +434,6 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
     }
   }, [isModelAvailable, checkDevice, loadModelWithRetry, warmupModel]);
 
-
-  function getConfigForDevice(name: string): GenerationConfig {
-    const base = GENERATION_CONFIGS[name] || GENERATION_CONFIGS.default;
-    if (device.isIOS && allowMobileLLM) {
-      // Keep iOS stable: shorter outputs and smaller KV cache usage
-      const cap = {
-        action: 50,
-        help: 30,
-        outcome: 45,
-        improve: 120,
-        chat: 80,
-        default: 80,
-      } as Record<string, number>;
-      const max = cap[name] ?? cap.default;
-      return {
-        ...base,
-        max_new_tokens: Math.min(base.max_new_tokens ?? max, max),
-        temperature: Math.min(base.temperature ?? 0.7, 0.6),
-      };
-    }
-    return base;
-  }
-
   // Generate chat response (streaming simulation via chunking)
   const chat = useCallback(
     async function* (
@@ -577,8 +449,8 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
       setState((prev) => ({ ...prev, isGenerating: true, error: null }));
       abortRef.current = false;
 
-      // Use provided config or default (with device caps)
-      const genConfig = config || getConfigForDevice("default");
+      // Use provided config or default
+      const genConfig = config || GENERATION_CONFIGS.default;
 
       try {
         const formattedMessages: Array<{ role: string; content: string }> = [];
@@ -595,7 +467,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
         );
 
         const result = await generator(formattedMessages, {
-          max_new_tokens: genConfig.max_new_tokens ?? 150,
+          max_new_tokens: genConfig.max_new_tokens || 150,
           do_sample: genConfig.do_sample ?? true,
           temperature: genConfig.temperature || 0.7,
         });
@@ -667,7 +539,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
   // Simple single-shot generation with optional config
   const generate = useCallback(
     async (userMessage: string, systemPrompt?: string, configType?: keyof typeof GENERATION_CONFIGS): Promise<string> => {
-      const config = getConfigForDevice((configType as string) || "default");
+      const config = configType ? GENERATION_CONFIGS[configType] : GENERATION_CONFIGS.default;
       let fullResponse = "";
       try {
         for await (const chunk of chat([{ role: "user", content: userMessage }], systemPrompt, config)) {
@@ -737,9 +609,6 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
   return {
     ...state,
     isMobile,
-    isMobileBlocked,
-    allowMobileLLM,
-    canUseLocalAI: !isMobileBlocked,
     loadModel,
     chat,
     generate,
@@ -747,9 +616,8 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
     clearError,
     unload,
     checkDevice,
-    supportedModels,
+    supportedModels: RECOMMENDED_MODELS,
     isModelAvailable,
     browserInfo: browserRef.current,
-    deviceInfo: device,
   };
 }

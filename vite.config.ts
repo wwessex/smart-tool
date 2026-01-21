@@ -83,11 +83,10 @@ export default defineConfig(({ mode }) => {
       },
       // Reduce chunk size warnings threshold
       chunkSizeWarningLimit: 500,
-      // CI reliability: avoid requiring the optional "terser" package.
-      // (If you later want terser again, add it as a dependency and switch back.)
+      // Use esbuild for minification (built-in, fastest)
       minify: 'esbuild',
-      // Keep sourcemaps temporarily to make future runtime errors diagnosable
-      sourcemap: true,
+      // Disable source maps for production (smaller bundle)
+      sourcemap: false,
       // Target modern browsers for smaller bundles
       target: 'es2020',
       // CSS code splitting
@@ -106,12 +105,6 @@ export default defineConfig(({ mode }) => {
       ],
       // Exclude heavy deps from pre-bundling if not needed immediately
       exclude: ['@mlc-ai/web-llm'],
-
-      // Some deps (e.g. transformers.js) contain BigInt literals (0n/1n) which require ES2020+.
-      // Ensure the dependency pre-bundler doesn't downlevel to ES2019.
-      esbuildOptions: {
-        target: 'es2020',
-      },
     },
     // Enable CSS minification
     css: {
@@ -119,16 +112,12 @@ export default defineConfig(({ mode }) => {
     },
     // Performance: Reduce bundle analysis time
     esbuild: {
-      // Keep ES2020 so BigInt literals used by some deps don't break builds.
-      target: 'es2020',
-
       // Remove console.logs in production
       drop: mode === 'production' ? ['console', 'debugger'] : [],
-      // Do NOT minify via esbuild when build.minify is 'terser'
-      // (keeps transforms predictable across browsers)
-      minifyIdentifiers: false,
-      minifySyntax: false,
-      minifyWhitespace: false,
+      // Minify whitespace and identifiers
+      minifyIdentifiers: true,
+      minifySyntax: true,
+      minifyWhitespace: true,
     },
   };
 });
