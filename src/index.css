@@ -7,6 +7,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* -------------------------------------------------------------------------- */
+/* Tailwind compatibility helpers */
+/* -------------------------------------------------------------------------- */
+/*
+  Some Tailwind builds/configs won't generate fractional opacity utilities like
+  `border-white/22`. If any @apply usage references it, Vite will fail the build.
+  We define a small compatibility utility to keep builds stable.
+*/
+
+@layer utilities {
+  .border-white\/22 {
+    border-color: rgb(255 255 255 / 0.22);
+  }
+}
+
 /* Performance: Reduce motion for users who prefer it */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -315,7 +330,7 @@ All colors MUST be HSL.
 
   /* Premium card surface */
   .glass-card {
-    @apply backdrop-blur-2xl border border-white/22 dark:border-white/12 rounded-2xl;
+    @apply backdrop-blur-2xl border border-white/20 dark:border-white/12 rounded-2xl;
     background-color: rgb(255 255 255 / 0.11);
     box-shadow: 0 8px 30px rgb(0 0 0 / 0.10);
   }
