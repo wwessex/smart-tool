@@ -305,8 +305,34 @@ function stripTrailingPunctuation(s: string): string {
   return (s || "").trim().replace(/[.!?]+$/, "");
 }
 
+// Replace placeholders inside free-text fields (templates/AI may include these).
+function replacePlaceholdersForNow(s: string, params: { forename: string; date: string; time?: string }): string {
+  let t = (s || '').toString();
+  // NAME
+  t = t.replace(/\[NAME\]/gi, params.forename);
+  // DATE (already formatted for display)
+  t = t.replace(/\[DATE\]/gi, params.date);
+
+  const time = (params.time || '').trim();
+  if (time) {
+    t = t.replace(/\[TIME\]/gi, time);
+  } else {
+    // Remove TIME placeholders and common dangling 'at' phrasing.
+    t = t.replace(/\s*(?:at\s*)?\[TIME\]\s*/gi, ' ');
+    // Also handle cases where templates wrote 'at TIME' without brackets
+    t = t.replace(/\s+at\s+(?:tbc|TBC)\b/g, ' ');
+  }
+
+  // Clean double spaces
+  t = t.replace(/\s{2,}/g, ' ').trim();
+  // If we removed time, also clean dangling 'at' at end
+  t = t.replace(/\bat\s*$/i, '').trim();
+  return t;
+}
+
 export function buildNowOutput(
   date: string,
+  time: string | undefined,
   forename: string,
   barrier: string,
   action: string,
@@ -315,7 +341,14 @@ export function buildNowOutput(
   timescale: string
 ): string {
   const formattedDate = formatDDMMMYY(date);
-  let formattedAction = stripTrailingPunctuation(action.trim().replace(/\s+/g, " "));
+  const cleanTime = (time || '').trim();
+
+  // Allow templates/AI to use [NAME] / [DATE] / [TIME] inside the free-text fields
+  const replacedBarrier = replacePlaceholdersForNow(barrier, { forename, date: formattedDate, time: cleanTime });
+  let formattedAction = replacePlaceholdersForNow(action, { forename, date: formattedDate, time: cleanTime });
+  const replacedHelp = replacePlaceholdersForNow(help, { forename, date: formattedDate, time: cleanTime });
+
+  formattedAction = stripTrailingPunctuation(formattedAction.trim().replace(/\s+/g, " "));
   
   // Escape special regex characters in forename
   const escapedName = forename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -358,12 +391,12 @@ export function buildNowOutput(
   }
   
   // Strip trailing punctuation from help text too
-  const cleanHelp = stripTrailingPunctuation(help);
-  const cleanBarrier = stripTrailingPunctuation(barrier);
+  const cleanHelp = stripTrailingPunctuation(replacedHelp);
+  const cleanBarrier = stripTrailingPunctuation(replacedBarrier);
   const cleanTimescale = stripTrailingPunctuation(timescale);
 
   return [
-    `${BUILDER_NOW.p1} ${formattedDate}, ${forename} and I ${BUILDER_NOW.p2} ${cleanBarrier}.`,
+    `${BUILDER_NOW.p1} ${formattedDate}${cleanTime ? ` at ${cleanTime}` : ''}, ${forename} and I ${BUILDER_NOW.p2} ${cleanBarrier}.`,
     `${BUILDER_NOW.p3} ${forename} will ${formattedAction}.`,
     `${BUILDER_NOW.p5} ${cleanHelp}.`,
     `${BUILDER_NOW.p6}`,

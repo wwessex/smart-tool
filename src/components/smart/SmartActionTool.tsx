@@ -318,6 +318,7 @@ export function SmartActionTool() {
     if (mode === 'now') {
       const text = buildNowOutput(
         nowForm.date,
+        nowForm.time,
         nowForm.forename.trim(),
         nowForm.barrier.trim(),
         nowForm.action.trim(),
@@ -1364,7 +1365,7 @@ export function SmartActionTool() {
                         <div>
                           <span className="text-sm font-medium">Use Local AI</span>
                           <p className="text-xs text-muted-foreground">
-                            AI-generated suggestions (requires a one-time model download in this browser)
+                            AI-generated suggestions (loads per session; refreshing may require reloading the model)
                           </p>
                         </div>
                       </label>
@@ -2607,7 +2608,7 @@ export function SmartActionTool() {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Select a model to enable AI-powered drafting. Models run locally in your browser for privacy.
+              Select a model to enable AI-powered drafting. Models run locally in your browser. Note: Local AI loads per session — refreshing the page may require reloading the model.
             </p>
             
             {llm.isLoading ? (
@@ -2623,7 +2624,7 @@ export function SmartActionTool() {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {llm.loadingProgress}% - First download may take a few minutes
+                  {llm.loadingProgress}% - First load may take a few minutes (browser cache may speed up reloads)
                 </p>
               </div>
             ) : llm.error ? (
