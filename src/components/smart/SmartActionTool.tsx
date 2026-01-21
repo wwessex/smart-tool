@@ -72,6 +72,7 @@ function safeRemoveItem(key: string): boolean {
 
 import { GUIDANCE } from '@/lib/smart-data';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -215,7 +216,7 @@ export function SmartActionTool() {
   const [settingsTimescales, setSettingsTimescales] = useState('');
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
-  const [wizardMode, setWizardMode] = useState(false);
+  const [wizardMode, setWizardMode] = useState(true);
   const [improveDialogOpen, setImproveDialogOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const [historyTab, setHistoryTab] = useState<'history' | 'insights'>('history');
@@ -1341,15 +1342,17 @@ export function SmartActionTool() {
                     <p className="text-xs text-muted-foreground">
                       Step-by-step guided form that walks you through creating a SMART action.
                     </p>
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={wizardMode} 
-                        onChange={e => setWizardMode(e.target.checked)}
-                        className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-medium">Guided wizard</p>
+                        <p className="text-xs text-muted-foreground">Step-by-step cards for faster, cleaner action building.</p>
+                      </div>
+                      <Switch
+                        checked={wizardMode}
+                        onCheckedChange={(v) => setWizardMode(v)}
+                        aria-label="Toggle guided wizard"
                       />
-                      <span className="text-sm font-medium">Enable guided wizard mode</span>
-                    </label>
+                    </div>
                   </div>
 
                   {/* AI Draft Settings Section */}
@@ -1829,7 +1832,7 @@ export function SmartActionTool() {
         >
           {/* Left Panel - Form or Wizard */}
           <motion.div 
-            className="glass-panel rounded-2xl p-6 space-y-6 shadow-soft"
+            className="glass-card border-glow p-6 space-y-6"
             variants={slideInLeft}
             transition={{ duration: 0.4, ease: "easeOut" }}
           >
@@ -2353,7 +2356,7 @@ export function SmartActionTool() {
 
           {/* Right Panel - Output & History */}
           <motion.div 
-            className="glass-panel rounded-2xl p-6 space-y-6 shadow-soft"
+            className="glass-card border-glow p-6 space-y-6"
             variants={slideInRight}
             transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
           >

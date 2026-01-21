@@ -13,13 +13,128 @@ interface WizardStep {
   title: string;
   question: string;
   field: string;
-  placeholder: string;
-  hint: string;
+  placeholder?: string;
+  hint?: string;
   type: 'input' | 'textarea' | 'combobox';
-  options?: string[];
   required?: boolean;
-  canAIDraft?: boolean; // Whether AI Draft is available for this step
+  options?: string[];
 }
+
+const NOW_STEPS: WizardStep[] = [
+  {
+    id: 'forename',
+    title: 'Participant',
+    question: "What is the participant's first name?",
+    field: 'forename',
+    placeholder: 'e.g. John',
+    hint: 'This helps personalise the action',
+    type: 'combobox',
+    required: true,
+  },
+  {
+    id: 'barrier',
+    title: 'Barrier',
+    question: 'Which barrier to work are you addressing?',
+    field: 'barrier',
+    placeholder: 'Select or type a barrier…',
+    hint: 'Keep it short and specific',
+    type: 'combobox',
+    required: true,
+  },
+  {
+    id: 'action',
+    title: 'Action',
+    question: 'What action will the participant take?',
+    field: 'action',
+    placeholder: 'e.g. Apply for 3 warehouse roles on Indeed',
+    hint: 'Start with a verb. Keep it measurable.',
+    type: 'textarea',
+    required: true,
+  },
+  {
+    id: 'responsible',
+    title: 'Responsibility',
+    question: 'Who is responsible for completing it?',
+    field: 'responsible',
+    placeholder: 'e.g. Participant / Advisor / Both',
+    hint: 'Clarity prevents missed actions',
+    type: 'input',
+    required: true,
+  },
+  {
+    id: 'help',
+    title: 'Support',
+    question: 'What support will be provided?',
+    field: 'help',
+    placeholder: 'e.g. Advisor will review CV and share 3 vacancy links',
+    hint: 'Be practical and specific',
+    type: 'textarea',
+    required: false,
+  },
+  {
+    id: 'timescale',
+    title: 'Time',
+    question: 'What is the timescale?',
+    field: 'timescale',
+    placeholder: 'Select or type a timescale…',
+    hint: 'A short deadline boosts follow-through',
+    type: 'combobox',
+    required: true,
+  },
+];
+
+const FUTURE_STEPS: WizardStep[] = [
+  {
+    id: 'forename',
+    title: 'Participant',
+    question: "What is the participant's first name?",
+    field: 'forename',
+    placeholder: 'e.g. John',
+    hint: 'This helps personalise the action',
+    type: 'combobox',
+    required: true,
+  },
+  {
+    id: 'task',
+    title: 'Task',
+    question: 'What task will the participant complete?',
+    field: 'task',
+    placeholder: 'e.g. Update CV to include recent experience',
+    hint: 'Make it clear and actionable',
+    type: 'textarea',
+    required: true,
+  },
+  {
+    id: 'responsible',
+    title: 'Responsibility',
+    question: 'Who is responsible for completing it?',
+    field: 'responsible',
+    placeholder: 'e.g. Participant / Advisor / Both',
+    hint: 'Clarity prevents missed actions',
+    type: 'input',
+    required: true,
+  },
+  {
+    id: 'outcome',
+    title: 'Outcome',
+    question: 'What outcome are we aiming for?',
+    field: 'outcome',
+    placeholder: 'e.g. Ready to apply for 5 roles this week',
+    hint: 'The result you want to see',
+    type: 'textarea',
+    required: true,
+  },
+  {
+    id: 'timescale',
+    title: 'Time',
+    question: 'What is the timescale?',
+    field: 'timescale',
+    placeholder: 'Select or type a timescale…',
+    hint: 'A short deadline boosts follow-through',
+    type: 'combobox',
+    required: true,
+  },
+];
 
 interface ActionWizardProps {
   mode: 'now' | 'future';
@@ -30,192 +145,61 @@ interface ActionWizardProps {
   onCancel: () => void;
   onAIDraft?: (field: string, context: Record<string, string>) => Promise<string>;
   isAIDrafting?: boolean;
-  isLLMReady?: boolean; // Show enhanced indicator when local LLM is available
+  isLLMReady?: boolean;
 }
 
-const NOW_STEPS: WizardStep[] = [
-  {
-    id: 'forename',
-    title: 'Who?',
-    question: "What is the participant's first name?",
-    field: 'forename',
-    placeholder: 'e.g. John',
-    hint: 'This helps personalize the action',
-    type: 'input',
-    required: true,
-  },
-  {
-    id: 'barrier',
-    title: 'What barrier?',
-    question: 'What barrier to work are we addressing?',
-    field: 'barrier',
-    placeholder: 'Select or type a barrier...',
-    hint: 'Choose from common barriers or type your own',
-    type: 'combobox',
-    required: true,
-  },
-  {
-    id: 'action',
-    title: 'What action?',
-    question: 'What specific action will they take?',
-    field: 'action',
-    placeholder: 'e.g. John will update his CV with recent experience and submit 3 applications to warehouse roles by Friday',
-    hint: 'Be specific: include who, what, where, and when',
-    type: 'textarea',
-    required: true,
-    canAIDraft: true,
-  },
-  {
-    id: 'responsible',
-    title: 'Who helps?',
-    question: 'Who is responsible for supporting this action?',
-    field: 'responsible',
-    placeholder: 'Select responsible person...',
-    hint: 'Who will help ensure this happens?',
-    type: 'combobox',
-    options: ['Participant', 'Advisor', 'I'],
-    required: true,
-  },
-  {
-    id: 'help',
-    title: 'How does it help?',
-    question: 'How will this action help with their employment goal?',
-    field: 'help',
-    placeholder: 'e.g. get shortlisted for interviews',
-    hint: 'Explain the benefit or expected outcome',
-    type: 'input',
-    required: true,
-    canAIDraft: true,
-  },
-  {
-    id: 'timescale',
-    title: 'Review when?',
-    question: 'When will this action be reviewed?',
-    field: 'timescale',
-    placeholder: 'Select timescale...',
-    hint: 'Set a specific review period',
-    type: 'combobox',
-    required: true,
-  },
-];
-
-const FUTURE_STEPS: WizardStep[] = [
-  {
-    id: 'forename',
-    title: 'Who?',
-    question: "What is the participant's first name?",
-    field: 'forename',
-    placeholder: 'e.g. John',
-    hint: 'This helps personalize the action',
-    type: 'input',
-    required: true,
-  },
-  {
-    id: 'task',
-    title: 'What activity?',
-    question: 'What activity, event, or task will they complete?',
-    field: 'task',
-    placeholder: 'e.g. Christmas Job Fair at Twickenham Stadium',
-    hint: 'Describe the specific activity or event',
-    type: 'textarea',
-    required: true,
-  },
-  {
-    id: 'responsible',
-    title: 'Who helps?',
-    question: 'Who is responsible for supporting this action?',
-    field: 'responsible',
-    placeholder: 'Select responsible person...',
-    hint: 'Who will help ensure this happens?',
-    type: 'combobox',
-    options: ['Participant', 'Advisor', 'I'],
-    required: true,
-  },
-  {
-    id: 'outcome',
-    title: 'Expected outcome?',
-    question: 'What is the expected outcome or result?',
-    field: 'outcome',
-    placeholder: 'e.g. will speak with employers about warehouse roles and collect contact details',
-    hint: 'What will they achieve or learn?',
-    type: 'textarea',
-    required: true,
-    canAIDraft: true,
-  },
-  {
-    id: 'timescale',
-    title: 'Review when?',
-    question: 'When will this be reviewed?',
-    field: 'timescale',
-    placeholder: 'Select timescale...',
-    hint: 'Set a specific review period',
-    type: 'combobox',
-    required: true,
-  },
-];
-
-export function ActionWizard({ mode, barriers, timescales, recentNames, onComplete, onCancel, onAIDraft, isAIDrafting, isLLMReady }: ActionWizardProps) {
+export function ActionWizard({
+  mode,
+  barriers,
+  timescales,
+  recentNames,
+  onComplete,
+  onCancel,
+  onAIDraft,
+  isAIDrafting,
+  isLLMReady,
+}: ActionWizardProps) {
   const steps = mode === 'now' ? NOW_STEPS : FUTURE_STEPS;
+
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [drafting, setDrafting] = useState(false);
 
   const step = steps[currentStep];
   const progress = ((currentStep + 1) / steps.length) * 100;
+
   const isLastStep = currentStep === steps.length - 1;
   const isFirstStep = currentStep === 0;
 
   const currentValue = formData[step.field] || '';
   const isValid = !step.required || currentValue.trim().length > 0;
 
-  const getOptions = useCallback((step: WizardStep) => {
-    if (step.options) return step.options;
-    if (step.field === 'barrier') return barriers;
-    if (step.field === 'timescale') return timescales;
-    if (step.field === 'forename') return recentNames;
-    return [];
-  }, [barriers, timescales, recentNames]);
-
-  // Check if AI Draft is available for current step
-  const canDraft = step.canAIDraft && onAIDraft && !drafting && !isAIDrafting;
-  const hasPrerequisites = step.field === 'action' 
-    ? !!(formData.forename?.trim() && formData.barrier?.trim())
-    : step.field === 'help'
-    ? !!(formData.action?.trim())
-    : step.field === 'outcome'
-    ? !!(formData.forename?.trim() && formData.task?.trim())
-    : true;
-
-  const handleAIDraft = useCallback(async () => {
-    if (!onAIDraft || drafting) return;
-    setDrafting(true);
-    try {
-      const result = await onAIDraft(step.field, formData);
-      if (result) {
-        setFormData(prev => ({ ...prev, [step.field]: result }));
-      }
-    } finally {
-      setDrafting(false);
-    }
-  }, [onAIDraft, step.field, formData, drafting]);
+  const getOptions = useCallback(
+    (s: WizardStep) => {
+      if (s.options) return s.options;
+      if (s.field === 'barrier') return barriers;
+      if (s.field === 'timescale') return timescales;
+      if (s.field === 'forename') return recentNames;
+      return [];
+    },
+    [barriers, timescales, recentNames]
+  );
 
   const handleNext = () => {
     if (!isValid) return;
     if (isLastStep) {
       onComplete(formData);
-    } else {
-      setCurrentStep(prev => prev + 1);
+      return;
     }
+    setCurrentStep((prev) => prev + 1);
   };
 
   const handleBack = () => {
-    if (!isFirstStep) {
-      setCurrentStep(prev => prev - 1);
-    }
+    if (!isFirstStep) setCurrentStep((prev) => prev - 1);
   };
 
   const handleChange = (value: string) => {
-    setFormData(prev => ({ ...prev, [step.field]: value }));
+    setFormData((prev) => ({ ...prev, [step.field]: value }));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -225,177 +209,220 @@ export function ActionWizard({ mode, barriers, timescales, recentNames, onComple
     }
   };
 
+  const canAIDraft = Boolean(onAIDraft) && (step.type === 'textarea' || step.type === 'input');
+
+  const handleAIDraft = async () => {
+    if (!onAIDraft) return;
+    setDrafting(true);
+    try {
+      const draft = await onAIDraft(step.field, formData);
+      if (draft?.trim()) {
+        setFormData((prev) => ({ ...prev, [step.field]: draft }));
+      }
+    } finally {
+      setDrafting(false);
+    }
+  };
+
+  const inputId = `wizard-${step.field}`;
+  const hintId = step.hint ? `${inputId}-hint` : undefined;
+
   return (
-    <motion.div
-      className="space-y-6"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-primary" />
-          <span className="font-semibold">Guided Mode</span>
+    <div className="space-y-5">
+      {/* Top row: stepper + close */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            {steps.map((s, i) => {
+              const isActive = i === currentStep;
+              const isDone = i < currentStep;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setCurrentStep(i)}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs",
+                    "border backdrop-blur-xl transition-all",
+                    isActive
+                      ? "bg-white/14 border-white/30 text-foreground shadow-sm"
+                      : isDone
+                      ? "bg-white/10 border-white/20 text-foreground/90"
+                      : "bg-white/6 border-white/15 text-muted-foreground hover:text-foreground hover:bg-white/10"
+                  )}
+                  aria-current={isActive ? "step" : undefined}
+                >
+                  <span
+                    className={cn(
+                      "grid place-items-center w-5 h-5 rounded-full text-[11px] font-semibold",
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : isDone
+                        ? "bg-white/18 text-foreground"
+                        : "bg-white/10 text-muted-foreground"
+                    )}
+                    aria-hidden="true"
+                  >
+                    {isDone ? <Check className="w-3.5 h-3.5" /> : i + 1}
+                  </span>
+                  <span className="truncate">{s.title}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-3">
+            <Progress value={progress} className="h-2" />
+          </div>
         </div>
-        <Button variant="ghost" size="sm" onClick={onCancel}>
-          <X className="w-4 h-4 mr-1" /> Exit
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onCancel}
+          aria-label="Close wizard"
+          className="rounded-xl"
+        >
+          <X className="w-4 h-4" aria-hidden="true" />
         </Button>
       </div>
 
-      {/* Progress */}
-      <div className="space-y-2">
-        <div className="flex justify-between text-xs text-muted-foreground">
-          <span>Step {currentStep + 1} of {steps.length}</span>
-          <span>{step.title}</span>
-        </div>
-        <Progress value={progress} className="h-2" />
-      </div>
-
-      {/* Step Content */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={step.id}
-          className="space-y-4"
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.2 }}
-        >
-          <div className="space-y-2">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h3 className="text-lg font-semibold">{step.question}</h3>
-                <p className="text-sm text-muted-foreground">{step.hint}</p>
-              </div>
-              {step.canAIDraft && onAIDraft && (
-                <Button
-                  size="sm"
-                  variant={isLLMReady ? "default" : "outline"}
-                  onClick={handleAIDraft}
-                  disabled={!hasPrerequisites || drafting || isAIDrafting}
-                  className={cn(
-                    "shrink-0 gap-1.5",
-                    isLLMReady 
-                      ? "bg-primary hover:bg-primary/90" 
-                      : "border-primary/30 hover:bg-primary/10"
-                  )}
-                >
-                  {drafting || isAIDrafting ? (
-                    <>
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      Drafting...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-3 h-3" />
-                      {isLLMReady ? 'AI Draft' : 'AI Draft'}
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-            {step.canAIDraft && !hasPrerequisites && (
-              <p className="text-xs text-amber-500">
-                {step.field === 'action' && 'Fill in forename and barrier first to use AI Draft'}
-                {step.field === 'help' && 'Fill in the action first to use AI Draft'}
-                {step.field === 'outcome' && 'Fill in forename and task first to use AI Draft'}
+      {/* Step card */}
+      <motion.section
+        className={cn(
+          "glass-subpanel rounded-2xl p-5 sm:p-6",
+          "border border-white/20 shadow-sm"
+        )}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.18, ease: "easeOut" }}
+      >
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <h2 className="text-lg sm:text-xl font-semibold tracking-tight">
+              {step.question}
+            </h2>
+            {step.hint && (
+              <p id={hintId} className="text-sm text-muted-foreground">
+                {step.hint}
               </p>
             )}
           </div>
 
-          {step.type === 'input' && (
-            <Input
-              value={currentValue}
-              onChange={(e) => handleChange(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={step.placeholder}
-              autoFocus
-              className="text-lg py-6"
-              list={step.field === 'forename' ? 'recent-names-wizard' : undefined}
-            />
-          )}
+          <div className="space-y-2" onKeyDown={handleKeyDown}>
+            <label htmlFor={inputId} className="sr-only">
+              {step.title}
+            </label>
 
-          {step.type === 'textarea' && (
-            <Textarea
-              value={currentValue}
-              onChange={(e) => handleChange(e.target.value)}
-              placeholder={step.placeholder}
-              autoFocus
-              rows={4}
-              className="text-base"
-            />
-          )}
+            {step.type === 'combobox' ? (
+              <ComboboxInput
+                value={currentValue}
+                onChange={handleChange}
+                placeholder={step.placeholder}
+                options={getOptions(step)}
+                ariaLabel={step.title}
+              />
+            ) : step.type === 'textarea' ? (
+              <Textarea
+                id={inputId}
+                value={currentValue}
+                onChange={(e) => handleChange(e.target.value)}
+                placeholder={step.placeholder}
+                aria-describedby={hintId}
+                aria-invalid={step.required && !isValid}
+              />
+            ) : (
+              <Input
+                id={inputId}
+                value={currentValue}
+                onChange={(e) => handleChange(e.target.value)}
+                placeholder={step.placeholder}
+                aria-describedby={hintId}
+                aria-invalid={step.required && !isValid}
+              />
+            )}
 
-          {step.type === 'combobox' && (
-            <ComboboxInput
-              value={currentValue}
-              onChange={handleChange}
-              options={getOptions(step)}
-              placeholder={step.placeholder}
-              emptyMessage="No options found. Type your own."
-              className="text-base"
-            />
-          )}
+            {/* AI helper */}
+            {canAIDraft && (
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {isLLMReady ? "Local AI ready" : "AI helper"}
+                  </span>
+                  {isLLMReady && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 border border-white/15">
+                      Enhanced
+                    </span>
+                  )}
+                </div>
 
-          {/* Datalist for forename */}
-          {step.field === 'forename' && recentNames.length > 0 && (
-            <datalist id="recent-names-wizard">
-              {recentNames.map((name, i) => (
-                <option key={i} value={name} />
-              ))}
-            </datalist>
-          )}
-        </motion.div>
-      </AnimatePresence>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAIDraft}
+                  disabled={drafting || isAIDrafting}
+                  className="rounded-xl"
+                >
+                  {drafting || isAIDrafting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Sparkles className="w-4 h-4" aria-hidden="true" />
+                  )}
+                  Suggest
+                </Button>
+              </div>
+            )}
+
+            {/* Validation message */}
+            <AnimatePresence>
+              {step.required && !isValid && (
+                <motion.p
+                  className="text-sm text-destructive"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                >
+                  This field is required to continue.
+                </motion.p>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </motion.section>
 
       {/* Navigation */}
-      <div className="flex justify-between pt-4">
+      <div className="flex items-center justify-between gap-3">
         <Button
-          variant="outline"
+          type="button"
+          variant="ghost"
           onClick={handleBack}
           disabled={isFirstStep}
-          className="gap-2"
+          className="rounded-xl"
         >
-          <ChevronLeft className="w-4 h-4" /> Back
+          <ChevronLeft className="w-4 h-4" aria-hidden="true" />
+          Back
         </Button>
+
         <Button
+          type="button"
           onClick={handleNext}
           disabled={!isValid}
-          className={cn(
-            "gap-2",
-            isLastStep && "bg-green-600 hover:bg-green-700"
-          )}
+          className="rounded-xl"
         >
           {isLastStep ? (
             <>
-              <Check className="w-4 h-4" /> Complete
+              <Check className="w-4 h-4" aria-hidden="true" />
+              Finish
             </>
           ) : (
             <>
-              Next <ChevronRight className="w-4 h-4" />
+              Next
+              <ChevronRight className="w-4 h-4" aria-hidden="true" />
             </>
           )}
         </Button>
       </div>
-
-      {/* Preview of filled data */}
-      {Object.keys(formData).length > 0 && (
-        <motion.div
-          className="p-3 rounded-lg bg-muted/50 border"
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-        >
-          <p className="text-xs font-medium text-muted-foreground mb-2">Preview</p>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(formData).filter(([_, v]) => v).map(([key, value]) => (
-              <span key={key} className="text-xs px-2 py-1 rounded bg-primary/10 text-primary">
-                {key}: {value.slice(0, 20)}{value.length > 20 ? '...' : ''}
-              </span>
-            ))}
-          </div>
-        </motion.div>
-      )}
-    </motion.div>
+    </div>
   );
 }
