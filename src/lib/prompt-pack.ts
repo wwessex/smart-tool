@@ -143,7 +143,15 @@ function getPromptPackUrl(): string {
   // Vite env var (optional): VITE_PROMPT_PACK_URL=https://.../prompt-pack.json
   // Default: served from /public/prompt-pack.json
   const envUrl = (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_PROMPT_PACK_URL;
-  return envUrl || "/prompt-pack.json";
+  if (envUrl) return envUrl;
+  // Respect Vite base path (so /smart-action-tool-webapp/ deployments work)
+  const base = (import.meta as unknown as { env?: Record<string, string>; BASE_URL?: string }).BASE_URL || (import.meta as any).env?.BASE_URL || "/";
+  try {
+    return new URL("prompt-pack.json", window.location.origin + base).toString();
+  } catch {
+    // Fallback to a relative path
+    return `${base}prompt-pack.json`;
+  }
 }
 
 function isValidPack(pack: unknown): pack is PromptPack {
@@ -209,6 +217,29 @@ function normalize(s: string): string {
   return (s || "").toLowerCase();
 }
 
+function tokenize(s: string): string[] {
+  const raw = normalize(s)
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  // Small stopword list to keep scoring focused on barrier meaning.
+  const stop = new Set([
+    "a","an","and","are","as","at","be","by","for","from","has","have","i","in","is","it","of","on","or","that","the","their","then","they","this","to","will","with","within",
+    "job","jobs","work","employment","advisor","participant"
+  ]);
+
+  return raw.filter((w) => !stop.has(w));
+}
+
+function overlapScore(a: string[], b: string[]): number {
+  if (!a.length || !b.length) return 0;
+  const setB = new Set(b);
+  let hits = 0;
+  for (const w of a) if (setB.has(w)) hits++;
+  return hits;
+}
+
 function applyExampleTemplate(template: string, params: { forename: string; targetDate: string; targetTime?: string }): string {
   let t = (template || "").trim();
   // Replace common placeholder tokens with runtime values.
@@ -239,13 +270,50 @@ function pickBarrierKey(barrier: string, guidance: Record<string, string[]>): st
   for (const k of keys) {
     if (b.includes(normalize(k))) return k;
   }
-  return keys.length ? keys[0] : null;
+  // No match: return null (do NOT fall back to the first key, as that can mislead the model).
+  return null;
 }
 
 function pickFewShot(pack: PromptPack, barrier: string): { action: string; help: string } | null {
   const b = normalize(barrier);
   const match = pack.fewShot.find((ex) => b.includes(normalize(ex.barrier)));
   return match ? { action: match.action, help: match.help } : null;
+}
+
+function scoreExample(barrierText: string, ex: { barrier: string; action: string; help: string }, barrierKey: string | null): number {
+  const b = normalize(barrierText);
+  const eb = normalize(ex.barrier);
+
+  // Strong match signals
+  if (b === eb) return 1000;
+  let score = 0;
+  if (b.includes(eb) || eb.includes(b)) score += 250;
+  if (barrierKey && normalize(barrierKey) === eb) score += 150;
+
+  // Token overlap between barrier and example text
+  const bt = tokenize(barrierText);
+  const et = tokenize(`${ex.barrier} ${ex.action} ${ex.help}`);
+  score += overlapScore(bt, et) * 12;
+  return score;
+}
+
+function pickFewShotMany(pack: PromptPack, barrierText: string, max = 6): Array<{ action: string; help: string; barrier: string }> {
+  const barrierKey = pickBarrierKey(barrierText, pack.barrierGuidance);
+  const scored = (pack.fewShot || [])
+    .map((ex) => ({ ex, score: scoreExample(barrierText, ex, barrierKey) }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  const out: Array<{ action: string; help: string; barrier: string }> = [];
+  const seenAction = new Set<string>();
+  for (const s of scored) {
+    const key = (s.ex.action || "").trim().replace(/\s+/g, " ").toLowerCase();
+    if (!key || seenAction.has(key)) continue;
+    seenAction.add(key);
+    out.push({ barrier: s.ex.barrier, action: s.ex.action, help: s.ex.help });
+    if (out.length >= max) break;
+  }
+  return out;
 }
 
 export function buildSystemPrompt(pack: PromptPack): string {
@@ -261,17 +329,29 @@ export function buildDraftActionPrompt(pack: PromptPack, params: {
 }): string {
   const barrierKey = pickBarrierKey(params.barrier, pack.barrierGuidance);
   const bullets = barrierKey ? pack.barrierGuidance[barrierKey] : [];
-  const ex = pickFewShot(pack, params.barrier);
+  const examples = pickFewShotMany(pack, params.barrier, 6);
 
   const guidanceLine = bullets?.length
     ? `Barrier hints: ${bullets.slice(0, 5).join(", ")}`
     : "Barrier hints: keep it directly linked to the barrier";
 
-  const banned = pack.bannedTopics?.length ? pack.bannedTopics.join(", ") : "";
+  // Dynamic off-topic guard: if the barrier isn't explicitly about tech, forbid coding/app-building.
+  const barrierNorm = normalize(params.barrier);
+  const techOk = /\b(coding|code|program|programme|software|app|developer|web|it|digital)\b/i.test(params.barrier);
+  const dynamicBanned = techOk ? [] : ["programming", "coding", "build an app", "develop an app", "software", "web development", "machine learning"];
+  const bannedList = Array.from(new Set([...(pack.bannedTopics || []), ...dynamicBanned]));
+  const banned = bannedList.length ? bannedList.join(", ") : "";
 
-  // Keep it short for small models, but include ONE example if available.
-  const exampleBlock = ex
-    ? `EXAMPLE (style + format):\nAction: ${applyExampleTemplate(ex.action, { forename: params.forename, targetDate: params.targetDate, targetTime: params.targetTime })}\nBenefit: ${ex.help}\n`
+  // Include multiple taught examples (newest first) so the model stays on-domain.
+  const exampleBlock = examples.length
+    ? [
+        "APPROVED EXAMPLES (follow this style + keep it realistic):",
+        ...examples.slice(0, 5).map((ex, idx) => {
+          const a = applyExampleTemplate(ex.action, { forename: params.forename, targetDate: params.targetDate, targetTime: params.targetTime });
+          return `${idx + 1}) Barrier: ${ex.barrier}\n   Action: ${a}\n   Benefit: ${ex.help}`;
+        }),
+        "",
+      ].join("\n")
     : "";
 
   return [
@@ -283,6 +363,7 @@ export function buildDraftActionPrompt(pack: PromptPack, params: {
     `3) Must be relevant to the barrier: '${params.barrier}'`,
     `4) Must include the deadline date '${params.targetDate}'${params.targetTime ? ` and time '${params.targetTime}'` : ''}`,
     `5) Avoid: ${banned || "off-topic content"}`,
+    "6) Keep it realistic for a UK employment advisor session (job search, appointments, calls, forms, travel, childcare, wellbeing, skills).",
     "CONTEXT:",
     `- Person: ${params.forename}`,
     `- Barrier: ${params.barrier}`,
@@ -290,7 +371,6 @@ export function buildDraftActionPrompt(pack: PromptPack, params: {
     params.targetTime ? `- Time: ${params.targetTime}` : '',
     `- Supporter: ${params.responsible || "Advisor"}`,
     guidanceLine,
-    exampleBlock ? "" : "",
     exampleBlock,
     "OUTPUT: One sentence only. No quotes. No bullet points.",
   ]
@@ -335,6 +415,79 @@ export function buildDraftOutcomePrompt(pack: PromptPack, params: {
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+// -------- Output quality checks (RAG-lite guardrails) --------
+
+function containsMeasurableElement(text: string): boolean {
+  const t = normalize(text);
+  // Digits or common measurable cues.
+  if (/\b\d+\b/.test(t)) return true;
+  if (/\b(one|two|three|four|five|six|seven|eight|nine|ten)\b/.test(t)) return true;
+  if (/\b(apply|applications|contact|call|email|attend|book|complete|upload|register|update|create|prepare)\b/.test(t)) return true;
+  return false;
+}
+
+function buildBannedList(pack: PromptPack, barrierText: string): string[] {
+  const techOk = /\b(coding|code|program|programme|software|app|developer|web|it|digital)\b/i.test(barrierText);
+  const dynamicBanned = techOk ? [] : ["programming", "coding", "build an app", "develop an app", "software", "web development", "machine learning", "algorithm"];
+  return Array.from(new Set([...(pack.bannedTopics || []), ...dynamicBanned])).map((s) => normalize(s)).filter(Boolean);
+}
+
+export function validateDraftAction(pack: PromptPack, params: { actionText: string; barrierText: string; targetDate: string; targetTime?: string }): { ok: true } | { ok: false; reason: string } {
+  const action = (params.actionText || "").trim();
+  if (!action) return { ok: false, reason: "empty" };
+
+  // Must include the deadline date somewhere (defensive).
+  const mustDate = normalize(params.targetDate);
+  if (mustDate && !normalize(action).includes(mustDate)) {
+    return { ok: false, reason: "missing date" };
+  }
+
+  // Measurable cue.
+  if (!containsMeasurableElement(action)) {
+    return { ok: false, reason: "not measurable" };
+  }
+
+  // Off-topic guard.
+  const banned = buildBannedList(pack, params.barrierText);
+  const lower = normalize(action);
+  for (const b of banned) {
+    if (!b) continue;
+    if (b.includes(" ")) {
+      if (lower.includes(b)) return { ok: false, reason: `mentions banned topic: ${b}` };
+    } else {
+      if (new RegExp(`\\b${b.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}\\b`, "i").test(action)) {
+        return { ok: false, reason: `mentions banned topic: ${b}` };
+      }
+    }
+  }
+
+  // Light relevance check: at least one meaningful token from barrier or guidance should appear.
+  const bt = tokenize(params.barrierText);
+  if (bt.length) {
+    const lowerTokens = new Set(tokenize(action));
+    const hits = bt.filter((w) => lowerTokens.has(w)).length;
+    if (hits === 0) {
+      // Allow if barrier is short/abstract, but flag most drifts.
+      if (bt.join(" ").length > 6) return { ok: false, reason: "not aligned to barrier" };
+    }
+  }
+
+  return { ok: true };
+}
+
+export function buildRevisionPrompt(originalPrompt: string, badOutput: string, reason: string): string {
+  return [
+    originalPrompt,
+    "",
+    "REVISION REQUIRED:",
+    `The previous output was rejected (${reason}).`,
+    "Rewrite it so it follows all RULES and is directly relevant to the Barrier.",
+    "Do NOT explain. Output only the corrected single sentence.",
+    "Previous output:",
+    badOutput,
+  ].join("\n");
 }
 
 // -------- Light post-processing (defensive) --------
