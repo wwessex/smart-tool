@@ -1,6 +1,6 @@
-// Service Worker v7 - Non-blocking, subfolder-compatible
+// Service Worker v8 - Non-blocking, subfolder-compatible
 // Increment this version when deploying new builds
-const CACHE_VERSION = 'v7';
+const CACHE_VERSION = 'v8';
 const CACHE_NAME = `smart-tool-${CACHE_VERSION}`;
 
 // Get the base path from the service worker's location (supports subfolders)
@@ -67,10 +67,19 @@ self.addEventListener('fetch', (event) => {
   // Skip chrome-extension and other non-http requests
   if (!event.request.url.startsWith('http')) return;
   
-  // CRITICAL: During first load, let browser handle ALL requests normally
-  // This prevents SW from interfering with initial page load
+  // CRITICAL: During first load, avoid intercepting navigation/HTML requests
+  // (prevents SW from interfering with initial page load).
+  // BUT we DO allow caching of non-navigation assets (including cross-origin
+  // LLM model files) even before the app signals ready. This prevents the
+  // "AI module disappears after refresh" symptom on some browsers.
   if (!appLoaded) {
-    return; // Let browser handle request normally - no respondWith
+    const url = new URL(event.request.url);
+    const isNavigationRequest = event.request.mode === 'navigate';
+    const isHTMLFile = url.pathname.endsWith('.html') || url.pathname === '/' || !url.pathname.includes('.');
+    if (isNavigationRequest || isHTMLFile) {
+      return; // Let browser handle initial HTML/navigation normally
+    }
+    // Otherwise fall through to caching logic below.
   }
 
   const url = new URL(event.request.url);

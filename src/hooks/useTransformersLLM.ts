@@ -391,18 +391,37 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
 
               const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : (input as Request).url;
 
+              // Respect Range requests (some model files stream in chunks). Cache keys must
+              // include the range, otherwise a cached partial response can poison later reads.
+              const getHeader = (name: string): string | undefined => {
+                const h = init?.headers || (input instanceof Request ? input.headers : undefined);
+                if (!h) return undefined;
+                if (h instanceof Headers) return h.get(name) || undefined;
+                if (Array.isArray(h)) {
+                  const found = h.find(([k]) => String(k).toLowerCase() === name.toLowerCase());
+                  return found ? String(found[1]) : undefined;
+                }
+                const rec = h as Record<string, string>;
+                const key = Object.keys(rec).find(k => k.toLowerCase() === name.toLowerCase());
+                return key ? String(rec[key]) : undefined;
+              };
+              const range = getHeader('Range');
+              const cacheKey = range
+                ? `${url}${url.includes('?') ? '&' : '?'}__st_range=${encodeURIComponent(range)}`
+                : url;
+
               // Avoid caching very short lived / non-file requests.
               // (Models come from huggingface.co / hf.co / cdn-lfs; but we don't hardcode.
               // We simply cache any http(s) file-like request.)
               if (!/^https?:\/\//i.test(url)) return originalFetch(input as any, init);
 
-              // De-dupe concurrent fetches.
-              if (inflight.has(url)) return (await inflight.get(url)!)!.clone();
+              // De-dupe concurrent fetches (include Range in key).
+              if (inflight.has(cacheKey)) return (await inflight.get(cacheKey)!)!.clone();
 
               const p = (async () => {
                 try {
                   const cache = await caches.open(cacheName);
-                  const cached = await cache.match(url);
+                  const cached = await cache.match(cacheKey);
                   if (cached) return cached;
 
                   // Force a network request; we do our own cache.
@@ -410,18 +429,18 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
                   if (res && res.ok) {
                     try {
                       // Some responses are not cacheable (opaque). Ignore failures.
-                      await cache.put(url, res.clone());
+                      await cache.put(cacheKey, res.clone());
                     } catch {
                       // ignore
                     }
                   }
                   return res;
                 } finally {
-                  inflight.delete(url);
+                  inflight.delete(cacheKey);
                 }
               })();
 
-              inflight.set(url, p);
+              inflight.set(cacheKey, p);
               const out = await p;
               return out.clone();
             };

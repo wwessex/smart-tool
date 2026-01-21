@@ -35,14 +35,18 @@ export const SMART_TOOL_SHORTCUTS = {
     category: 'Actions',
   },
   switchToNow: {
+    // Use Ctrl+Alt (or Cmd+Option on macOS) to avoid clashing with browser tab shortcuts
+    // (e.g. Cmd+1/Cmd+2 in Safari/Chrome).
     key: '1',
     ctrl: true,
-    description: 'Switch to Now mode',
+    alt: true,
+    description: 'Switch to Barrier Mode',
     category: 'Navigation',
   },
   switchToFuture: {
     key: '2',
     ctrl: true,
+    alt: true,
     description: 'Switch to Task Based Mode',
     category: 'Navigation',
   },
