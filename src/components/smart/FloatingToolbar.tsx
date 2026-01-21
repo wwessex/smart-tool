@@ -4,7 +4,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Copy, Save, Trash2, Sparkles, Download, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SMART_TOOL_SHORTCUTS } from '@/lib/smart-tool-shortcuts';
-import { toAriaKeyShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { formatShortcut, toAriaKeyShortcuts } from '@/hooks/useKeyboardShortcuts';
 
 interface FloatingToolbarProps {
   onCopy: () => void;
@@ -77,20 +77,6 @@ export function FloatingToolbar({
   // Get shortcut for an action from the shortcutMap
   const getShortcut = (actionId: string): string | undefined => shortcutMap[actionId];
 
-  // Get ARIA-compliant keyshortcuts for an action.
-  // NOTE: aria-keyshortcuts expects key names like "Control+Alt+A".
-  // Our shortcut handler treats ctrl as "Ctrl OR Meta" (Cmd on macOS), so we advertise both.
-  const getAriaKeyShortcuts = (actionId: string): string | undefined => {
-    const def = Object.values(SMART_TOOL_SHORTCUTS).find((s) => s.id === actionId);
-    if (!def) return undefined;
-    return toAriaKeyShortcuts({
-      key: def.key,
-      ctrl: def.ctrl,
-      shift: def.shift,
-      alt: def.alt,
-    });
-  };
-
   return (
     <TooltipProvider delayDuration={300}>
       <motion.nav
@@ -120,7 +106,8 @@ export function FloatingToolbar({
                   onClick={action.onClick}
                   disabled={action.disabled}
                   aria-label={action.label}
-                  aria-keyshortcuts={getAriaKeyShortcuts(action.id)}
+                  // aria-keyshortcuts expects "Control" rather than "Ctrl".
+                  aria-keyshortcuts={getShortcut(action.id)?.replace('Ctrl+', 'Control+')}
                   className={cn(
                     "h-10 w-10 rounded-full p-0",
                     action.disabled && "opacity-50 cursor-not-allowed",

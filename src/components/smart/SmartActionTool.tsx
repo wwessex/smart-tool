@@ -28,7 +28,6 @@ import { AIImproveDialog } from './AIImproveDialog';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { OnboardingTutorial, useOnboarding } from './OnboardingTutorial';
 import { useLocalSync } from '@/hooks/useLocalSync';
-import { copyToClipboard } from '@/lib/clipboard';
 
 // Lazy load HistoryInsights as it uses recharts which is a heavy dependency
 const HistoryInsights = lazy(() => import('./HistoryInsights').then(module => ({ default: module.HistoryInsights })));
@@ -373,8 +372,7 @@ export function SmartActionTool() {
         const langInfo = SUPPORTED_LANGUAGES[storage.participantLanguage];
         textToCopy = `=== ENGLISH ===\n${output}\n\n=== ${langInfo?.nativeName?.toUpperCase() || storage.participantLanguage.toUpperCase()} ===\n${translatedOutput}`;
       }
-      const ok = await copyToClipboard(textToCopy);
-      if (!ok) throw new Error('copy-failed');
+      await navigator.clipboard.writeText(textToCopy);
       setCopied(true);
       setTimeout(() => setCopied(false), 400);
       toast({ title: 'Copied!', description: translatedOutput ? 'Both versions copied to clipboard.' : 'Action copied to clipboard.' });
@@ -770,7 +768,7 @@ export function SmartActionTool() {
         responsible: template.responsible || prev.responsible,
         help: template.help || prev.help,
         // optional
-        time: (template as any).time || prev.time,
+        time: template.time || prev.time,
       }));
     } else {
       setFutureForm(prev => ({
@@ -779,7 +777,7 @@ export function SmartActionTool() {
         responsible: template.responsible || prev.responsible,
         outcome: template.outcome || prev.outcome,
         // optional
-        time: (template as any).time || prev.time,
+        time: template.time || prev.time,
       }));
     }
   }, []);
@@ -2568,9 +2566,9 @@ export function SmartActionTool() {
                               <Button size="sm" variant="outline" onClick={() => handleEditHistory(h)} aria-label={`Edit action for ${h.meta.forename || 'participant'}`}>
                                 <Edit className="w-3 h-3 mr-1" aria-hidden="true" /> Edit
                               </Button>
-                              <Button size="sm" variant="ghost" onClick={async () => {
-                                const ok = await copyToClipboard(h.text);
-                                toast({ title: ok ? 'Copied!' : 'Copy failed', variant: ok ? undefined : 'destructive' });
+                              <Button size="sm" variant="ghost" onClick={() => {
+                                navigator.clipboard.writeText(h.text);
+                                toast({ title: 'Copied!' });
                               }} aria-label="Copy action text">
                                 <Copy className="w-3 h-3" aria-hidden="true" />
                                 <span className="sr-only">Copy</span>

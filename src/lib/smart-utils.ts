@@ -402,6 +402,9 @@ export function buildNowOutput(
   if (formattedAction) {
     formattedAction = formattedAction.charAt(0).toLowerCase() + formattedAction.slice(1);
   }
+
+  // Final tidy-up for common template/small-model grammar artefacts.
+  formattedAction = polishGrammarLite(formattedAction);
   
   // Strip trailing punctuation from help text too
   const cleanHelp = stripTrailingPunctuation(polishGrammarLite(replacedHelp));
