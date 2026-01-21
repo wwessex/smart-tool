@@ -1050,13 +1050,18 @@ export function SmartActionTool() {
           >
             <motion.div 
               className={cn(
-                "rounded-xl gradient-primary flex items-center justify-center text-white font-black shadow-glow transition-all duration-200 flex-shrink-0",
+                "rounded-xl bg-white/10 dark:bg-white/5 border border-white/20 backdrop-blur-md flex items-center justify-center shadow-sm transition-all duration-200 flex-shrink-0",
                 isLandscape && headerCollapsed ? "w-7 h-7 text-sm" : isLandscape ? "w-8 h-8 text-base" : "w-9 h-9 sm:w-11 sm:h-11 text-lg sm:text-xl"
               )}
               whileHover={{ scale: 1.1, rotate: 5 }}
               whileTap={{ scale: 0.95 }}
             >
-              S
+              <img
+                src={`${import.meta.env.BASE_URL}logo-mark.png`}
+                alt="SMART Action Support Tool"
+                className="w-full h-full object-contain p-1"
+                draggable={false}
+              />
             </motion.div>
             <AnimatePresence mode="wait">
               {!(isLandscape && headerCollapsed) && (

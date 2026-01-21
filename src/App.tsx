@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect, Component, ReactNode } from "react";
+import { useState, useEffect, Component, ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,13 +8,12 @@ import { ThemeProvider } from "next-themes";
 import { PWAPrompt } from "@/components/PWAPrompt";
 import { CookieConsent } from "@/components/smart/CookieConsent";
 
-// Lazy load pages for better initial load time
-const Index = lazy(() => import("./pages/Index"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const Privacy = lazy(() => import("./pages/Privacy"));
-const Terms = lazy(() => import("./pages/Terms"));
-// Hidden admin route (not linked anywhere)
-const AdminPromptPack = lazy(() => import("./pages/AdminPromptPack"));
+// Pages
+import Index from "./pages/Index";
+import NotFound from "./pages/NotFound";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
+import AdminPromptPack from "./pages/AdminPromptPack";
 
 // BUG FIX #3: Error boundary for lazy load failures
 class LazyErrorBoundary extends Component<
@@ -62,80 +61,6 @@ class LazyErrorBoundary extends Component<
   }
 }
 
-// BUG FIX #2: Loading fallback with progressive timeout stages
-const PageLoader = () => {
-  const [stage, setStage] = useState<'loading' | 'slow' | 'stuck'>('loading');
-
-  useEffect(() => {
-    // First stage: show "slow" message after 5 seconds
-    const slowTimer = setTimeout(() => setStage('slow'), 5000);
-    // Second stage: show "stuck" message after 10 seconds
-    const stuckTimer = setTimeout(() => setStage('stuck'), 10000);
-    return () => {
-      clearTimeout(slowTimer);
-      clearTimeout(stuckTimer);
-    };
-  }, []);
-
-  const handleClearCacheAndReload = async () => {
-    try {
-      // Clear all caches
-      if ('caches' in window) {
-        const cacheNames = await caches.keys();
-        await Promise.all(cacheNames.map(name => caches.delete(name)));
-      }
-      
-      // Unregister service workers
-      if ('serviceWorker' in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(registrations.map(reg => reg.unregister()));
-      }
-      
-      // Force hard reload with cache bust
-      const baseUrl = window.location.href.split('#')[0].split('?')[0];
-      window.location.href = `${baseUrl}?cache_bust=${Date.now()}`;
-    } catch (error) {
-      // Fallback to simple reload
-      window.location.reload();
-    }
-  };
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="flex flex-col items-center gap-3 text-center p-4 max-w-sm">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        <p className="text-sm text-muted-foreground">Loading SMART Action Tool...</p>
-        
-        {stage === 'slow' && (
-          <p className="text-xs text-muted-foreground animate-pulse">
-            Still loading, please wait...
-          </p>
-        )}
-        
-        {stage === 'stuck' && (
-          <div className="mt-4 space-y-3 p-4 rounded-lg border border-border bg-card">
-            <p className="text-sm font-medium text-foreground">
-              Loading is taking longer than expected
-            </p>
-            <p className="text-xs text-muted-foreground">
-              This might be due to cached files or a slow connection.
-            </p>
-            <button
-              onClick={handleClearCacheAndReload}
-              className="w-full px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-            >
-              Clear cache & reload
-            </button>
-            <p className="text-xs text-muted-foreground">
-              If the problem persists, try opening in a private/incognito window.
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -163,8 +88,7 @@ const App = () => {
           <CookieConsent />
           <HashRouter>
             <LazyErrorBoundary>
-              <Suspense fallback={<PageLoader />}>
-                <Routes>
+              <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/admin-playbook" element={<AdminPromptPack />} />
                   <Route path="/privacy" element={<Privacy />} />
@@ -172,7 +96,6 @@ const App = () => {
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
-              </Suspense>
             </LazyErrorBoundary>
           </HashRouter>
         </TooltipProvider>

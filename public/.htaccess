@@ -1,31 +1,33 @@
-# Apache cache-control headers for SPA deployment
+# SMART Action Support Tool - Apache config
 
-# Disable caching for HTML files (always get fresh version)
-<FilesMatch "\.(html)$">
-    Header set Cache-Control "no-cache, no-store, must-revalidate"
-    Header set Pragma "no-cache"
-    Header set Expires "0"
-</FilesMatch>
-
-# Cache static assets with hashes for 1 year (immutable)
-<FilesMatch "\.(js|css|woff2?|ttf|eot|svg|png|jpg|jpeg|gif|ico|webp)$">
-    Header set Cache-Control "public, max-age=31536000, immutable"
-</FilesMatch>
-
-# Enable gzip compression
-<IfModule mod_deflate.c>
-    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript application/json
+<IfModule mod_mime.c>
+  AddType application/javascript .js .mjs
+  AddType text/css .css
+  AddType application/wasm .wasm
+  AddType application/json .json
 </IfModule>
 
-# SPA fallback - redirect all non-file requests to index.html
+<IfModule mod_headers.c>
+  # Always revalidate the HTML so new deployments don't get stuck on old chunk hashes
+  <FilesMatch "\.(html)$">
+    Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    Header set Pragma "no-cache"
+  </FilesMatch>
+
+  # Cache static assets aggressively (hashed filenames)
+  <FilesMatch "\.(js|mjs|css|png|jpg|jpeg|gif|svg|webp|ico|woff2?)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>
+
 <IfModule mod_rewrite.c>
-    RewriteEngine On
-    RewriteBase /
-    
-    # Don't rewrite files or directories
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    
-    # Rewrite everything else to index.html
-    RewriteRule ^ index.html [L]
+  RewriteEngine On
+
+  # If the request is for an existing file/folder, serve it
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Otherwise, route everything to index.html (SPA fallback)
+  RewriteRule ^ index.html [L]
 </IfModule>

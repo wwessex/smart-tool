@@ -63,19 +63,9 @@ export default defineConfig(({ mode }) => {
       // Only split out the absolute largest dependencies
       rollupOptions: {
         output: {
+        inlineDynamicImports: true,
           // Minimal chunking - just one vendor bundle for reliability
-          manualChunks: (id) => {
-            // Put ALL node_modules in one vendor chunk for maximum reliability
-            if (id.includes('node_modules')) {
-              // Only separate out the massive LLM library
-              if (id.includes('node_modules/@mlc-ai')) {
-                return 'vendor-llm';
-              }
-              // Everything else in one reliable vendor chunk
-              return 'vendor';
-            }
-          },
-          // Hash in filenames for cache busting
+// Hash in filenames for cache busting
           chunkFileNames: 'assets/[name]-[hash].js',
           entryFileNames: 'assets/[name]-[hash].js',
           assetFileNames: 'assets/[name]-[hash].[ext]',
