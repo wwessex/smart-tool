@@ -55,7 +55,7 @@ import { SMART_TOOL_SHORTCUTS } from '@/lib/smart-tool-shortcuts';
 import logoIcon from '@/assets/logo-icon.png';
 import { useTransformersLLM } from '@/hooks/useTransformersLLM';
 import { usePromptPack } from '@/hooks/usePromptPack';
-import { buildSystemPrompt, buildDraftActionPrompt, buildDraftHelpPrompt, buildDraftOutcomePrompt, sanitizeOneSentence, sanitizeOnePhrase, DEFAULT_PROMPT_PACK, validateDraftAction, buildRevisionPrompt } from '@/lib/prompt-pack';
+import { buildSystemPrompt, buildDraftActionPrompt, buildDraftHelpPrompt, buildDraftOutcomePrompt, sanitizeOneSentence, sanitizeOnePhrase, DEFAULT_PROMPT_PACK } from '@/lib/prompt-pack';
 
 /**
  * Safely remove from localStorage, catching any errors.
@@ -622,7 +622,7 @@ export function SmartActionTool() {
         const targetISO = parseTimescaleToTargetISO(nowForm.date || today, timescale);
         const targetDate = formatDDMMMYY(targetISO);
         
-        // Generate action (backend-taught prompt pack + retrieved examples)
+        // Generate action (backend-taught prompt pack)
         const actionPrompt = buildDraftActionPrompt(effectivePromptPack, {
           forename: nowForm.forename,
           barrier: nowForm.barrier,
@@ -630,29 +630,7 @@ export function SmartActionTool() {
           targetTime: nowForm.time || "",
           responsible: nowForm.responsible || 'Advisor',
         });
-        let action = sanitizeOneSentence(await llm.generate(actionPrompt, llmSystemPrompt, 'action'));
-
-        // Quality gate: if it drifts off-topic (e.g., app building for caring responsibilities),
-        // attempt ONE revision pass before falling back to templates.
-        const v1 = validateDraftAction(effectivePromptPack, {
-          actionText: action,
-          barrierText: nowForm.barrier,
-          targetDate,
-          targetTime: nowForm.time || "",
-        });
-        if (!v1.ok) {
-          const revisionPrompt = buildRevisionPrompt(actionPrompt, action, v1.reason);
-          action = sanitizeOneSentence(await llm.generate(revisionPrompt, llmSystemPrompt, 'action'));
-          const v2 = validateDraftAction(effectivePromptPack, {
-            actionText: action,
-            barrierText: nowForm.barrier,
-            targetDate,
-            targetTime: nowForm.time || "",
-          });
-          if (!v2.ok) {
-            throw new Error(`Local AI draft rejected: ${v2.reason}`);
-          }
-        }
+        const action = sanitizeOneSentence(await llm.generate(actionPrompt, llmSystemPrompt, 'action'));
         
         // Generate help - use correct subject based on responsible person
         const helpSubject = getHelpSubject(nowForm.forename, nowForm.responsible);
