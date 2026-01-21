@@ -25,6 +25,45 @@ function prettyJson(obj: unknown): string {
   return JSON.stringify(obj, null, 2);
 }
 
+function escapeRegExp(s: string): string {
+  // eslint-disable-next-line no-useless-escape
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeTeacherExample(example: string, opts: { replaceName?: string; replaceDate?: string; replaceTime?: string }): string {
+  let t = (example || "").trim();
+
+  // Replace an explicit name/date entered by the admin with placeholders.
+  if (opts.replaceName && opts.replaceName.trim()) {
+    const re = new RegExp(escapeRegExp(opts.replaceName.trim()), "g");
+    t = t.replace(re, "[NAME]");
+  }
+  if (opts.replaceDate && opts.replaceDate.trim()) {
+    const re = new RegExp(escapeRegExp(opts.replaceDate.trim()), "g");
+    t = t.replace(re, "[DATE]");
+  }
+
+  if (opts.replaceTime && opts.replaceTime.trim()) {
+    const re = new RegExp(escapeRegExp(opts.replaceTime.trim()), "g");
+    t = t.replace(re, "[TIME]");
+  }
+
+  // Normalise common placeholder token variants to our standard.
+  t = t.replace(/\{\s*name\s*\}/gi, "[NAME]");
+  t = t.replace(/\{\s*date\s*\}/gi, "[DATE]");
+  t = t.replace(/\[\s*date\s*\]/gi, "[DATE]");
+  t = t.replace(/\[\s*name\s*\]/gi, "[NAME]");
+  t = t.replace(/\{\s*time\s*\}/gi, "[TIME]");
+  t = t.replace(/\[\s*time\s*\]/gi, "[TIME]");
+  // Fix common bracket typos like [NAME} or [Time}
+  t = t.replace(/\[\s*name\s*\}/gi, "[NAME]");
+  t = t.replace(/\[\s*date\s*\}/gi, "[DATE]");
+  t = t.replace(/\[\s*time\s*\}/gi, "[TIME]");
+
+  return t;
+}
+
+
 function safeParse(text: string): { ok: true; value: PromptPack } | { ok: false; error: string } {
   try {
     const parsed = JSON.parse(text);
@@ -49,6 +88,14 @@ export default function AdminPromptPack() {
   const [status, setStatus] = useState<string>("Ready");
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // SMART Teacher (guided wizard)
+  const [teacherBarrier, setTeacherBarrier] = useState<string>("");
+  const [teacherExample, setTeacherExample] = useState<string>("");
+  const [teacherHelp, setTeacherHelp] = useState<string>("");
+  const [teacherReplaceName, setTeacherReplaceName] = useState<string>("");
+  const [teacherReplaceDate, setTeacherReplaceDate] = useState<string>("");
+  const [teacherReplaceTime, setTeacherReplaceTime] = useState<string>("");
 
   // Prefill editor from current live pack (if available)
   useEffect(() => {
@@ -189,7 +236,102 @@ export default function AdminPromptPack() {
     }
   };
 
+  const handleTeachAddExample = () => {
+    setError(null);
+
+    if (!parsed.ok) {
+      setError(parsed.error);
+      toast({ title: "Invalid JSON", description: parsed.error, variant: "destructive" });
+      return;
+    }
+
+    const barrier = (teacherBarrier || "").trim();
+    let example = (teacherExample || "").trim();
+    const help = (teacherHelp || "").trim();
+
+    if (!barrier) {
+      toast({ title: "Missing barrier/task", description: "Enter a barrier or task to teach.", variant: "destructive" });
+      return;
+    }
+    if (!example) {
+      toast({ title: "Missing example", description: "Paste a SMART action example.", variant: "destructive" });
+      return;
+    }
+
+    // 1) Apply explicit replacements (if the admin typed a real name/date below)
+    example = normalizeTeacherExample(example, {
+      replaceName: teacherReplaceName,
+      replaceDate: teacherReplaceDate,
+      replaceTime: teacherReplaceTime,
+    });
+
+    // 2) If the admin didn't use placeholders but wrote 'Alex will ...', convert the leading name.
+    if (!/\[NAME\]/i.test(example)) {
+      const m = example.match(/^([A-Z][a-z]+)\s+will\\b/);
+      if (m && m[1]) {
+        example = example.replace(/^([A-Z][a-z]+)\s+will\\b/, "[NAME] will");
+      }
+    }
+
+    // 3) If the admin didn't use a date placeholder, convert the first obvious date after 'by'.
+    if (!/\[DATE\]/i.test(example)) {
+      const byDate = example.match(/\\bby\s+([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{1,2}\/[0-9]{1,2}\/[0-9]{2,4}|[0-9]{1,2}-[A-Za-z]{3}-[0-9]{2,4})\\b/);
+      if (byDate && byDate[1]) {
+        example = example.replace(byDate[1], "[DATE]");
+      }
+    }
+
+    // 4) If the admin didn't use a time placeholder, convert the first obvious time after 'at'.
+    if (!/\[TIME\]/i.test(example)) {
+      const atTime = example.match(/\bat\s+([0-9]{1,2}(?::[0-9]{2})?\s?(?:am|pm)\b|[0-9]{1,2}\s?(?:am|pm)\b|[0-9]{1,2}:[0-9]{2}\b)\b/i);
+      if (atTime && atTime[1]) {
+        example = example.replace(atTime[1], "[TIME]");
+      }
+    }
+
+    const next = JSON.parse(JSON.stringify(parsed.value)) as PromptPack;
+    // Allow MULTIPLE examples per barrier (append + de-dupe) instead of overwriting.
+    // We keep newest first so Draft tends to use the freshest taught example.
+    const entry = {
+      barrier,
+      action: example,
+      help: help || "support progress towards employment",
+    };
+
+    const sameBarrier = (x: { barrier: string }) => x.barrier.toLowerCase() === barrier.toLowerCase();
+    const normalizeAction = (s: string) => (s || "").trim().replace(/\s+/g, " ").toLowerCase();
+
+    const exists = next.fewShot.some((x) => sameBarrier(x) && normalizeAction((x as any).action) === normalizeAction(entry.action));
+    if (!exists) {
+      next.fewShot.unshift(entry);
+    }
+
+    const count = next.fewShot.filter(sameBarrier).length;
+
+    // Bump meta so clients know it changed.
+    next.version = Math.max(1, (next.version || 1) + 1);
+    next.updatedAt = new Date().toISOString().slice(0, 10);
+
+    setEditorText(prettyJson(next));
+    setStatus(`SMART Teacher: ${exists ? "example already existed" : "added example"} for '${barrier}' (${count} total) (v${next.version})`);
+    toast({
+      title: exists ? "Already saved" : "Taught playbook",
+      description: exists ? `That example already exists for '${barrier}'.` : `Saved example for '${barrier}' (${count} total).`,
+    });
+  };
+
+  const handleTeachReset = () => {
+    setTeacherBarrier("");
+    setTeacherExample("");
+    setTeacherHelp("");
+    setTeacherReplaceName("");
+    setTeacherReplaceDate("");
+    setTeacherReplaceTime("");
+    toast({ title: "Reset", description: "SMART Teacher cleared." });
+  };
+
   return (
+
     <div className="min-h-screen bg-background p-4">
       <div className="mx-auto w-full max-w-4xl space-y-4">
         <Card>
@@ -235,6 +377,87 @@ export default function AdminPromptPack() {
             </Alert>
           </CardHeader>
           <CardContent className="space-y-4">
+
+            <Card className="border-dashed">
+              <CardHeader>
+                <CardTitle className="text-lg">SMART Teacher (guided)</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Teach the playbook by example. Use <code>[NAME]</code>, <code>[DATE]</code>, and <code>[TIME]</code> placeholders in examples.
+                  The app will substitute the participant name/date/time at runtime.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium">Barrier / task</label>
+                    <Input
+                      value={teacherBarrier}
+                      onChange={(e) => setTeacherBarrier(e.target.value)}
+                      placeholder="e.g. Confidence, Transport, Digital skills, Interview preparation"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium">Benefit (optional)</label>
+                    <Input
+                      value={teacherHelp}
+                      onChange={(e) => setTeacherHelp(e.target.value)}
+                      placeholder="e.g. feel more confident in interviews"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-medium">SMART action example</label>
+                  <Textarea
+                    value={teacherExample}
+                    onChange={(e) => setTeacherExample(e.target.value)}
+                    placeholder="Example: [NAME] will apply for 3 suitable roles on Indeed and CV Library by [DATE]."
+                    className="min-h-[120px]"
+                  />
+                  <div className="text-xs text-muted-foreground">
+                    Tip: If your example contains a real name/date, enter it below so we can convert it to placeholders.
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium">Name in example to replace (optional)</label>
+                    <Input
+                      value={teacherReplaceName}
+                      onChange={(e) => setTeacherReplaceName(e.target.value)}
+                      placeholder="e.g. Alex"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium">Date in example to replace (optional)</label>
+                    <Input
+                      value={teacherReplaceDate}
+                      onChange={(e) => setTeacherReplaceDate(e.target.value)}
+                      placeholder="e.g. 25-Jan-26"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium">Time in example to replace (optional)</label>
+                    <Input
+                      value={teacherReplaceTime}
+                      onChange={(e) => setTeacherReplaceTime(e.target.value)}
+                      placeholder="e.g. 11am"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={handleTeachAddExample}>
+                    Add example to playbook
+                  </Button>
+                  <Button variant="secondary" onClick={handleTeachReset}>
+                    Reset
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
             <div className="flex flex-wrap gap-2">
               <Button variant="secondary" onClick={handleLoadRemote}>
                 <RefreshCw className="h-4 w-4 mr-2" /> Load remote

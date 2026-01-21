@@ -37,7 +37,7 @@ export const SMART_TOOL_SHORTCUTS = {
   switchToNow: {
     key: '1',
     ctrl: true,
-    description: 'Switch to Barrier Mode',
+    description: 'Switch to Now mode',
     category: 'Navigation',
   },
   switchToFuture: {

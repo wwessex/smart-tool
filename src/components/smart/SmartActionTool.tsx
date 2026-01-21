@@ -52,7 +52,8 @@ import { useKeyboardShortcuts, groupShortcuts, createShortcutMap, ShortcutConfig
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FIX_CRITERION_PROMPT, CRITERION_GUIDANCE, getHelpSubject } from '@/lib/smart-prompts';
 import { SMART_TOOL_SHORTCUTS } from '@/lib/smart-tool-shortcuts';
-import { useTransformersLLM, RECOMMENDED_MODELS } from '@/hooks/useTransformersLLM';
+import logoIcon from '@/assets/logo-icon.png';
+import { useTransformersLLM } from '@/hooks/useTransformersLLM';
 import { usePromptPack } from '@/hooks/usePromptPack';
 import { buildSystemPrompt, buildDraftActionPrompt, buildDraftHelpPrompt, buildDraftOutcomePrompt, sanitizeOneSentence, sanitizeOnePhrase, DEFAULT_PROMPT_PACK } from '@/lib/prompt-pack';
 
@@ -113,6 +114,7 @@ type Mode = 'now' | 'future';
 
 interface NowForm {
   date: string;
+  time: string;
   forename: string;
   barrier: string;
   action: string;
@@ -138,10 +140,42 @@ export function SmartActionTool() {
   const cloudAI = useCloudAI();
   const aiHasConsent = useAIConsent();
   const localSync = useLocalSync();
-  const llm = useTransformersLLM();
+  const llm = useTransformersLLM({ allowMobileLLM: storage.allowMobileLLM });
   const { pack: promptPack, source: promptPackSource } = usePromptPack();
   const today = todayISO();
   const effectivePromptPack = promptPack || DEFAULT_PROMPT_PACK;
+  const llmSystemPrompt = buildSystemPrompt(effectivePromptPack);
+
+  // iOS Safari can aggressively reload tabs under memory pressure. We proactively
+  // unload the local model shortly after generation to free memory, while keeping
+  // the downloaded weights in browser storage/cache.
+  const iosAutoUnloadTimer = useRef<number | null>(null);
+  const scheduleIOSModelUnload = useCallback(() => {
+    // Only do this on mobile (iPhone/iPad) and only when local AI is active.
+    if (!llm.isMobile) return;
+    if (storage.aiDraftMode !== 'local') return;
+    if (iosAutoUnloadTimer.current) {
+      window.clearTimeout(iosAutoUnloadTimer.current);
+      iosAutoUnloadTimer.current = null;
+    }
+    iosAutoUnloadTimer.current = window.setTimeout(() => {
+      try {
+        llm.unload();
+      } catch {
+        // ignore
+      }
+    }, 2500);
+  }, [llm, storage.aiDraftMode]);
+
+  useEffect(() => {
+    return () => {
+      if (iosAutoUnloadTimer.current) {
+        window.clearTimeout(iosAutoUnloadTimer.current);
+        iosAutoUnloadTimer.current = null;
+      }
+    };
+  }, []);
+
   
   // AI Draft state
   const [aiDrafting, setAIDrafting] = useState(false);
@@ -150,6 +184,7 @@ export function SmartActionTool() {
   const [mode, setMode] = useState<Mode>('now');
   const [nowForm, setNowForm] = useState<NowForm>({
     date: today,
+    time: '',
     forename: '',
     barrier: '',
     action: '',
@@ -454,7 +489,7 @@ export function SmartActionTool() {
     storage.addRecentName(forename);
 
     const baseMeta = mode === 'now' 
-      ? { date: nowForm.date, forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
+      ? { date: nowForm.date, time: nowForm.time, forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
       : { date: futureForm.date, forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, responsible: futureForm.responsible, reason: futureForm.outcome };
 
     // Include translation in history if available
@@ -553,16 +588,18 @@ export function SmartActionTool() {
       return;
     }
 
-    // On mobile, always use templates (local AI not available due to memory constraints)
-    if (llm.isMobile) {
+    // On mobile/iPad, use templates unless Experimental Local AI is enabled in Settings.
+    // (Previously this always forced templates on mobile even when the experimental toggle was on.)
+    if (llm.isMobile && !llm.canUseLocalAI) {
       if (mode === 'now') {
         templateDraftNow();
       } else {
         templateDraftFuture();
       }
-      toast({ 
-        title: 'Smart templates applied', 
-        description: 'Local AI available on desktop browsers.' 
+      toast({
+        title: 'Smart templates applied',
+        description:
+          'Local AI is disabled on mobile/iPad by default. Enable it in Settings (Experimental) to use Local AI.'
       });
       return;
     }
@@ -590,6 +627,7 @@ export function SmartActionTool() {
           forename: nowForm.forename,
           barrier: nowForm.barrier,
           targetDate,
+          targetTime: nowForm.time || "",
           responsible: nowForm.responsible || 'Advisor',
         });
         const action = sanitizeOneSentence(await llm.generate(actionPrompt, llmSystemPrompt, 'action'));
@@ -604,6 +642,9 @@ export function SmartActionTool() {
         
         setNowForm(prev => ({ ...prev, action, help }));
         toast({ title: 'AI Draft ready', description: 'Generated with local AI. Edit as needed.' });
+
+        // Prevent iOS Safari from reloading the tab under memory pressure.
+        scheduleIOSModelUnload();
       } else {
         // Generate outcome
         const outcomePrompt = buildDraftOutcomePrompt(effectivePromptPack, {
@@ -613,6 +654,9 @@ export function SmartActionTool() {
         const outcome = sanitizeOneSentence(await llm.generate(outcomePrompt, llmSystemPrompt, 'outcome'));
         setFutureForm(prev => ({ ...prev, outcome }));
         toast({ title: 'AI Draft ready', description: 'Generated with local AI. Edit as needed.' });
+
+        // Prevent iOS Safari from reloading the tab under memory pressure.
+        scheduleIOSModelUnload();
       }
     } catch (err) {
       console.warn('LLM draft failed, falling back to templates:', err);
@@ -632,6 +676,7 @@ export function SmartActionTool() {
     if (item.mode === 'now') {
       setNowForm({
         date: item.meta.date || today,
+        time: (item.meta as any).time || '',
         forename: item.meta.forename || '',
         barrier: item.meta.barrier || '',
         action: item.meta.action || '',
@@ -754,7 +799,6 @@ export function SmartActionTool() {
   }, [mode, nowForm, futureForm]);
 
   // Backend-taught prompt pack (cached locally). This is NOT user-learned.
-  const llmSystemPrompt = buildSystemPrompt(effectivePromptPack);
 
   const handleExport = () => {
     // Use the same format as exportAllData for consistency and full round-trip support
@@ -812,6 +856,7 @@ export function SmartActionTool() {
               forename: context.forename || '',
               barrier: context.barrier || '',
               targetDate,
+              targetTime: nowForm.time || "",
               responsible: context.responsible || 'Advisor',
             });
             return sanitizeOneSentence(await llm.generate(actionPrompt, llmSystemPrompt, 'action'));
@@ -1033,7 +1078,7 @@ export function SmartActionTool() {
       
       {/* Header */}
       <motion.header 
-        className="sticky top-0 z-50 backdrop-blur-xl bg-background/90 border-b border-border shadow-sm"
+        className="sticky top-0 z-50 glass-header"
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
@@ -1048,19 +1093,20 @@ export function SmartActionTool() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <motion.div 
+            <motion.div
               className={cn(
-                "rounded-xl bg-white/10 dark:bg-white/5 border border-white/20 backdrop-blur-md flex items-center justify-center shadow-sm transition-all duration-200 flex-shrink-0",
-                isLandscape && headerCollapsed ? "w-7 h-7 text-sm" : isLandscape ? "w-8 h-8 text-base" : "w-9 h-9 sm:w-11 sm:h-11 text-lg sm:text-xl"
+                "rounded-xl bg-white/10 border border-white/15 backdrop-blur-md shadow-glow transition-all duration-200 flex-shrink-0 overflow-hidden",
+                isLandscape && headerCollapsed ? "w-7 h-7" : isLandscape ? "w-8 h-8" : "w-9 h-9 sm:w-11 sm:h-11"
               )}
-              whileHover={{ scale: 1.1, rotate: 5 }}
+              whileHover={{ scale: 1.08, rotate: 3 }}
               whileTap={{ scale: 0.95 }}
             >
               <img
-                src={`${import.meta.env.BASE_URL}logo-mark.png`}
-                alt="SMART Action Support Tool"
+                src={logoIcon}
+                alt=""
                 className="w-full h-full object-contain p-1"
-                draggable={false}
+                loading="eager"
+                decoding="async"
               />
             </motion.div>
             <AnimatePresence mode="wait">
@@ -1072,13 +1118,13 @@ export function SmartActionTool() {
                   transition={{ duration: 0.2 }}
                   className="overflow-hidden min-w-0"
                 >
-                  <h1 className={cn(
-                    "font-extrabold tracking-tight bg-gradient-to-r from-primary via-amber-500 to-orange-400 dark:from-primary dark:via-amber-400 dark:to-orange-300 bg-clip-text text-transparent truncate",
-                    isLandscape ? "text-base" : "text-sm sm:text-xl"
-                  )}>
-                    <span className="hidden xs:inline">SMART Action Support Tool</span>
-                    <span className="xs:hidden">SMART Tool</span>
-                  </h1>
+                  <div className="flex items-center gap-2">
+
+              <div className="flex flex-col leading-tight min-w-0">
+                <span className="font-semibold tracking-tight text-foreground truncate">SMART Action Support Tool</span>
+              </div>
+                    <span className="sr-only">SMART Action Support Tool</span>
+                  </div>
                   {!isLandscape && <p className="text-xs text-muted-foreground hidden sm:block">by William Wessex</p>}
                 </motion.div>
               )}
@@ -1318,7 +1364,7 @@ export function SmartActionTool() {
                         <div>
                           <span className="text-sm font-medium">Use Local AI</span>
                           <p className="text-xs text-muted-foreground">
-                            AI-generated suggestions (requires model download, desktop only)
+                            AI-generated suggestions (requires a one-time model download in this browser)
                           </p>
                         </div>
                       </label>
@@ -1340,8 +1386,30 @@ export function SmartActionTool() {
                       </label>
                     </div>
                     
-                    {/* Model Selection (only shown when AI mode selected and not on mobile) */}
-                    {storage.aiDraftMode === 'ai' && !llm.isMobile && (
+
+
+                    {/* iOS / mobile enable (experimental) */}
+                    {storage.aiDraftMode === 'ai' && llm.deviceInfo?.isIOS && llm.isMobile && (
+                      <div className="pt-4 border-t space-y-3">
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={storage.allowMobileLLM} 
+                            onChange={e => storage.updateAllowMobileLLM(e.target.checked)}
+                            className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary mt-0.5"
+                          />
+                          <div>
+                            <span className="text-sm font-medium">Enable Local AI on iPhone/iPad (experimental)</span>
+                            <p className="text-xs text-muted-foreground">
+                              iPhone is limited to the smallest model and shorter outputs to reduce memory use.
+                            </p>
+                          </div>
+                        </label>
+                      </div>
+                    )}
+
+                    {/* Model Selection (shown when AI mode is enabled and device is allowed) */}
+                    {storage.aiDraftMode === 'ai' && llm.canUseLocalAI && (
                       <div className="pt-4 border-t space-y-3">
                         <h4 className="text-sm font-medium">AI Model</h4>
                         <p className="text-xs text-muted-foreground">
@@ -1352,7 +1420,7 @@ export function SmartActionTool() {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
                               <Check className="w-4 h-4" />
-                              {RECOMMENDED_MODELS.find(m => m.id === llm.selectedModel)?.name || 'Model'} loaded
+                              {llm.supportedModels.find(m => m.id === llm.selectedModel)?.name || 'Model'} loaded
                             </div>
                             <Button 
                               variant="ghost" 
@@ -1382,7 +1450,7 @@ export function SmartActionTool() {
                         
                         {!llm.isReady && !llm.isLoading && (
                           <div className="space-y-2">
-                            {RECOMMENDED_MODELS.map((model) => (
+                            {llm.supportedModels.map((model) => (
                               <button
                                 key={model.id}
                                 onClick={() => llm.loadModel(model.id)}
@@ -1408,11 +1476,11 @@ export function SmartActionTool() {
                     )}
                     
                     {/* Mobile warning */}
-                    {llm.isMobile && storage.aiDraftMode === 'ai' && (
+                    {!llm.canUseLocalAI && storage.aiDraftMode === 'ai' && (
                       <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
                         <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                         <p className="text-xs text-amber-700 dark:text-amber-400">
-                          Local AI is not available on mobile devices. Template mode will be used instead.
+                          Local AI is disabled for this device right now. Enable the iPhone/iPad toggle above (if available) or use Smart Templates instead.
                         </p>
                       </div>
                     )}
@@ -1750,7 +1818,7 @@ export function SmartActionTool() {
         >
           {/* Left Panel - Form or Wizard */}
           <motion.div 
-            className="bg-card border border-border/50 rounded-2xl p-6 space-y-6 shadow-soft"
+            className="glass-panel rounded-2xl p-6 space-y-6 shadow-soft"
             variants={slideInLeft}
             transition={{ duration: 0.4, ease: "easeOut" }}
           >
@@ -1874,6 +1942,19 @@ export function SmartActionTool() {
                     <WarningText show={!!nowDateWarning} variant="warning" id="date-warning">
                       {nowDateWarning}
                     </WarningText>
+
+                    <div className="space-y-2">
+                      <label htmlFor="meeting-time" className="text-sm font-medium text-muted-foreground">
+                        Time (optional)
+                      </label>
+                      <Input
+                        id="meeting-time"
+                        value={nowForm.time}
+                        onChange={e => setNowForm(prev => ({ ...prev, time: e.target.value }))}
+                        placeholder="e.g. 11am"
+                        autoComplete="off"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2 flex-1 min-w-0">
                     <label htmlFor="participant-name" className="text-sm font-medium text-muted-foreground">Participant forename</label>
@@ -2248,7 +2329,7 @@ export function SmartActionTool() {
 
           {/* Right Panel - Output & History */}
           <motion.div 
-            className="bg-card border border-border/50 rounded-2xl p-6 space-y-6 shadow-soft"
+            className="glass-panel rounded-2xl p-6 space-y-6 shadow-soft"
             variants={slideInRight}
             transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
           >
@@ -2559,7 +2640,7 @@ export function SmartActionTool() {
               </div>
             ) : (
               <div className="space-y-2">
-                {RECOMMENDED_MODELS.map((model) => (
+                {llm.supportedModels.map((model) => (
                   <button
                     key={model.id}
                     onClick={async () => {

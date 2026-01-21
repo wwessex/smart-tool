@@ -1,5 +1,10 @@
-# SMART Action Support Tool - Apache config
+# Apache config for SMART Support Tool (Vite/React SPA)
+# This file is copied into dist/.htaccess during build.
 
+Options -Indexes
+DirectoryIndex index.html
+
+# Correct MIME types (helps shared hosts / Safari)
 <IfModule mod_mime.c>
   AddType application/javascript .js .mjs
   AddType text/css .css
@@ -8,26 +13,29 @@
 </IfModule>
 
 <IfModule mod_headers.c>
-  # Always revalidate the HTML so new deployments don't get stuck on old chunk hashes
-  <FilesMatch "\.(html)$">
-    Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+  Header always set X-Content-Type-Options "nosniff"
+
+  # Never cache the SPA shell (prevents stale index.html pointing to missing hashed assets)
+  <FilesMatch "^(index\.html|sw\.js|manifest\.json|offline\.html|prompt-pack\.json)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
     Header set Pragma "no-cache"
+    Header set Expires "0"
   </FilesMatch>
 
-  # Cache static assets aggressively (hashed filenames)
-  <FilesMatch "\.(js|mjs|css|png|jpg|jpeg|gif|svg|webp|ico|woff2?)$">
+  # Cache hashed assets long-term
+  <FilesMatch "\.(js|mjs|css|woff2?|ttf|eot|svg|png|jpg|jpeg|gif|ico|webp|wasm)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
 </IfModule>
 
+# SPA fallback: serve real files, otherwise index.html
 <IfModule mod_rewrite.c>
+  Options -MultiViews
   RewriteEngine On
 
-  # If the request is for an existing file/folder, serve it
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # Otherwise, route everything to index.html (SPA fallback)
-  RewriteRule ^ index.html [L]
+  RewriteRule . index.html [L]
 </IfModule>
