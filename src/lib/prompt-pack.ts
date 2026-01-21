@@ -314,6 +314,8 @@ export function buildDraftHelpPrompt(pack: PromptPack, params: {
     `Who benefits: ${params.subject}`,
     "RULES:",
     "- No full sentences. No 'This will help'.",
+    "- Do not repeat the action sentence; describe the benefit using different words.",
+    "- No first-person (I / my).",
     "- Must be employment-related (applications, interviews, confidence, skills).",
     banned ? `- Avoid: ${banned}` : "",
     "OUTPUT: One phrase only.",
@@ -346,12 +348,18 @@ export function buildDraftOutcomePrompt(pack: PromptPack, params: {
 
 export function sanitizeOneSentence(text: string): string {
   let t = (text || "").trim();
+  // Strip quotes / assistant prefixes
   t = t.replace(/^"+|"+$/g, "");
   t = t.replace(/^\s*(assistant:|<\|assistant\|>)\s*/i, "");
+  // Strip bullets / numbering ("1.", "-", "•")
+  t = t.replace(/^\s*([\-\*\u2022]|\d+\.)\s*/g, "");
   // Keep only first sentence if model rambles.
   const m = t.match(/^(.+?[.!?])\s/);
   if (m && m[1]) t = m[1].trim();
-  // Ensure it ends with a period for consistency (unless already ends in ! or ?)
+  // If it is still too short, treat as invalid (caller can retry/fallback)
+  const stripped = t.replace(/[^a-z0-9]+/gi, " ").trim();
+  if (!stripped || stripped.length < 12) return "";
+  // Ensure it ends with punctuation for consistency
   if (t && !/[.!?]$/.test(t)) t += ".";
   return t;
 }
@@ -359,9 +367,16 @@ export function sanitizeOneSentence(text: string): string {
 export function sanitizeOnePhrase(text: string): string {
   let t = (text || "").trim();
   t = t.replace(/^"+|"+$/g, "");
-  t = t.replace(/^\s*(this will help|it will help)\s*/i, "");
   t = t.replace(/^\s*(assistant:|<\|assistant\|>)\s*/i, "");
+  // Remove common lead-ins that cause duplication
+  t = t.replace(/^\s*(this will help|it will help|this action will help)\s*/i, "");
+  // Strip bullets / numbering
+  t = t.replace(/^\s*([\-\*\u2022]|\d+\.)\s*/g, "");
   // Remove trailing punctuation that makes it look like a sentence.
   t = t.replace(/[.!?]+$/, "").trim();
+  // Avoid first-person phrasing in the "help" box
+  if (/\b(i|i\x27ve|i have|my)\b/i.test(t)) return "";
+  // Too short? invalid
+  if (t.replace(/[^a-z0-9]+/gi, " ").trim().length < 8) return "";
   return t;
 }

@@ -11,23 +11,9 @@ export interface ModelInfo {
 export const RECOMMENDED_MODELS: ModelInfo[] = [
   {
     id: "HuggingFaceTB/SmolLM2-360M-Instruct",
-    name: "SmolLM2 360M",
+    name: "AI Module",
     size: "~500MB",
-    description: "Best balance of size and capability",
-  },
-  {
-    id: "HuggingFaceTB/SmolLM2-135M-Instruct",
-    name: "SmolLM2 135M",
-    size: "~300MB",
-    description: "Smallest and fastest",
-  },
-  {
-    // The upstream Qwen repo doesn't contain the ONNX artifacts Transformers.js expects.
-    // Use an ONNX-converted repo so downloads don't 404 on Safari/desktop.
-    id: "onnx-community/Qwen2.5-0.5B-Instruct-ONNX-GQA",
-    name: "Qwen 2.5 0.5B",
-    size: "~600MB",
-    description: "Best quality for size",
+    description: "Recommended local AI module",
   },
 ];
 
@@ -278,14 +264,12 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
     if (!device.isMobile) return RECOMMENDED_MODELS;
     if (device.isAndroid) return [];
     if (!allowMobileLLM) return [];
-    // iPhone: smallest model only. iPad: allow 135M and 360M.
-    if (device.isIPhone) {
-      return RECOMMENDED_MODELS.filter((m) => m.id === "HuggingFaceTB/SmolLM2-135M-Instruct");
-    }
-    return RECOMMENDED_MODELS.filter((m) => m.id !== "Qwen/Qwen2.5-0.5B-Instruct");
+    // iOS (experimental): allow the single module only.
+    return RECOMMENDED_MODELS;
   }, [allowMobileLLM]);
 
-  // iOS memory guardrails
+
+// iOS memory guardrails
   const isIOSMobile = device.isIOS && device.isMobile && allowMobileLLM;
   const iosTokenCap = isIOSMobile ? (device.isIPhone ? 64 : 120) : null;
 
@@ -295,7 +279,15 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
     return supportedModels.some((m) => m.id === modelId);
   }, [supportedModels]);
 
-  // Check device capabilities - Transformers.js works with both WebGPU and WASM - Transformers.js works with both WebGPU and WASM
+  
+  // Restore previously selected model (prevents UI forgetting after refresh)
+  useEffect(() => {
+    const saved = typeof localStorage !== "undefined" ? localStorage.getItem("llm_selected_model") : null;
+    if (saved && isModelAvailable(saved)) {
+      setState((prev) => ({ ...prev, selectedModel: saved }));
+    }
+  }, [isModelAvailable]);
+// Check device capabilities - Transformers.js works with both WebGPU and WASM - Transformers.js works with both WebGPU and WASM
   const checkDevice = useCallback(async (): Promise<{ 
     available: boolean; 
     device: "webgpu" | "wasm"; 
@@ -383,6 +375,32 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
         // Configure cache and logging
         env.allowLocalModels = false;
         env.useBrowserCache = true;
+
+        // Safari/iOS can evict normal browser cache aggressively. Wrap fetch with CacheStorage
+        // so model shards persist across refreshes when possible.
+        try {
+          const cacheName = "smart-llm-cache-v1";
+          const cachedFetch = async (url: RequestInfo | URL, init?: RequestInit) => {
+            const req = new Request(url, init);
+            if (req.method !== "GET" || typeof caches === "undefined") return fetch(req);
+            const cache = await caches.open(cacheName);
+            const hit = await cache.match(req);
+            if (hit) return hit.clone();
+            const res = await fetch(req);
+            if (res.ok) {
+              try {
+                await cache.put(req, res.clone());
+              } catch {
+                // ignore quota errors
+              }
+            }
+            return res;
+          };
+          (env as any).fetch = cachedFetch;
+        } catch {
+          // ignore
+        }
+
 
         // Backend tuning (safe no-ops if not supported)
         try {
@@ -512,9 +530,16 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
         isReady: true,
         isWarmedUp: true,
         selectedModel: modelId,
+        
         loadingProgress: 100,
         loadingStatus: "Ready!",
       }));
+      try {
+        localStorage.setItem("llm_selected_model", modelId);
+      } catch {
+        // ignore
+      }
+
     } catch (err) {
       console.error("Failed to load model:", err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load model";
