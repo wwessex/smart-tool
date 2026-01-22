@@ -228,11 +228,9 @@ export function SmartActionTool() {
     suggestion: string;
   } | null>(null);
 
-  // History UI state (expand/collapse)
-  const [expandedHistoryIds, setExpandedHistoryIds] = useState<Record<string, boolean>>({});
-
   // History UI state (expand/collapse per card)
-  const [expandedHistoryIds, setExpandedHistoryIds] = useState<Record<string, boolean>>({});
+  // Intentionally named uniquely to avoid any accidental redeclaration collisions during merges.
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
 
   // Detect landscape orientation
   useEffect(() => {
@@ -2801,7 +2799,7 @@ ${base}`;
                               <p
                                 className={cn(
                                   "text-sm whitespace-pre-wrap leading-relaxed",
-                                  !expandedHistoryIds[h.id] && "max-h-[92px] overflow-hidden"
+                                  !expandedCards[h.id] && "max-h-[92px] overflow-hidden"
                                 )}
                               >
                                 {h.text}
@@ -2813,14 +2811,14 @@ ${base}`;
                                     size="sm"
                                     variant="ghost"
                                     onClick={() =>
-                                      setExpandedHistoryIds((prev) => ({
+                                      setExpandedCards((prev) => ({
                                         ...prev,
                                         [h.id]: !prev[h.id],
                                       }))
                                     }
                                     className="px-0 h-auto text-xs text-muted-foreground hover:text-foreground"
                                   >
-                                    {expandedHistoryIds[h.id] ? 'Show less' : 'Show more'}
+                                    {expandedCards[h.id] ? 'Show less' : 'Show more'}
                                   </Button>
                                 </div>
                               )}
