@@ -6,7 +6,7 @@ on:
       zip_path:
         description: "Path to ZIP inside the repo (e.g. imports/smart-tool-admin-playbook.zip)"
         required: true
-        default: "imports/smart-tool-admin-playbook.zip"
+        default: "import/cinesafari-project.zip"
       target_branch:
         description: "Branch to apply changes to"
         required: true
