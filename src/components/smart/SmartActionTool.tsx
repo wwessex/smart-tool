@@ -206,6 +206,7 @@ export function SmartActionTool() {
   const [output, setOutput] = useState('');
   const [outputSource, setOutputSource] = useState<'form' | 'ai' | 'manual'>('form');
   const [translatedOutput, setTranslatedOutput] = useState<string | null>(null);
+  const [outputPolishKind, setOutputPolishKind] = useState<null | 'shorter' | 'measurable' | 'timeframe'>(null);
   const [showValidation, setShowValidation] = useState(false);
   const [suggestQuery, setSuggestQuery] = useState('');
   const [historySearch, setHistorySearch] = useState('');
@@ -226,6 +227,12 @@ export function SmartActionTool() {
     criterion: 'specific' | 'measurable' | 'achievable' | 'relevant' | 'timeBound';
     suggestion: string;
   } | null>(null);
+
+  // History UI state (expand/collapse)
+  const [expandedHistoryIds, setExpandedHistoryIds] = useState<Record<string, boolean>>({});
+
+  // History UI state (expand/collapse per card)
+  const [expandedHistoryIds, setExpandedHistoryIds] = useState<Record<string, boolean>>({});
 
   // Detect landscape orientation
   useEffect(() => {
@@ -437,6 +444,124 @@ export function SmartActionTool() {
       });
     }
   }, [output, storage.participantLanguage, translation, toast]);
+
+  /**
+   * Output polish buttons (Shorter / More measurable / Add timeframe)
+   * Preference: local model -> cloud AI -> safe heuristic.
+   */
+  const handlePolishOutput = useCallback(
+    async (kind: 'shorter' | 'measurable' | 'timeframe') => {
+      if (!output.trim()) {
+        toast({ title: 'Nothing to polish', description: 'Generate an action first.' });
+        return;
+      }
+
+      setOutputPolishKind(kind);
+
+      const timescaleHint = mode === 'now' ? nowForm.timescale : futureForm.timescale;
+      const base = output.trim();
+
+      const buildPrompt = () => {
+        switch (kind) {
+          case 'shorter':
+            return `Rewrite the SMART action below to be concise (1–2 sentences). Keep any numbers, dates, and the deadline. Output ONLY the rewritten action.
+
+SMART action:
+${base}`;
+          case 'measurable':
+            return `Rewrite the SMART action below to be more measurable.
+Add a clear quantity/metric (e.g., number of applications, minutes practiced, items completed) while keeping it realistic.
+Keep the deadline. Output ONLY the rewritten action.
+
+SMART action:
+${base}`;
+          case 'timeframe':
+            return `Rewrite the SMART action below to include a clear timeframe/deadline.
+Use this timescale if it fits: "${timescaleHint || 'Within the next week'}".
+Output ONLY the rewritten action.
+
+SMART action:
+${base}`;
+        }
+      };
+
+      const heuristicFallback = () => {
+        if (kind === 'shorter') {
+          try {
+            return sanitizeOneSentence(base);
+          } catch {
+            return base.split('\n').slice(0, 2).join(' ').trim();
+          }
+        }
+
+        if (kind === 'timeframe') {
+          const lower = base.toLowerCase();
+          if (/(by|before|within)\s/.test(lower) || /\d{4}-\d{2}-\d{2}/.test(lower)) return base;
+          if (timescaleHint) return `${base} (Deadline: ${timescaleHint})`;
+          return `${base} (Deadline: within 7 days)`;
+        }
+
+        // measurable
+        if (/[0-9]/.test(base)) return base;
+        return `${base} (Measure: record how many you complete)`;
+      };
+
+      try {
+        let improved = '';
+
+        // Prefer local model if ready
+        if (llm.isReady) {
+          improved = await llm.generate(buildPrompt(), llmSystemPrompt, 'improve');
+          scheduleIOSModelUnload();
+        } else if (cloudAI.hasConsent) {
+          // Cloud AI streaming
+          let text = '';
+          for await (const chunk of cloudAI.chat(
+            [{ role: 'user', content: buildPrompt() }],
+            llmSystemPrompt
+          )) {
+            text += chunk;
+          }
+          improved = text.trim();
+        } else {
+          improved = heuristicFallback();
+          toast({
+            title: 'Polished (basic)',
+            description: 'Tip: enable AI (local or cloud) for better rewrites.',
+          });
+        }
+
+        if (improved) {
+          setOutput(improved.trim());
+          setOutputSource('ai');
+          setTranslatedOutput(null);
+          translation.clearTranslation();
+        }
+      } catch (err) {
+        console.error('Polish failed:', err);
+        toast({
+          title: 'Polish failed',
+          description: 'Could not polish the action. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setOutputPolishKind(null);
+      }
+    },
+    [
+      output,
+      mode,
+      nowForm.timescale,
+      futureForm.timescale,
+      toast,
+      llm.isReady,
+      llm.generate,
+      llmSystemPrompt,
+      scheduleIOSModelUnload,
+      cloudAI,
+      translation,
+    ]
+  );
 
   // Handle language change
   const handleLanguageChange = useCallback((language: string) => {
@@ -2417,6 +2542,58 @@ export function SmartActionTool() {
                 {/* English output */}
                 <div>
                   {translatedOutput && <p id="output-label-en" className="text-xs font-medium text-muted-foreground mb-2">🇬🇧 ENGLISH</p>}
+
+                  {/* Pro polish buttons */}
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handlePolishOutput('shorter')}
+                      disabled={!output.trim() || outputPolishKind !== null}
+                      className="rounded-xl"
+                      aria-label="Make the action shorter"
+                    >
+                      {outputPolishKind === 'shorter' ? (
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <Sparkles className="w-4 h-4 mr-1" aria-hidden="true" />
+                      )}
+                      Shorter
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handlePolishOutput('measurable')}
+                      disabled={!output.trim() || outputPolishKind !== null}
+                      className="rounded-xl"
+                      aria-label="Make the action more measurable"
+                    >
+                      {outputPolishKind === 'measurable' ? (
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <Wand2 className="w-4 h-4 mr-1" aria-hidden="true" />
+                      )}
+                      More measurable
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handlePolishOutput('timeframe')}
+                      disabled={!output.trim() || outputPolishKind !== null}
+                      className="rounded-xl"
+                      aria-label="Add a timeframe to the action"
+                    >
+                      {outputPolishKind === 'timeframe' ? (
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <Clock className="w-4 h-4 mr-1" aria-hidden="true" />
+                      )}
+                      Add timeframe
+                    </Button>
+                  </div>
+
                   <Textarea
                     id="action-output"
                     value={output}
@@ -2547,42 +2724,106 @@ export function SmartActionTool() {
                         {filteredHistory.map((h, index) => (
                           <li 
                             key={h.id} 
-                            className="p-4 rounded-xl border border-border/50 bg-muted/30 space-y-3 hover:border-primary/30 transition-colors animate-slide-in mb-3 last:mb-0"
+                            className={cn(
+                              "p-4 rounded-2xl border border-border/50 bg-muted/30 space-y-3",
+                              "hover:border-primary/30 transition-all animate-slide-in mb-3 last:mb-0",
+                              "group"
+                            )}
                             style={{ animationDelay: `${index * 0.05}s` }}
                           >
-                            <div className="flex flex-wrap gap-2 text-xs">
-                              <span className={cn(
-                                "px-2 py-0.5 rounded-full font-medium",
-                                h.mode === 'now' ? "bg-primary/10 text-primary" : "bg-accent/10 text-accent"
-                              )}>
-                                {h.mode === 'now' ? 'Barrier to action' : 'Task-based'}
-                              </span>
-                              <span className="text-muted-foreground">
-                                {new Date(h.createdAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
-                              </span>
-                              {h.meta.forename && (
-                                <span className="text-muted-foreground">• {h.meta.forename}</span>
-                              )}
+                            {/* Card header */}
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2 text-xs">
+                                  <span className={cn(
+                                    "px-2 py-0.5 rounded-full font-medium",
+                                    h.mode === 'now' ? "bg-primary/10 text-primary" : "bg-accent/10 text-accent"
+                                  )}>
+                                    {h.mode === 'now' ? 'Barrier to action' : 'Task-based'}
+                                  </span>
+                                  <span className="text-muted-foreground">
+                                    {new Date(h.createdAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
+                                  </span>
+                                </div>
+
+                                <h3 className="mt-2 font-semibold text-sm sm:text-base truncate">
+                                  {h.meta.forename ? `${h.meta.forename} — ` : ''}
+                                  {h.mode === 'now'
+                                    ? (h.meta.barrier || 'Barrier')
+                                    : (h.meta.barrier || 'Task')}
+                                </h3>
+
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {h.meta.timescale ? `Timescale: ${h.meta.timescale}` : 'Timescale not set'}
+                                </p>
+                              </div>
+
+                              {/* Quick actions */}
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => handleEditHistory(h)}
+                                  aria-label={`Edit saved action for ${h.meta.forename || 'participant'}`}
+                                  className="rounded-xl"
+                                >
+                                  <Edit className="w-4 h-4" aria-hidden="true" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(h.text);
+                                    toast({ title: 'Copied!' });
+                                  }}
+                                  aria-label="Copy saved action"
+                                  className="rounded-xl"
+                                >
+                                  <Copy className="w-4 h-4" aria-hidden="true" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="rounded-xl text-destructive hover:text-destructive"
+                                  onClick={() => {
+                                    storage.deleteFromHistory(h.id);
+                                    toast({ title: 'Deleted' });
+                                  }}
+                                  aria-label={`Delete saved action for ${h.meta.forename || 'participant'}`}
+                                >
+                                  <Trash2 className="w-4 h-4" aria-hidden="true" />
+                                </Button>
+                              </div>
                             </div>
-                            <p className="text-sm whitespace-pre-wrap leading-relaxed">{h.text}</p>
-                            <div className="flex gap-2" role="group" aria-label="Action buttons">
-                              <Button size="sm" variant="outline" onClick={() => handleEditHistory(h)} aria-label={`Edit action for ${h.meta.forename || 'participant'}`}>
-                                <Edit className="w-3 h-3 mr-1" aria-hidden="true" /> Edit
-                              </Button>
-                              <Button size="sm" variant="ghost" onClick={() => {
-                                navigator.clipboard.writeText(h.text);
-                                toast({ title: 'Copied!' });
-                              }} aria-label="Copy action text">
-                                <Copy className="w-3 h-3" aria-hidden="true" />
-                                <span className="sr-only">Copy</span>
-                              </Button>
-                              <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => {
-                                storage.deleteFromHistory(h.id);
-                                toast({ title: 'Deleted' });
-                              }} aria-label={`Delete action for ${h.meta.forename || 'participant'}`}>
-                                <Trash2 className="w-3 h-3" aria-hidden="true" />
-                                <span className="sr-only">Delete</span>
-                              </Button>
+
+                            {/* Card body */}
+                            <div className="space-y-2">
+                              <p
+                                className={cn(
+                                  "text-sm whitespace-pre-wrap leading-relaxed",
+                                  !expandedHistoryIds[h.id] && "max-h-[92px] overflow-hidden"
+                                )}
+                              >
+                                {h.text}
+                              </p>
+
+                              {h.text.length > 180 && (
+                                <div>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() =>
+                                      setExpandedHistoryIds((prev) => ({
+                                        ...prev,
+                                        [h.id]: !prev[h.id],
+                                      }))
+                                    }
+                                    className="px-0 h-auto text-xs text-muted-foreground hover:text-foreground"
+                                  >
+                                    {expandedHistoryIds[h.id] ? 'Show less' : 'Show more'}
+                                  </Button>
+                                </div>
+                              )}
                             </div>
                           </li>
                         ))}

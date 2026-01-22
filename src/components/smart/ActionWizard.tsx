@@ -136,6 +136,20 @@ const FUTURE_STEPS: WizardStep[] = [
   },
 ];
 
+// Quick-pick barrier chips (advisor-friendly defaults)
+const BARRIER_QUICK_PICKS: Array<{ label: string; value: string }> = [
+  { label: 'Transport', value: 'Transport' },
+  { label: 'Motivation', value: 'Motivation / engagement' },
+  { label: 'Confidence', value: 'Confidence / anxiety' },
+  { label: 'CV', value: 'CV / applications' },
+  { label: 'Interviews', value: 'Interview skills' },
+  { label: 'Digital', value: 'Digital skills / online job search' },
+  { label: 'Health', value: 'Health / wellbeing' },
+  { label: 'Childcare', value: 'Childcare / caring responsibilities' },
+  { label: 'Money', value: 'Debt / finances' },
+  { label: 'Housing', value: 'Housing / stability' },
+];
+
 interface ActionWizardProps {
   mode: 'now' | 'future';
   barriers: string[];
@@ -245,10 +259,10 @@ export function ActionWizard({
                     "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs",
                     "border backdrop-blur-xl transition-all",
                     isActive
-                      ? "bg-white/14 border-white/30 text-foreground shadow-sm"
+                      ? "bg-white/15 border-white/30 text-foreground shadow-sm"
                       : isDone
                       ? "bg-white/10 border-white/20 text-foreground/90"
-                      : "bg-white/6 border-white/15 text-muted-foreground hover:text-foreground hover:bg-white/10"
+                      : "bg-white/5 border-white/15 text-muted-foreground hover:text-foreground hover:bg-white/10"
                   )}
                   aria-current={isActive ? "step" : undefined}
                 >
@@ -258,7 +272,7 @@ export function ActionWizard({
                       isActive
                         ? "bg-primary text-primary-foreground"
                         : isDone
-                        ? "bg-white/18 text-foreground"
+                        ? "bg-white/20 text-foreground"
                         : "bg-white/10 text-muted-foreground"
                     )}
                     aria-hidden="true"
@@ -315,13 +329,51 @@ export function ActionWizard({
             </label>
 
             {step.type === 'combobox' ? (
-              <ComboboxInput
-                value={currentValue}
-                onChange={handleChange}
-                placeholder={step.placeholder}
-                options={getOptions(step)}
-                ariaLabel={step.title}
-              />
+              <div className="space-y-3">
+                {step.field === 'barrier' && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-muted-foreground">Quick picks</p>
+                      <button
+                        type="button"
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => handleChange('')}
+                        aria-label="Clear barrier"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {BARRIER_QUICK_PICKS.map((chip) => {
+                        const isSelected = (currentValue || '').toLowerCase() === chip.value.toLowerCase();
+                        return (
+                          <button
+                            key={chip.label}
+                            type="button"
+                            onClick={() => handleChange(chip.value)}
+                            className={cn(
+                              "px-3 py-1.5 rounded-full text-xs border backdrop-blur-xl transition-all",
+                              isSelected
+                                ? "bg-primary text-primary-foreground border-primary/40 shadow-sm"
+                                : "bg-white/5 border-white/15 text-foreground/90 hover:bg-white/10"
+                            )}
+                          >
+                            {chip.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <ComboboxInput
+                  value={currentValue}
+                  onChange={handleChange}
+                  placeholder={step.placeholder}
+                  options={getOptions(step)}
+                  ariaLabel={step.title}
+                />
+              </div>
             ) : step.type === 'textarea' ? (
               <Textarea
                 id={inputId}
