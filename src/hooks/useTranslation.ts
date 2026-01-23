@@ -14,7 +14,14 @@ export interface TranslationState {
   result: TranslationResult | null;
 }
 
-const TRANSLATE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/smart-translate`;
+// Local-only translation: we intentionally do NOT call any cloud endpoints.
+
+export interface LocalLLMForTranslation {
+  canUseLocalAI: boolean;
+  isReady: boolean;
+  isGenerating: boolean;
+  generate: (userMessage: string, systemPrompt?: string, configType?: string) => Promise<string>;
+}
 
 // Supported languages for UK employment services
 export const SUPPORTED_LANGUAGES: Record<string, { name: string; nativeName: string; flag: string }> = {
@@ -36,7 +43,7 @@ export const SUPPORTED_LANGUAGES: Record<string, { name: string; nativeName: str
   "hi": { name: "Hindi", nativeName: "हिन्दी", flag: "🇮🇳" },
 };
 
-export function useTranslation() {
+export function useTranslation(llm?: LocalLLMForTranslation) {
   const hasConsent = useAIConsent();
   const [state, setState] = useState<TranslationState>({
     isTranslating: false,
@@ -81,25 +88,45 @@ export function useTranslation() {
     }));
 
     try {
-      const response = await fetch(TRANSLATE_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({
-          action: action.trim(),
-          targetLanguage,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Translation failed" }));
-        throw new Error(errorData.error || `Translation failed (${response.status})`);
+      if (!llm) {
+        throw new Error('Local AI module not available. Enable Local AI to translate.');
+      }
+      if (!llm.canUseLocalAI) {
+        throw new Error('Local AI is not available on this device/browser.');
+      }
+      if (!llm.isReady) {
+        throw new Error('Local AI module is not loaded. Load the AI Module first, then try translate again.');
+      }
+      if (llm.isGenerating) {
+        throw new Error('Local AI is busy. Please wait for the current generation to finish.');
       }
 
-      const result: TranslationResult = await response.json();
-      
+      const lang = SUPPORTED_LANGUAGES[targetLanguage];
+      const languageName = lang?.name || targetLanguage;
+      const nativeName = lang?.nativeName || '';
+
+      const systemPrompt =
+        'You are a professional translator for UK employment services.\n' +
+        'Rules:\n' +
+        '- Output ONLY the translated text (no quotes, no explanations).\n' +
+        '- Preserve names, dates, times, numbers, and formatting.\n' +
+        '- Keep the meaning and tone clear and professional.\n' +
+        '- Do NOT add extra sentences.';
+
+      const userPrompt =
+        `Translate the following SMART action into ${languageName}${nativeName ? ` (${nativeName})` : ''}.\n\n` +
+        `SMART action:\n${action.trim()}`;
+
+      const translated = (await llm.generate(userPrompt, systemPrompt, 'default')).trim();
+      if (!translated) throw new Error('Translation failed (empty result)');
+
+      const result: TranslationResult = {
+        original: action.trim(),
+        translated,
+        language: targetLanguage,
+        languageName,
+      };
+
       setState({
         isTranslating: false,
         error: null,
@@ -116,7 +143,7 @@ export function useTranslation() {
       });
       return null;
     }
-  }, [hasConsent]);
+  }, [hasConsent, llm]);
 
   const clearTranslation = useCallback(() => {
     setState({

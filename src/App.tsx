@@ -7,7 +7,6 @@ import { HashRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { PWAPrompt } from "@/components/PWAPrompt";
 import { CookieConsent } from "@/components/smart/CookieConsent";
-import { copyToClipboard } from "@/lib/clipboard";
 
 // Lazy load pages for better initial load time
 const Index = lazy(() => import("./pages/Index"));
@@ -64,8 +63,12 @@ class LazyErrorBoundary extends Component<
 
     if (!text) return;
 
-    const ok = await copyToClipboard(text);
-    alert(ok ? "Copied error details to clipboard." : "Couldn’t copy automatically. Screenshot this screen instead.");
+    try {
+      await navigator.clipboard.writeText(text);
+      alert("Copied error details to clipboard.");
+    } catch {
+      alert("Couldn’t copy automatically. Screenshot this screen instead.");
+    }
   };
 
   render() {

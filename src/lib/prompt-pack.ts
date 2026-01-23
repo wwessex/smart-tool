@@ -383,50 +383,6 @@ export function buildDraftHelpPrompt(pack: PromptPack, params: {
     .join("\n");
 }
 
-// Structured JSON benefit prompt (slot-filling). Safer + more consistent than free-text.
-export function buildDraftHelpJsonPrompt(pack: PromptPack, params: {
-  barrier: string;
-  timescale: string;
-  action: string;
-  subject: string;
-  approvedExamples?: string[];
-}): string {
-  const banned = pack.bannedTopics?.length ? pack.bannedTopics.join(", ") : "";
-  const examples = (params.approvedExamples || []).filter(Boolean).slice(0, 5);
-
-  return [
-    "You are drafting short employment-support benefit text for a UK Restart advisor.",
-    "Do NOT invent facts or personal data. If something is missing, keep it generic.",
-    "",
-    "CONTEXT:",
-    `- Barrier (now): ${params.barrier}`,
-    `- Timescale: ${params.timescale}`,
-    `- Who benefits: ${params.subject}`,
-    `- Action (already agreed): \"${params.action}\"`,
-    "",
-    examples.length ? "APPROVED EXAMPLE PHRASES (follow these patterns):" : "",
-    ...examples.map((e) => `- ${e}`),
-    "",
-    "RETURN ONLY valid JSON matching this schema:",
-    "{\n  \"benefitstatement\": \"string\",\n  \"barriermatch\": \"high|medium|low\",\n  \"barrier_reason\": \"string\",\n  \"risk_flags\": [\"string\"]\n}",
-    "",
-    "RULES:",
-    "- benefitstatement: ONE short phrase only (no full sentences).",
-    "- Do NOT include the participant's name or 'will'.",
-    "- Do NOT repeat or rephrase the action text. Describe impact/outcome (why it helps).",
-    "- Must be employment-related (applications, interviews, confidence, skills).",
-    "- Max 240 characters.",
-    banned ? `- Avoid: ${banned}` : "",
-    "- barriermatch: set to low if the benefit doesn't clearly relate to the barrier.",
-    "- barrier_reason: 8–12 words explaining the match.",
-    "- risk_flags: include items like 'missingdate', 'missingspecific_activity', 'barriermismatch' when needed.",
-    "",
-    "ONLY JSON. No markdown. No extra text.",
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
 export function buildDraftOutcomePrompt(pack: PromptPack, params: {
   forename: string;
   task: string;

@@ -28,7 +28,6 @@ import { AIImproveDialog } from './AIImproveDialog';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { OnboardingTutorial, useOnboarding } from './OnboardingTutorial';
 import { useLocalSync } from '@/hooks/useLocalSync';
-import { copyToClipboard } from '@/lib/clipboard';
 
 // Lazy load HistoryInsights as it uses recharts which is a heavy dependency
 const HistoryInsights = lazy(() => import('./HistoryInsights').then(module => ({ default: module.HistoryInsights })));
@@ -56,20 +55,7 @@ import { SMART_TOOL_SHORTCUTS } from '@/lib/smart-tool-shortcuts';
 import logoIcon from '@/assets/logo-icon.png';
 import { useTransformersLLM } from '@/hooks/useTransformersLLM';
 import { usePromptPack } from '@/hooks/usePromptPack';
-import { buildSystemPrompt, buildDraftActionPrompt, buildDraftHelpPrompt, buildDraftHelpJsonPrompt, buildDraftOutcomePrompt, sanitizeActionPhrase, sanitizeOneSentence, sanitizeOnePhrase, DEFAULT_PROMPT_PACK } from '@/lib/prompt-pack';
-import { benefitLooksLikeAction, safeJsonParse, stripLeadingSubject, validateDraftHelpJson, type DraftHelpJson } from '@/lib/ai-structured';
-import { GUIDANCE } from '@/lib/smart-data';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
-import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3, Shield, FileDown, Clock, Languages, Loader2, RefreshCw, Cloud, CloudOff, Check, ExternalLink, FolderSync, FolderOpen, FileArchive } from 'lucide-react';
-import { useTheme } from 'next-themes';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { cn } from '@/lib/utils';
-import { ComboboxInput } from './ComboboxInput';
+import { buildSystemPrompt, buildDraftActionPrompt, buildDraftHelpPrompt, buildDraftOutcomePrompt, sanitizeActionPhrase, sanitizeOneSentence, sanitizeOnePhrase, DEFAULT_PROMPT_PACK } from '@/lib/prompt-pack';
 
 /**
  * Safely remove from localStorage, catching any errors.
@@ -83,6 +69,20 @@ function safeRemoveItem(key: string): boolean {
     return false;
   }
 }
+
+import { GUIDANCE } from '@/lib/smart-data';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
+import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3, Shield, FileDown, Clock, Languages, Loader2, RefreshCw, Cloud, CloudOff, Check, ExternalLink, FolderSync, FolderOpen, FileArchive } from 'lucide-react';
+import { useTheme } from 'next-themes';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
+import { ComboboxInput } from './ComboboxInput';
 
 // Animation variants
 const fadeInUp = {
@@ -138,7 +138,8 @@ export function SmartActionTool() {
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
   const storage = useSmartStorage();
-  const translation = useTranslation();
+  // Local-only translation uses the same local AI module instance (no cloud calls).
+  const translation = useTranslation(llm);
   const cloudAI = useCloudAI();
   const aiHasConsent = useAIConsent();
   const localSync = useLocalSync();
@@ -216,7 +217,7 @@ export function SmartActionTool() {
   const [settingsTimescales, setSettingsTimescales] = useState('');
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
-  const [wizardMode, setWizardMode] = useState(false);
+  const [wizardMode, setWizardMode] = useState(true);
   const [improveDialogOpen, setImproveDialogOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const [historyTab, setHistoryTab] = useState<'history' | 'insights'>('history');
@@ -373,8 +374,7 @@ export function SmartActionTool() {
         const langInfo = SUPPORTED_LANGUAGES[storage.participantLanguage];
         textToCopy = `=== ENGLISH ===\n${output}\n\n=== ${langInfo?.nativeName?.toUpperCase() || storage.participantLanguage.toUpperCase()} ===\n${translatedOutput}`;
       }
-      const ok = await copyToClipboard(textToCopy);
-      if (!ok) throw new Error('copy-failed');
+      await navigator.clipboard.writeText(textToCopy);
       setCopied(true);
       setTimeout(() => setCopied(false), 400);
       toast({ title: 'Copied!', description: translatedOutput ? 'Both versions copied to clipboard.' : 'Action copied to clipboard.' });
@@ -637,62 +637,14 @@ export function SmartActionTool() {
           responsible: nowForm.responsible || 'Advisor',
         });
         const action = sanitizeActionPhrase(await llm.generate(actionPrompt, llmSystemPrompt, 'action'), nowForm.forename);
-
-        // Generate help (benefit) as STRUCTURED JSON + validate + retry once (reduces repetition / grammar drift)
+        
+        // Generate help - use correct subject based on responsible person
         const helpSubject = getHelpSubject(nowForm.forename, nowForm.responsible);
-        const approvedExamples = getSuggestionList(nowForm.barrier)
-          .map((s) => s.help)
-          .filter(Boolean)
-          .slice(0, 5);
-
-        const genHelpOnce = async (extraRules?: string): Promise<DraftHelpJson | null> => {
-          const basePrompt = buildDraftHelpJsonPrompt(effectivePromptPack, {
-            barrier: nowForm.barrier,
-            timescale,
-            action,
-            subject: helpSubject,
-            approvedExamples,
-          });
-          const prompt = extraRules ? `${basePrompt}\n\n${extraRules}` : basePrompt;
-          const raw = await llm.generate(prompt, llmSystemPrompt, 'help');
-          const parsed = safeJsonParse<DraftHelpJson>(raw);
-          if (!parsed.value) return null;
-          return parsed.value;
-        };
-
-        const pickHelpPhrase = (d: DraftHelpJson | null): string => {
-          const phrase = d?.benefitstatement || '';
-          // Defensive cleanup: remove any leaked subject/name/will and common wrappers.
-          return stripLeadingSubject(sanitizeOnePhrase(phrase), nowForm.forename);
-        };
-
-        let draft = await genHelpOnce();
-        let errors = validateDraftHelpJson(draft);
-        let help = pickHelpPhrase(draft);
-
-        const needsRetry =
-          errors.length > 0 ||
-          !help ||
-          benefitLooksLikeAction(action, help) ||
-          (draft?.barriermatch === 'low');
-
-        if (needsRetry) {
-          draft = await genHelpOnce(
-            "Your previous output was invalid or repeated the action. Output ONLY JSON. Ensure benefitstatement is a short phrase (no name, no 'will') describing the outcome/impact for work, and it MUST NOT reuse action wording."
-          );
-          errors = validateDraftHelpJson(draft);
-          help = pickHelpPhrase(draft);
-        }
-
-        // Final safety fallbacks: if still bad, use legacy prompt or templates.
-        if (!help || errors.length > 0 || benefitLooksLikeAction(action, help)) {
-          try {
-            const legacyHelpPrompt = buildDraftHelpPrompt(effectivePromptPack, { action, subject: helpSubject });
-            help = stripLeadingSubject(sanitizeOnePhrase(await llm.generate(legacyHelpPrompt, llmSystemPrompt, 'help')), nowForm.forename);
-          } catch {
-            help = approvedExamples[0] || 'gain confidence and understanding for work';
-          }
-        }
+        const helpPrompt = buildDraftHelpPrompt(effectivePromptPack, {
+          action,
+          subject: helpSubject,
+        });
+        const help = sanitizeOnePhrase(await llm.generate(helpPrompt, llmSystemPrompt, 'help'));
         
         setNowForm(prev => ({ ...prev, action, help }));
         toast({ title: 'AI Draft ready', description: 'Generated with local AI. Edit as needed.' });
@@ -818,7 +770,7 @@ export function SmartActionTool() {
         responsible: template.responsible || prev.responsible,
         help: template.help || prev.help,
         // optional
-        time: (template as any).time || prev.time,
+        time: template.time || prev.time,
       }));
     } else {
       setFutureForm(prev => ({
@@ -827,7 +779,7 @@ export function SmartActionTool() {
         responsible: template.responsible || prev.responsible,
         outcome: template.outcome || prev.outcome,
         // optional
-        time: (template as any).time || prev.time,
+        time: template.time || prev.time,
       }));
     }
   }, []);
@@ -1391,15 +1343,17 @@ export function SmartActionTool() {
                     <p className="text-xs text-muted-foreground">
                       Step-by-step guided form that walks you through creating a SMART action.
                     </p>
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={wizardMode} 
-                        onChange={e => setWizardMode(e.target.checked)}
-                        className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-medium">Guided wizard</p>
+                        <p className="text-xs text-muted-foreground">Step-by-step cards for faster, cleaner action building.</p>
+                      </div>
+                      <Switch
+                        checked={wizardMode}
+                        onCheckedChange={(v) => setWizardMode(v)}
+                        aria-label="Toggle guided wizard"
                       />
-                      <span className="text-sm font-medium">Enable guided wizard mode</span>
-                    </label>
+                    </div>
                   </div>
 
                   {/* AI Draft Settings Section */}
@@ -1879,7 +1833,7 @@ export function SmartActionTool() {
         >
           {/* Left Panel - Form or Wizard */}
           <motion.div 
-            className="glass-panel rounded-2xl p-6 space-y-6 shadow-soft"
+            className="glass-card border-glow p-6 space-y-6"
             variants={slideInLeft}
             transition={{ duration: 0.4, ease: "easeOut" }}
           >
@@ -2403,7 +2357,7 @@ export function SmartActionTool() {
 
           {/* Right Panel - Output & History */}
           <motion.div 
-            className="glass-panel rounded-2xl p-6 space-y-6 shadow-soft"
+            className="glass-card border-glow p-6 space-y-6"
             variants={slideInRight}
             transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
           >
@@ -2616,9 +2570,9 @@ export function SmartActionTool() {
                               <Button size="sm" variant="outline" onClick={() => handleEditHistory(h)} aria-label={`Edit action for ${h.meta.forename || 'participant'}`}>
                                 <Edit className="w-3 h-3 mr-1" aria-hidden="true" /> Edit
                               </Button>
-                              <Button size="sm" variant="ghost" onClick={async () => {
-                                const ok = await copyToClipboard(h.text);
-                                toast({ title: ok ? 'Copied!' : 'Copy failed', variant: ok ? undefined : 'destructive' });
+                              <Button size="sm" variant="ghost" onClick={() => {
+                                navigator.clipboard.writeText(h.text);
+                                toast({ title: 'Copied!' });
                               }} aria-label="Copy action text">
                                 <Copy className="w-3 h-3" aria-hidden="true" />
                                 <span className="sr-only">Copy</span>

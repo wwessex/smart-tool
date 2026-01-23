@@ -30,6 +30,7 @@ interface TemplateLibraryProps {
   onInsertTemplate: (template: ActionTemplate) => void;
   currentMode: 'now' | 'future';
   currentForm: {
+    time?: string;
     barrier?: string;
     action?: string;
     responsible?: string;
@@ -55,7 +56,9 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
 
-  const filteredTemplates = templates.filter(t => t.mode === currentMode);
+  // Backwards compatible: treat anything other than 'now' as 'future'
+  const normalizedMode = (m: any): 'now' | 'future' => (m === 'now' ? 'now' : 'future');
+  const filteredTemplates = templates.filter(t => normalizedMode((t as any).mode) === currentMode);
 
   const handleSave = () => {
     if (!templateName.trim()) {
@@ -75,6 +78,7 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
     onSaveTemplate({
       name: templateName.trim(),
       mode: currentMode,
+      time: currentForm.time,
       barrier: currentForm.barrier,
       action: currentForm.action,
       responsible: currentForm.responsible,
