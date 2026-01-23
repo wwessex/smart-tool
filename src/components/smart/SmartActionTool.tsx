@@ -72,7 +72,6 @@ function safeRemoveItem(key: string): boolean {
 
 import { GUIDANCE } from '@/lib/smart-data';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -126,7 +125,6 @@ interface NowForm {
 
 interface FutureForm {
   date: string;
-  time: string;
   forename: string;
   task: string;
   responsible: string;
@@ -135,22 +133,14 @@ interface FutureForm {
 }
 
 export function SmartActionTool() {
-  // Ref for Local AI so hooks can access it without TDZ ordering issues
-  const llmRef = useRef<any>(undefined);
-
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
   const storage = useSmartStorage();
-  // Must initialize the local AI hook *before* passing it to other hooks.
-  // (Prevents "Cannot access 'llm' before initialization" at runtime.)
-  const llm = useTransformersLLM({ allowMobileLLM: storage.allowMobileLLM });
-  
-  useEffect(() => { llmRef.current = llm; }, [llm]);
-// Local-only translation uses the same local AI module instance (no cloud calls).
-  const translation = useTranslation(() => llmRef.current);
+  const translation = useTranslation();
   const cloudAI = useCloudAI();
   const aiHasConsent = useAIConsent();
   const localSync = useLocalSync();
+  const llm = useTransformersLLM({ allowMobileLLM: storage.allowMobileLLM });
   const { pack: promptPack, source: promptPackSource } = usePromptPack();
   const today = todayISO();
   const effectivePromptPack = promptPack || DEFAULT_PROMPT_PACK;
@@ -204,7 +194,6 @@ export function SmartActionTool() {
   });
   const [futureForm, setFutureForm] = useState<FutureForm>({
     date: today,
-    time: '',
     forename: '',
     task: '',
     responsible: '',
@@ -224,7 +213,7 @@ export function SmartActionTool() {
   const [settingsTimescales, setSettingsTimescales] = useState('');
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
-  const [wizardMode, setWizardMode] = useState(true);
+  const [wizardMode, setWizardMode] = useState(false);
   const [improveDialogOpen, setImproveDialogOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const [historyTab, setHistoryTab] = useState<'history' | 'insights'>('history');
@@ -329,7 +318,6 @@ export function SmartActionTool() {
     if (mode === 'now') {
       const text = buildNowOutput(
         nowForm.date,
-        nowForm.time,
         nowForm.forename.trim(),
         nowForm.barrier.trim(),
         nowForm.action.trim(),
@@ -341,7 +329,6 @@ export function SmartActionTool() {
     } else {
       const text = buildFutureOutput(
         futureForm.date,
-        futureForm.time,
         futureForm.forename.trim(),
         futureForm.task.trim(),
         futureForm.responsible,
@@ -414,9 +401,9 @@ export function SmartActionTool() {
 
   const handleClear = useCallback(() => {
     if (mode === 'now') {
-      setNowForm({ date: today, time: '', forename: '', barrier: '', action: '', responsible: '', help: '', timescale: '' });
+      setNowForm({ date: today, forename: '', barrier: '', action: '', responsible: '', help: '', timescale: '' });
     } else {
-      setFutureForm({ date: today, time: '', forename: '', task: '', responsible: '', outcome: '', timescale: '' });
+      setFutureForm({ date: today, forename: '', task: '', responsible: '', outcome: '', timescale: '' });
     }
     setOutput('');
     setOutputSource('form');
@@ -477,7 +464,7 @@ export function SmartActionTool() {
     
     const meta = mode === 'now' 
       ? { forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, date: nowForm.date }
-      : { forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, date: futureForm.date, time: futureForm.time };
+      : { forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, date: futureForm.date };
     
     return checkSmart(checkableOutput, meta);
   }, [checkableOutput, mode, nowForm.forename, nowForm.barrier, nowForm.timescale, nowForm.date, futureForm.forename, futureForm.task, futureForm.timescale, futureForm.date]);
@@ -503,7 +490,7 @@ export function SmartActionTool() {
 
     const baseMeta = mode === 'now' 
       ? { date: nowForm.date, time: nowForm.time, forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
-      : { date: futureForm.date, time: futureForm.time, forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, responsible: futureForm.responsible, reason: futureForm.outcome };
+      : { date: futureForm.date, forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, responsible: futureForm.responsible, reason: futureForm.outcome };
 
     // Include translation in history if available
     const item: HistoryItem = {
@@ -700,7 +687,6 @@ export function SmartActionTool() {
     } else {
       setFutureForm({
         date: item.meta.date || today,
-        time: (item.meta as any).time || '',
         forename: item.meta.forename || '',
         task: item.meta.barrier || '',
         responsible: item.meta.responsible || '',
@@ -776,17 +762,12 @@ export function SmartActionTool() {
         action: template.action || prev.action,
         responsible: template.responsible || prev.responsible,
         help: template.help || prev.help,
-        // optional
-        time: template.time || prev.time,
       }));
     } else {
       setFutureForm(prev => ({
         ...prev,
         task: template.task || prev.task,
-        responsible: template.responsible || prev.responsible,
         outcome: template.outcome || prev.outcome,
-        // optional
-        time: template.time || prev.time,
       }));
     }
   }, []);
@@ -808,7 +789,6 @@ export function SmartActionTool() {
       const parts: string[] = [];
       if (futureForm.forename) parts.push(`Participant: ${futureForm.forename}`);
       if (futureForm.task) parts.push(`Activity/event: ${futureForm.task}`);
-      if (futureForm.time) parts.push(`Scheduled time: ${futureForm.time}`);
       if (futureForm.responsible) parts.push(`Who is responsible: ${futureForm.responsible}`);
       if (futureForm.outcome) parts.push(`Expected outcome: ${futureForm.outcome}`);
       if (futureForm.timescale) parts.push(`Review in: ${futureForm.timescale}`);
@@ -1350,17 +1330,15 @@ export function SmartActionTool() {
                     <p className="text-xs text-muted-foreground">
                       Step-by-step guided form that walks you through creating a SMART action.
                     </p>
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="space-y-0.5">
-                        <p className="text-sm font-medium">Guided wizard</p>
-                        <p className="text-xs text-muted-foreground">Step-by-step cards for faster, cleaner action building.</p>
-                      </div>
-                      <Switch
-                        checked={wizardMode}
-                        onCheckedChange={(v) => setWizardMode(v)}
-                        aria-label="Toggle guided wizard"
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={wizardMode} 
+                        onChange={e => setWizardMode(e.target.checked)}
+                        className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
                       />
-                    </div>
+                      <span className="text-sm font-medium">Enable guided wizard mode</span>
+                    </label>
                   </div>
 
                   {/* AI Draft Settings Section */}
@@ -1386,7 +1364,7 @@ export function SmartActionTool() {
                         <div>
                           <span className="text-sm font-medium">Use Local AI</span>
                           <p className="text-xs text-muted-foreground">
-                            AI-generated suggestions (loads per session; refreshing may require reloading the model)
+                            AI-generated suggestions (requires a one-time model download in this browser)
                           </p>
                         </div>
                       </label>
@@ -1840,7 +1818,7 @@ export function SmartActionTool() {
         >
           {/* Left Panel - Form or Wizard */}
           <motion.div 
-            className="glass-card border-glow p-6 space-y-6"
+            className="glass-panel rounded-2xl p-6 space-y-6 shadow-soft"
             variants={slideInLeft}
             transition={{ duration: 0.4, ease: "easeOut" }}
           >
@@ -2153,19 +2131,6 @@ export function SmartActionTool() {
                     <WarningText show={!!futureDateError} variant="error" id="future-date-error">
                       {futureDateError}
                     </WarningText>
-
-                    <div className="space-y-2">
-                      <label htmlFor="scheduled-time" className="text-sm font-medium text-muted-foreground">
-                        Time (optional)
-                      </label>
-                      <Input
-                        id="scheduled-time"
-                        value={futureForm.time}
-                        onChange={e => setFutureForm(prev => ({ ...prev, time: e.target.value }))}
-                        placeholder="e.g. 11am"
-                        autoComplete="off"
-                      />
-                    </div>
                   </div>
                   <div className="space-y-2 flex-1 min-w-0">
                     <label htmlFor="future-participant-name" className="text-sm font-medium text-muted-foreground">Participant forename</label>
@@ -2327,8 +2292,8 @@ export function SmartActionTool() {
                 onInsertTemplate={handleInsertTemplate}
                 currentMode={mode}
                 currentForm={mode === 'now' 
-                  ? { barrier: nowForm.barrier, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help, time: nowForm.time }
-                  : { task: futureForm.task, responsible: futureForm.responsible, outcome: futureForm.outcome, time: futureForm.time }
+                  ? { barrier: nowForm.barrier, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
+                  : { task: futureForm.task, responsible: futureForm.responsible, outcome: futureForm.outcome }
                 }
               />
             </motion.div>
@@ -2364,7 +2329,7 @@ export function SmartActionTool() {
 
           {/* Right Panel - Output & History */}
           <motion.div 
-            className="glass-card border-glow p-6 space-y-6"
+            className="glass-panel rounded-2xl p-6 space-y-6 shadow-soft"
             variants={slideInRight}
             transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
           >
@@ -2642,7 +2607,7 @@ export function SmartActionTool() {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Select a model to enable AI-powered drafting. Models run locally in your browser. Note: Local AI loads per session — refreshing the page may require reloading the model.
+              Select a model to enable AI-powered drafting. Models run locally in your browser for privacy.
             </p>
             
             {llm.isLoading ? (
@@ -2658,7 +2623,7 @@ export function SmartActionTool() {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {llm.loadingProgress}% - First load may take a few minutes (browser cache may speed up reloads)
+                  {llm.loadingProgress}% - First download may take a few minutes
                 </p>
               </div>
             ) : llm.error ? (

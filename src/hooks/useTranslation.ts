@@ -14,14 +14,7 @@ export interface TranslationState {
   result: TranslationResult | null;
 }
 
-// Local-only translation: we intentionally do NOT call any cloud endpoints.
-
-export interface LocalLLMForTranslation {
-  canUseLocalAI: boolean;
-  isReady: boolean;
-  isGenerating: boolean;
-  generate: (userMessage: string, systemPrompt?: string, configType?: string) => Promise<string>;
-}
+const TRANSLATE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/smart-translate`;
 
 // Supported languages for UK employment services
 export const SUPPORTED_LANGUAGES: Record<string, { name: string; nativeName: string; flag: string }> = {
@@ -43,60 +36,7 @@ export const SUPPORTED_LANGUAGES: Record<string, { name: string; nativeName: str
   "hi": { name: "Hindi", nativeName: "हिन्दी", flag: "🇮🇳" },
 };
 
-
-
-function splitIntoChunks(text: string, maxChars: number): string[] {
-  // Preserve formatting: split by lines, not paragraphs, so numbered lists / bullets
-  // and blank lines survive chunking exactly (important in Agent mode).
-  const lines = text.replace(/\r\n?/g, "\n").split("\n");
-  const chunks: string[] = [];
-  let buf: string[] = [];
-  let len = 0;
-
-  const flush = () => {
-    if (!buf.length) return;
-    chunks.push(buf.join("\n"));
-    buf = [];
-    len = 0;
-  };
-
-  for (const line of lines) {
-    // +1 for the newline that will be reinserted on join (except first line)
-    const addLen = (buf.length ? 1 : 0) + line.length;
-
-    if (len + addLen > maxChars && buf.length) {
-      flush();
-    }
-
-    buf.push(line);
-    len += addLen;
-
-    // If a single line is longer than maxChars, hard-split it.
-    if (len > maxChars && buf.length === 1) {
-      const long = buf[0];
-      buf = [];
-      len = 0;
-      for (let i = 0; i < long.length; i += maxChars) {
-        chunks.push(long.slice(i, i + maxChars));
-      }
-    }
-  }
-
-  flush();
-
-  // Trim only leading/trailing whitespace per chunk, but keep internal newlines
-  return chunks.map((c) => c.replace(/^\s+/, "").replace(/\s+$/, ""));
-}
-
-function looksTruncated(input: string, output: string) {
-  // Heuristic: if output is much shorter than input, likely cut off.
-  const inLen = input.replace(/\s+/g, " ").trim().length;
-  const outLen = output.replace(/\s+/g, " ").trim().length;
-  if (inLen < 60) return false;
-  return outLen < Math.max(40, Math.floor(inLen * 0.6));
-}
-
-export function useTranslation(getLLM?: () => LocalLLMForTranslation | undefined) {
+export function useTranslation() {
   const hasConsent = useAIConsent();
   const [state, setState] = useState<TranslationState>({
     isTranslating: false,
@@ -141,71 +81,25 @@ export function useTranslation(getLLM?: () => LocalLLMForTranslation | undefined
     }));
 
     try {
-      const llm = getLLM?.();
-      if (!llm) {
-        throw new Error('Local AI module not available. Enable Local AI to translate.');
-      }
-      if (!llm.canUseLocalAI) {
-        throw new Error('Local AI is not available on this device/browser.');
-      }
-      if (!llm.isReady) {
-        throw new Error('Local AI module is not loaded. Load the AI Module first, then try translate again.');
-      }
-      if (llm.isGenerating) {
-        throw new Error('Local AI is busy. Please wait for the current generation to finish.');
-      }
+      const response = await fetch(TRANSLATE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          action: action.trim(),
+          targetLanguage,
+        }),
+      });
 
-      const lang = SUPPORTED_LANGUAGES[targetLanguage];
-      const languageName = lang?.name || targetLanguage;
-      const nativeName = lang?.nativeName || '';
-
-      const systemPrompt =
-        'You are a strict translation engine for UK employment services.\n' +
-        'Rules (must follow):\n' +
-        '- Translate the ENTIRE input into the target language.\n' +
-        '- Output ONLY the translated text (no quotes, no explanations).\n' +
-        '- Preserve formatting exactly: keep line breaks, bullets, numbering, and punctuation.\n' +
-        '- Keep names, brands, and URLs unchanged.\n' +
-        '- Do NOT omit, summarise, or shorten anything.';
-
-      const userPromptBase =
-        `Translate the following SMART action into ${languageName}${nativeName ? ` (${nativeName})` : ''}.\n` +
-        `Rules: translate EVERYTHING. Do not omit or summarise. Preserve line breaks EXACTLY (same line order; keep blank lines).\n\n`;
-
-      const chunks = splitIntoChunks(action.trim(), 520);
-      const translatedChunks: string[] = [];
-
-      for (const chunk of chunks) {
-        const userPrompt =
-          userPromptBase +
-          `TEXT:\n${chunk}`;
-
-        // First attempt
-        let out = (await llm.generate(userPrompt, systemPrompt, 'default')).trim();
-
-        // If it looks truncated, do one stronger retry for this chunk
-        if (looksTruncated(chunk, out)) {
-          const retryPrompt =
-            userPromptBase +
-            `IMPORTANT: You MUST translate the FULL text below. Do not cut off early.\n\n` +
-            `TEXT:\n${chunk}`;
-
-          out = (await llm.generate(retryPrompt, systemPrompt, 'default')).trim();
-        }
-
-        translatedChunks.push(out);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Translation failed" }));
+        throw new Error(errorData.error || `Translation failed (${response.status})`);
       }
 
-      const translated = translatedChunks.join("\n");
-      if (!translated) throw new Error('Translation failed (empty result)');
-
-      const result: TranslationResult = {
-        original: action.trim(),
-        translated,
-        language: targetLanguage,
-        languageName,
-      };
-
+      const result: TranslationResult = await response.json();
+      
       setState({
         isTranslating: false,
         error: null,
@@ -222,7 +116,7 @@ export function useTranslation(getLLM?: () => LocalLLMForTranslation | undefined
       });
       return null;
     }
-  }, [hasConsent, getLLM]);
+  }, [hasConsent]);
 
   const clearTranslation = useCallback(() => {
     setState({

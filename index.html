@@ -6,9 +6,6 @@
     
     <!-- Primary Meta Tags -->
     <title>SMART Action Tool | Employment Support Action Generator</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <meta name="title" content="SMART Action Tool | Employment Support Action Generator" />
     <meta name="description" content="Free SMART action generator for employment advisors. Create Specific, Measurable, Achievable, Relevant, Time-bound actions for participant support meetings. GDPR-aligned, works offline." />
     <meta name="keywords" content="SMART actions, employment support, job centre, work coach, action planning, GDPR compliant, participant support, employment advisor tool" />
@@ -141,9 +138,17 @@
     </script>
 
     <!-- Inline critical CSS for faster first paint - NO external fonts -->
-    
-    <link rel="stylesheet" href="/loader.css" />
-</head>
+    <style>
+      /* Critical CSS for initial load - system fonts only */
+      *,*::before,*::after{box-sizing:border-box}
+      body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased}
+      #root{min-height:100vh}
+      .loading-container{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:2rem;text-align:center;background:hsl(60 4% 95%);color:hsl(24 9% 10%)}
+      .loading-spinner{width:2rem;height:2rem;border:3px solid hsl(37 92% 50% / 0.3);border-top-color:hsl(37 92% 50%);border-radius:50%;animation:spin 1s linear infinite}
+      @keyframes spin{to{transform:rotate(360deg)}}
+      .loading-text{margin-top:1rem;color:hsl(24 9% 10% / 0.6);font-size:0.875rem}
+    </style>
+  </head>
 
   <body>
     <div id="root">

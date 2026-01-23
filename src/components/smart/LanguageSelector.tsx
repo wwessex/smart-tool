@@ -17,42 +17,36 @@ interface LanguageSelectorProps {
   className?: string;
 }
 
-function labelFor(code: string): JSX.Element {
-  const lang = SUPPORTED_LANGUAGES[code] || SUPPORTED_LANGUAGES['none'];
-  const showNative = code !== 'none' && !!lang.nativeName;
-  return (
-    <span className="inline-flex items-center gap-2">
-      <span className="emoji-flag" aria-hidden="true">
-        {lang.flag}
-      </span>
-      <span>
-        {lang.name}
-        {showNative ? ` (${lang.nativeName})` : ''}
-      </span>
-    </span>
-  );
-}
-
-
 export const LanguageSelector = memo(function LanguageSelector({
   value,
   onChange,
   disabled = false,
   className,
 }: LanguageSelectorProps) {
+  const selectedLang = SUPPORTED_LANGUAGES[value] || SUPPORTED_LANGUAGES["none"];
+
   return (
-    <div className={cn('flex items-center gap-2', className)}>
+    <div className={cn("flex items-center gap-2", className)}>
       <Languages className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-      <Select value={value || 'none'} onValueChange={onChange} disabled={disabled}>
+      <Select value={value || "none"} onValueChange={onChange} disabled={disabled}>
         <SelectTrigger className="w-[200px] h-9 text-sm">
-          {/* Radix Select uses the selected <SelectItem> text (ItemText) as the trigger value.
-              Using a plain string here ensures emoji flags render reliably across browsers. */}
-          <SelectValue placeholder="English only" />
+          <SelectValue>
+            <span className="flex items-center gap-2">
+              <span>{selectedLang.flag}</span>
+              <span>{selectedLang.name}</span>
+            </span>
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
-          {Object.keys(SUPPORTED_LANGUAGES).map((code) => (
+          {Object.entries(SUPPORTED_LANGUAGES).map(([code, lang]) => (
             <SelectItem key={code} value={code}>
-              {labelFor(code)}
+              <span className="flex items-center gap-2">
+                <span>{lang.flag}</span>
+                <span>{lang.name}</span>
+                {code !== "none" && (
+                  <span className="text-muted-foreground text-xs">({lang.nativeName})</span>
+                )}
+              </span>
             </SelectItem>
           ))}
         </SelectContent>

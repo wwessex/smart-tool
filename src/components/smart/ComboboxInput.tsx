@@ -2,8 +2,7 @@ import { useState, useRef, useEffect, memo } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import * as PopoverPrimitive from '@radix-ui/react-popover';
-import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 interface ComboboxInputProps {
   value: string;
@@ -12,7 +11,6 @@ interface ComboboxInputProps {
   placeholder?: string;
   emptyMessage?: string;
   className?: string;
-  ariaLabel?: string;
   'data-field'?: string;
 }
 
@@ -20,11 +18,10 @@ export const ComboboxInput = memo(function ComboboxInput({
   value,
   onChange,
   options,
-  placeholder = "Select or type…",
-  emptyMessage = "No results found.",
+  placeholder = "Select or type...",
+  emptyMessage = "No options found.",
   className,
-  ariaLabel,
-  'data-field': dataField,
+  'data-field': dataField
 }: ComboboxInputProps) {
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value);
@@ -34,7 +31,7 @@ export const ComboboxInput = memo(function ComboboxInput({
     setInputValue(value);
   }, [value]);
 
-  const filteredOptions = options.filter((option) =>
+  const filteredOptions = options.filter(option =>
     option.toLowerCase().includes(inputValue.toLowerCase())
   );
 
@@ -42,87 +39,80 @@ export const ComboboxInput = memo(function ComboboxInput({
     onChange(selectedValue);
     setInputValue(selectedValue);
     setOpen(false);
-    requestAnimationFrame(() => inputRef.current?.focus());
   };
 
-  const handleInputChange = (val: string) => {
-    setInputValue(val);
-    onChange(val);
-    setOpen(true);
+  const handleInputChange = (newValue: string) => {
+    setInputValue(newValue);
+    onChange(newValue);
+    if (!open) setOpen(true);
   };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <div className="relative" data-field={dataField}>
-        <PopoverPrimitive.Anchor asChild>
-          <div className="relative">
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputValue}
-              onChange={(e) => handleInputChange(e.target.value)}
-              onFocus={() => setOpen(true)}
-              placeholder={placeholder}
-              role="combobox"
-              aria-expanded={open}
-              aria-haspopup="listbox"
-              aria-autocomplete="list"
-              aria-label={ariaLabel ?? placeholder}
-              className={cn(
-                "flex h-11 w-full rounded-xl border px-3 py-2 text-sm pr-10",
-                "bg-white/10 border-white/20 backdrop-blur-xl shadow-sm",
-                "text-foreground placeholder:text-muted-foreground/70",
-                "transition-all duration-150 ease-out",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:border-primary/40 focus-visible:bg-white/15",
-                "dark:bg-white/5 dark:border-white/20",
-                className
-              )}
-            />
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                aria-label="Toggle options"
-                className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-lg inline-flex items-center justify-center hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                onMouseDown={(e) => {
-                  // Prevent input from losing focus before Radix processes the trigger
-                  e.preventDefault();
-                }}
-                onClick={() => setOpen((v) => !v)}
-              >
-                <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
-              </button>
-            </PopoverTrigger>
-          </div>
-        </PopoverPrimitive.Anchor>
-
-        <PopoverContent
-          className="w-[var(--radix-popover-trigger-width)] p-0 glass-panel border-white/25"
-          align="start"
-        >
-          <Command>
-            <CommandList>
+      <PopoverTrigger asChild>
+        <div className="relative" data-field={dataField}>
+          <input
+            ref={inputRef}
+            type="text"
+            value={inputValue}
+            onChange={(e) => handleInputChange(e.target.value)}
+            onFocus={() => setOpen(true)}
+            placeholder={placeholder}
+            role="combobox"
+            aria-expanded={open}
+            aria-haspopup="listbox"
+            aria-autocomplete="list"
+            aria-label={placeholder}
+            className={cn(
+              "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+              className
+            )}
+          />
+          <ChevronDown 
+            className={cn(
+              "absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-transform",
+              open && "rotate-180"
+            )}
+            aria-hidden="true"
+          />
+        </div>
+      </PopoverTrigger>
+      <PopoverContent 
+        className="w-[var(--radix-popover-trigger-width)] p-0" 
+        align="start"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        <Command shouldFilter={false}>
+          <CommandList className="max-h-60">
+            {filteredOptions.length === 0 && inputValue && (
+              <div className="py-3 px-4 text-sm text-muted-foreground">
+                Press Enter to use: <span className="font-medium text-foreground">"{inputValue}"</span>
+              </div>
+            )}
+            {filteredOptions.length === 0 && !inputValue && (
               <CommandEmpty>{emptyMessage}</CommandEmpty>
-              <CommandGroup>
-                {filteredOptions.map((option) => (
-                  <CommandItem
-                    key={option}
-                    value={option}
-                    onSelect={() => handleSelect(option)}
-                    onClick={() => handleSelect(option)}
-                    onMouseDown={(e) => e.preventDefault()}
-                    className="flex items-center justify-between"
-                  >
-                    <span className="truncate">{option}</span>
-                    {option === value && (
-                      <Check className="w-4 h-4 opacity-80" aria-hidden="true" />
+            )}
+            <CommandGroup>
+              {filteredOptions.map((option) => (
+                <CommandItem
+                  key={option}
+                  value={option}
+                  onSelect={() => handleSelect(option)}
+                  className="cursor-pointer"
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === option ? "opacity-100" : "opacity-0"
                     )}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </div>
+                  />
+                  {option}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
     </Popover>
   );
 });

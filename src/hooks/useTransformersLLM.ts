@@ -373,11 +373,11 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
         env.useBrowserCache = true;
 
         // IMPORTANT:
-        // Many browsers may re-download large model files if caches are evicted. We add a best-effort
-        // CacheStorage layer to reduce repeat downloads where possible. Transformers.js browser caching is best-effort and
+        // Many browsers will re-download large model files unless we aggressively cache
+        // cross-origin GET requests. Transformers.js browser caching is best-effort and
         // can be evicted. This adds an extra layer using CacheStorage + persistent
-        // storage request (done above). This may reduce re-downloads, but browsers can still evict
-        // large caches and a full refresh will still require the model to load again (session-based).
+        // storage request (done above). This also fixes "model disappears after refresh"
+        // on Chrome/Edge by ensuring bytes are actually cached locally.
         if (!fetchCacheInstalledRef.current) {
           try {
             const cacheName = "smart-tool-llm-cache-v1";

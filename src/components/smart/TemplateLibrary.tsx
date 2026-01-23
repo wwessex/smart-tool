@@ -12,7 +12,6 @@ export interface ActionTemplate {
   name: string;
   mode: 'now' | 'future';
   createdAt: string;
-  time?: string;
   // For "now" mode
   barrier?: string;
   action?: string;
@@ -30,7 +29,6 @@ interface TemplateLibraryProps {
   onInsertTemplate: (template: ActionTemplate) => void;
   currentMode: 'now' | 'future';
   currentForm: {
-    time?: string;
     barrier?: string;
     action?: string;
     responsible?: string;
@@ -56,9 +54,7 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
 
-  // Backwards compatible: treat anything other than 'now' as 'future'
-  const normalizedMode = (m: any): 'now' | 'future' => (m === 'now' ? 'now' : 'future');
-  const filteredTemplates = templates.filter(t => normalizedMode((t as any).mode) === currentMode);
+  const filteredTemplates = templates.filter(t => t.mode === currentMode);
 
   const handleSave = () => {
     if (!templateName.trim()) {
@@ -78,7 +74,6 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
     onSaveTemplate({
       name: templateName.trim(),
       mode: currentMode,
-      time: currentForm.time,
       barrier: currentForm.barrier,
       action: currentForm.action,
       responsible: currentForm.responsible,
@@ -103,7 +98,7 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
       {/* Save as Template Button */}
       <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
         <DialogTrigger asChild>
-          <Button type="button" variant="outline" size="sm" className="gap-1.5">
+          <Button variant="outline" size="sm" className="gap-1.5">
             <Plus className="w-3.5 h-3.5" />
             Save as template
           </Button>
@@ -142,8 +137,8 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
               )}
             </div>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setSaveOpen(false)}>Cancel</Button>
-              <Button type="button" onClick={handleSave}>Save Template</Button>
+              <Button variant="outline" onClick={() => setSaveOpen(false)}>Cancel</Button>
+              <Button onClick={handleSave}>Save Template</Button>
             </div>
           </div>
         </DialogContent>
@@ -152,7 +147,7 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
       {/* Template Library Button */}
       <Dialog open={libraryOpen} onOpenChange={setLibraryOpen}>
         <DialogTrigger asChild>
-          <Button type="button" variant="outline" size="sm" className="gap-1.5">
+          <Button variant="outline" size="sm" className="gap-1.5">
             <BookMarked className="w-3.5 h-3.5" />
             Templates
             {filteredTemplates.length > 0 && (
@@ -195,7 +190,7 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
                           className="text-sm h-8"
                           autoFocus
                         />
-                        <Button type="button" 
+                        <Button 
                           size="sm" 
                           variant="ghost" 
                           className="h-8 w-8 p-0"
@@ -206,7 +201,7 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
                         >
                           <Check className="w-4 h-4" />
                         </Button>
-                        <Button type="button" 
+                        <Button 
                           size="sm" 
                           variant="ghost" 
                           className="h-8 w-8 p-0"
@@ -225,7 +220,7 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
                             </p>
                           </div>
                           <div className="flex gap-1">
-                            <Button type="button" 
+                            <Button 
                               size="sm" 
                               variant="ghost" 
                               className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
@@ -236,7 +231,7 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </Button>
-                            <Button type="button" 
+                            <Button 
                               size="sm" 
                               variant="ghost" 
                               className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
@@ -265,7 +260,7 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
                           )}
                         </div>
 
-                        <Button type="button" 
+                        <Button 
                           size="sm" 
                           className="w-full"
                           onClick={() => handleInsert(template)}
