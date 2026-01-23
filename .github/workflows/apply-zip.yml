@@ -16,97 +16,123 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Show repo layout (debug)
+      - name: Debug repo layout
         run: |
           set -e
           echo "Repo root:"
           ls -la
           echo ""
-          echo "imports/ (if present):"
+          echo "imports/:"
           ls -la imports || true
           echo ""
-          echo "import/ (if present):"
+          echo "import/:"
           ls -la import || true
 
-      - name: Locate CineSafari ZIP (supports import/ or imports/)
+      - name: Locate CineSafari ZIP (imports/ or import/)
         id: findzip
         run: |
           set -euo pipefail
-
-          ZIP=""
           if [ -f "imports/cinesafari-project.zip" ]; then
-            ZIP="imports/cinesafari-project.zip"
+            echo "zip_path=imports/cinesafari-project.zip" >> "$GITHUB_OUTPUT"
           elif [ -f "import/cinesafari-project.zip" ]; then
-            ZIP="import/cinesafari-project.zip"
+            echo "zip_path=import/cinesafari-project.zip" >> "$GITHUB_OUTPUT"
           else
-            echo "❌ ZIP not found in imports/ or import/"
-            echo "Found in imports/:"
+            echo "❌ ZIP not found"
+            echo "imports/:"
             ls -la imports || true
-            echo "Found in import/:"
+            echo "import/:"
             ls -la import || true
             exit 1
           fi
+          echo "✅ ZIP found: ${{ steps.findzip.outputs.zip_path }}"
 
-          echo "✅ Using ZIP: $ZIP"
-          echo "zip_path=$ZIP" >> "$GITHUB_OUTPUT"
-
-      - name: Unzip into tmp/
+      - name: Unzip into tmp/unzip
         run: |
           set -euo pipefail
-          rm -rf tmp/applyzip
-          mkdir -p tmp/applyzip
-          unzip -q "${{ steps.findzip.outputs.zip_path }}" -d tmp/applyzip
+          rm -rf tmp/unzip tmp/stage
+          mkdir -p tmp/unzip tmp/stage
+          unzip -q "${{ steps.findzip.outputs.zip_path }}" -d tmp/unzip
+          echo "Unzip listing (top):"
+          ls -la tmp/unzip | head -n 200
 
-          echo "Top of extracted ZIP:"
-          ls -la tmp/applyzip | head -n 200
-
-      - name: Detect project root inside ZIP (handles nested folder zips)
+      - name: Detect project root inside ZIP
         id: zroot
         run: |
           set -euo pipefail
 
-          ROOT="tmp/applyzip"
+          ROOT="tmp/unzip"
 
-          # If it extracted a single top folder, step into it
-          top_count=$(find "$ROOT" -maxdepth 1 -mindepth 1 -type d | wc -l | tr -d ' ')
-          file_count=$(find "$ROOT" -maxdepth 1 -mindepth 1 -type f | wc -l | tr -d ' ')
-
-          if [ "$top_count" -eq 1 ] && [ "$file_count" -eq 0 ]; then
+          # If single top folder, step into it
+          top_dirs=$(find "$ROOT" -maxdepth 1 -mindepth 1 -type d | wc -l | tr -d ' ')
+          top_files=$(find "$ROOT" -maxdepth 1 -mindepth 1 -type f | wc -l | tr -d ' ')
+          if [ "$top_dirs" -eq 1 ] && [ "$top_files" -eq 0 ]; then
             ROOT=$(find "$ROOT" -maxdepth 1 -mindepth 1 -type d | head -n 1)
           fi
 
-          # Some GitHub artifacts create extra nesting; walk down until we see package.json or src/
+          # Walk down until we see a project marker
           for i in 1 2 3 4 5; do
             if [ -f "$ROOT/package.json" ] || [ -d "$ROOT/src" ]; then
               break
             fi
-            next=$(find "$ROOT" -maxdepth 1 -mindepth 1 -type d | head -n 1 || true)
-            if [ -z "$next" ]; then
+            NEXT=$(find "$ROOT" -maxdepth 1 -mindepth 1 -type d | head -n 1 || true)
+            if [ -z "$NEXT" ]; then
               break
             fi
-            ROOT="$next"
+            ROOT="$NEXT"
           done
 
-          echo "Detected ZIP project root: $ROOT"
           echo "root=$ROOT" >> "$GITHUB_OUTPUT"
-
+          echo "✅ Detected ZIP project root: $ROOT"
           echo "Root listing:"
           ls -la "$ROOT" | head -n 200
 
-      - name: Apply extracted files into repo (excluding .git and .github)
+      - name: Stage ZIP contents (stable snapshot)
         run: |
           set -euo pipefail
           ROOT="${{ steps.zroot.outputs.root }}"
 
-          # Copy everything from ZIP root into repo root, but keep repo workflow files
+          # Copy into a stable staging area so rsync source doesn't change mid-transfer
+          cp -a "$ROOT/." tmp/stage/
+
+          echo "Stage listing (top):"
+          ls -la tmp/stage | head -n 200
+
+          # Validate stage has expected markers
+          test -f tmp/stage/package.json
+          test -d tmp/stage/src
+
+      - name: Apply staged files into repo (keep .github + imports)
+        run: |
+          set -euo pipefail
+
+          # rsync from stage -> repo root
+          # - excludes workflows + imports stash folder
+          # - --delete keeps repo clean, but won't touch excluded paths
+          set +e
           rsync -a --delete \
             --exclude ".git/" \
             --exclude ".github/" \
-            "$ROOT/" "./"
+            --exclude "imports/" \
+            tmp/stage/ ./
+          code=$?
+          set -e
 
-          echo "✅ Applied ZIP contents to repo working tree."
+          # rsync code 24 = "vanished files" warning; we avoid it via staging, but retry once if it happens
+          if [ "$code" -eq 24 ]; then
+            echo "⚠️ rsync warning code 24 (vanished files). Retrying once..."
+            rsync -a --delete \
+              --exclude ".git/" \
+              --exclude ".github/" \
+              --exclude "imports/" \
+              tmp/stage/ ./
+          elif [ "$code" -ne 0 ]; then
+            echo "❌ rsync failed with code $code"
+            exit "$code"
+          fi
 
-      - name: Install dependencies (npm ci if lockfile exists)
+          echo "✅ Applied ZIP contents to repo."
+
+      - name: Install dependencies
         run: |
           set -euo pipefail
           if [ -f package-lock.json ]; then
@@ -115,7 +141,7 @@ jobs:
             npm install
           fi
 
-      - name: Build (Vite)
+      - name: Build
         run: |
           set -euo pipefail
           npm run build
