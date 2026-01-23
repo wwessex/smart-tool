@@ -16,18 +16,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Debug repo layout
-        run: |
-          set -e
-          echo "Repo root:"
-          ls -la
-          echo ""
-          echo "imports/:"
-          ls -la imports || true
-          echo ""
-          echo "import/:"
-          ls -la import || true
-
       - name: Locate CineSafari ZIP (imports/ or import/)
         id: findzip
         run: |
@@ -44,23 +32,30 @@ jobs:
             ls -la import || true
             exit 1
           fi
-          echo "✅ ZIP found: ${{ steps.findzip.outputs.zip_path }}"
+          echo "✅ ZIP: ${{ steps.findzip.outputs.zip_path }}"
 
-      - name: Unzip into tmp/unzip
+      - name: Unzip into RUNNER_TEMP
+        id: unzip
         run: |
           set -euo pipefail
-          rm -rf tmp/unzip tmp/stage
-          mkdir -p tmp/unzip tmp/stage
-          unzip -q "${{ steps.findzip.outputs.zip_path }}" -d tmp/unzip
-          echo "Unzip listing (top):"
-          ls -la tmp/unzip | head -n 200
+          UNZIP_DIR="${RUNNER_TEMP}/cinesafari_unzip"
+          STAGE_DIR="${RUNNER_TEMP}/cinesafari_stage"
+          rm -rf "$UNZIP_DIR" "$STAGE_DIR"
+          mkdir -p "$UNZIP_DIR" "$STAGE_DIR"
+
+          unzip -q "${{ steps.findzip.outputs.zip_path }}" -d "$UNZIP_DIR"
+
+          echo "unzip_dir=$UNZIP_DIR" >> "$GITHUB_OUTPUT"
+          echo "stage_dir=$STAGE_DIR" >> "$GITHUB_OUTPUT"
+
+          echo "Top of unzip:"
+          ls -la "$UNZIP_DIR" | head -n 200
 
       - name: Detect project root inside ZIP
         id: zroot
         run: |
           set -euo pipefail
-
-          ROOT="tmp/unzip"
+          ROOT="${{ steps.unzip.outputs.unzip_dir }}"
 
           # If single top folder, step into it
           top_dirs=$(find "$ROOT" -maxdepth 1 -mindepth 1 -type d | wc -l | tr -d ' ')
@@ -69,7 +64,7 @@ jobs:
             ROOT=$(find "$ROOT" -maxdepth 1 -mindepth 1 -type d | head -n 1)
           fi
 
-          # Walk down until we see a project marker
+          # Walk down until we see markers
           for i in 1 2 3 4 5; do
             if [ -f "$ROOT/package.json" ] || [ -d "$ROOT/src" ]; then
               break
@@ -82,55 +77,44 @@ jobs:
           done
 
           echo "root=$ROOT" >> "$GITHUB_OUTPUT"
-          echo "✅ Detected ZIP project root: $ROOT"
-          echo "Root listing:"
+          echo "✅ ZIP root: $ROOT"
           ls -la "$ROOT" | head -n 200
 
-      - name: Stage ZIP contents (stable snapshot)
+      - name: Stage ZIP contents (copy into RUNNER_TEMP stage)
         run: |
           set -euo pipefail
           ROOT="${{ steps.zroot.outputs.root }}"
+          STAGE="${{ steps.unzip.outputs.stage_dir }}"
 
-          # Copy into a stable staging area so rsync source doesn't change mid-transfer
-          cp -a "$ROOT/." tmp/stage/
+          # Copy everything into stage (stable)
+          cp -a "$ROOT/." "$STAGE/"
 
-          echo "Stage listing (top):"
-          ls -la tmp/stage | head -n 200
+          # Validate
+          test -f "$STAGE/package.json"
+          test -d "$STAGE/src"
 
-          # Validate stage has expected markers
-          test -f tmp/stage/package.json
-          test -d tmp/stage/src
+          echo "✅ Stage ready at: $STAGE"
+          ls -la "$STAGE" | head -n 50
 
-      - name: Apply staged files into repo (keep .github + imports)
+      - name: Apply staged files into repo (NO rsync; safe copy)
         run: |
           set -euo pipefail
+          STAGE="${{ steps.unzip.outputs.stage_dir }}"
 
-          # rsync from stage -> repo root
-          # - excludes workflows + imports stash folder
-          # - --delete keeps repo clean, but won't touch excluded paths
-          set +e
-          rsync -a --delete \
-            --exclude ".git/" \
-            --exclude ".github/" \
-            --exclude "imports/" \
-            tmp/stage/ ./
-          code=$?
-          set -e
+          # Remove everything except .git, .github, imports (and import if you still use it)
+          shopt -s dotglob
+          for item in * .*; do
+            case "$item" in
+              "."|".."|".git"|".github"|"imports"|"import") ;;
+              *) rm -rf "$item" ;;
+            esac
+          done
+          shopt -u dotglob
 
-          # rsync code 24 = "vanished files" warning; we avoid it via staging, but retry once if it happens
-          if [ "$code" -eq 24 ]; then
-            echo "⚠️ rsync warning code 24 (vanished files). Retrying once..."
-            rsync -a --delete \
-              --exclude ".git/" \
-              --exclude ".github/" \
-              --exclude "imports/" \
-              tmp/stage/ ./
-          elif [ "$code" -ne 0 ]; then
-            echo "❌ rsync failed with code $code"
-            exit "$code"
-          fi
+          # Copy staged project into repo root
+          cp -a "$STAGE/." "./"
 
-          echo "✅ Applied ZIP contents to repo."
+          echo "✅ Applied staged files into repo root."
 
       - name: Install dependencies
         run: |
