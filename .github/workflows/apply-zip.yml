@@ -22,14 +22,21 @@ jobs:
     steps:
       - name: Download ZIP from repo
         uses: actions/github-script@v7
+        env:
+          ZIP_PATH: ${{ inputs.zip_path }}
         with:
           script: |
-            const path = core.getInput('zip_path');
+            const zipPath = process.env.ZIP_PATH;
+            if (!zipPath) {
+              core.setFailed("ZIP_PATH env is empty. Did workflow_dispatch inputs pass through?");
+              return;
+            }
+
             const { owner, repo } = context.repo;
 
-            const res = await github.rest.repos.getContent({ owner, repo, path });
+            const res = await github.rest.repos.getContent({ owner, repo, path: zipPath });
             if (!res?.data?.download_url) {
-              core.setFailed(`No download_url for ${path}. Is it committed to the repo?`);
+              core.setFailed(`No download_url for ${zipPath}. Is it committed to the repo?`);
               return;
             }
 
@@ -58,7 +65,6 @@ jobs:
           echo "Payload root listing:"
           ls -la /tmp/payload
 
-          # If single top-level folder, flatten detection for later script
           COUNT_DIR=$(find /tmp/payload -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
           COUNT_FILES=$(find /tmp/payload -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')
           if [ "$COUNT_DIR" -eq 1 ] && [ "$COUNT_FILES" -eq 0 ]; then
@@ -66,13 +72,14 @@ jobs:
           else
             echo "ROOT_DIR=/tmp/payload" >> $GITHUB_ENV
           fi
-          echo "Using ROOT_DIR=$ROOT_DIR"
+          echo "ROOT_DIR set to: $ROOT_DIR"
 
       - name: Apply payload via GitHub API commit (no git)
         uses: actions/github-script@v7
         env:
           ROOT_DIR: ${{ env.ROOT_DIR }}
           TARGET_BRANCH: ${{ inputs.target_branch }}
+          ZIP_PATH: ${{ inputs.zip_path }}
         with:
           script: |
             const fs = require('fs');
@@ -81,6 +88,10 @@ jobs:
             const { owner, repo } = context.repo;
             const branch = process.env.TARGET_BRANCH;
             const rootDir = process.env.ROOT_DIR;
+            const zipPath = process.env.ZIP_PATH;
+
+            if (!branch) { core.setFailed("TARGET_BRANCH missing"); return; }
+            if (!rootDir) { core.setFailed("ROOT_DIR missing"); return; }
 
             function walk(dir, baseDir, out=[]) {
               for (const name of fs.readdirSync(dir)) {
@@ -103,31 +114,29 @@ jobs:
             const baseCommit = await github.rest.git.getCommit({ owner, repo, commit_sha: baseCommitSha });
             const baseTreeSha = baseCommit.data.tree.sha;
 
-            // Get existing tree recursively (for deletions)
+            // Existing tree (for deletions)
             const existing = await github.rest.git.getTree({ owner, repo, tree_sha: baseTreeSha, recursive: "1" });
             const existingPaths = new Set(
-              existing.data.tree
-                .filter(t => t.type === 'blob')
-                .map(t => t.path)
+              existing.data.tree.filter(t => t.type === 'blob').map(t => t.path)
             );
 
-            // Build new blobs + tree entries from ZIP payload
+            // Walk payload
             const files = walk(rootDir, rootDir);
-            if (!files.some(f => f.rel === 'package.json')) {
-              core.setFailed('Payload does not look like a repo root (package.json missing). Wrong ZIP?');
+            if (!files.some(f => f.rel === 'package.json') || !files.some(f => f.rel === 'src/index.css')) {
+              core.setFailed("Payload doesn't look like the app repo root. Wrong ZIP contents?");
               return;
             }
 
             const newPaths = new Set(files.map(f => f.rel));
 
-            // Keep imports/** from existing (do not delete your ZIP store)
+            // Protect your imports folder and the ZIP itself
             function isProtected(p) {
-              return p === 'imports' || p.startsWith('imports/');
+              return p === 'imports' || p.startsWith('imports/') || p === zipPath;
             }
 
             const tree = [];
 
-            // Create blobs for all payload files
+            // Create blobs for payload
             for (const f of files) {
               const content = fs.readFileSync(f.full);
               const blob = await github.rest.git.createBlob({
@@ -135,15 +144,10 @@ jobs:
                 content: content.toString('base64'),
                 encoding: 'base64'
               });
-              tree.push({
-                path: f.rel,
-                mode: '100644',
-                type: 'blob',
-                sha: blob.data.sha
-              });
+              tree.push({ path: f.rel, mode: '100644', type: 'blob', sha: blob.data.sha });
             }
 
-            // Deletions: remove existing files not in payload, except protected imports/**
+            // Deletions: remove files not in payload (excluding imports/**)
             for (const p of existingPaths) {
               if (isProtected(p)) continue;
               if (!newPaths.has(p)) {
@@ -151,7 +155,6 @@ jobs:
               }
             }
 
-            // Create new tree, commit, update ref
             const newTree = await github.rest.git.createTree({
               owner, repo,
               base_tree: baseTreeSha,
@@ -160,7 +163,7 @@ jobs:
 
             const commit = await github.rest.git.createCommit({
               owner, repo,
-              message: `Apply ZIP payload (${path.basename(core.getInput('zip_path'))})`,
+              message: `Apply ZIP payload (${zipPath || 'zip'})`,
               tree: newTree.data.sha,
               parents: [baseCommitSha]
             });
