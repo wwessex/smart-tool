@@ -1,203 +1,105 @@
-name: Apply ZIP package to repo (forced clone + PR)
+name: Apply ZIP package to repo
 
 on:
   workflow_dispatch:
     inputs:
       zip_path:
-        description: "ZIP path in repo (e.g. imports/smart-tool-admin-playbook.zip)"
+        description: "Path to ZIP file in the repo (e.g. apply.zip)"
         required: true
-        default: "imports/smart-tool-admin-playbook.zip"
+        default: "apply.zip"
       target_branch:
-        description: "Target branch to merge into"
+        description: "Branch to apply to"
         required: true
         default: "main"
-      clean_repo:
-        description: "Clean repo first? true = remove everything except .git + imports"
-        required: true
-        default: "true"
-      open_pr:
-        description: "Open PR instead of pushing directly to target_branch"
-        required: true
-        default: "true"
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   apply_zip:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Mask PAT
-        shell: bash
-        env:
-          PAT: ${{ secrets.REPO_PAT }}
-        run: |
-          set -euo pipefail
-          if [ -z "${PAT:-}" ]; then
-            echo "::error::REPO_PAT secret is missing."
-            exit 1
-          fi
-          echo "::add-mask::$PAT"
-
-      - name: Verify token has push permission to this repo
-        uses: actions/github-script@v7
+      - name: Checkout target branch
+        uses: actions/checkout@v4
         with:
-          github-token: ${{ secrets.REPO_PAT }}
-          script: |
-            const { owner, repo } = context.repo;
-            const r = await github.rest.repos.get({ owner, repo });
-            const perms = r.data.permissions || {};
-            core.info(`Token permissions for ${owner}/${repo}: ${JSON.stringify(perms)}`);
-            if (!perms.push) {
-              core.setFailed(
-                "This PAT does NOT have push permission to this repo. " +
-                "Edit the Fine-grained token: Repository access must include this repo, and Contents must be Read & Write. " +
-                "If SSO is enabled, authorize the token for the org."
-              );
-            }
+          ref: ${{ inputs.target_branch }}
+          fetch-depth: 0
 
-      - name: Clone repo with PAT (forces .git)
-        shell: bash
-        env:
-          PAT: ${{ secrets.REPO_PAT }}
-          BASE_BRANCH: ${{ inputs.target_branch }}
+      - name: Verify ZIP exists
         run: |
-          set -euo pipefail
-          rm -rf repo
-          mkdir -p repo
-          cd repo
-
-          OWNER="${GITHUB_REPOSITORY%%/*}"
-          REPO="${GITHUB_REPOSITORY##*/}"
-
-          git init -q
-          git remote add origin "https://x-access-token:${PAT}@github.com/${OWNER}/${REPO}.git"
-          git fetch -q --depth=1 origin "$BASE_BRANCH"
-          git checkout -q -B "$BASE_BRANCH" "FETCH_HEAD"
-
-          test -d .git
-
-      - name: Create working branch (if PR mode)
-        if: ${{ inputs.open_pr == 'true' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          BR="apply-zip-${GITHUB_RUN_ID}"
-          echo "WORK_BRANCH=$BR" >> "$GITHUB_ENV"
-          git -C repo checkout -q -b "$BR"
-
-      - name: Verify ZIP exists in repo
-        shell: bash
-        run: |
-          set -euo pipefail
-          ZIP="repo/${{ inputs.zip_path }}"
-          if [ ! -f "$ZIP" ]; then
-            echo "::error::ZIP not found: $ZIP"
-            echo "repo/imports:"
-            ls -la repo/imports || true
+          set -e
+          if [ ! -f "${{ inputs.zip_path }}" ]; then
+            echo "ZIP not found: ${{ inputs.zip_path }}"
+            ls -la
             exit 1
           fi
 
       - name: Extract ZIP to temp
-        shell: bash
         run: |
-          set -euo pipefail
+          set -e
           rm -rf /tmp/applyzip
           mkdir -p /tmp/applyzip
-          unzip -q "repo/${{ inputs.zip_path }}" -d /tmp/applyzip
+          unzip -q "${{ inputs.zip_path }}" -d /tmp/applyzip
+          echo "Top-level extracted:"
+          ls -la /tmp/applyzip
 
       - name: Detect payload root
         id: detect
-        shell: bash
         run: |
-          set -euo pipefail
+          set -e
           ROOT="/tmp/applyzip"
-          COUNT_DIR="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
-          COUNT_FILES="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')"
-          if [ "$COUNT_DIR" -eq 1 ] && [ "$COUNT_FILES" -eq 0 ]; then
-            ROOT="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+          # If ZIP contains a single top-level folder, use it.
+          COUNT=$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
+          FILES=$(find "$ROOT" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')
+          if [ "$COUNT" -eq 1 ] && [ "$FILES" -eq 0 ]; then
+            ROOT=$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | head -n 1)
           fi
-          echo "root=$ROOT" >> "$GITHUB_OUTPUT"
-          test -f "$ROOT/package.json"
-          test -d "$ROOT/src"
+          echo "root=$ROOT" >> $GITHUB_OUTPUT
+          echo "Payload root: $ROOT"
+          ls -la "$ROOT"
 
-      - name: Optionally clean repo (keep .git + imports)
-        if: ${{ inputs.clean_repo == 'true' }}
-        shell: bash
+      - name: Validate ZIP contains expected files
         run: |
-          set -euo pipefail
-          find repo -mindepth 1 -maxdepth 1 \
-            ! -name ".git" \
-            ! -name "imports" \
-            -exec rm -rf {} +
-
-      - name: Apply payload into repo (do not touch .git/imports, ignore .env/tmp)
-        shell: bash
-        run: |
-          set -euo pipefail
+          set -e
           ROOT='${{ steps.detect.outputs.root }}'
+          test -f "$ROOT/package.json"
+          test -f "$ROOT/index.html"
+          test -d "$ROOT/src"
+          test -d "$ROOT/public"
+          echo "ZIP payload validation OK."
 
-          RSYNC_ARGS=( -a )
-          if [ "${{ inputs.clean_repo }}" = "true" ]; then
-            RSYNC_ARGS+=( --delete )
-          fi
-
-          rsync "${RSYNC_ARGS[@]}" \
-            --exclude='.git/' \
-            --exclude='imports/' \
-            --exclude='.env' \
-            --exclude='tmp/' \
-            "$ROOT/" "repo/"
-
-          test -d repo/.git
-
-      - name: Commit changes
-        shell: bash
+      - name: Clean repo (optional)
         run: |
-          set -euo pipefail
-          git -C repo config user.name "github-actions[bot]"
-          git -C repo config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          set -e
+          # keep .git and the ZIP itself
+          shopt -s extglob
+          rm -rf !(".git"|"${{ inputs.zip_path }}")
 
-          git -C repo add -A
-          if git -C repo diff --cached --quiet; then
+      - name: Copy extracted files into repo root (overwrite)
+        run: |
+          set -e
+          ROOT='${{ steps.detect.outputs.root }}'
+          rsync -a --delete "$ROOT/" "./"
+
+      - name: Validate repo now contains expected files
+        run: |
+          set -e
+          test -f package.json
+          test -f index.html
+          test -d src
+          test -d public
+          echo "Repo validation OK after apply."
+
+      - name: Commit and push
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
             echo "No changes to commit."
             exit 0
           fi
-          git -C repo commit -m "Apply ZIP package (${{ inputs.zip_path }})"
-
-      - name: Push branch
-        shell: bash
-        env:
-          PAT: ${{ secrets.REPO_PAT }}
-          BASE_BRANCH: ${{ inputs.target_branch }}
-        run: |
-          set -euo pipefail
-          OWNER="${GITHUB_REPOSITORY%%/*}"
-          REPO="${GITHUB_REPOSITORY##*/}"
-          git -C repo remote set-url origin "https://x-access-token:${PAT}@github.com/${OWNER}/${REPO}.git"
-
-          if [ "${{ inputs.open_pr }}" = "true" ]; then
-            git -C repo push -u origin "${WORK_BRANCH}"
-          else
-            git -C repo push -u origin "${BASE_BRANCH}"
-          fi
-
-      - name: Open PR
-        if: ${{ inputs.open_pr == 'true' }}
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.REPO_PAT }}
-          script: |
-            const { owner, repo } = context.repo;
-            const head = process.env.WORK_BRANCH;
-            const base = "${{ inputs.target_branch }}";
-            const title = `Apply ZIP payload (${context.runId})`;
-            const body = `Automated apply from ZIP: \`${{ inputs.zip_path }}\``;
-
-            const pr = await github.rest.pulls.create({
-              owner, repo, head, base, title, body
-            });
-
-            core.info(`PR created: ${pr.data.html_url}`);
+          git commit -m "Apply ZIP package"
+          git push
