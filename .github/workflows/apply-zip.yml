@@ -1,4 +1,4 @@
-name: Apply ZIP package to repo (forced git clone)
+name: Apply ZIP package to repo (forced clone)
 
 on:
   workflow_dispatch:
@@ -11,6 +11,10 @@ on:
         description: "Branch to apply to"
         required: true
         default: "main"
+      clean_repo:
+        description: "Clean repo first? (true = remove everything except .git + imports)"
+        required: true
+        default: "true"
 
 permissions:
   contents: write
@@ -20,6 +24,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Mask PAT
+        shell: bash
+        env:
+          PAT: ${{ secrets.REPO_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PAT:-}" ]; then
+            echo "::error::REPO_PAT secret is missing."
+            exit 1
+          fi
+          echo "::add-mask::$PAT"
+
       - name: Clone repo with PAT (forces .git)
         shell: bash
         env:
@@ -27,40 +43,47 @@ jobs:
           BRANCH: ${{ inputs.target_branch }}
         run: |
           set -euo pipefail
-          set -x
 
-          test -n "$PAT"
+          rm -rf repo
+          mkdir -p repo
+          cd repo
 
           OWNER="${GITHUB_REPOSITORY%%/*}"
           REPO="${GITHUB_REPOSITORY##*/}"
 
-          # Clone using PAT (avoid leaking token: don't echo the URL)
-          git init repo
-          cd repo
+          git init -q
           git remote add origin "https://x-access-token:${PAT}@github.com/${OWNER}/${REPO}.git"
-          git fetch --depth=1 origin "$BRANCH"
-          git checkout -B "$BRANCH" "FETCH_HEAD"
 
+          git fetch -q --depth=1 origin "$BRANCH"
+          git checkout -q -B "$BRANCH" "FETCH_HEAD"
+
+          # Hard proof .git exists
           test -d .git
-          git status
+          echo "Clone OK. repo/.git exists."
 
       - name: Verify ZIP exists in repo
         shell: bash
         run: |
           set -euo pipefail
-          set -x
           ZIP="repo/${{ inputs.zip_path }}"
-          test -f "$ZIP"
+          if [ ! -f "$ZIP" ]; then
+            echo "::error::ZIP not found: $ZIP"
+            echo "Repo root:"
+            ls -la repo || true
+            echo "Repo imports/:"
+            ls -la repo/imports || true
+            exit 1
+          fi
           echo "Found ZIP: $ZIP"
 
       - name: Extract ZIP to temp
         shell: bash
         run: |
           set -euo pipefail
-          set -x
           rm -rf /tmp/applyzip
           mkdir -p /tmp/applyzip
           unzip -q "repo/${{ inputs.zip_path }}" -d /tmp/applyzip
+          echo "Extracted:"
           ls -la /tmp/applyzip
 
       - name: Detect payload root
@@ -68,7 +91,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          set -x
           ROOT="/tmp/applyzip"
           COUNT_DIR="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
           COUNT_FILES="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')"
@@ -76,6 +98,7 @@ jobs:
             ROOT="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
           fi
           echo "root=$ROOT" >> "$GITHUB_OUTPUT"
+          echo "Payload root: $ROOT"
           ls -la "$ROOT"
 
       - name: Validate ZIP payload
@@ -87,27 +110,32 @@ jobs:
           test -f "$ROOT/index.html"
           test -d "$ROOT/src"
           test -d "$ROOT/public"
+          echo "Payload looks valid."
 
-      - name: Clean repo (keep .git + imports)
+      - name: Optionally clean repo (keep .git + imports)
+        if: ${{ inputs.clean_repo == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
-          set -x
           test -d repo/.git
 
-          # Keep .git and imports folder (so your ZIP store stays)
+          # Keep .git and imports folder
           find repo -mindepth 1 -maxdepth 1 \
             ! -name ".git" \
             ! -name "imports" \
             -exec rm -rf {} +
 
-      - name: Copy extracted files into repo root (overwrite)
+      - name: Apply payload into repo
         shell: bash
         run: |
           set -euo pipefail
-          set -x
           ROOT='${{ steps.detect.outputs.root }}'
-          rsync -a --delete "$ROOT/" "repo/"
+
+          if [ "${{ inputs.clean_repo }}" = "true" ]; then
+            rsync -a --delete "$ROOT/" "repo/"
+          else
+            rsync -a "$ROOT/" "repo/"
+          fi
 
       - name: Commit and push
         shell: bash
@@ -116,7 +144,6 @@ jobs:
           BRANCH: ${{ inputs.target_branch }}
         run: |
           set -euo pipefail
-          set -x
           test -d repo/.git
 
           git -C repo config user.name "github-actions[bot]"
@@ -130,8 +157,7 @@ jobs:
 
           git -C repo commit -m "Apply ZIP package (${{ inputs.zip_path }})"
 
-          # Ensure push uses PAT too
           OWNER="${GITHUB_REPOSITORY%%/*}"
           REPO="${GITHUB_REPOSITORY##*/}"
           git -C repo remote set-url origin "https://x-access-token:${PAT}@github.com/${OWNER}/${REPO}.git"
-          git -C repo push origin "$BRANCH"
+          git -C repo push -u origin "$BRANCH"
