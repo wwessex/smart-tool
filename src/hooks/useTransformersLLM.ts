@@ -36,6 +36,7 @@ export const GENERATION_CONFIGS: Record<string, GenerationConfig> = {
   outcome: { max_new_tokens: 60, temperature: 0.6, do_sample: true },
   improve: { max_new_tokens: 200, temperature: 0.7, do_sample: true },
   chat: { max_new_tokens: 150, temperature: 0.7, do_sample: true },
+  translate: { max_new_tokens: 450, temperature: 0.2, do_sample: false },
   default: { max_new_tokens: 100, temperature: 0.7, do_sample: true },
 };
 
@@ -629,6 +630,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
         outcome: 45,
         improve: 120,
         chat: 80,
+        translate: 160,
         default: 80,
       } as Record<string, number>;
       const max = cap[name] ?? cap.default;

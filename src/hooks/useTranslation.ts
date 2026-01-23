@@ -150,19 +150,21 @@ export function useTranslation(getLLM?: () => LocalLLMForTranslation | undefined
       const languageName = lang?.name || targetLanguage;
       const nativeName = lang?.nativeName || '';
 
-      const systemPrompt =
-        'You are a professional translator for UK employment services.\n' +
-        'Rules:\n' +
-        '- Output ONLY the translated text (no quotes, no explanations).\n' +
-        '- Preserve names, dates, times, numbers, and formatting.\n' +
-        '- Keep the meaning and tone clear and professional.\n' +
-        '- Do NOT add extra sentences.';
+      const systemPrompt = `You are a professional translator for UK employment services.
+Rules:
+- Output ONLY the translated text (no quotes, no explanations).
+- Preserve names, dates, times, numbers, and formatting.
+- Preserve line breaks, bullet points, and headings.
+- Translate every line; never omit anything.
+- Do NOT add extra sentences.
+- If the input is long, translate it fully; never truncate.`;
 
       const userPromptBase =
         `Translate the following SMART action into ${languageName}${nativeName ? ` (${nativeName})` : ''}.\n` +
-        `Rules: translate EVERYTHING. Do not omit or summarise. Preserve line breaks.\n\n`;
+        `Rules: translate EVERYTHING. Do not omit, shorten, or summarise. Preserve line breaks, bullet points, and headings.\n\n`;
 
-      const chunks = splitIntoChunks(action.trim(), 900);
+      const maxChars = 550;
+      const chunks = splitIntoChunks(action.trim(), maxChars);
       const translatedChunks: string[] = [];
 
       for (const chunk of chunks) {
@@ -171,7 +173,7 @@ export function useTranslation(getLLM?: () => LocalLLMForTranslation | undefined
           `SMART action:\n${chunk.trim()}`;
 
         // First attempt
-        let out = (await llm.generate(userPrompt, systemPrompt, 'default')).trim();
+        let out = (await llm.generate(userPrompt, systemPrompt, 'translate')).trim();
 
         // If it looks truncated, do one stronger retry for this chunk
         if (looksTruncated(chunk, out)) {
@@ -180,7 +182,7 @@ export function useTranslation(getLLM?: () => LocalLLMForTranslation | undefined
             `IMPORTANT: You MUST translate the FULL text below. Do not cut off early.\n\n` +
             `SMART action:\n${chunk.trim()}`;
 
-          out = (await llm.generate(retryPrompt, systemPrompt, 'default')).trim();
+          out = (await llm.generate(retryPrompt, systemPrompt, 'translate')).trim();
         }
 
         translatedChunks.push(out);
