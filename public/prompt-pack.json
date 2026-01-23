@@ -1,0 +1,284 @@
+{
+  "version": 44,
+  "updatedAt": "2026-01-20",
+  "systemPrompt": "You are a SMART action writing assistant for UK employment advisors. Create actions that are Specific, Measurable, Achievable, Relevant, and Time-bound. Use UK job search context (Indeed, CV Library, Universal Credit, NHS, local employers). Avoid generic waffle. Avoid mentioning booklets or forms unless the user explicitly mentions them. Output must match the requested format exactly.",
+  "bannedTopics": [
+    "coding",
+    "software",
+    "AI",
+    "Hugging Face",
+    "Python",
+    "project",
+    "team meeting"
+  ],
+  "barrierGuidance": {
+    "Transport": [
+      "routes (bus/rail)",
+      "travel costs",
+      "backup travel plan",
+      "railcard/bus pass"
+    ],
+    "Health": [
+      "GP/NHS support",
+      "reasonable adjustments",
+      "wellbeing routines",
+      "fit note if needed"
+    ],
+    "Confidence": [
+      "mock interviews",
+      "strengths list",
+      "gradual exposure",
+      "positive evidence log"
+    ],
+    "Digital": [
+      "email setup",
+      "job site accounts",
+      "upload CV",
+      "basic IT skills"
+    ],
+    "Housing": [
+      "housing options",
+      "support services",
+      "stable contact details",
+      "budget for rent"
+    ],
+    "Finance": [
+      "budget",
+      "priority bills",
+      "benefits check",
+      "travel/work costs"
+    ]
+  },
+  "fewShot": [
+    {
+      "barrier": "Transferable Skills",
+      "action": "As discussed and agreed [NAME] is to use Google or an AI chat box to identify the transferable skills they have that they can take to another role by [DATE].",
+      "help": "Identify transferable skills"
+    },
+    {
+      "barrier": "Retraining",
+      "action": "As discussed and agreed [NAME] is to use Google or an AI chat box to identify the transferable skills they have that they can take to another role by [DATE].",
+      "help": "Identify transferable skills"
+    },
+    {
+      "barrier": "Job Search",
+      "action": "As discussed and agreed [NAME] is to attend a job search workshop at the local Site on [DATE] at [TIME].",
+      "help": "improve their job hunting techniques"
+    },
+    {
+      "barrier": "Qualifications",
+      "action": "As discussed and agreed is to access online job search websites and identify a number of jobs in ROLE that doesn’t require experience or qualifications in SKILL, through the use of job search criteria/filter options and print off these job vacancies by [DATE].",
+      "help": "locate jobs they can do with their current skill set"
+    },
+    {
+      "barrier": "Medical Condition",
+      "action": "As discussed and agreed [NAME] is to undertake a full review of their CV using the CV Builder by [DATE] and discuss it with their advisor then.",
+      "help": "they continue to work on job related tasks even with a medical condition"
+    },
+    {
+      "barrier": "Retraining",
+      "action": "As discussed and agreed [NAME] is to apply for a minimum of 5 jobs online  that I can get with my current skill set and forward on the e-mail confirmation to the Restart Advisor by [DATE].",
+      "help": "another step closer to employment"
+    },
+    {
+      "barrier": "Retraining",
+      "action": "As discussed and agreed [NAME] upon completion of a skills gap audit, is to attend a minimum of 3 online training courses, to meet those identified skills gaps and provide feedback by [DATE].",
+      "help": "overcome skills gaps for retraining"
+    },
+    {
+      "barrier": "Retraining",
+      "action": "As discussed and agreed [NAME] is to undertake an online skills gap audit to identify skills including any gaps by [DATE].",
+      "help": "gain knowledge of skills gaps for retraining"
+    },
+    {
+      "barrier": "Mental Health",
+      "action": "As discussed and agreed [NAME] is to attend the office to undertake online job search and produce a record of job search activity, and attend weekly Job Support appointments.",
+      "help": "gain support with their mental health by actively applying"
+    },
+    {
+      "barrier": "Mental Health",
+      "action": "As discussed and agreed [NAME] is to enrol upon the Health and Wellbeing workshop at the Office within the next 7 days and provide feedback on the session to the Advisor by [DATE].",
+      "help": "gain support with their mental health"
+    },
+    {
+      "barrier": "Motivation",
+      "action": "As discussed and agreed [NAME] is to to apply for a minimum of 8 jobs and forward on the e-mail confirmation to the Restart Advisor by [DATE].",
+      "help": "gain motivation actively applying"
+    },
+    {
+      "barrier": "Motivation",
+      "action": "As discussed and agreed [NAME] is to create a CV using the CV Builder to include up to date personal details, skills and employment history and print off a copy of the CV and save to USB stick by [DATE].",
+      "help": "gain motivation by having up to date CV"
+    },
+    {
+      "barrier": "Motivation",
+      "action": "As discussed and agreed [NAME] is to undertake the “Better Off” calculation to identify the financial benefits of working at their On Programme appointment on [DATE] with their advisor.",
+      "help": "gain motivation to work"
+    },
+    {
+      "barrier": "Confidence",
+      "action": "As discussed and agreed [NAME] is to attend the office to undertake online job search twice a week and produce a record of job search activity, and attend weekly Job Support appointments.",
+      "help": "apply for jobs once gaining confidence"
+    },
+    {
+      "barrier": "Confidence",
+      "action": "As discussed and agreed [NAME] to attend the Confidence Building workshop on [DATE] at [TIME].",
+      "help": "learn techniques to build their confidence"
+    },
+    {
+      "barrier": "Ability to Job Search",
+      "action": "As discussed and agreed [NAME] is to use online job search websites and identify several jobs in their chosen role by [DATE].",
+      "help": "practise applying for jobs"
+    },
+    {
+      "barrier": "Ability to Job Search",
+      "action": "As discussed and agreed [NAME] is to attend a applications session at the office on [DATE] at [TIME].",
+      "help": "gain support in applying for jobs"
+    },
+    {
+      "barrier": "Ability to Job Search",
+      "action": "As discussed and agreed Restart advisor to provide a list of job sites such as Indeed, Total jobs to [NAME] to help research in what roles are available at the On Programme Appointment on [DATE].",
+      "help": "have a better understanding of what job board sites are out there"
+    },
+    {
+      "barrier": "Transport",
+      "action": "As discussed and agreed [NAME] will complete a minimum of one daily job‑search session (Monday–Friday) and apply for at least 3 suitable roles per day that fall within a 90‑minute public‑transport commute. [NAME] will record all applications using their job‑search tracker and bring this to each appointment throughout their Restart Programme.",
+      "help": "understand their transports needs for employment"
+    },
+    {
+      "barrier": "Transport",
+      "action": "As discussed and agreed [NAME] is to search online to identify which means of transport better suits their situation for commute to and from work and print their findings (i.e. bus, train timetables) by [DATE].",
+      "help": "understand their transports needs for employment"
+    },
+    {
+      "barrier": "Previous Work History",
+      "action": "As discussed and agreed [NAME] is to search for five permanent customer service roles using job search websites each week and forward on the email confirmations to their Restart advisor by [DATE]",
+      "help": "better chance of getting a job as they are applying and also advisor is checking what they are applying for is fully relevant"
+    },
+    {
+      "barrier": "Previous Work History",
+      "action": "As discussed and agreed [NAME] is to undertake training at the office on [DATE] which consists of finding work using specific job sites.",
+      "help": "have a better unsteadying of how to apply for jobs"
+    },
+    {
+      "barrier": "Previous Work History",
+      "action": "As discussed and agreed [NAME] is to complete the better off calculation and assess the benefits of permanent employment at their [DATE] meeting with their advisor.",
+      "help": "have a better unsteadying of the benefits of being employed"
+    },
+    {
+      "barrier": "Transferable Skills",
+      "action": "As discussed and agreed [NAME] is to apply for a minimum of five jobs and keep a record by the next appointment [DATE].",
+      "help": "This will help identify which transferable skills can be utilised for their future job."
+    },
+    {
+      "barrier": "Transferable Skills",
+      "action": "As discussed and agreed [NAME] to tailor their CV for x job application and send the updated CV to the Restart Advisor [DATE].",
+      "help": "This will help identify which transferable skills can be utilised for their future job."
+    },
+    {
+      "barrier": "Transferable Skills",
+      "action": "As discussed and agreed [NAME] is to revise their CV and include those transferable skills which will be applicable to new roles being applied for by [DATE].",
+      "help": "This will help identify which transferable skills can be utilised for their future job."
+    },
+    {
+      "barrier": "Transferable Skills",
+      "action": "As discussed and agreed [NAME] is to research online and make a list of those skills that are required for their chosen job goal by [DATE].",
+      "help": "This will help identify which transferable skills can be utilised for their future job."
+    },
+    {
+      "barrier": "Qualifications",
+      "action": "As discussed and agreed [NAME] is to apply online for a minimum of five jobs and forward on the email confirmation to the Restart advisor by [DATE] for jobs where there is no requirement from employers for 5 A-C grades.",
+      "help": "get around lack of Qualifications"
+    },
+    {
+      "barrier": "Qualifications",
+      "action": "As discussed and agreed [NAME} is to research online and make a list of roles where there is no requirement for a minimum qualification criterion by [DATE].",
+      "help": "get around lack of Qualifications"
+    },
+    {
+      "barrier": "Digital Skills",
+      "action": "As discussed and agreed [NAME] is to undertake further assessments such as the digital skills assessment to establish the level of competency in using computers and print off the results of the test and provide this to the Restart advisor by [DATE].",
+      "help": "gain/improve digital skills skills"
+    },
+    {
+      "barrier": "Digital Skills",
+      "action": "As discussed and agreed [NAME} is to attend the introduction to IWorks course at the office on [DATE] at [Time}.",
+      "help": "gain/improve digital skills skills"
+    },
+    {
+      "barrier": "Lack of basic Literacy and Numeracy skills",
+      "action": "As discussed and agreed [NAME} is to attend the introduction to IWorks course at the office on [DATE] at [Time}.",
+      "help": "gain/improve Literacy and Numeracy skills"
+    },
+    {
+      "barrier": "Lack of basic Literacy and Numeracy skills",
+      "action": "As discussed and agreed [NAME] is to provide results on the same day of the assessment to the Restart Advisor, who will advise of the next steps on [DATE].",
+      "help": "gain/improve Literacy and Numeracy skills"
+    },
+    {
+      "barrier": "Lack of basic Literacy and Numeracy skills",
+      "action": "As discussed and agreed [NAME] is to complete a literacy and numeracy diagnostic assessment to identify the level the participant is working at/towards by [DATE].",
+      "help": "gain/improve Literacy and Numeracy skills"
+    },
+    {
+      "barrier": "Digital Skills",
+      "action": "As discussed and agreed [NAME] is to attend the digital skills workshop at the office on [DATE] at [TIME].",
+      "help": "gain/improve their digital skills which is needed for many jobs these days"
+    },
+    {
+      "barrier": "Criminal Record",
+      "action": "As discussed and agreed [NAME] is to find out whether their conviction is spent or unspent and to research if their criminal record will impact their chosen career using the available Restart fact sheet by [DATE]",
+      "help": "gain the knowledge to know if they need to declare their convictions to employers or not"
+    },
+    {
+      "barrier": "Digital Hardware and Connectivity",
+      "action": "As discussed and agreed [NAME] is to attend the local Restart Site to access the computers for job search, job applications and print job related materials throughout the duration of the Restart Programme. [NAME] will start this by [DATE].",
+      "help": "improve their digital skills which is needed for many jobs these days"
+    },
+    {
+      "barrier": "Caring Responsibilities",
+      "action": "As discussed and agreed [NAME] is to make a list of local and OFSTED registered childcare providers which are also accredited under the Childcare Approval Scheme and feedback to the Restart Advisor by [DATE]",
+      "help": "ensures they can work without caring for children preventing it"
+    },
+    {
+      "barrier": "Financial struggles / Debt",
+      "action": "As discussed and agreed [NAME] is to make a list and engage with Money Advice organisations and Debt Management organisations to discuss financial situation by [DATE]",
+      "help": "get them of any financial struggles for a brighter future"
+    },
+    {
+      "barrier": "Housing",
+      "action": "As discussed and agreed [NAME] is to research local housing associations, housing shelters, homeless organisations and make a list and contact them to arrange an appointment to discuss housing situation by [DATE].",
+      "help": "get them a roof over there head which will also help with their mental health and ability to get a job and keep it"
+    },
+    {
+      "barrier": "Lack of Photo ID / Right to work",
+      "action": "As discussed and agreed [NAME] to research online and find out the process and requirements to apply for a passport and to complete the online application process and forward the confirmation email to the Restart Advisor by [DATE].",
+      "help": "get required documents for employment"
+    },
+    {
+      "barrier": "Lack of Photo ID / Right to work",
+      "action": "As discussed and agreed [NAME] to research online and find out the process and requirements to apply for a copy of their Birth Certificate and to complete the online application process and forward the confirmation email to the Restart Advisor by [DATE].",
+      "help": "get required documents for employment"
+    },
+    {
+      "barrier": "Lack of Photo ID / Right to work",
+      "action": "As discussed and agreed [NAME] to research online and find out the process and requirements to apply for a provisional Driving Licence and complete the online application process and forward the confirmation email to the Restart Advisor by  [DATE].",
+      "help": "get required documents for employment"
+    },
+    {
+      "barrier": "Transport",
+      "action": "Alex will plan bus routes to the industrial estate and confirm travel costs by 25-Jan-26.",
+      "help": "attend interviews on time"
+    },
+    {
+      "barrier": "Confidence",
+      "action": "Alex will complete one mock interview with their advisor and note 3 improvements by 25-Jan-26.",
+      "help": "feel more confident in interviews"
+    },
+    {
+      "barrier": "Digital",
+      "action": "Alex will upload an updated CV to Indeed and apply for 3 suitable roles by 25-Jan-26.",
+      "help": "increase job applications"
+    }
+  ]
+}
