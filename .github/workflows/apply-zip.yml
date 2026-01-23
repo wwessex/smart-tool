@@ -1,4 +1,4 @@
-name: Apply ZIP package to repo (API, no git)
+name: Apply ZIP package to repo (git push)
 
 on:
   workflow_dispatch:
@@ -16,162 +16,126 @@ permissions:
   contents: write
 
 jobs:
-  apply_zip_api:
+  apply_zip:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download ZIP from repo
-        uses: actions/github-script@v7
-        env:
-          ZIP_PATH: ${{ inputs.zip_path }}
+      - name: Checkout target branch into ./repo
+        uses: actions/checkout@v4
         with:
-          github-token: ${{ secrets.REPO_PAT }}
-          script: |
-            const zipPath = process.env.ZIP_PATH;
-            if (!zipPath) {
-              core.setFailed("ZIP_PATH env is empty. Did workflow_dispatch inputs pass through?");
-              return;
-            }
+          ref: ${{ inputs.target_branch }}
+          fetch-depth: 0
+          path: repo
+          token: ${{ secrets.REPO_PAT }}
+          persist-credentials: true
 
-            const { owner, repo } = context.repo;
+      - name: Confirm git checkout
+        shell: bash
+        working-directory: repo
+        run: |
+          set -euo pipefail
+          pwd
+          ls -la
+          test -d .git
+          git status
 
-            const res = await github.rest.repos.getContent({ owner, repo, path: zipPath });
-            if (!res?.data?.download_url) {
-              core.setFailed(`No download_url for ${zipPath}. Is it committed to the repo?`);
-              return;
-            }
+      - name: Verify ZIP exists
+        shell: bash
+        working-directory: repo
+        run: |
+          set -euo pipefail
+          ZIP="${{ inputs.zip_path }}"
+          if [ ! -f "$ZIP" ]; then
+            echo "ZIP not found: $ZIP"
+            echo "Repo root:"
+            ls -la
+            echo "imports/:"
+            ls -la imports || true
+            exit 1
+          fi
+          echo "Found ZIP: $ZIP"
 
-            core.info(`Downloading: ${res.data.download_url}`);
-            const fs = require('fs');
-            const https = require('https');
-
-            await new Promise((resolve, reject) => {
-              https.get(res.data.download_url, (r) => {
-                if (r.statusCode !== 200) return reject(new Error(`HTTP ${r.statusCode}`));
-                const out = fs.createWriteStream('/tmp/apply.zip');
-                r.pipe(out);
-                out.on('finish', () => out.close(resolve));
-              }).on('error', reject);
-            });
-
-            core.info('Saved /tmp/apply.zip');
-
-      - name: Unzip payload
+      - name: Extract ZIP to temp
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf /tmp/payload
-          mkdir -p /tmp/payload
-          unzip -q /tmp/apply.zip -d /tmp/payload
-          echo "Payload root listing:"
-          ls -la /tmp/payload
+          rm -rf /tmp/applyzip
+          mkdir -p /tmp/applyzip
+          unzip -q "$GITHUB_WORKSPACE/repo/${{ inputs.zip_path }}" -d /tmp/applyzip
+          echo "Top-level extracted:"
+          ls -la /tmp/applyzip
 
-          COUNT_DIR=$(find /tmp/payload -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
-          COUNT_FILES=$(find /tmp/payload -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')
+      - name: Detect payload root
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="/tmp/applyzip"
+          COUNT_DIR="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
+          COUNT_FILES="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')"
           if [ "$COUNT_DIR" -eq 1 ] && [ "$COUNT_FILES" -eq 0 ]; then
-            echo "ROOT_DIR=$(find /tmp/payload -mindepth 1 -maxdepth 1 -type d | head -n 1)" >> "$GITHUB_ENV"
-          else
-            echo "ROOT_DIR=/tmp/payload" >> "$GITHUB_ENV"
+            ROOT="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+          fi
+          echo "root=$ROOT" >> "$GITHUB_OUTPUT"
+          echo "Payload root: $ROOT"
+          ls -la "$ROOT"
+
+      - name: Validate ZIP payload looks like your repo
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT='${{ steps.detect.outputs.root }}'
+          test -f "$ROOT/package.json"
+          test -f "$ROOT/index.html"
+          test -d "$ROOT/src"
+          test -d "$ROOT/public"
+          echo "ZIP payload validation OK."
+
+      - name: Clean repo (keep .git + imports folder)
+        shell: bash
+        working-directory: repo
+        run: |
+          set -euo pipefail
+          test -d .git
+
+          # Keep .git and imports (so your ZIP store stays)
+          find . -mindepth 1 -maxdepth 1 \
+            ! -name ".git" \
+            ! -name "imports" \
+            -exec rm -rf {} +
+
+      - name: Copy extracted files into repo root (overwrite)
+        shell: bash
+        working-directory: repo
+        run: |
+          set -euo pipefail
+          ROOT='${{ steps.detect.outputs.root }}'
+          rsync -a --delete "$ROOT/" "./"
+
+      - name: Validate repo after apply
+        shell: bash
+        working-directory: repo
+        run: |
+          set -euo pipefail
+          test -f package.json
+          test -f index.html
+          test -d src
+          test -d public
+          echo "Repo validation OK after apply."
+
+      - name: Commit and push
+        shell: bash
+        working-directory: repo
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
           fi
 
-          echo "ROOT_DIR env file contents:"
-          cat "$GITHUB_ENV"
-
-      - name: Apply payload via GitHub API commit (no git)
-        uses: actions/github-script@v7
-        env:
-          ROOT_DIR: ${{ env.ROOT_DIR }}
-          TARGET_BRANCH: ${{ inputs.target_branch }}
-          ZIP_PATH: ${{ inputs.zip_path }}
-        with:
-          github-token: ${{ secrets.REPO_PAT }}
-          script: |
-            const fs = require('fs');
-            const path = require('path');
-
-            const { owner, repo } = context.repo;
-            const branch = process.env.TARGET_BRANCH;
-            const rootDir = process.env.ROOT_DIR;
-            const zipPath = process.env.ZIP_PATH;
-
-            if (!branch) { core.setFailed("TARGET_BRANCH missing"); return; }
-            if (!rootDir) { core.setFailed("ROOT_DIR missing"); return; }
-
-            function walk(dir, baseDir, out=[]) {
-              for (const name of fs.readdirSync(dir)) {
-                const full = path.join(dir, name);
-                const rel = path.relative(baseDir, full).replace(/\\/g, '/');
-                const stat = fs.statSync(full);
-                if (stat.isDirectory()) {
-                  if (rel === 'node_modules' || rel.startsWith('node_modules/')) continue;
-                  out = walk(full, baseDir, out);
-                } else {
-                  out.push({ full, rel });
-                }
-              }
-              return out;
-            }
-
-            const ref = await github.rest.git.getRef({ owner, repo, ref: `heads/${branch}` });
-            const baseCommitSha = ref.data.object.sha;
-            const baseCommit = await github.rest.git.getCommit({ owner, repo, commit_sha: baseCommitSha });
-            const baseTreeSha = baseCommit.data.tree.sha;
-
-            const existing = await github.rest.git.getTree({ owner, repo, tree_sha: baseTreeSha, recursive: "1" });
-            const existingPaths = new Set(existing.data.tree.filter(t => t.type === 'blob').map(t => t.path));
-
-            const files = walk(rootDir, rootDir);
-
-            // Basic sanity: this looks like your Vite+React repo
-            if (!files.some(f => f.rel === 'package.json') || !files.some(f => f.rel === 'src/index.css')) {
-              core.setFailed("Payload doesn't look like the app repo root. Wrong ZIP contents?");
-              return;
-            }
-
-            const newPaths = new Set(files.map(f => f.rel));
-
-            // Protect your imports folder and the ZIP itself
-            function isProtected(p) {
-              return p === 'imports' || p.startsWith('imports/') || p === zipPath;
-            }
-
-            const tree = [];
-
-            // Create blobs for payload files
-            for (const f of files) {
-              const content = fs.readFileSync(f.full);
-              const blob = await github.rest.git.createBlob({
-                owner, repo,
-                content: content.toString('base64'),
-                encoding: 'base64'
-              });
-              tree.push({ path: f.rel, mode: '100644', type: 'blob', sha: blob.data.sha });
-            }
-
-            // Deletions: remove old files not present in payload (excluding imports/**)
-            for (const p of existingPaths) {
-              if (isProtected(p)) continue;
-              if (!newPaths.has(p)) tree.push({ path: p, mode: '100644', type: 'blob', sha: null });
-            }
-
-            const newTree = await github.rest.git.createTree({
-              owner, repo,
-              base_tree: baseTreeSha,
-              tree
-            });
-
-            const commit = await github.rest.git.createCommit({
-              owner, repo,
-              message: `Apply ZIP payload (${zipPath || 'zip'})`,
-              tree: newTree.data.sha,
-              parents: [baseCommitSha]
-            });
-
-            await github.rest.git.updateRef({
-              owner, repo,
-              ref: `heads/${branch}`,
-              sha: commit.data.sha,
-              force: false
-            });
-
-            core.info(`Committed ${commit.data.sha} to ${branch}`);
+          git commit -m "Apply ZIP package (${{ inputs.zip_path }})"
+          git push origin "${{ inputs.target_branch }}"
