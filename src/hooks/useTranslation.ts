@@ -144,7 +144,7 @@ export function useTranslation(getLLM?: () => LocalLLMForTranslation | undefined
       });
       return null;
     }
-  }, [hasConsent, llm]);
+  }, [hasConsent, getLLM]);
 
   const clearTranslation = useCallback(() => {
     setState({
