@@ -410,3 +410,10 @@ All colors MUST be HSL.
   }
 }
 
+
+
+/* Ensure emoji flags render on Windows even when UI uses Open Sans */
+.flag-emoji {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  line-height: 1;
+}
