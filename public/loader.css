@@ -1,0 +1,28 @@
+/* Static loader CSS (kept in /public so Vite doesn't run PostCSS on it) */
+:root{
+  --loader-bg: #f7f7f5;
+  --loader-fg: rgba(0,0,0,0.65);
+  --loader-accent: #FBBA00;
+}
+.loading-container{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  min-height:100vh;
+  padding:2rem;
+  text-align:center;
+  background:var(--loader-bg);
+  color:var(--loader-fg);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+.loading-spinner{
+  width:2rem;
+  height:2rem;
+  border:3px solid rgba(251,186,0,0.3);
+  border-top-color: var(--loader-accent);
+  border-radius:50%;
+  animation: spin 1s linear infinite;
+}
+.loading-text{ margin-top:1rem; font-size:0.875rem; opacity:0.9; }
+@keyframes spin { to { transform: rotate(360deg); } }
