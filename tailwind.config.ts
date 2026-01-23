@@ -66,6 +66,21 @@ export default {
   				border: 'hsl(var(--sidebar-border))',
   				ring: 'hsl(var(--sidebar-ring))'
   			}
+				// Ingeus brand palette (RGB values)
+				ingeus: {
+					warmGrey: '#9FA1A2',
+					lightGrey: '#6B635B',
+					gold: '#FBBA00',
+					orange: '#F58233',
+					dustyPink: '#D8386B',
+					magenta: '#EC008C',
+					lime: '#8DC63F',
+					purple: '#92278F',
+					green: '#00AF74',
+					lightBlue: '#27AAE1',
+					darkBlue: '#2B3990',
+				},
+
   		},
   		borderRadius: {
   			lg: 'var(--radius)',
@@ -138,7 +153,7 @@ export default {
   		},
   		fontFamily: {
   			sans: [
-  				'Source Sans Pro',
+  				'Open Sans',
   				'ui-sans-serif',
   				'system-ui',
   				'-apple-system',

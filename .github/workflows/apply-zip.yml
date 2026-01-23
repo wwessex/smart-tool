@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       zip_path:
-        description: "Path to ZIP file in the repo (e.g. imports/smart-tool-admin-playbook.zip)"
+        description: "Path to ZIP file committed in this repo (e.g. imports/smart-tool-admin-playbook.zip)"
         required: true
         default: "imports/smart-tool-admin-playbook.zip"
       target_branch:
@@ -12,9 +12,10 @@ on:
         required: true
         default: "main"
       clean_repo:
-        description: "Delete existing files before applying ZIP (keeps .git + imports)"
+        description: "Replace repo contents with ZIP payload (recommended)"
         required: true
-        default: "true"
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -22,53 +23,45 @@ permissions:
 jobs:
   apply_zip:
     runs-on: ubuntu-latest
-    env:
-      PAT: ${{ secrets.REPO_PAT }}
 
     steps:
-      - name: Checkout target branch into ./repo
+      - name: Checkout target branch
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.target_branch }}
           fetch-depth: 0
-          path: repo
           persist-credentials: false
 
-      - name: Sanity check checkout
+      - name: Confirm git checkout
         shell: bash
         run: |
           set -euo pipefail
-          ls -la
-          test -d repo/.git
-          git -C repo rev-parse --short HEAD
+          echo "PWD: $(pwd)"
+          test -d .git
+          git status --porcelain || true
 
-      - name: Resolve ZIP path
-        id: zippath
+      - name: Verify ZIP exists
         shell: bash
         run: |
           set -euo pipefail
-          Z="${{ inputs.zip_path }}"
-          if [ ! -f "repo/$Z" ] && [ -f "repo/imports/$Z" ]; then
-            Z="imports/$Z"
-          fi
-          if [ ! -f "repo/$Z" ]; then
-            echo "ZIP not found: repo/$Z"
-            echo "repo root:"
-            ls -la repo
-            echo "repo/imports:"
-            ls -la repo/imports || true
+          if [ ! -f "${{ inputs.zip_path }}" ]; then
+            echo "ZIP not found: ${{ inputs.zip_path }}"
+            echo "Repo root contents:"
+            ls -la
+            echo "imports contents (if present):"
+            ls -la imports || true
             exit 1
           fi
-          echo "zip=$Z" >> "$GITHUB_OUTPUT"
-          echo "Using ZIP: $Z"
 
       - name: Extract ZIP to temp
+        id: extract
         shell: bash
         run: |
           set -euo pipefail
           rm -rf /tmp/applyzip
           mkdir -p /tmp/applyzip
-          unzip -q "$GITHUB_WORKSPACE/repo/${{ steps.zippath.outputs.zip }}" -d /tmp/applyzip
+          unzip -q "${{ inputs.zip_path }}" -d /tmp/applyzip
+          echo "Top-level extracted:"
           ls -la /tmp/applyzip
 
       - name: Detect payload root
@@ -76,70 +69,75 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ROOT="/tmp/applyzip"
-          DCOUNT="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
-          FCOUNT="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')"
-          if [ "$DCOUNT" -eq 1 ] && [ "$FCOUNT" -eq 0 ]; then
-            ROOT="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+          ROOT_DIR="/tmp/applyzip"
+          # If ZIP contains a single top-level folder, treat that as the real root.
+          DIR_COUNT="$(find "$ROOT_DIR" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
+          FILE_COUNT="$(find "$ROOT_DIR" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')"
+          if [ "$DIR_COUNT" -eq 1 ] && [ "$FILE_COUNT" -eq 0 ]; then
+            ROOT_DIR="$(find "$ROOT_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
           fi
-          echo "root=$ROOT" >> "$GITHUB_OUTPUT"
-          echo "Payload root: $ROOT"
-          ls -la "$ROOT"
+          echo "root_dir=$ROOT_DIR" >> "$GITHUB_OUTPUT"
+          echo "Payload root: $ROOT_DIR"
+          ls -la "$ROOT_DIR"
 
-      - name: Validate payload
+      - name: Validate ZIP contains expected files
         shell: bash
         run: |
           set -euo pipefail
-          ROOT='${{ steps.detect.outputs.root }}'
-          test -f "$ROOT/package.json"
-          test -f "$ROOT/index.html"
-          test -d "$ROOT/src"
-          test -d "$ROOT/public"
+          ROOT_DIR="${{ steps.detect.outputs.root_dir }}"
+          test -f "$ROOT_DIR/package.json"
+          test -f "$ROOT_DIR/index.html"
+          test -d "$ROOT_DIR/src"
+          test -d "$ROOT_DIR/public"
+          echo "ZIP payload validation OK."
 
-      - name: Optional clean repo (keep .git + imports)
-        if: ${{ inputs.clean_repo == 'true' }}
+      - name: Apply ZIP payload into repo
         shell: bash
         run: |
           set -euo pipefail
-          test -d repo/.git
-          find repo -mindepth 1 -maxdepth 1 \
-            ! -name ".git" \
-            ! -name "imports" \
-            -exec rm -rf {} +
+          ROOT_DIR="${{ steps.detect.outputs.root_dir }}"
 
-      - name: Copy extracted files into repo root (overwrite, keep .git)
+          if [ "${{ inputs.clean_repo }}" = "true" ]; then
+            # Make the working tree match the ZIP payload, but never touch .git or imports (where the ZIP lives).
+            rsync -a --delete               --exclude ".git/"               --exclude "imports/"               "$ROOT_DIR/" "./"
+          else
+            # Overlay only (no deletions)
+            rsync -a               --exclude ".git/"               "$ROOT_DIR/" "./"
+          fi
+
+      - name: Validate repo after apply
         shell: bash
         run: |
           set -euo pipefail
-          ROOT='${{ steps.detect.outputs.root }}'
-          test -d repo/.git
+          test -f package.json
+          test -f index.html
+          test -d src
+          test -d public
+          echo "Repo validation OK after apply."
 
-          # IMPORTANT: keep .git and imports even with --delete
-          rsync -a --delete \
-            --exclude '.git/' \
-            --exclude 'imports/' \
-            "$ROOT/" "repo/"
-
-          test -d repo/.git
-
-      - name: Commit and push via PAT
+      - name: Commit and push
         shell: bash
+        env:
+          REPO_PAT: ${{ secrets.REPO_PAT }}
         run: |
           set -euo pipefail
-          test -n "${PAT:-}" || (echo "Missing REPO_PAT secret" && exit 1)
-          test -d repo/.git
 
-          OWNER="${GITHUB_REPOSITORY_OWNER}"
-          REPO="${GITHUB_REPOSITORY#*/}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git -C repo config user.name "github-actions[bot]"
-          git -C repo config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git -C repo remote set-url origin "https://${PAT}@github.com/${OWNER}/${REPO}.git"
-
-          git -C repo add -A
-          if git -C repo diff --cached --quiet; then
+          git add -A
+          if git diff --cached --quiet; then
             echo "No changes to commit."
             exit 0
           fi
-          git -C repo commit -m "Apply ZIP package"
-          git -C repo push origin "${{ inputs.target_branch }}"
+
+          git commit -m "Apply ZIP package"
+
+          # Use PAT if provided (fine-grained). Otherwise fall back to GITHUB_TOKEN.
+          if [ -n "${REPO_PAT:-}" ]; then
+            git remote set-url origin "https://x-access-token:${REPO_PAT}@github.com/${GITHUB_REPOSITORY}.git"
+          else
+            git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          fi
+
+          git push origin "HEAD:${{ inputs.target_branch }}"

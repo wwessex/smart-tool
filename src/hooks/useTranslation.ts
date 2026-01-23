@@ -46,37 +46,46 @@ export const SUPPORTED_LANGUAGES: Record<string, { name: string; nativeName: str
 
 
 function splitIntoChunks(text: string, maxChars: number): string[] {
-  const parts = text.split(/\n\n+/);
+  // Preserve formatting: split by lines, not paragraphs, so numbered lists / bullets
+  // and blank lines survive chunking exactly (important in Agent mode).
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
   const chunks: string[] = [];
-  let buf = "";
+  let buf: string[] = [];
+  let len = 0;
 
   const flush = () => {
-    if (buf.trim()) chunks.push(buf.trimEnd());
-    buf = "";
+    if (!buf.length) return;
+    chunks.push(buf.join("\n"));
+    buf = [];
+    len = 0;
   };
 
-  for (const p of parts) {
-    const piece = p.trimEnd();
-    if (!piece) continue;
+  for (const line of lines) {
+    // +1 for the newline that will be reinserted on join (except first line)
+    const addLen = (buf.length ? 1 : 0) + line.length;
 
-    // If a single paragraph is huge, hard-split it.
-    if (piece.length > maxChars) {
+    if (len + addLen > maxChars && buf.length) {
       flush();
-      for (let i = 0; i < piece.length; i += maxChars) {
-        chunks.push(piece.slice(i, i + maxChars));
-      }
-      continue;
     }
 
-    if ((buf + (buf ? "\n\n" : "") + piece).length > maxChars) {
-      flush();
-      buf = piece;
-    } else {
-      buf = buf ? (buf + "\n\n" + piece) : piece;
+    buf.push(line);
+    len += addLen;
+
+    // If a single line is longer than maxChars, hard-split it.
+    if (len > maxChars && buf.length === 1) {
+      const long = buf[0];
+      buf = [];
+      len = 0;
+      for (let i = 0; i < long.length; i += maxChars) {
+        chunks.push(long.slice(i, i + maxChars));
+      }
     }
   }
+
   flush();
-  return chunks.length ? chunks : [text];
+
+  // Trim only leading/trailing whitespace per chunk, but keep internal newlines
+  return chunks.map((c) => c.replace(/^\s+/, "").replace(/\s+$/, ""));
 }
 
 function looksTruncated(input: string, output: string) {
@@ -150,45 +159,44 @@ export function useTranslation(getLLM?: () => LocalLLMForTranslation | undefined
       const languageName = lang?.name || targetLanguage;
       const nativeName = lang?.nativeName || '';
 
-      const systemPrompt = `You are a professional translator for UK employment services.
-Rules:
-- Output ONLY the translated text (no quotes, no explanations).
-- Preserve names, dates, times, numbers, and formatting.
-- Preserve line breaks, bullet points, and headings.
-- Translate every line; never omit anything.
-- Do NOT add extra sentences.
-- If the input is long, translate it fully; never truncate.`;
+      const systemPrompt =
+        'You are a strict translation engine for UK employment services.\n' +
+        'Rules (must follow):\n' +
+        '- Translate the ENTIRE input into the target language.\n' +
+        '- Output ONLY the translated text (no quotes, no explanations).\n' +
+        '- Preserve formatting exactly: keep line breaks, bullets, numbering, and punctuation.\n' +
+        '- Keep names, brands, and URLs unchanged.\n' +
+        '- Do NOT omit, summarise, or shorten anything.';
 
       const userPromptBase =
         `Translate the following SMART action into ${languageName}${nativeName ? ` (${nativeName})` : ''}.\n` +
-        `Rules: translate EVERYTHING. Do not omit, shorten, or summarise. Preserve line breaks, bullet points, and headings.\n\n`;
+        `Rules: translate EVERYTHING. Do not omit or summarise. Preserve line breaks EXACTLY (same line order; keep blank lines).\n\n`;
 
-      const maxChars = 550;
-      const chunks = splitIntoChunks(action.trim(), maxChars);
+      const chunks = splitIntoChunks(action.trim(), 520);
       const translatedChunks: string[] = [];
 
       for (const chunk of chunks) {
         const userPrompt =
           userPromptBase +
-          `SMART action:\n${chunk.trim()}`;
+          `TEXT:\n${chunk}`;
 
         // First attempt
-        let out = (await llm.generate(userPrompt, systemPrompt, 'translate')).trim();
+        let out = (await llm.generate(userPrompt, systemPrompt, 'default')).trim();
 
         // If it looks truncated, do one stronger retry for this chunk
         if (looksTruncated(chunk, out)) {
           const retryPrompt =
             userPromptBase +
             `IMPORTANT: You MUST translate the FULL text below. Do not cut off early.\n\n` +
-            `SMART action:\n${chunk.trim()}`;
+            `TEXT:\n${chunk}`;
 
-          out = (await llm.generate(retryPrompt, systemPrompt, 'translate')).trim();
+          out = (await llm.generate(retryPrompt, systemPrompt, 'default')).trim();
         }
 
         translatedChunks.push(out);
       }
 
-      const translated = translatedChunks.join("\n\n");
+      const translated = translatedChunks.join("\n");
       if (!translated) throw new Error('Translation failed (empty result)');
 
       const result: TranslationResult = {

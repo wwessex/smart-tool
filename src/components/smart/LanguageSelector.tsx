@@ -17,11 +17,22 @@ interface LanguageSelectorProps {
   className?: string;
 }
 
-function labelFor(code: string): string {
+function labelFor(code: string): JSX.Element {
   const lang = SUPPORTED_LANGUAGES[code] || SUPPORTED_LANGUAGES['none'];
-  if (code === 'none') return `${lang.flag} ${lang.name}`;
-  return `${lang.flag} ${lang.name} (${lang.nativeName})`;
+  const showNative = code !== 'none' && !!lang.nativeName;
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="emoji-flag" aria-hidden="true">
+        {lang.flag}
+      </span>
+      <span>
+        {lang.name}
+        {showNative ? ` (${lang.nativeName})` : ''}
+      </span>
+    </span>
+  );
 }
+
 
 export const LanguageSelector = memo(function LanguageSelector({
   value,
