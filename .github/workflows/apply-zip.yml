@@ -122,6 +122,19 @@ jobs:
           echo "root=$ROOT" >> "$GITHUB_OUTPUT"
           test -f "$ROOT/package.json"
           test -d "$ROOT/src"
+                - name: Refuse wrong app ZIP (CineSafari)
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT='${{ steps.detect.outputs.root }}'
+          if grep -qi 'CineSafari' "$ROOT/index.html"; then
+            echo "::error::This ZIP looks like CineSafari. Refusing to apply."
+            exit 1
+          fi
+          if ! grep -qi 'SMART Action Tool' "$ROOT/index.html"; then
+            echo "::warning::ZIP does not look like SMART Support Tool. Double-check."
+          fi
+
 
       - name: Optionally clean repo (keep .git + imports)
         if: ${{ inputs.clean_repo == 'true' }}
