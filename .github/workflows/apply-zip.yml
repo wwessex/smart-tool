@@ -68,11 +68,13 @@ jobs:
           COUNT_DIR=$(find /tmp/payload -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
           COUNT_FILES=$(find /tmp/payload -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')
           if [ "$COUNT_DIR" -eq 1 ] && [ "$COUNT_FILES" -eq 0 ]; then
-            echo "ROOT_DIR=$(find /tmp/payload -mindepth 1 -maxdepth 1 -type d | head -n 1)" >> $GITHUB_ENV
+            echo "ROOT_DIR=$(find /tmp/payload -mindepth 1 -maxdepth 1 -type d | head -n 1)" >> "$GITHUB_ENV"
           else
-            echo "ROOT_DIR=/tmp/payload" >> $GITHUB_ENV
+            echo "ROOT_DIR=/tmp/payload" >> "$GITHUB_ENV"
           fi
-          echo "ROOT_DIR set to: $ROOT_DIR"
+
+          echo "ROOT_DIR env file contents:"
+          cat "$GITHUB_ENV"
 
       - name: Apply payload via GitHub API commit (no git)
         uses: actions/github-script@v7
@@ -129,7 +131,7 @@ jobs:
 
             const newPaths = new Set(files.map(f => f.rel));
 
-            // Protect your imports folder and the ZIP itself
+            // Protect imports folder and the ZIP itself
             function isProtected(p) {
               return p === 'imports' || p.startsWith('imports/') || p === zipPath;
             }
