@@ -265,7 +265,7 @@ export function aiDraftNow(
 
 export function aiDraftFuture(task: string, forename: string): string {
   const s = bestTaskSuggestion(task);
-  return s.outcome.replace(/\[Name\]/g, forename);
+  return polishGrammarLite(s.outcome.replace(/\[Name\]/g, forename));
 }
 
 export function formatTaskOutcome(forename: string, rawOutcome: string): string {
@@ -300,13 +300,52 @@ export function formatTaskOutcome(forename: string, rawOutcome: string): string 
   return outcome.charAt(0).toUpperCase() + outcome.slice(1);
 }
 
+
+// Light grammar cleanup for common small-model / template artefacts.
+function polishGrammarLite(s: string): string {
+  let t = (s || '').toString();
+  // "a new skills" -> "new skills" (and similar article+plural issues)
+  t = t.replace(/\b(?:a|an)\s+new\s+skills\b/gi, 'new skills');
+  t = t.replace(/\bgain\s+new\s+skills\b/gi, 'gain new skills');
+  t = t.replace(/\b(?:a|an)\s+skills\b/gi, 'skills');
+  // Clean double spaces
+  t = t.replace(/\s{2,}/g, ' ').trim();
+  return t;
+}
+
 // Helper to strip trailing punctuation
 function stripTrailingPunctuation(s: string): string {
   return (s || "").trim().replace(/[.!?]+$/, "");
 }
 
+// Replace placeholders inside free-text fields (templates/AI may include these).
+function replacePlaceholdersForNow(s: string, params: { forename: string; date: string; time?: string }): string {
+  let t = (s || '').toString();
+  // NAME
+  t = t.replace(/\[NAME\]/gi, params.forename);
+  // DATE (already formatted for display)
+  t = t.replace(/\[DATE\]/gi, params.date);
+
+  const time = (params.time || '').trim();
+  if (time) {
+    t = t.replace(/\[TIME\]/gi, time);
+  } else {
+    // Remove TIME placeholders and common dangling 'at' phrasing.
+    t = t.replace(/\s*(?:at\s*)?\[TIME\]\s*/gi, ' ');
+    // Also handle cases where templates wrote 'at TIME' without brackets
+    t = t.replace(/\s+at\s+(?:tbc|TBC)\b/g, ' ');
+  }
+
+  // Clean double spaces
+  t = t.replace(/\s{2,}/g, ' ').trim();
+  // If we removed time, also clean dangling 'at' at end
+  t = t.replace(/\bat\s*$/i, '').trim();
+  return t;
+}
+
 export function buildNowOutput(
   date: string,
+  time: string | undefined,
   forename: string,
   barrier: string,
   action: string,
@@ -315,7 +354,14 @@ export function buildNowOutput(
   timescale: string
 ): string {
   const formattedDate = formatDDMMMYY(date);
-  let formattedAction = stripTrailingPunctuation(action.trim().replace(/\s+/g, " "));
+  const cleanTime = (time || '').trim();
+
+  // Allow templates/AI to use [NAME] / [DATE] / [TIME] inside the free-text fields
+  const replacedBarrier = replacePlaceholdersForNow(barrier, { forename, date: formattedDate, time: cleanTime });
+  let formattedAction = replacePlaceholdersForNow(action, { forename, date: formattedDate, time: cleanTime });
+  const replacedHelp = replacePlaceholdersForNow(help, { forename, date: formattedDate, time: cleanTime });
+
+  formattedAction = stripTrailingPunctuation(formattedAction.trim().replace(/\s+/g, " "));
   
   // Escape special regex characters in forename
   const escapedName = forename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -358,12 +404,12 @@ export function buildNowOutput(
   }
   
   // Strip trailing punctuation from help text too
-  const cleanHelp = stripTrailingPunctuation(help);
-  const cleanBarrier = stripTrailingPunctuation(barrier);
+  const cleanHelp = stripTrailingPunctuation(polishGrammarLite(replacedHelp));
+  const cleanBarrier = stripTrailingPunctuation(replacedBarrier);
   const cleanTimescale = stripTrailingPunctuation(timescale);
 
   return [
-    `${BUILDER_NOW.p1} ${formattedDate}, ${forename} and I ${BUILDER_NOW.p2} ${cleanBarrier}.`,
+    `${BUILDER_NOW.p1} ${formattedDate}${cleanTime ? ` at ${cleanTime}` : ''}, ${forename} and I ${BUILDER_NOW.p2} ${cleanBarrier}.`,
     `${BUILDER_NOW.p3} ${forename} will ${formattedAction}.`,
     `${BUILDER_NOW.p5} ${cleanHelp}.`,
     `${BUILDER_NOW.p6}`,
@@ -400,6 +446,7 @@ function getTaskVerb(task: string): string {
 
 export function buildFutureOutput(
   date: string,
+  time: string | undefined,
   forename: string,
   task: string,
   responsible: string,
@@ -407,31 +454,38 @@ export function buildFutureOutput(
   timescale: string
 ): string {
   const formattedDate = formatDDMMMYY(date);
-  let formattedTask = stripTrailingPunctuation(task.trim().replace(/\s+/g, " "));
-  const formattedOutcome = stripTrailingPunctuation(formatTaskOutcome(forename, rawOutcome));
+  const cleanTime = (time || '').trim();
+
+  // Allow templates/AI to use [NAME] / [DATE] / [TIME] inside free-text fields
+  let formattedTask = replacePlaceholdersForNow(task, { forename, date: formattedDate, time: cleanTime });
+  formattedTask = stripTrailingPunctuation(formattedTask.trim().replace(/\s+/g, " "));
+
+  const outcomeWithPlaceholders = replacePlaceholdersForNow(rawOutcome, { forename, date: formattedDate, time: cleanTime });
+  const formattedOutcome = stripTrailingPunctuation(polishGrammarLite(formatTaskOutcome(forename, outcomeWithPlaceholders)));
+
   const cleanTimescale = stripTrailingPunctuation(timescale);
-  
+
   // Get appropriate verb and format task
   const verb = getTaskVerb(formattedTask);
-  
+
   // If no verb prefix needed and task starts with verb, lowercase the first letter
   if (!verb && /^[A-Z]/.test(formattedTask)) {
     formattedTask = formattedTask.charAt(0).toLowerCase() + formattedTask.slice(1);
   }
 
-  // Structure: "As discussed and agreed, on [date], [name] will [verb] [task]. [Outcome]. [Achievability statement]. Reviewed in [timescale]."
+  // Structure: "As discussed and agreed, on [date] (at [time]), [name] will [verb] [task]. [Outcome]. [Achievability statement]. Reviewed in [timescale]."
   // Note: responsible is stored in metadata but not included in output text (matches barrier tab behavior)
   const parts = [
-    `${BUILDER_TASK.p1} ${formattedDate}, ${forename} ${BUILDER_TASK.p2} ${verb}${formattedTask}.`
+    `${BUILDER_TASK.p1} ${formattedDate}${cleanTime ? ` at ${cleanTime}` : ''}, ${forename} ${BUILDER_TASK.p2} ${verb}${formattedTask}.`
   ];
-  
+
   if (formattedOutcome) {
     parts.push(`${formattedOutcome}.`);
   }
-  
+
   // Add achievability statement to ensure SMART Achievable criterion is met
   parts.push(`${forename} has confirmed this action is both realistic and achievable.`);
-  
+
   parts.push(`${BUILDER_TASK.p3} ${cleanTimescale}.`);
 
   return parts.join(" ");

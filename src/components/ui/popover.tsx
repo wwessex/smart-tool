@@ -7,11 +7,6 @@ const Popover = PopoverPrimitive.Root;
 
 const PopoverTrigger = PopoverPrimitive.Trigger;
 
-// Anchor lets us position content without turning the child into a "trigger".
-// This is important for inputs: Radix Trigger uses pointerdown preventDefault,
-// which can stop text inputs from receiving focus/typing on some browsers.
-const PopoverAnchor = PopoverPrimitive.Anchor;
-
 const PopoverContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
@@ -31,4 +26,4 @@ const PopoverContent = React.forwardRef<
 ));
 PopoverContent.displayName = PopoverPrimitive.Content.displayName;
 
-export { Popover, PopoverTrigger, PopoverAnchor, PopoverContent };
+export { Popover, PopoverTrigger, PopoverContent };

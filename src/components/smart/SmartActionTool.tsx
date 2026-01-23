@@ -28,6 +28,7 @@ import { AIImproveDialog } from './AIImproveDialog';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { OnboardingTutorial, useOnboarding } from './OnboardingTutorial';
 import { useLocalSync } from '@/hooks/useLocalSync';
+import { copyToClipboard } from '@/lib/clipboard';
 
 // Lazy load HistoryInsights as it uses recharts which is a heavy dependency
 const HistoryInsights = lazy(() => import('./HistoryInsights').then(module => ({ default: module.HistoryInsights })));
@@ -55,7 +56,20 @@ import { SMART_TOOL_SHORTCUTS } from '@/lib/smart-tool-shortcuts';
 import logoIcon from '@/assets/logo-icon.png';
 import { useTransformersLLM } from '@/hooks/useTransformersLLM';
 import { usePromptPack } from '@/hooks/usePromptPack';
-import { buildSystemPrompt, buildDraftActionPrompt, buildDraftHelpPrompt, buildDraftOutcomePrompt, sanitizeActionPhrase, sanitizeOneSentence, sanitizeOnePhrase, DEFAULT_PROMPT_PACK } from '@/lib/prompt-pack';
+import { buildSystemPrompt, buildDraftActionPrompt, buildDraftHelpPrompt, buildDraftHelpJsonPrompt, buildDraftOutcomePrompt, sanitizeActionPhrase, sanitizeOneSentence, sanitizeOnePhrase, DEFAULT_PROMPT_PACK } from '@/lib/prompt-pack';
+import { benefitLooksLikeAction, safeJsonParse, stripLeadingSubject, validateDraftHelpJson, type DraftHelpJson } from '@/lib/ai-structured';
+import { GUIDANCE } from '@/lib/smart-data';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
+import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3, Shield, FileDown, Clock, Languages, Loader2, RefreshCw, Cloud, CloudOff, Check, ExternalLink, FolderSync, FolderOpen, FileArchive } from 'lucide-react';
+import { useTheme } from 'next-themes';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
+import { ComboboxInput } from './ComboboxInput';
 
 /**
  * Safely remove from localStorage, catching any errors.
@@ -69,19 +83,6 @@ function safeRemoveItem(key: string): boolean {
     return false;
   }
 }
-
-import { GUIDANCE } from '@/lib/smart-data';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
-import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3, Shield, FileDown, Clock, Languages, Loader2, RefreshCw, Cloud, CloudOff, Check, ExternalLink, FolderSync, FolderOpen, FileArchive } from 'lucide-react';
-import { useTheme } from 'next-themes';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { cn } from '@/lib/utils';
-import { ComboboxInput } from './ComboboxInput';
 
 // Animation variants
 const fadeInUp = {
@@ -125,6 +126,7 @@ interface NowForm {
 
 interface FutureForm {
   date: string;
+  time: string;
   forename: string;
   task: string;
   responsible: string;
@@ -194,6 +196,7 @@ export function SmartActionTool() {
   });
   const [futureForm, setFutureForm] = useState<FutureForm>({
     date: today,
+    time: '',
     forename: '',
     task: '',
     responsible: '',
@@ -318,6 +321,7 @@ export function SmartActionTool() {
     if (mode === 'now') {
       const text = buildNowOutput(
         nowForm.date,
+        nowForm.time,
         nowForm.forename.trim(),
         nowForm.barrier.trim(),
         nowForm.action.trim(),
@@ -329,6 +333,7 @@ export function SmartActionTool() {
     } else {
       const text = buildFutureOutput(
         futureForm.date,
+        futureForm.time,
         futureForm.forename.trim(),
         futureForm.task.trim(),
         futureForm.responsible,
@@ -368,7 +373,8 @@ export function SmartActionTool() {
         const langInfo = SUPPORTED_LANGUAGES[storage.participantLanguage];
         textToCopy = `=== ENGLISH ===\n${output}\n\n=== ${langInfo?.nativeName?.toUpperCase() || storage.participantLanguage.toUpperCase()} ===\n${translatedOutput}`;
       }
-      await navigator.clipboard.writeText(textToCopy);
+      const ok = await copyToClipboard(textToCopy);
+      if (!ok) throw new Error('copy-failed');
       setCopied(true);
       setTimeout(() => setCopied(false), 400);
       toast({ title: 'Copied!', description: translatedOutput ? 'Both versions copied to clipboard.' : 'Action copied to clipboard.' });
@@ -401,9 +407,9 @@ export function SmartActionTool() {
 
   const handleClear = useCallback(() => {
     if (mode === 'now') {
-      setNowForm({ date: today, forename: '', barrier: '', action: '', responsible: '', help: '', timescale: '' });
+      setNowForm({ date: today, time: '', forename: '', barrier: '', action: '', responsible: '', help: '', timescale: '' });
     } else {
-      setFutureForm({ date: today, forename: '', task: '', responsible: '', outcome: '', timescale: '' });
+      setFutureForm({ date: today, time: '', forename: '', task: '', responsible: '', outcome: '', timescale: '' });
     }
     setOutput('');
     setOutputSource('form');
@@ -464,7 +470,7 @@ export function SmartActionTool() {
     
     const meta = mode === 'now' 
       ? { forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, date: nowForm.date }
-      : { forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, date: futureForm.date };
+      : { forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, date: futureForm.date, time: futureForm.time };
     
     return checkSmart(checkableOutput, meta);
   }, [checkableOutput, mode, nowForm.forename, nowForm.barrier, nowForm.timescale, nowForm.date, futureForm.forename, futureForm.task, futureForm.timescale, futureForm.date]);
@@ -490,7 +496,7 @@ export function SmartActionTool() {
 
     const baseMeta = mode === 'now' 
       ? { date: nowForm.date, time: nowForm.time, forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
-      : { date: futureForm.date, forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, responsible: futureForm.responsible, reason: futureForm.outcome };
+      : { date: futureForm.date, time: futureForm.time, forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, responsible: futureForm.responsible, reason: futureForm.outcome };
 
     // Include translation in history if available
     const item: HistoryItem = {
@@ -631,14 +637,62 @@ export function SmartActionTool() {
           responsible: nowForm.responsible || 'Advisor',
         });
         const action = sanitizeActionPhrase(await llm.generate(actionPrompt, llmSystemPrompt, 'action'), nowForm.forename);
-        
-        // Generate help - use correct subject based on responsible person
+
+        // Generate help (benefit) as STRUCTURED JSON + validate + retry once (reduces repetition / grammar drift)
         const helpSubject = getHelpSubject(nowForm.forename, nowForm.responsible);
-        const helpPrompt = buildDraftHelpPrompt(effectivePromptPack, {
-          action,
-          subject: helpSubject,
-        });
-        const help = sanitizeOnePhrase(await llm.generate(helpPrompt, llmSystemPrompt, 'help'));
+        const approvedExamples = getSuggestionList(nowForm.barrier)
+          .map((s) => s.help)
+          .filter(Boolean)
+          .slice(0, 5);
+
+        const genHelpOnce = async (extraRules?: string): Promise<DraftHelpJson | null> => {
+          const basePrompt = buildDraftHelpJsonPrompt(effectivePromptPack, {
+            barrier: nowForm.barrier,
+            timescale,
+            action,
+            subject: helpSubject,
+            approvedExamples,
+          });
+          const prompt = extraRules ? `${basePrompt}\n\n${extraRules}` : basePrompt;
+          const raw = await llm.generate(prompt, llmSystemPrompt, 'help');
+          const parsed = safeJsonParse<DraftHelpJson>(raw);
+          if (!parsed.value) return null;
+          return parsed.value;
+        };
+
+        const pickHelpPhrase = (d: DraftHelpJson | null): string => {
+          const phrase = d?.benefitstatement || '';
+          // Defensive cleanup: remove any leaked subject/name/will and common wrappers.
+          return stripLeadingSubject(sanitizeOnePhrase(phrase), nowForm.forename);
+        };
+
+        let draft = await genHelpOnce();
+        let errors = validateDraftHelpJson(draft);
+        let help = pickHelpPhrase(draft);
+
+        const needsRetry =
+          errors.length > 0 ||
+          !help ||
+          benefitLooksLikeAction(action, help) ||
+          (draft?.barriermatch === 'low');
+
+        if (needsRetry) {
+          draft = await genHelpOnce(
+            "Your previous output was invalid or repeated the action. Output ONLY JSON. Ensure benefitstatement is a short phrase (no name, no 'will') describing the outcome/impact for work, and it MUST NOT reuse action wording."
+          );
+          errors = validateDraftHelpJson(draft);
+          help = pickHelpPhrase(draft);
+        }
+
+        // Final safety fallbacks: if still bad, use legacy prompt or templates.
+        if (!help || errors.length > 0 || benefitLooksLikeAction(action, help)) {
+          try {
+            const legacyHelpPrompt = buildDraftHelpPrompt(effectivePromptPack, { action, subject: helpSubject });
+            help = stripLeadingSubject(sanitizeOnePhrase(await llm.generate(legacyHelpPrompt, llmSystemPrompt, 'help')), nowForm.forename);
+          } catch {
+            help = approvedExamples[0] || 'gain confidence and understanding for work';
+          }
+        }
         
         setNowForm(prev => ({ ...prev, action, help }));
         toast({ title: 'AI Draft ready', description: 'Generated with local AI. Edit as needed.' });
@@ -687,6 +741,7 @@ export function SmartActionTool() {
     } else {
       setFutureForm({
         date: item.meta.date || today,
+        time: (item.meta as any).time || '',
         forename: item.meta.forename || '',
         task: item.meta.barrier || '',
         responsible: item.meta.responsible || '',
@@ -762,12 +817,17 @@ export function SmartActionTool() {
         action: template.action || prev.action,
         responsible: template.responsible || prev.responsible,
         help: template.help || prev.help,
+        // optional
+        time: (template as any).time || prev.time,
       }));
     } else {
       setFutureForm(prev => ({
         ...prev,
         task: template.task || prev.task,
+        responsible: template.responsible || prev.responsible,
         outcome: template.outcome || prev.outcome,
+        // optional
+        time: (template as any).time || prev.time,
       }));
     }
   }, []);
@@ -789,6 +849,7 @@ export function SmartActionTool() {
       const parts: string[] = [];
       if (futureForm.forename) parts.push(`Participant: ${futureForm.forename}`);
       if (futureForm.task) parts.push(`Activity/event: ${futureForm.task}`);
+      if (futureForm.time) parts.push(`Scheduled time: ${futureForm.time}`);
       if (futureForm.responsible) parts.push(`Who is responsible: ${futureForm.responsible}`);
       if (futureForm.outcome) parts.push(`Expected outcome: ${futureForm.outcome}`);
       if (futureForm.timescale) parts.push(`Review in: ${futureForm.timescale}`);
@@ -1364,7 +1425,7 @@ export function SmartActionTool() {
                         <div>
                           <span className="text-sm font-medium">Use Local AI</span>
                           <p className="text-xs text-muted-foreground">
-                            AI-generated suggestions (requires a one-time model download in this browser)
+                            AI-generated suggestions (loads per session; refreshing may require reloading the model)
                           </p>
                         </div>
                       </label>
@@ -1984,24 +2045,6 @@ export function SmartActionTool() {
                     className={getFieldClass(!!nowForm.barrier.trim())}
                   />
                   <p className="text-xs text-muted-foreground">Tip: you can type your own barrier if it isn't listed.</p>
-
-                  {/* Preset barrier options (quick pick) */}
-                  {storage.barriers.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {storage.barriers.slice(0, 6).map((b) => (
-                        <Button
-                          key={b}
-                          type="button"
-                          size="sm"
-                          variant="secondary"
-                          className="h-8"
-                          onClick={() => setNowForm(prev => ({ ...prev, barrier: b }))}
-                        >
-                          {b}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
                 <div data-tutorial="ai-assist" className="border border-primary/20 rounded-xl p-4 gradient-subtle space-y-3">
@@ -2082,16 +2125,14 @@ export function SmartActionTool() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-muted-foreground">Who is responsible?</label>
-                    <Select value={nowForm.responsible || ''} onValueChange={(value) => setNowForm(prev => ({ ...prev, responsible: value }))}>
-                      <SelectTrigger className={cn("h-10", getFieldClass(!!nowForm.responsible))}>
-                        <SelectValue placeholder="Select…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {['Participant', 'Advisor', 'I'].map(opt => (
-                          <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <ComboboxInput
+                      value={nowForm.responsible}
+                      onChange={(value) => setNowForm(prev => ({ ...prev, responsible: value }))}
+                      options={['Participant', 'Advisor', 'I']}
+                      placeholder="Select or type…"
+                      emptyMessage="No options found."
+                      className={getFieldClass(!!nowForm.responsible)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-muted-foreground">This action will help…</label>
@@ -2151,6 +2192,19 @@ export function SmartActionTool() {
                     <WarningText show={!!futureDateError} variant="error" id="future-date-error">
                       {futureDateError}
                     </WarningText>
+
+                    <div className="space-y-2">
+                      <label htmlFor="scheduled-time" className="text-sm font-medium text-muted-foreground">
+                        Time (optional)
+                      </label>
+                      <Input
+                        id="scheduled-time"
+                        value={futureForm.time}
+                        onChange={e => setFutureForm(prev => ({ ...prev, time: e.target.value }))}
+                        placeholder="e.g. 11am"
+                        autoComplete="off"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2 flex-1 min-w-0">
                     <label htmlFor="future-participant-name" className="text-sm font-medium text-muted-foreground">Participant forename</label>
@@ -2181,16 +2235,14 @@ export function SmartActionTool() {
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Who is responsible?</label>
-                  <Select value={futureForm.responsible || ''} onValueChange={(value) => setFutureForm(prev => ({ ...prev, responsible: value }))}>
-                    <SelectTrigger className={cn("h-10", getFieldClass(!!futureForm.responsible))}>
-                      <SelectValue placeholder="Select…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {['Participant', 'Advisor', 'I'].map(opt => (
-                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <ComboboxInput
+                    value={futureForm.responsible}
+                    onChange={(value) => setFutureForm(prev => ({ ...prev, responsible: value }))}
+                    options={['Participant', 'Advisor', 'I']}
+                    placeholder="Select or type…"
+                    emptyMessage="No options found."
+                    className={getFieldClass(!!futureForm.responsible)}
+                  />
                 </div>
 
                 {/* Advisor Assist - Task-based */}
@@ -2314,8 +2366,8 @@ export function SmartActionTool() {
                 onInsertTemplate={handleInsertTemplate}
                 currentMode={mode}
                 currentForm={mode === 'now' 
-                  ? { barrier: nowForm.barrier, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
-                  : { task: futureForm.task, responsible: futureForm.responsible, outcome: futureForm.outcome }
+                  ? { barrier: nowForm.barrier, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help, time: nowForm.time }
+                  : { task: futureForm.task, responsible: futureForm.responsible, outcome: futureForm.outcome, time: futureForm.time }
                 }
               />
             </motion.div>
@@ -2375,8 +2427,7 @@ export function SmartActionTool() {
             </div>
 
             {/* Language selector and translate button */}
-            {/* Better mobile/Agent Mode layout: stack on small screens, align on larger */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50">
+            <div className="flex items-center gap-3 flex-wrap p-3 rounded-lg bg-muted/30 border border-border/50">
               <LanguageSelector 
                 value={storage.participantLanguage} 
                 onChange={handleLanguageChange}
@@ -2565,9 +2616,9 @@ export function SmartActionTool() {
                               <Button size="sm" variant="outline" onClick={() => handleEditHistory(h)} aria-label={`Edit action for ${h.meta.forename || 'participant'}`}>
                                 <Edit className="w-3 h-3 mr-1" aria-hidden="true" /> Edit
                               </Button>
-                              <Button size="sm" variant="ghost" onClick={() => {
-                                navigator.clipboard.writeText(h.text);
-                                toast({ title: 'Copied!' });
+                              <Button size="sm" variant="ghost" onClick={async () => {
+                                const ok = await copyToClipboard(h.text);
+                                toast({ title: ok ? 'Copied!' : 'Copy failed', variant: ok ? undefined : 'destructive' });
                               }} aria-label="Copy action text">
                                 <Copy className="w-3 h-3" aria-hidden="true" />
                                 <span className="sr-only">Copy</span>
@@ -2630,7 +2681,7 @@ export function SmartActionTool() {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Select a model to enable AI-powered drafting. Models run locally in your browser for privacy.
+              Select a model to enable AI-powered drafting. Models run locally in your browser. Note: Local AI loads per session — refreshing the page may require reloading the model.
             </p>
             
             {llm.isLoading ? (
@@ -2646,7 +2697,7 @@ export function SmartActionTool() {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {llm.loadingProgress}% - First download may take a few minutes
+                  {llm.loadingProgress}% - First load may take a few minutes (browser cache may speed up reloads)
                 </p>
               </div>
             ) : llm.error ? (

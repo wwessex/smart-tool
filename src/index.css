@@ -7,11 +7,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Emoji font fallback for cross-platform flag rendering (Windows needs this). */
-.font-emoji {
-  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif;
-}
-
 /* Performance: Reduce motion for users who prefer it */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

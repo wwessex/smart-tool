@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { ComboboxInput } from './ComboboxInput';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
 interface WizardStep {
@@ -16,7 +15,7 @@ interface WizardStep {
   field: string;
   placeholder: string;
   hint: string;
-  type: 'input' | 'textarea' | 'combobox' | 'select';
+  type: 'input' | 'textarea' | 'combobox';
   options?: string[];
   required?: boolean;
   canAIDraft?: boolean; // Whether AI Draft is available for this step
@@ -73,7 +72,7 @@ const NOW_STEPS: WizardStep[] = [
     field: 'responsible',
     placeholder: 'Select responsible person...',
     hint: 'Who will help ensure this happens?',
-    type: 'select',
+    type: 'combobox',
     options: ['Participant', 'Advisor', 'I'],
     required: true,
   },
@@ -128,7 +127,7 @@ const FUTURE_STEPS: WizardStep[] = [
     field: 'responsible',
     placeholder: 'Select responsible person...',
     hint: 'Who will help ensure this happens?',
-    type: 'select',
+    type: 'combobox',
     options: ['Participant', 'Advisor', 'I'],
     required: true,
   },
@@ -329,47 +328,14 @@ export function ActionWizard({ mode, barriers, timescales, recentNames, onComple
           )}
 
           {step.type === 'combobox' && (
-            <>
-              <ComboboxInput
-                value={currentValue}
-                onChange={handleChange}
-                options={getOptions(step)}
-                placeholder={step.placeholder}
-                emptyMessage="No options found. Type your own."
-                className="text-base"
-              />
-
-              {/* Preset barrier options (quick pick) */}
-              {step.field === 'barrier' && barriers.length > 0 && (
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {barriers.slice(0, 6).map((b) => (
-                    <Button
-                      key={b}
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      className="h-8"
-                      onClick={() => handleChange(b)}
-                    >
-                      {b}
-                    </Button>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-
-          {step.type === 'select' && (
-            <Select value={currentValue} onValueChange={handleChange}>
-              <SelectTrigger className="h-12 text-base">
-                <SelectValue placeholder={step.placeholder} />
-              </SelectTrigger>
-              <SelectContent>
-                {(step.options || []).map((opt) => (
-                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ComboboxInput
+              value={currentValue}
+              onChange={handleChange}
+              options={getOptions(step)}
+              placeholder={step.placeholder}
+              emptyMessage="No options found. Type your own."
+              className="text-base"
+            />
           )}
 
           {/* Datalist for forename */}

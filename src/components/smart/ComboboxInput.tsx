@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, memo } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Popover, PopoverContent, PopoverAnchor, PopoverTrigger } from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 interface ComboboxInputProps {
@@ -25,7 +25,6 @@ export const ComboboxInput = memo(function ComboboxInput({
 }: ComboboxInputProps) {
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value);
-  const [contentWidth, setContentWidth] = useState<number | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -48,24 +47,9 @@ export const ComboboxInput = memo(function ComboboxInput({
     if (!open) setOpen(true);
   };
 
-  // Radix sets --radix-popover-trigger-width based on the trigger element.
-  // Because our *input* is anchored (not the trigger), we measure and set an explicit width.
-  useEffect(() => {
-    if (!open) return;
-    const el = inputRef.current;
-    if (!el) return;
-    const measure = () => setContentWidth(el.getBoundingClientRect().width);
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [open]);
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      {/* Use PopoverAnchor instead of PopoverTrigger so the input remains a real input
-          (Radix Trigger can block focus/typing on some browsers). */}
-      <PopoverAnchor asChild>
+      <PopoverTrigger asChild>
         <div className="relative" data-field={dataField}>
           <input
             ref={inputRef}
@@ -84,34 +68,17 @@ export const ComboboxInput = memo(function ComboboxInput({
               className
             )}
           />
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              aria-label="Toggle options"
-              className={cn(
-                "absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-md",
-                "hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring"
-              )}
-              onMouseDown={(e) => {
-                // Keep focus on the input (prevents iOS/Safari from closing before select).
-                e.preventDefault();
-              }}
-              onClick={() => setOpen((v) => !v)}
-            >
-              <ChevronDown
-                className={cn(
-                  "h-4 w-4 text-muted-foreground transition-transform",
-                  open && "rotate-180"
-                )}
-                aria-hidden="true"
-              />
-            </button>
-          </PopoverTrigger>
+          <ChevronDown 
+            className={cn(
+              "absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-transform",
+              open && "rotate-180"
+            )}
+            aria-hidden="true"
+          />
         </div>
-      </PopoverAnchor>
+      </PopoverTrigger>
       <PopoverContent 
-        className="p-0" 
-        style={contentWidth ? { width: `${contentWidth}px` } : undefined}
+        className="w-[var(--radix-popover-trigger-width)] p-0" 
         align="start"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
@@ -130,9 +97,7 @@ export const ComboboxInput = memo(function ComboboxInput({
                 <CommandItem
                   key={option}
                   value={option}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onSelect={(v) => handleSelect(v)}
-                  onClick={() => handleSelect(option)}
+                  onSelect={() => handleSelect(option)}
                   className="cursor-pointer"
                 >
                   <Check

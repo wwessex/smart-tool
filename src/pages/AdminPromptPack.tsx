@@ -17,6 +17,7 @@ import {
 } from "@/lib/prompt-pack";
 import { usePromptPack } from "@/hooks/usePromptPack";
 import { Download, Upload, Save, RefreshCw, Trash2, Copy, ExternalLink } from "lucide-react";
+import { copyToClipboard } from "@/lib/clipboard";
 
 // Hidden Admin page: lets YOU curate the "AI Playbook" (prompt pack)
 // and export it to upload to your backend. No per-user auto-learning.
@@ -210,12 +211,12 @@ export default function AdminPromptPack() {
   };
 
   const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(editorText);
-      toast({ title: "Copied", description: "JSON copied to clipboard." });
-    } catch (e) {
-      toast({ title: "Copy failed", description: "Clipboard not available in this browser.", variant: "destructive" });
-    }
+    const ok = await copyToClipboard(editorText);
+    toast({
+      title: ok ? "Copied" : "Copy failed",
+      description: ok ? "JSON copied to clipboard." : "Clipboard not available in this browser.",
+      variant: ok ? undefined : "destructive",
+    });
   };
 
   const handleImportFile = async (file: File) => {
