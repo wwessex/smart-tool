@@ -6,7 +6,7 @@ on:
       zip_path:
         description: "Path to ZIP file in the repo (e.g. smart-tool-admin-playbook.zip)"
         required: true
-        default: "smart-tool-admin-playbook.zip"
+        default: "imports/smart-tool-admin-playbook.zip"
       target_branch:
         description: "Branch to apply to"
         required: true
