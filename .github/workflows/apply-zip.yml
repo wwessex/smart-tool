@@ -1,144 +1,146 @@
-async function translateText(text: string, from: string, to: string): Promise<string> {
-  const original = (text ?? "").trim();
-  if (!original) return "";
+name: Apply ZIP package to repo
 
-  // Split into safe segments but keep structure
-  const segments = splitIntoSegments(original, 900); // a bit larger to preserve formatting
-  if (segments.length === 1) {
-    return translateOne(segments[0], from, to);
-  }
+on:
+  workflow_dispatch:
+    inputs:
+      zip_path:
+        description: "Path to ZIP file in the repo (e.g. imports/smart-tool-admin-playbook.zip)"
+        required: true
+        default: "imports/smart-tool-admin-playbook.zip"
+      target_branch:
+        description: "Branch to apply to"
+        required: true
+        default: "main"
+      clean_repo:
+        description: "Delete existing files before applying ZIP (keeps .git + imports)"
+        required: true
+        default: "true"
 
-  // Ask model to keep markers so we can reconstruct without losing parts
-  const marked = segments
-    .map((s, i) => `[[SEG:${i + 1}]]\n${s}\n[[/SEG]]`)
-    .join("\n\n");
+permissions:
+  contents: write
 
-  const prompt =
-    `You are a professional translator.\n` +
-    `Translate from ${from} to ${to}.\n` +
-    `Rules:\n` +
-    `- Translate EVERYTHING inside each segment.\n` +
-    `- Keep [[SEG:n]] and [[/SEG]] markers EXACTLY.\n` +
-    `- Preserve line breaks, bullet points, and headings.\n` +
-    `- Do NOT summarise. Do NOT omit anything.\n` +
-    `- Keep names as-is.\n\n` +
-    `TEXT:\n${marked}\n`;
+jobs:
+  apply_zip:
+    runs-on: ubuntu-latest
+    env:
+      PAT: ${{ secrets.REPO_PAT }}
 
-  const out = await llmTranslate(prompt);
+    steps:
+      - name: Checkout target branch into ./repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_branch }}
+          fetch-depth: 0
+          path: repo
+          persist-credentials: false
 
-  const rebuilt = rebuildFromSegments(out, segments.length);
-  if (rebuilt) {
-    // If it looks like large parts stayed in English, retry smaller-per-segment
-    if (looksUntranslated(original, rebuilt, to)) {
-      return translateBySegmentFallback(segments, from, to);
-    }
-    return rebuilt;
-  }
+      - name: Sanity check checkout
+        shell: bash
+        working-directory: repo
+        run: |
+          set -euo pipefail
+          test -d .git
+          echo "Repo OK: $(git rev-parse --short HEAD)"
 
-  // If markers got lost, fall back to per-segment translation
-  return translateBySegmentFallback(segments, from, to);
-}
+      - name: Resolve ZIP path
+        id: zippath
+        shell: bash
+        working-directory: repo
+        run: |
+          set -euo pipefail
+          Z="${{ inputs.zip_path }}"
 
-/** Smaller / safer single segment translation */
-async function translateOne(text: string, from: string, to: string): Promise<string> {
-  const prompt =
-    `Translate from ${from} to ${to}.\n` +
-    `Rules: translate everything, preserve formatting, do not summarise.\n\n` +
-    text;
-  return (await llmTranslate(prompt)).trim();
-}
+          # If user entered just "smart-tool-admin-playbook.zip", try imports/
+          if [ ! -f "$Z" ] && [ -f "imports/$Z" ]; then
+            Z="imports/$Z"
+          fi
 
-function splitIntoSegments(input: string, maxChars: number): string[] {
-  // Keep paragraphs, but break very large ones
-  const paras = input.split(/\n{2,}/);
-  const out: string[] = [];
-  let buf = "";
+          if [ ! -f "$Z" ]; then
+            echo "ZIP not found: $Z"
+            echo "Repo root:"
+            ls -la
+            echo "imports/:"
+            ls -la imports || true
+            exit 1
+          fi
 
-  const flush = () => {
-    const t = buf.trim();
-    if (t) out.push(t);
-    buf = "";
-  };
+          echo "zip=$Z" >> "$GITHUB_OUTPUT"
+          echo "Using ZIP: $Z"
 
-  for (const p of paras) {
-    const chunk = p.trim();
-    if (!chunk) continue;
+      - name: Extract ZIP to temp
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/applyzip
+          mkdir -p /tmp/applyzip
+          unzip -q "$GITHUB_WORKSPACE/repo/${{ steps.zippath.outputs.zip }}" -d /tmp/applyzip
+          echo "Top-level extracted:"
+          ls -la /tmp/applyzip
 
-    if ((buf + "\n\n" + chunk).trim().length <= maxChars) {
-      buf = buf ? `${buf}\n\n${chunk}` : chunk;
-      continue;
-    }
+      - name: Detect payload root
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="/tmp/applyzip"
+          DCOUNT="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
+          FCOUNT="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')"
+          if [ "$DCOUNT" -eq 1 ] && [ "$FCOUNT" -eq 0 ]; then
+            ROOT="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+          fi
+          echo "root=$ROOT" >> "$GITHUB_OUTPUT"
+          echo "Payload root: $ROOT"
+          ls -la "$ROOT"
 
-    flush();
+      - name: Validate payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT='${{ steps.detect.outputs.root }}'
+          test -f "$ROOT/package.json"
+          test -f "$ROOT/index.html"
+          test -d "$ROOT/src"
+          test -d "$ROOT/public"
+          echo "Payload validation OK."
 
-    if (chunk.length <= maxChars) {
-      out.push(chunk);
-      continue;
-    }
+      - name: Optional clean repo (keep .git + imports)
+        if: ${{ inputs.clean_repo == 'true' }}
+        shell: bash
+        working-directory: repo
+        run: |
+          set -euo pipefail
+          find . -mindepth 1 -maxdepth 1 \
+            ! -name ".git" \
+            ! -name "imports" \
+            -exec rm -rf {} +
 
-    // Hard-break long paragraphs by lines
-    const lines = chunk.split("\n");
-    let b = "";
-    for (const line of lines) {
-      if ((b + "\n" + line).trim().length <= maxChars) {
-        b = b ? `${b}\n${line}` : line;
-      } else {
-        if (b.trim()) out.push(b.trim());
-        b = line;
-      }
-    }
-    if (b.trim()) out.push(b.trim());
-  }
+      - name: Copy extracted files into repo root (overwrite)
+        shell: bash
+        working-directory: repo
+        run: |
+          set -euo pipefail
+          ROOT='${{ steps.detect.outputs.root }}'
+          rsync -a --delete "$ROOT/" "./"
 
-  flush();
-  return out.length ? out : [input];
-}
+      - name: Commit and push via PAT
+        shell: bash
+        working-directory: repo
+        run: |
+          set -euo pipefail
+          test -n "${PAT:-}" || (echo "Missing REPO_PAT secret" && exit 1)
 
-function rebuildFromSegments(output: string, expectedCount: number): string | null {
-  const map = new Map<number, string>();
-  const re = /\[\[SEG:(\d+)\]\]([\s\S]*?)\[\[\/SEG\]\]/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(output)) !== null) {
-    const idx = Number(m[1]);
-    const body = (m[2] ?? "").trim();
-    if (idx && body) map.set(idx, body);
-  }
+          OWNER="${GITHUB_REPOSITORY_OWNER}"
+          REPO="${GITHUB_REPOSITORY#*/}"
 
-  if (map.size !== expectedCount) return null;
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-  const parts: string[] = [];
-  for (let i = 1; i <= expectedCount; i++) {
-    const v = map.get(i);
-    if (!v) return null;
-    parts.push(v);
-  }
-  return parts.join("\n\n").trim();
-}
+          git remote set-url origin "https://${PAT}@github.com/${OWNER}/${REPO}.git"
 
-function looksUntranslated(input: string, output: string, targetLang: string): boolean {
-  // If translating to English, ignore this check
-  if (/^en/i.test(targetLang)) return false;
-
-  // Heuristic: if too many long words appear unchanged, likely not translated fully
-  const words = (s: string) =>
-    (s.toLowerCase().match(/[a-z]{5,}/g) ?? []).slice(0, 300);
-
-  const a = new Set(words(input));
-  const b = words(output);
-
-  if (b.length < 20) return false;
-
-  let same = 0;
-  for (const w of b) if (a.has(w)) same++;
-
-  const ratio = same / b.length;
-  return ratio > 0.55; // tune: >55% shared long words = suspicious
-}
-
-async function translateBySegmentFallback(segments: string[], from: string, to: string): Promise<string> {
-  const results: string[] = [];
-  for (const s of segments) {
-    results.push(await translateOne(s, from, to));
-  }
-  return results.join("\n\n").trim();
-}
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "Apply ZIP package"
+          git push origin "${{ inputs.target_branch }}"
