@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       zip_path:
-        description: "Path to ZIP file in the repo (e.g. smart-tool-admin-playbook.zip)"
+        description: "Path to ZIP file in the repo (e.g. imports/smart-tool-admin-playbook.zip)"
         required: true
         default: "imports/smart-tool-admin-playbook.zip"
       target_branch:
@@ -23,19 +23,26 @@ jobs:
       - name: Checkout target branch into ./repo
         uses: actions/checkout@v4
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ inputs.target_branch }}
           fetch-depth: 0
+          persist-credentials: true
           path: repo
 
-      - name: Confirm git checkout
+      - name: Debug checkout (must show .git)
         shell: bash
         working-directory: repo
         run: |
           set -euo pipefail
           echo "PWD: $(pwd)"
           echo "Workspace: $GITHUB_WORKSPACE"
+          echo "Top-level:"
           ls -la
-          test -d .git
+          echo "Repo .git:"
+          ls -la .git || true
+          echo "Git version:"
+          git --version || true
+          echo "Git status (should work):"
           git status
 
       - name: Verify ZIP exists
@@ -43,12 +50,16 @@ jobs:
         working-directory: repo
         run: |
           set -euo pipefail
-          if [ ! -f "${{ inputs.zip_path }}" ]; then
-            echo "ZIP not found: ${{ inputs.zip_path }}"
+          ZIP="${{ inputs.zip_path }}"
+          if [ ! -f "$ZIP" ]; then
+            echo "ZIP not found: $ZIP"
             echo "Repo root contents:"
             ls -la
+            echo "Imports folder contents (if present):"
+            ls -la imports || true
             exit 1
           fi
+          echo "Found ZIP: $ZIP"
 
       - name: Extract ZIP to temp
         shell: bash
@@ -86,19 +97,31 @@ jobs:
           test -d "$ROOT/public"
           echo "ZIP payload validation OK."
 
-      - name: Clean repo (keep .git + the zip)
+      - name: Clean repo (keep .git + the zip + its parent folder)
         shell: bash
         working-directory: repo
         run: |
           set -euo pipefail
           ZIP="${{ inputs.zip_path }}"
+          ZIP_DIR="$(dirname "$ZIP")"
+          ZIP_BASE="$(basename "$ZIP")"
+
           test -d .git
 
-          # Remove everything except .git and the zip file
+          echo "Keeping ZIP folder: $ZIP_DIR and file: $ZIP_BASE"
+
+          # Delete everything at repo root except .git and the zip folder (e.g. imports)
           find . -mindepth 1 -maxdepth 1 \
             ! -name ".git" \
-            ! -name "$ZIP" \
+            ! -name "$ZIP_DIR" \
             -exec rm -rf {} +
+
+          # If zip folder is not ".", remove everything inside it except the zip file
+          if [ "$ZIP_DIR" != "." ]; then
+            find "./$ZIP_DIR" -mindepth 1 -maxdepth 1 \
+              ! -name "$ZIP_BASE" \
+              -exec rm -rf {} +
+          fi
 
       - name: Copy extracted files into repo root (overwrite)
         shell: bash
