@@ -135,15 +135,22 @@ interface FutureForm {
 }
 
 export function SmartActionTool() {
+  // Ref for Local AI so hooks can access it without TDZ ordering issues
+  const llmRef = useRef<any>(undefined);
+
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
   const storage = useSmartStorage();
-  // Local-only translation uses the same local AI module instance (no cloud calls).
-  const translation = useTranslation(llm);
+  // Must initialize the local AI hook *before* passing it to other hooks.
+  // (Prevents "Cannot access 'llm' before initialization" at runtime.)
+  const llm = useTransformersLLM({ allowMobileLLM: storage.allowMobileLLM });
+  
+  useEffect(() => { llmRef.current = llm; }, [llm]);
+// Local-only translation uses the same local AI module instance (no cloud calls).
+  const translation = useTranslation(() => llmRef.current);
   const cloudAI = useCloudAI();
   const aiHasConsent = useAIConsent();
   const localSync = useLocalSync();
-  const llm = useTransformersLLM({ allowMobileLLM: storage.allowMobileLLM });
   const { pack: promptPack, source: promptPackSource } = usePromptPack();
   const today = todayISO();
   const effectivePromptPack = promptPack || DEFAULT_PROMPT_PACK;

@@ -43,7 +43,7 @@ export const SUPPORTED_LANGUAGES: Record<string, { name: string; nativeName: str
   "hi": { name: "Hindi", nativeName: "हिन्दी", flag: "🇮🇳" },
 };
 
-export function useTranslation(llm?: LocalLLMForTranslation) {
+export function useTranslation(getLLM?: () => LocalLLMForTranslation | undefined) {
   const hasConsent = useAIConsent();
   const [state, setState] = useState<TranslationState>({
     isTranslating: false,
@@ -88,6 +88,7 @@ export function useTranslation(llm?: LocalLLMForTranslation) {
     }));
 
     try {
+      const llm = getLLM?.();
       if (!llm) {
         throw new Error('Local AI module not available. Enable Local AI to translate.');
       }
