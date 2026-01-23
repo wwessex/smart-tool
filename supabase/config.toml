@@ -1,7 +1,0 @@
-project_id = "wuxvpkczhdeslbhwpnyd"
-
-[functions.smart-chat]
-verify_jwt = false
-
-[functions.smart-translate]
-verify_jwt = false

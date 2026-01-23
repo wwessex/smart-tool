@@ -1,0 +1,12 @@
+@import "./legacy/legacy.css";
+@import "./legacy/modern.css";
+
+/* Keep React wrapper from affecting legacy layout / selectors */
+body { margin: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+html, body { min-height: 100%; }
+
+/* Make the wrapper transparent to layout so legacy CSS behaves as intended */
+#cinesafari-shell { display: contents; }
+
+/* Ensure root container stretches */
+#root { min-height: 100vh; }

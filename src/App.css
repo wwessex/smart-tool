@@ -1,9 +1,0 @@
-/* App shell reset for full-width, app-like layout */
-#root {
-  width: 100%;
-  min-height: 100vh;
-  margin: 0;
-  padding: 0;
-}
-
-/* Remove legacy Vite demo styles (kept intentionally minimal) */
