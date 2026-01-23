@@ -329,14 +329,34 @@ export function ActionWizard({ mode, barriers, timescales, recentNames, onComple
           )}
 
           {step.type === 'combobox' && (
-            <ComboboxInput
-              value={currentValue}
-              onChange={handleChange}
-              options={getOptions(step)}
-              placeholder={step.placeholder}
-              emptyMessage="No options found. Type your own."
-              className="text-base"
-            />
+            <>
+              <ComboboxInput
+                value={currentValue}
+                onChange={handleChange}
+                options={getOptions(step)}
+                placeholder={step.placeholder}
+                emptyMessage="No options found. Type your own."
+                className="text-base"
+              />
+
+              {/* Preset barrier options (quick pick) */}
+              {step.field === 'barrier' && barriers.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {barriers.slice(0, 6).map((b) => (
+                    <Button
+                      key={b}
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="h-8"
+                      onClick={() => handleChange(b)}
+                    >
+                      {b}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
 
           {step.type === 'select' && (

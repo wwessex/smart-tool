@@ -1984,6 +1984,24 @@ export function SmartActionTool() {
                     className={getFieldClass(!!nowForm.barrier.trim())}
                   />
                   <p className="text-xs text-muted-foreground">Tip: you can type your own barrier if it isn't listed.</p>
+
+                  {/* Preset barrier options (quick pick) */}
+                  {storage.barriers.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {storage.barriers.slice(0, 6).map((b) => (
+                        <Button
+                          key={b}
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          className="h-8"
+                          onClick={() => setNowForm(prev => ({ ...prev, barrier: b }))}
+                        >
+                          {b}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div data-tutorial="ai-assist" className="border border-primary/20 rounded-xl p-4 gradient-subtle space-y-3">
@@ -2357,7 +2375,8 @@ export function SmartActionTool() {
             </div>
 
             {/* Language selector and translate button */}
-            <div className="flex items-center gap-3 flex-wrap p-3 rounded-lg bg-muted/30 border border-border/50">
+            {/* Better mobile/Agent Mode layout: stack on small screens, align on larger */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50">
               <LanguageSelector 
                 value={storage.participantLanguage} 
                 onChange={handleLanguageChange}
