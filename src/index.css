@@ -12,7 +12,7 @@
 /* -------------------------------------------------------------------------- */
 /*
   Some Tailwind builds/configs won't generate fractional opacity utilities like
-  `border-white/20`. If any @apply usage references it, Vite will fail the build.
+ `border-white/20`. If any @apply usage references it, Vite will fail the build.
   We define a small compatibility utility to keep builds stable.
 */
 
@@ -356,32 +356,38 @@ All colors MUST be HSL.
   .glass-header {
     /* Tailwind @apply can't reliably expand opacity-modifier utilities (e.g. bg-white/10).
        Use explicit rgba backgrounds so builds never fail. */
-    @apply backdrop-blur-2xl border-b border-white/20 dark:border-white/10 shadow-sm;
+ @apply backdrop-blur-2xl border-b shadow-sm;
     background-color: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.20);
   }
 
   .dark .glass-header {
     background-color: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.10);
   }
 
   .glass-panel {
-    @apply backdrop-blur-2xl bg-card border border-white/20 dark:border-white/10;
+ @apply backdrop-blur-2xl bg-card border;
+    border-color: rgba(255, 255, 255, 0.20);
   }
 
   .glass-subpanel {
-    @apply backdrop-blur-xl border border-white/10 dark:border-white/10;
+ @apply backdrop-blur-xl border;
     background-color: rgba(255, 255, 255, 0.10);
+    border-color: rgba(255, 255, 255, 0.10);
   }
 
   .dark .glass-subpanel {
     background-color: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.10);
   }
 
   /* Premium card surface */
   .glass-card {
-    @apply backdrop-blur-2xl border border-white/20 dark:border-white/10 rounded-2xl;
+ @apply backdrop-blur-2xl border rounded-2xl;
     background-color: rgba(255, 255, 255, 0.11);
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.10);
+    border-color: rgba(255, 255, 255, 0.20);
   }
 
   /* Soft elevated shadow */

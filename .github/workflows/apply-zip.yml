@@ -132,7 +132,12 @@ jobs:
 
           test -f repo/public/loader.css || (echo "::error::public/loader.css missing" && exit 1)
 
-          echo "Assertions OK."
+          if grep -RIn -- 'border-white/' repo/src/index.css; then
+  echo "::error::Found border-white/ opacity utility in src/index.css @apply; remove to avoid PostCSS parse issues"
+  exit 1
+fi
+
+echo "Assertions OK."
 
       - name: Commit and push via PAT
         shell: bash
