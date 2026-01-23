@@ -169,5 +169,8 @@ jobs:
 
           OWNER="${GITHUB_REPOSITORY%%/*}"
           REPO="${GITHUB_REPOSITORY##*/}"
-          git -C repo remote set-url origin "https://x-access-token:${PAT}@github.com/${OWNER}/${REPO}.git"
+
+          # UPDATED: token-in-URL format you requested
+          git -C repo remote set-url origin "https://${PAT}@github.com/${OWNER}/${REPO}.git"
+
           git -C repo push -u origin "$BRANCH"
