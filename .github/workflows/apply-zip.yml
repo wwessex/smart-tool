@@ -25,6 +25,7 @@ jobs:
         env:
           ZIP_PATH: ${{ inputs.zip_path }}
         with:
+          github-token: ${{ secrets.REPO_PAT }}
           script: |
             const zipPath = process.env.ZIP_PATH;
             if (!zipPath) {
@@ -83,6 +84,7 @@ jobs:
           TARGET_BRANCH: ${{ inputs.target_branch }}
           ZIP_PATH: ${{ inputs.zip_path }}
         with:
+          github-token: ${{ secrets.REPO_PAT }}
           script: |
             const fs = require('fs');
             const path = require('path');
@@ -110,20 +112,17 @@ jobs:
               return out;
             }
 
-            // Get current branch ref -> commit -> tree
             const ref = await github.rest.git.getRef({ owner, repo, ref: `heads/${branch}` });
             const baseCommitSha = ref.data.object.sha;
             const baseCommit = await github.rest.git.getCommit({ owner, repo, commit_sha: baseCommitSha });
             const baseTreeSha = baseCommit.data.tree.sha;
 
-            // Existing tree (for deletions)
             const existing = await github.rest.git.getTree({ owner, repo, tree_sha: baseTreeSha, recursive: "1" });
-            const existingPaths = new Set(
-              existing.data.tree.filter(t => t.type === 'blob').map(t => t.path)
-            );
+            const existingPaths = new Set(existing.data.tree.filter(t => t.type === 'blob').map(t => t.path));
 
-            // Walk payload
             const files = walk(rootDir, rootDir);
+
+            // Basic sanity: this looks like your Vite+React repo
             if (!files.some(f => f.rel === 'package.json') || !files.some(f => f.rel === 'src/index.css')) {
               core.setFailed("Payload doesn't look like the app repo root. Wrong ZIP contents?");
               return;
@@ -131,14 +130,14 @@ jobs:
 
             const newPaths = new Set(files.map(f => f.rel));
 
-            // Protect imports folder and the ZIP itself
+            // Protect your imports folder and the ZIP itself
             function isProtected(p) {
               return p === 'imports' || p.startsWith('imports/') || p === zipPath;
             }
 
             const tree = [];
 
-            // Create blobs for payload
+            // Create blobs for payload files
             for (const f of files) {
               const content = fs.readFileSync(f.full);
               const blob = await github.rest.git.createBlob({
@@ -149,12 +148,10 @@ jobs:
               tree.push({ path: f.rel, mode: '100644', type: 'blob', sha: blob.data.sha });
             }
 
-            // Deletions: remove files not in payload (excluding imports/**)
+            // Deletions: remove old files not present in payload (excluding imports/**)
             for (const p of existingPaths) {
               if (isProtected(p)) continue;
-              if (!newPaths.has(p)) {
-                tree.push({ path: p, mode: '100644', type: 'blob', sha: null });
-              }
+              if (!newPaths.has(p)) tree.push({ path: p, mode: '100644', type: 'blob', sha: null });
             }
 
             const newTree = await github.rest.git.createTree({
