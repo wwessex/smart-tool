@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, memo } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import * as PopoverPrimitive from '@radix-ui/react-popover';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 
 interface ComboboxInputProps {
@@ -53,7 +54,7 @@ export const ComboboxInput = memo(function ComboboxInput({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <div className="relative" data-field={dataField}>
-        <PopoverTrigger asChild>
+        <PopoverPrimitive.Anchor asChild>
           <div className="relative">
             <input
               ref={inputRef}
@@ -73,16 +74,26 @@ export const ComboboxInput = memo(function ComboboxInput({
                 "text-foreground placeholder:text-muted-foreground/70",
                 "transition-all duration-150 ease-out",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:border-primary/40 focus-visible:bg-white/15",
-                "dark:bg-white/5 dark:border-white/10 dark:focus-visible:bg-white/8",
+                "dark:bg-white/5 dark:border-white/20",
                 className
               )}
             />
-            <ChevronDown
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"
-              aria-hidden="true"
-            />
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-label="Toggle options"
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-lg inline-flex items-center justify-center hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                onMouseDown={(e) => {
+                  // Prevent input from losing focus before Radix processes the trigger
+                  e.preventDefault();
+                }}
+                onClick={() => setOpen((v) => !v)}
+              >
+                <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
+              </button>
+            </PopoverTrigger>
           </div>
-        </PopoverTrigger>
+        </PopoverPrimitive.Anchor>
 
         <PopoverContent
           className="w-[var(--radix-popover-trigger-width)] p-0 glass-panel border-white/25"
@@ -97,6 +108,8 @@ export const ComboboxInput = memo(function ComboboxInput({
                     key={option}
                     value={option}
                     onSelect={() => handleSelect(option)}
+                    onClick={() => handleSelect(option)}
+                    onMouseDown={(e) => e.preventDefault()}
                     className="flex items-center justify-between"
                   >
                     <span className="truncate">{option}</span>

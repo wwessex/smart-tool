@@ -43,6 +43,50 @@ export const SUPPORTED_LANGUAGES: Record<string, { name: string; nativeName: str
   "hi": { name: "Hindi", nativeName: "हिन्दी", flag: "🇮🇳" },
 };
 
+
+
+function splitIntoChunks(text: string, maxChars: number): string[] {
+  const parts = text.split(/\n\n+/);
+  const chunks: string[] = [];
+  let buf = "";
+
+  const flush = () => {
+    if (buf.trim()) chunks.push(buf.trimEnd());
+    buf = "";
+  };
+
+  for (const p of parts) {
+    const piece = p.trimEnd();
+    if (!piece) continue;
+
+    // If a single paragraph is huge, hard-split it.
+    if (piece.length > maxChars) {
+      flush();
+      for (let i = 0; i < piece.length; i += maxChars) {
+        chunks.push(piece.slice(i, i + maxChars));
+      }
+      continue;
+    }
+
+    if ((buf + (buf ? "\n\n" : "") + piece).length > maxChars) {
+      flush();
+      buf = piece;
+    } else {
+      buf = buf ? (buf + "\n\n" + piece) : piece;
+    }
+  }
+  flush();
+  return chunks.length ? chunks : [text];
+}
+
+function looksTruncated(input: string, output: string) {
+  // Heuristic: if output is much shorter than input, likely cut off.
+  const inLen = input.replace(/\s+/g, " ").trim().length;
+  const outLen = output.replace(/\s+/g, " ").trim().length;
+  if (inLen < 60) return false;
+  return outLen < Math.max(40, Math.floor(inLen * 0.6));
+}
+
 export function useTranslation(getLLM?: () => LocalLLMForTranslation | undefined) {
   const hasConsent = useAIConsent();
   const [state, setState] = useState<TranslationState>({
@@ -114,11 +158,35 @@ export function useTranslation(getLLM?: () => LocalLLMForTranslation | undefined
         '- Keep the meaning and tone clear and professional.\n' +
         '- Do NOT add extra sentences.';
 
-      const userPrompt =
-        `Translate the following SMART action into ${languageName}${nativeName ? ` (${nativeName})` : ''}.\n\n` +
-        `SMART action:\n${action.trim()}`;
+      const userPromptBase =
+        `Translate the following SMART action into ${languageName}${nativeName ? ` (${nativeName})` : ''}.\n` +
+        `Rules: translate EVERYTHING. Do not omit or summarise. Preserve line breaks.\n\n`;
 
-      const translated = (await llm.generate(userPrompt, systemPrompt, 'default')).trim();
+      const chunks = splitIntoChunks(action.trim(), 900);
+      const translatedChunks: string[] = [];
+
+      for (const chunk of chunks) {
+        const userPrompt =
+          userPromptBase +
+          `SMART action:\n${chunk.trim()}`;
+
+        // First attempt
+        let out = (await llm.generate(userPrompt, systemPrompt, 'default')).trim();
+
+        // If it looks truncated, do one stronger retry for this chunk
+        if (looksTruncated(chunk, out)) {
+          const retryPrompt =
+            userPromptBase +
+            `IMPORTANT: You MUST translate the FULL text below. Do not cut off early.\n\n` +
+            `SMART action:\n${chunk.trim()}`;
+
+          out = (await llm.generate(retryPrompt, systemPrompt, 'default')).trim();
+        }
+
+        translatedChunks.push(out);
+      }
+
+      const translated = translatedChunks.join("\n\n");
       if (!translated) throw new Error('Translation failed (empty result)');
 
       const result: TranslationResult = {
