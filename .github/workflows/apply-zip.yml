@@ -20,25 +20,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout target branch
+      - name: Checkout target branch into ./repo
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.target_branch }}
           fetch-depth: 0
+          path: repo
 
       - name: Confirm git checkout
         shell: bash
+        working-directory: repo
         run: |
           set -euo pipefail
-          echo "Working dir:"
-          pwd
-          echo "Repo root contents:"
+          echo "PWD: $(pwd)"
+          echo "Workspace: $GITHUB_WORKSPACE"
           ls -la
-          echo "Git status:"
+          test -d .git
           git status
 
       - name: Verify ZIP exists
         shell: bash
+        working-directory: repo
         run: |
           set -euo pipefail
           if [ ! -f "${{ inputs.zip_path }}" ]; then
@@ -54,7 +56,7 @@ jobs:
           set -euo pipefail
           rm -rf /tmp/applyzip
           mkdir -p /tmp/applyzip
-          unzip -q "${{ inputs.zip_path }}" -d /tmp/applyzip
+          unzip -q "$GITHUB_WORKSPACE/repo/${{ inputs.zip_path }}" -d /tmp/applyzip
           echo "Top-level extracted:"
           ls -la /tmp/applyzip
 
@@ -64,7 +66,6 @@ jobs:
         run: |
           set -euo pipefail
           ROOT="/tmp/applyzip"
-          # If ZIP contains a single top-level folder, use it.
           COUNT="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
           FILES="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')"
           if [ "$COUNT" -eq 1 ] && [ "$FILES" -eq 0 ]; then
@@ -87,11 +88,10 @@ jobs:
 
       - name: Clean repo (keep .git + the zip)
         shell: bash
+        working-directory: repo
         run: |
           set -euo pipefail
           ZIP="${{ inputs.zip_path }}"
-
-          # Safety check: must be in a git repo
           test -d .git
 
           # Remove everything except .git and the zip file
@@ -102,6 +102,7 @@ jobs:
 
       - name: Copy extracted files into repo root (overwrite)
         shell: bash
+        working-directory: repo
         run: |
           set -euo pipefail
           ROOT='${{ steps.detect.outputs.root }}'
@@ -109,6 +110,7 @@ jobs:
 
       - name: Validate repo now contains expected files
         shell: bash
+        working-directory: repo
         run: |
           set -euo pipefail
           test -f package.json
@@ -119,6 +121,7 @@ jobs:
 
       - name: Commit and push
         shell: bash
+        working-directory: repo
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
