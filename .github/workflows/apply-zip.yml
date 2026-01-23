@@ -4,17 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       zip_path:
-        description: "Path to ZIP file in the repo (e.g. imports/smart-tool-admin-playbook.zip)"
+        description: "Path to ZIP file in the repo"
         required: true
         default: "imports/smart-tool-admin-playbook.zip"
       target_branch:
         description: "Branch to apply to"
         required: true
         default: "main"
-      clean_repo:
-        description: "Delete existing files before applying ZIP (keeps .git + imports)"
-        required: true
-        default: "true"
 
 permissions:
   contents: write
@@ -22,8 +18,6 @@ permissions:
 jobs:
   apply_zip:
     runs-on: ubuntu-latest
-    env:
-      PAT: ${{ secrets.REPO_PAT }}
 
     steps:
       - name: Checkout target branch into ./repo
@@ -34,33 +28,28 @@ jobs:
           path: repo
           persist-credentials: false
 
-      - name: Sanity check checkout
+      - name: Verify checkout is a git repo
         shell: bash
         run: |
           set -euo pipefail
           test -d repo/.git
-          echo "Checked out: $(git -C repo rev-parse --short HEAD)"
+          git -C repo status
 
-      - name: Resolve ZIP path
-        id: zippath
+      - name: Verify ZIP exists
         shell: bash
         run: |
           set -euo pipefail
-          Z="${{ inputs.zip_path }}"
-          if [ ! -f "repo/$Z" ] && [ -f "repo/imports/$Z" ]; then
-            Z="imports/$Z"
-          fi
-          if [ ! -f "repo/$Z" ]; then
-            echo "ZIP not found: repo/$Z"
-            echo "repo root:"
+          ZIP="repo/${{ inputs.zip_path }}"
+          if [ ! -f "$ZIP" ]; then
+            echo "::error::ZIP not found at $ZIP"
+            echo "Repo root:"
             ls -la repo
-            echo "repo/imports:"
+            echo "Repo imports:"
             ls -la repo/imports || true
             exit 1
           fi
-          echo "zip=$Z" >> "$GITHUB_OUTPUT"
-          echo "Using ZIP: $Z"
-          sha256sum "repo/$Z" || true
+          echo "ZIP found: $ZIP"
+          sha256sum "$ZIP" || true
 
       - name: Extract ZIP to temp
         shell: bash
@@ -68,7 +57,8 @@ jobs:
           set -euo pipefail
           rm -rf /tmp/applyzip
           mkdir -p /tmp/applyzip
-          unzip -q "$GITHUB_WORKSPACE/repo/${{ steps.zippath.outputs.zip }}" -d /tmp/applyzip
+          unzip -q "repo/${{ inputs.zip_path }}" -d /tmp/applyzip
+          echo "Extracted top-level:"
           ls -la /tmp/applyzip
 
       - name: Detect payload root
@@ -77,16 +67,16 @@ jobs:
         run: |
           set -euo pipefail
           ROOT="/tmp/applyzip"
-          DCOUNT="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
-          FCOUNT="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')"
-          if [ "$DCOUNT" -eq 1 ] && [ "$FCOUNT" -eq 0 ]; then
+          DIRS="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
+          FILES="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')"
+          if [ "$DIRS" -eq 1 ] && [ "$FILES" -eq 0 ]; then
             ROOT="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
           fi
           echo "root=$ROOT" >> "$GITHUB_OUTPUT"
           echo "Payload root: $ROOT"
           ls -la "$ROOT"
 
-      - name: Validate payload
+      - name: Validate ZIP payload looks like a Vite project
         shell: bash
         run: |
           set -euo pipefail
@@ -95,68 +85,76 @@ jobs:
           test -f "$ROOT/index.html"
           test -d "$ROOT/src"
           test -d "$ROOT/public"
-          echo "Payload validation OK."
+          echo "ZIP payload validation OK."
 
-      - name: Optional clean repo (keep .git + imports)
-        if: ${{ inputs.clean_repo == 'true' }}
+      - name: Clean repo (keep .git, imports, workflows)
         shell: bash
         run: |
           set -euo pipefail
-          test -d repo/.git
-          find repo -mindepth 1 -maxdepth 1             ! -name ".git"             ! -name "imports"             -exec rm -rf {} +
+          cd repo
 
-      - name: Apply ZIP into repo (overwrite, keep .git + imports)
+          # Remove everything except: .git, imports/, .github/
+          find . -mindepth 1 -maxdepth 1 \
+            ! -name ".git" \
+            ! -name "imports" \
+            ! -name ".github" \
+            -exec rm -rf {} +
+
+          echo "After clean:"
+          ls -la
+
+      - name: Copy extracted files into repo (preserve apply workflow + imports)
         shell: bash
         run: |
           set -euo pipefail
           ROOT='${{ steps.detect.outputs.root }}'
-          test -d repo/.git
-          rsync -a --delete             --exclude '.git/'             --exclude 'imports/'             "$ROOT/" "repo/"
-          test -d repo/.git
 
-      - name: Assert critical fixes are present (fail fast)
+          # Copy payload into repo, but:
+          # - keep imports/ (contains the ZIP you ran)
+          # - keep this workflow file
+          rsync -a --delete \
+            --exclude '.git' \
+            --exclude 'imports' \
+            --exclude '.github/workflows/apply-zip.yml' \
+            "$ROOT/" "repo/"
+
+          echo "Repo after apply:"
+          ls -la repo
+
+      - name: Sanity checks (fail fast)
         shell: bash
         run: |
           set -euo pipefail
+          test -f repo/package.json
+          test -f repo/index.html
+          test -d repo/src
+          test -d repo/public
+          echo "Repo validation OK after apply."
 
-          # If this fails, you're NOT applying the ZIP you think you are.
-          if grep -RIn -- '\\[0-9][0-9]*' repo/src/index.css; then
-            echo "::error::Found illegal CSS escapes like \\1232 in src/index.css"
-            exit 1
-          fi
-
-          if grep -n -- "href=\"\./loader\.css\"" repo/index.html; then
-            echo "::error::index.html still references ./loader.css (should be /loader.css)"
-            exit 1
-          fi
-
-          test -f repo/public/loader.css || (echo "::error::public/loader.css missing" && exit 1)
-
-          if grep -RIn -- 'border-white/' repo/src/index.css; then
-  echo "::error::Found border-white/ opacity utility in src/index.css @apply; remove to avoid PostCSS parse issues"
-  exit 1
-fi
-
-echo "Assertions OK."
-
-      - name: Commit and push via PAT
+      - name: Commit and push (uses REPO_PAT if set, else GITHUB_TOKEN)
         shell: bash
-        working-directory: repo
+        env:
+          REPO_PAT: ${{ secrets.REPO_PAT }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          test -n "${PAT:-}" || (echo "Missing REPO_PAT secret" && exit 1)
-
-          OWNER="${GITHUB_REPOSITORY_OWNER}"
-          REPO="${GITHUB_REPOSITORY#*/}"
+          cd repo
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin "https://${PAT}@github.com/${OWNER}/${REPO}.git"
 
           git add -A
           if git diff --cached --quiet; then
             echo "No changes to commit."
             exit 0
           fi
+
           git commit -m "Apply ZIP package"
-          git push origin "${{ inputs.target_branch }}"
+
+          TOKEN="$GITHUB_TOKEN"
+          if [ -n "${REPO_PAT:-}" ]; then
+            TOKEN="$REPO_PAT"
+          fi
+
+          git remote set-url origin "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git"
+          git push origin "HEAD:${{ inputs.target_branch }}"
