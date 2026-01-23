@@ -1,4 +1,4 @@
-name: Apply ZIP package to repo (git push)
+name: Apply ZIP package to repo (git push, diagnostic)
 
 on:
   workflow_dispatch:
@@ -28,20 +28,22 @@ jobs:
           fetch-depth: 0
           path: repo
           persist-credentials: true
+          clean: true
 
-      - name: Debug workspace + verify repo exists
+      - name: Debug workspace + verify checkout
         shell: bash
         run: |
           set -euo pipefail
-          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+          set -x
+          trap 'echo "::error:: FAILED at line $LINENO"; echo "PWD=$(pwd)"; echo "WORKSPACE=$GITHUB_WORKSPACE"; echo "--- ls ---"; ls -la; echo "--- ls repo ---"; ls -la repo || true; echo "--- ls repo/.git ---"; ls -la repo/.git || true; exit 1' ERR
+
           echo "PWD=$(pwd)"
-          echo "Workspace contents:"
+          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
           ls -la
-          echo "Repo folder contents:"
-          ls -la repo || true
-          echo "Repo .git contents:"
-          ls -la repo/.git || true
+
+          # This is the key check — if this fails, checkout didn't produce a real repo
           test -d repo/.git
+
           git -C repo --version
           git -C repo status
 
@@ -49,25 +51,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          set -x
+          trap 'echo "::error:: FAILED at line $LINENO"; echo "--- ls repo ---"; ls -la repo || true; echo "--- ls repo/imports ---"; ls -la repo/imports || true; exit 1' ERR
+
           ZIP="repo/${{ inputs.zip_path }}"
-          if [ ! -f "$ZIP" ]; then
-            echo "ZIP not found: $ZIP"
-            echo "Repo root:"
-            ls -la repo
-            echo "Repo imports/:"
-            ls -la repo/imports || true
-            exit 1
-          fi
+          test -f "$ZIP"
           echo "Found ZIP: $ZIP"
 
       - name: Extract ZIP to temp
         shell: bash
         run: |
           set -euo pipefail
+          set -x
+          trap 'echo "::error:: FAILED at line $LINENO"; ls -la repo || true; exit 1' ERR
+
           rm -rf /tmp/applyzip
           mkdir -p /tmp/applyzip
           unzip -q "repo/${{ inputs.zip_path }}" -d /tmp/applyzip
-          echo "Top-level extracted:"
           ls -la /tmp/applyzip
 
       - name: Detect payload root
@@ -75,34 +75,42 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          set -x
+          trap 'echo "::error:: FAILED at line $LINENO"; ls -la /tmp/applyzip || true; exit 1' ERR
+
           ROOT="/tmp/applyzip"
           COUNT_DIR="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
           COUNT_FILES="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')"
+
           if [ "$COUNT_DIR" -eq 1 ] && [ "$COUNT_FILES" -eq 0 ]; then
             ROOT="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
           fi
+
           echo "root=$ROOT" >> "$GITHUB_OUTPUT"
-          echo "Payload root: $ROOT"
           ls -la "$ROOT"
 
       - name: Validate ZIP payload
         shell: bash
         run: |
           set -euo pipefail
+          set -x
+          trap 'echo "::error:: FAILED at line $LINENO"; echo "ROOT=${{ steps.detect.outputs.root }}"; ls -la "${{ steps.detect.outputs.root }}" || true; exit 1' ERR
+
           ROOT='${{ steps.detect.outputs.root }}'
           test -f "$ROOT/package.json"
           test -f "$ROOT/index.html"
           test -d "$ROOT/src"
           test -d "$ROOT/public"
-          echo "ZIP payload validation OK."
 
       - name: Clean repo (keep .git + imports)
         shell: bash
         run: |
           set -euo pipefail
+          set -x
+          trap 'echo "::error:: FAILED at line $LINENO"; ls -la repo || true; ls -la repo/.git || true; exit 1' ERR
+
           test -d repo/.git
 
-          # delete everything under repo/ except imports/ and .git
           find repo -mindepth 1 -maxdepth 1 \
             ! -name ".git" \
             ! -name "imports" \
@@ -112,6 +120,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          set -x
+          trap 'echo "::error:: FAILED at line $LINENO"; ls -la repo || true; exit 1' ERR
+
           ROOT='${{ steps.detect.outputs.root }}'
           rsync -a --delete "$ROOT/" "repo/"
 
@@ -119,16 +130,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          set -x
+          trap 'echo "::error:: FAILED at line $LINENO"; ls -la repo || true; exit 1' ERR
+
+          test -d repo/.git
           test -f repo/package.json
           test -f repo/index.html
           test -d repo/src
           test -d repo/public
-          echo "Repo validation OK after apply."
 
       - name: Commit and push
         shell: bash
         run: |
           set -euo pipefail
+          set -x
+          trap 'echo "::error:: FAILED at line $LINENO"; git -C repo status || true; exit 1' ERR
+
           test -d repo/.git
 
           git -C repo config user.name "github-actions[bot]"
