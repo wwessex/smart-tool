@@ -38,9 +38,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ls -la
           test -d repo/.git
-          git -C repo rev-parse --short HEAD
+          echo "Checked out: $(git -C repo rev-parse --short HEAD)"
 
       - name: Resolve ZIP path
         id: zippath
@@ -48,12 +47,9 @@ jobs:
         run: |
           set -euo pipefail
           Z="${{ inputs.zip_path }}"
-
-          # If user entered just the filename, try imports/
           if [ ! -f "repo/$Z" ] && [ -f "repo/imports/$Z" ]; then
             Z="imports/$Z"
           fi
-
           if [ ! -f "repo/$Z" ]; then
             echo "ZIP not found: repo/$Z"
             echo "repo root:"
@@ -62,9 +58,9 @@ jobs:
             ls -la repo/imports || true
             exit 1
           fi
-
           echo "zip=$Z" >> "$GITHUB_OUTPUT"
           echo "Using ZIP: $Z"
+          sha256sum "repo/$Z" || true
 
       - name: Extract ZIP to temp
         shell: bash
@@ -73,7 +69,6 @@ jobs:
           rm -rf /tmp/applyzip
           mkdir -p /tmp/applyzip
           unzip -q "$GITHUB_WORKSPACE/repo/${{ steps.zippath.outputs.zip }}" -d /tmp/applyzip
-          echo "Top-level extracted:"
           ls -la /tmp/applyzip
 
       - name: Detect payload root
@@ -110,16 +105,34 @@ jobs:
           test -d repo/.git
           find repo -mindepth 1 -maxdepth 1             ! -name ".git"             ! -name "imports"             -exec rm -rf {} +
 
-      - name: Copy extracted files into repo root (overwrite, keep .git + imports)
+      - name: Apply ZIP into repo (overwrite, keep .git + imports)
         shell: bash
         run: |
           set -euo pipefail
           ROOT='${{ steps.detect.outputs.root }}'
           test -d repo/.git
-
           rsync -a --delete             --exclude '.git/'             --exclude 'imports/'             "$ROOT/" "repo/"
-
           test -d repo/.git
+
+      - name: Assert critical fixes are present (fail fast)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # If this fails, you're NOT applying the ZIP you think you are.
+          if grep -RIn -- '\\[0-9][0-9]*' repo/src/index.css; then
+            echo "::error::Found illegal CSS escapes like \\1232 in src/index.css"
+            exit 1
+          fi
+
+          if grep -n -- "href=\"\./loader\.css\"" repo/index.html; then
+            echo "::error::index.html still references ./loader.css (should be /loader.css)"
+            exit 1
+          fi
+
+          test -f repo/public/loader.css || (echo "::error::public/loader.css missing" && exit 1)
+
+          echo "Assertions OK."
 
       - name: Commit and push via PAT
         shell: bash

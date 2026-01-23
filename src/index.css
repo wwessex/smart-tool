@@ -115,24 +115,24 @@ All colors MUST be HSL.
     --popover: 20 5% 90%;
     --popover-foreground: 24 9% 10%;
 
-    \1232 54% 37%;
-    \10 0% 100%;
+    --primary: 32 54% 37%;
+    --primary-foreground: 0 0% 100%;
 
-    \1200 2% 63%;
-    \124 9% 10%;
+    --secondary: 0 2% 63%;
+    --secondary-foreground: 24 9% 10%;
 
     --muted: 23 5% 82%;
     --muted-foreground: 24 9% 10%;
 
-    \124 91% 58%;
-    \10 0% 100%;
+    --accent: 24 91% 58%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 50%;
     --destructive-foreground: 0 85% 97%;
 
     --border: 23 5% 82%;
     --input: 23 5% 82%;
-    \1232 54% 37%;
+    --primary: 32 54% 37%;
 
     --radius: 1rem;
 
@@ -183,24 +183,24 @@ All colors MUST be HSL.
     --popover: 30 6% 25%;
     --popover-foreground: 60 9% 97%;
 
-    \1232 54% 37%;
-    \10 0% 100%;
+    --primary: 32 54% 37%;
+    --primary-foreground: 0 0% 100%;
 
-    \1200 2% 63%;
-    \124 9% 10%;
+    --secondary: 0 2% 63%;
+    --secondary-foreground: 24 9% 10%;
 
     --muted: 24 5% 44%;
     --muted-foreground: 60 9% 97%;
 
-    \124 91% 58%;
-    \10 0% 100%;
+    --accent: 24 91% 58%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 85% 97%;
 
     --border: 33 5% 32%;
     --input: 33 5% 32%;
-    \1232 54% 37%;
+    --primary: 32 54% 37%;
 
     /* Custom gradient tokens - dark mode */
     --gradient-primary: linear-gradient(135deg, hsl(43, 96%, 56%) 0%, hsl(37, 92%, 50%) 100%);
@@ -244,7 +244,6 @@ All colors MUST be HSL.
     overflow-x: hidden;
   }
 
-  \1
 
   .emoji-flag {
     font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
