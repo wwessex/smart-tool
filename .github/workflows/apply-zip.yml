@@ -26,9 +26,21 @@ jobs:
           ref: ${{ inputs.target_branch }}
           fetch-depth: 0
 
-      - name: Verify ZIP exists
+      - name: Confirm git checkout
+        shell: bash
         run: |
-          set -e
+          set -euo pipefail
+          echo "Working dir:"
+          pwd
+          echo "Repo root contents:"
+          ls -la
+          echo "Git status:"
+          git status
+
+      - name: Verify ZIP exists
+        shell: bash
+        run: |
+          set -euo pipefail
           if [ ! -f "${{ inputs.zip_path }}" ]; then
             echo "ZIP not found: ${{ inputs.zip_path }}"
             echo "Repo root contents:"
@@ -37,8 +49,9 @@ jobs:
           fi
 
       - name: Extract ZIP to temp
+        shell: bash
         run: |
-          set -e
+          set -euo pipefail
           rm -rf /tmp/applyzip
           mkdir -p /tmp/applyzip
           unzip -q "${{ inputs.zip_path }}" -d /tmp/applyzip
@@ -47,22 +60,24 @@ jobs:
 
       - name: Detect payload root
         id: detect
+        shell: bash
         run: |
-          set -e
+          set -euo pipefail
           ROOT="/tmp/applyzip"
           # If ZIP contains a single top-level folder, use it.
-          COUNT=$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
-          FILES=$(find "$ROOT" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')
+          COUNT="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
+          FILES="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')"
           if [ "$COUNT" -eq 1 ] && [ "$FILES" -eq 0 ]; then
-            ROOT=$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | head -n 1)
+            ROOT="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
           fi
-          echo "root=$ROOT" >> $GITHUB_OUTPUT
+          echo "root=$ROOT" >> "$GITHUB_OUTPUT"
           echo "Payload root: $ROOT"
           ls -la "$ROOT"
 
       - name: Validate ZIP contains expected files
+        shell: bash
         run: |
-          set -e
+          set -euo pipefail
           ROOT='${{ steps.detect.outputs.root }}'
           test -f "$ROOT/package.json"
           test -f "$ROOT/index.html"
@@ -70,22 +85,32 @@ jobs:
           test -d "$ROOT/public"
           echo "ZIP payload validation OK."
 
-      - name: Clean repo (optional)
+      - name: Clean repo (keep .git + the zip)
+        shell: bash
         run: |
-          set -e
-          # keep .git and the ZIP itself
-          shopt -s extglob
-          rm -rf !(".git"|"${{ inputs.zip_path }}")
+          set -euo pipefail
+          ZIP="${{ inputs.zip_path }}"
+
+          # Safety check: must be in a git repo
+          test -d .git
+
+          # Remove everything except .git and the zip file
+          find . -mindepth 1 -maxdepth 1 \
+            ! -name ".git" \
+            ! -name "$ZIP" \
+            -exec rm -rf {} +
 
       - name: Copy extracted files into repo root (overwrite)
+        shell: bash
         run: |
-          set -e
+          set -euo pipefail
           ROOT='${{ steps.detect.outputs.root }}'
           rsync -a --delete "$ROOT/" "./"
 
       - name: Validate repo now contains expected files
+        shell: bash
         run: |
-          set -e
+          set -euo pipefail
           test -f package.json
           test -f index.html
           test -d src
@@ -93,8 +118,9 @@ jobs:
           echo "Repo validation OK after apply."
 
       - name: Commit and push
+        shell: bash
         run: |
-          set -e
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
