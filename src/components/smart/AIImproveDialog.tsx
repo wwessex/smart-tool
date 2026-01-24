@@ -42,6 +42,7 @@ export function AIImproveDialog({
   forename,
   smartCheck,
   onApply,
+  llm,
 }: AIImproveDialogProps) {
   const { isGenerating, abort, error: llmError, clearError, generate, isReady } = llm;
 
