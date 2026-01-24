@@ -1998,12 +1998,6 @@ llm.clearError();
                       Advisor assist
                     </span>
                     <div className="flex gap-2">
-                       AI Chat
-                          </Button>
-                        }
-                        systemPrompt={llmSystemPrompt}
-                        initialContext={buildLLMContext()}
-                      />
                       <Button 
                         size="sm" 
                         onClick={handleAIDraft} 
@@ -2181,12 +2175,6 @@ llm.clearError();
                       Advisor assist
                     </span>
                     <div className="flex gap-2">
-                       AI Chat
-                          </Button>
-                        }
-                        systemPrompt={llmSystemPrompt}
-                        initialContext={buildLLMContext()}
-                      />
                       <Button 
                         size="sm" 
                         onClick={handleAIDraft} 
