@@ -32,6 +32,67 @@ export function getStoredConsent(): GDPRConsent | null {
   }
 }
 
+function storeConsent() {
+  const consent: GDPRConsent = {
+    essential: true,
+    consentDate: new Date().toISOString(),
+    version: CONSENT_VERSION,
+  };
+  localStorage.setItem(CONSENT_KEY, JSON.stringify(consent));
+}
+
+export function ManageConsentDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const accept = () => {
+    storeConsent();
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Cookies & Local Storage
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 text-sm text-muted-foreground">
+          <div className="rounded-lg border p-3">
+            <p className="font-medium text-foreground">Essential</p>
+            <p className="mt-1">
+              Required to remember your settings, templates and history on this device.
+              Stored locally in your browser and never sent to a server.
+            </p>
+          </div>
+
+          <div className="rounded-lg border p-3">
+            <p className="font-medium text-foreground">AI processing</p>
+            <p className="mt-1">
+              AI drafting/translation runs locally in your browser. Your text is not sent to any cloud AI service.
+              The AI model files may be downloaded from third‑party model hosts (e.g., Hugging Face) when you enable the AI Module.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+          <Button onClick={accept}>Accept</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
 export function CookieConsent() {
   const [showBanner, setShowBanner] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -42,12 +103,7 @@ export function CookieConsent() {
   }, []);
 
   const accept = () => {
-    const consent: GDPRConsent = {
-      essential: true,
-      consentDate: new Date().toISOString(),
-      version: CONSENT_VERSION,
-    };
-    localStorage.setItem(CONSENT_KEY, JSON.stringify(consent));
+    storeConsent();
     setShowBanner(false);
     setShowSettings(false);
   };
