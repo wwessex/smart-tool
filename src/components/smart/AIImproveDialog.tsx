@@ -88,7 +88,7 @@ export function AIImproveDialog({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to improve action');
     }
-  }, [chat, originalAction, barrier, forename, smartCheck.overallScore, unmetCriteria, clearError]);
+  }, [originalAction, barrier, forename, smartCheck.overallScore, unmetCriteria, clearError]);
 
   const handleDismissError = useCallback(() => {
     setError(null);
