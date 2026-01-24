@@ -93,12 +93,34 @@ function looksRepetitive(s: string): boolean {
   return repeats > 40;
 }
 
+function looksUntranslated(original: string, translated: string): boolean {
+  const o = (original || '').trim();
+  const t = (translated || '').trim();
+  if (!o || !t) return false;
+  if (o === t) return true;
+
+  // If most of the original still appears verbatim, treat as a failed translation.
+  const oLower = o.toLowerCase();
+  const tLower = t.toLowerCase();
+  if (tLower.includes(oLower.slice(0, Math.min(40, oLower.length)))) return true;
+
+  // If translated contains many original words (common when the model keeps English)
+  const words = oLower.split(/\s+/).filter(Boolean);
+  if (words.length >= 6) {
+    const sample = words.slice(0, 10);
+    const hits = sample.filter(w => w.length > 3 && tLower.includes(w)).length;
+    if (hits >= Math.ceil(sample.length * 0.6)) return true;
+  }
+  return false;
+}
+
 function buildSystemPrompt(targetName: string, targetNative: string, scriptHint?: string) {
   return [
     'You are a professional translator for UK employment services.',
     'Translate the user text into the requested target language.',
     'Output ONLY the translated text. Do not add quotes, bullets, explanations, or headings.',
     'Preserve names, dates, times, numbers, and URLs exactly as written.',
+    'Do NOT convert dates or years into another calendar system (e.g., keep "23-Jan-26" as-is).',
     'Keep the same meaning and tone. Keep line breaks where sensible.',
     `Target language: ${targetName} (${targetNative}).`,
     scriptHint ? scriptHint : '',
@@ -145,7 +167,8 @@ export function useTranslation(options: UseTranslationOptions = {}) {
       setState(prev => ({ ...prev, isTranslating: true, error: null, result: null }));
 
       try {
-        const chunks = chunkText(text, 900);
+        // Smaller chunks reduce repetition and improve accuracy for small local models.
+        const chunks = chunkText(text, 450);
         const sys = buildSystemPrompt(lang.name, lang.nativeName, lang.scriptHint);
 
         const outChunks: string[] = [];
@@ -168,10 +191,32 @@ export function useTranslation(options: UseTranslationOptions = {}) {
             translated = await llm.generate(userPrompt, sys3, 'translate');
           }
 
+          // If the output is still basically the same English text, retry with a stricter instruction.
+          if (looksUntranslated(chunk, translated)) {
+            const sys4 = sys + '\nCRITICAL: Do NOT output the original English. You MUST translate it into the target language.';
+            translated = await llm.generate(userPrompt, sys4, 'translate');
+          }
+
           outChunks.push(translated.trim());
         }
 
         const translatedText = outChunks.join('\n\n').trim();
+
+        // Final sanity check: if we still have obvious failure modes, show a clear error instead of nonsense.
+        const needsNonLatin = ['ar', 'ur', 'ps', 'ti', 'bn', 'pa'].includes(language);
+        if (
+          (needsNonLatin && mostlyAscii(translatedText)) ||
+          looksRepetitive(translatedText) ||
+          looksUntranslated(text, translatedText)
+        ) {
+          setState(prev => ({
+            ...prev,
+            isTranslating: false,
+            error: 'Translation could not be produced reliably with the current local AI model. Please download a larger local model in Settings and try again.',
+            result: null,
+          }));
+          return null;
+        }
 
         const result: TranslationResult = {
           original: text,

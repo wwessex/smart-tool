@@ -37,9 +37,8 @@ export function Footer({ onOpenPrivacySettings, className }: FooterProps) {
               <Lock className="w-3 h-3 text-primary" />
               <span className="text-xs font-medium text-foreground">Privacy-First Design</span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              This tool stores data locally, uses no third-party analytics, and only sends text 
-              for AI processing with explicit consent.{' '}
+	            <p className="text-xs text-muted-foreground">
+	              This tool stores data locally, uses no third-party analytics, and runs AI features on-device (no cloud AI).{' '}
               <a href="#/privacy" className="text-primary hover:underline">
                 See the Privacy Policy for details.
               </a>

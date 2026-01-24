@@ -106,7 +106,8 @@ export function FloatingToolbar({
                   onClick={action.onClick}
                   disabled={action.disabled}
                   aria-label={action.label}
-                  aria-keyshortcuts={getShortcut(action.id)?.replace('Ctrl+', 'Control+')}
+	                  // CodeQL: avoid redundant replacement (e.g. replacing "Shift+" with itself)
+	                  aria-keyshortcuts={getShortcut(action.id)?.replace('Ctrl+', 'Control+')}
                   className={cn(
                     "h-10 w-10 rounded-full p-0",
                     action.disabled && "opacity-50 cursor-not-allowed",
