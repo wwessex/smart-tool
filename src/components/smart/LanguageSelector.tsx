@@ -17,6 +17,23 @@ interface LanguageSelectorProps {
   className?: string;
 }
 
+
+function Flag({ code, emoji }: { code?: string; emoji: string }) {
+  // Use images to ensure flags render reliably on Windows.
+  if (code) {
+    return (
+      <img
+        src={`https://flagcdn.com/24x18/${code}.png`}
+        alt=""
+        className="w-[18px] h-[14px] rounded-[2px] inline-block"
+        loading="lazy"
+        referrerPolicy="no-referrer"
+      />
+    );
+  }
+  return <span className="flag-emoji">{emoji}</span>;
+}
+
 export const LanguageSelector = memo(function LanguageSelector({
   value,
   onChange,
@@ -32,7 +49,7 @@ export const LanguageSelector = memo(function LanguageSelector({
         <SelectTrigger className="w-[200px] h-9 text-sm">
           <SelectValue>
             <span className="flex items-center gap-2">
-              <span>{selectedLang.flag}</span>
+              <Flag code={selectedLang.flagCode} emoji={selectedLang.flag} />
               <span>{selectedLang.name}</span>
             </span>
           </SelectValue>
@@ -41,7 +58,7 @@ export const LanguageSelector = memo(function LanguageSelector({
           {Object.entries(SUPPORTED_LANGUAGES).map(([code, lang]) => (
             <SelectItem key={code} value={code}>
               <span className="flex items-center gap-2">
-                <span>{lang.flag}</span>
+                <Flag code={lang.flagCode} emoji={lang.flag} />
                 <span>{lang.name}</span>
                 {code !== "none" && (
                   <span className="text-muted-foreground text-xs">({lang.nativeName})</span>

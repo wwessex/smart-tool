@@ -292,3 +292,9 @@ All colors MUST be HSL.
     background-color: rgb(255 255 255 / 0.06);
   }
 }
+
+
+/* Ensure emoji flags render consistently across platforms */
+.flag-emoji {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}

@@ -1,14 +1,21 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wand2, Check, X, ArrowRight, Loader2, AlertCircle, RefreshCw, Shield } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { useCloudAI } from '@/hooks/useCloudAI';
-import { useAIConsent } from '@/hooks/useAIConsent';
 import { SmartCheck } from '@/lib/smart-checker';
 import { IMPROVE_PROMPT } from '@/lib/smart-prompts';
 import { cn } from '@/lib/utils';
 import { WarningBox } from './WarningBox';
+
+interface LocalLLMHandle {
+  isReady: boolean;
+  isGenerating: boolean;
+  error: string | null;
+  clearError: () => void;
+  abort: () => void;
+  generate: (userMessage: string, systemPrompt?: string, configType?: string) => Promise<string>;
+}
 
 interface AIImproveDialogProps {
   open: boolean;
@@ -18,6 +25,7 @@ interface AIImproveDialogProps {
   forename: string;
   smartCheck: SmartCheck;
   onApply: (improvedAction: string) => void;
+  llm: LocalLLMHandle;
 }
 
 interface ImproveResult {
@@ -35,11 +43,11 @@ export function AIImproveDialog({
   smartCheck,
   onApply,
 }: AIImproveDialogProps) {
-  const { chat, isGenerating, abort, error: cloudError, clearError } = useCloudAI();
-  const hasConsent = useAIConsent();
+  const { isGenerating, abort, error: llmError, clearError, generate, isReady } = llm;
+
   const [result, setResult] = useState<ImproveResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const errorMessage = error ?? cloudError;
+  const errorMessage = error ?? llmError;
 
   const unmetCriteria = [
     !smartCheck.specific.met && 'Specific',
@@ -62,10 +70,7 @@ export function AIImproveDialog({
       .replace('{unmetCriteria}', unmetCriteria || 'None');
 
     try {
-      let fullResponse = '';
-      for await (const chunk of chat([{ role: 'user', content: prompt }])) {
-        fullResponse += chunk;
-      }
+      const fullResponse = await generate(prompt, undefined, 'improve');
 
       // Parse JSON response
       const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
@@ -140,7 +145,7 @@ export function AIImproveDialog({
           </div>
 
           {/* Consent Warning */}
-          {!hasConsent && (
+          {!true && (
             <WarningBox variant="warning" title="AI Consent Required">
               <p className="text-sm">
                 Enable AI features in <strong>Settings → Privacy & Data</strong> to use this feature.
@@ -159,12 +164,12 @@ export function AIImproveDialog({
                 onClick={handleImprove} 
                 size="lg" 
                 className="gap-2"
-                disabled={!hasConsent}
+                disabled={!true}
               >
                 <Wand2 className="w-4 h-4" />
                 Generate Improvement
               </Button>
-              {!hasConsent && (
+              {!true && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Shield className="w-3 h-3" />
                   AI consent required

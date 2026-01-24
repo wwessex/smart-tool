@@ -4,8 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { z } from 'zod';
 import { useSmartStorage, HistoryItem, ActionTemplate } from '@/hooks/useSmartStorage';
 import { useTranslation, SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
-import { useCloudAI } from '@/hooks/useCloudAI';
-import { useAIConsent } from '@/hooks/useAIConsent';
 import { parseSmartToolImportFile } from '@/lib/smart-portability';
 import { 
   todayISO, 
@@ -22,7 +20,6 @@ import {
 import { checkSmart, SmartCheck } from '@/lib/smart-checker';
 import { SmartChecklist } from './SmartChecklist';
 import { TemplateLibrary } from './TemplateLibrary';
-import { LLMChatButton } from './LLMChat';
 import { ActionWizard } from './ActionWizard';
 import { AIImproveDialog } from './AIImproveDialog';
 import { ShortcutsHelp } from './ShortcutsHelp';
@@ -136,11 +133,10 @@ export function SmartActionTool() {
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
   const storage = useSmartStorage();
-  const translation = useTranslation();
-  const cloudAI = useCloudAI();
-  const aiHasConsent = useAIConsent();
   const localSync = useLocalSync();
   const llm = useTransformersLLM({ allowMobileLLM: storage.allowMobileLLM });
+  const translation = useTranslation({ llm, enabled: llm.isReady && llm.canUseLocalAI });
+
   const { pack: promptPack, source: promptPackSource } = usePromptPack();
   const today = todayISO();
   const effectivePromptPack = promptPack || DEFAULT_PROMPT_PACK;
@@ -423,6 +419,15 @@ export function SmartActionTool() {
       return;
     }
     
+    if (!translation.canTranslate) {
+      toast({
+        title: 'Local AI not ready',
+        description: 'Download the AI Module in Settings to enable translation.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const result = await translation.translate(output, storage.participantLanguage);
     if (result) {
       setTranslatedOutput(result.translated);
@@ -924,17 +929,17 @@ export function SmartActionTool() {
       return;
     }
 
-    // Check AI consent
-    if (!cloudAI.hasConsent) {
-      toast({ 
-        title: 'AI consent required', 
-        description: 'Please accept AI cookies in privacy settings to use this feature.',
+    // Safe option: require local AI to be ready
+    if (!llm.isReady || !llm.canUseLocalAI) {
+      toast({
+        title: 'Local AI not ready',
+        description: 'Download the AI Module in Settings to enable this feature.',
         variant: 'destructive'
       });
       return;
     }
 
-    cloudAI.clearError();
+llm.clearError();
     setLastFixAttempt({ criterion, suggestion });
     setFixingCriterion(criterion);
     
@@ -952,7 +957,7 @@ export function SmartActionTool() {
 
     try {
       let fullResponse = '';
-      for await (const chunk of cloudAI.chat([{ role: 'user', content: prompt }])) {
+      for await (const chunk of llm.chat([{ role: 'user', content: prompt }])) {
         fullResponse += chunk;
       }
 
@@ -996,7 +1001,7 @@ export function SmartActionTool() {
     } finally {
       setFixingCriterion(null);
     }
-  }, [output, mode, nowForm, futureForm, cloudAI, toast]);
+  }, [output, mode, nowForm, futureForm, llm, toast]);
 
   const handleRetryFix = useCallback(() => {
     if (!lastFixAttempt) return;
@@ -1708,18 +1713,18 @@ export function SmartActionTool() {
                         <Shield className="w-5 h-5 text-primary" />
                         <h3 className="font-bold">Privacy & Data</h3>
                       </div>
-                      {/* AI Consent Status Badge */}
+                      {/* Local AI status */}
                       <div className={cn(
                         "flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium",
-                        aiHasConsent
-                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" 
+                        llm.isReady
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                           : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
                       )}>
                         <div className={cn(
                           "w-2 h-2 rounded-full",
-                          aiHasConsent ? "bg-emerald-500" : "bg-amber-500"
+                          llm.isReady ? "bg-emerald-500" : "bg-amber-500"
                         )} />
-                        AI: {aiHasConsent ? "Enabled" : "Disabled"}
+                        <span>{llm.isReady ? "Local AI ready" : "Local AI not loaded"}</span>
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground">
@@ -1799,7 +1804,7 @@ export function SmartActionTool() {
       />
 
       {/* AI Improve Dialog */}
-      <AIImproveDialog
+      <AIImproveDialog llm={llm}
         open={improveDialogOpen}
         onOpenChange={setImproveDialogOpen}
         originalAction={output}
@@ -1993,10 +1998,7 @@ export function SmartActionTool() {
                       Advisor assist
                     </span>
                     <div className="flex gap-2">
-                      <LLMChatButton
-                        trigger={
-                          <Button size="sm" variant="outline" className="border-primary/30 hover:bg-primary/10">
-                            <Bot className="w-3 h-3 mr-1" /> AI Chat
+                       AI Chat
                           </Button>
                         }
                         systemPrompt={llmSystemPrompt}
@@ -2179,10 +2181,7 @@ export function SmartActionTool() {
                       Advisor assist
                     </span>
                     <div className="flex gap-2">
-                      <LLMChatButton
-                        trigger={
-                          <Button size="sm" variant="outline" className="border-primary/30 hover:bg-primary/10">
-                            <Bot className="w-3 h-3 mr-1" /> AI Chat
+                       AI Chat
                           </Button>
                         }
                         systemPrompt={llmSystemPrompt}
@@ -2357,14 +2356,14 @@ export function SmartActionTool() {
               <LanguageSelector 
                 value={storage.participantLanguage} 
                 onChange={handleLanguageChange}
-                disabled={translation.isTranslating}
+                disabled={translation.isTranslating || !translation.canTranslate}
               />
               {storage.participantLanguage !== 'none' && output.trim() && (
                 <Button 
                   size="sm" 
                   variant="outline"
                   onClick={handleTranslate}
-                  disabled={translation.isTranslating}
+                  disabled={translation.isTranslating || !translation.canTranslate}
                   className="border-primary/30 hover:bg-primary/10"
                 >
                   {translation.isTranslating ? (
@@ -2422,10 +2421,10 @@ export function SmartActionTool() {
               </motion.div>
             </AnimatePresence>
 
-            {cloudAI.error && (
+            {llm.error && (
               <WarningBox variant="error" title="AI request failed">
                 <div className="space-y-2">
-                  <p>{cloudAI.error}</p>
+                  <p>{llm.error}</p>
                   <div className="flex flex-wrap gap-2">
                     {lastFixAttempt && (
                       <Button
@@ -2439,7 +2438,7 @@ export function SmartActionTool() {
                         Retry AI fix
                       </Button>
                     )}
-                    <Button size="sm" variant="ghost" onClick={() => cloudAI.clearError()} className="text-foreground">
+                    <Button size="sm" variant="ghost" onClick={() => llm.clearError()} className="text-foreground">
                       Dismiss
                     </Button>
                   </div>
