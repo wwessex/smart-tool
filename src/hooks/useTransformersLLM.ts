@@ -370,21 +370,16 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
         const { pipeline, env } = await import("@huggingface/transformers");
 
         // Configure cache and logging
-        // Set allowed model sources. By default the transformers.js env allows remote models,
-        // but our application also distributes a local ONNX model bundle. When these flags
-        // are both false the library will throw "Invalid configuration detected" errors,
-        // so ensure at least one is enabled. Explicitly enable both so that if the local
-        // bundle isn't present the library falls back to a remote fetch.
+        // Ensure at least one model source is enabled. Some parts of the app may toggle
+        // remote/local flags; if both end up disabled, Transformers.js throws:
+        // "Invalid configuration detected: both local and remote models are disabled".
+        // We explicitly enable both and point localModelPath at our self-hosted /models.
         env.allowLocalModels = true;
         env.allowRemoteModels = true;
-        // Configure the path where local models are served. Use the base URL (public path)
-        // so that models live under the `/models` directory at runtime. This mirrors the
-        // configuration set in the Vite entrypoint.
         try {
           const base = (import.meta as any).env?.BASE_URL ?? "./";
           env.localModelPath = `${base}models/`;
         } catch {
-          // Fallback to relative models directory if import.meta isn't available
           env.localModelPath = "./models/";
         }
         env.useBrowserCache = true;

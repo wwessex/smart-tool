@@ -176,6 +176,7 @@ export function SmartActionTool() {
   // AI Draft state
   const [aiDrafting, setAIDrafting] = useState(false);
   const [showLLMPicker, setShowLLMPicker] = useState(false);
+  const [pendingAIDraftAfterModelLoad, setPendingAIDraftAfterModelLoad] = useState(false);
 
   const [mode, setMode] = useState<Mode>('now');
   const [nowForm, setNowForm] = useState<NowForm>({
@@ -611,6 +612,9 @@ export function SmartActionTool() {
 
     // If LLM is not ready on desktop, show picker
     if (!llm.isReady) {
+      // Remember that the user asked for an AI Draft so we can resume automatically
+      // once the model finishes downloading/initialising.
+      setPendingAIDraftAfterModelLoad(true);
       setShowLLMPicker(true);
       return;
     }
@@ -675,6 +679,25 @@ export function SmartActionTool() {
       setAIDrafting(false);
     }
   }, [mode, nowForm, futureForm, llm, today, templateDraftNow, templateDraftFuture, toast, storage.aiDraftMode, effectivePromptPack, llmSystemPrompt]);
+
+  // UX fix: after the user selects a model, loading updates `llm.isReady` asynchronously.
+  // The old flow checked `llm.isReady` immediately in the click handler, which often
+  // required a second click. Instead, watch for readiness and resume the pending draft.
+  useEffect(() => {
+    // When a model finishes loading, close the picker and (optionally) resume AI Draft.
+    if (!showLLMPicker) return;
+    if (!llm.isReady) return;
+
+    setShowLLMPicker(false);
+
+    if (pendingAIDraftAfterModelLoad) {
+      setPendingAIDraftAfterModelLoad(false);
+      toast({ title: 'Model loaded', description: 'Generating AI draft…' });
+      void handleAIDraft();
+    } else {
+      toast({ title: 'Model loaded', description: 'Local AI is ready.' });
+    }
+  }, [showLLMPicker, pendingAIDraftAfterModelLoad, llm.isReady, handleAIDraft, toast]);
 
   const handleEditHistory = (item: HistoryItem) => {
     setMode(item.mode);
@@ -2632,10 +2655,6 @@ llm.clearError();
                     key={model.id}
                     onClick={async () => {
                       await llm.loadModel(model.id);
-                      if (llm.isReady) {
-                        setShowLLMPicker(false);
-                        toast({ title: 'Model loaded', description: `${model.name} is ready for AI Draft.` });
-                      }
                     }}
                     className="w-full p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 transition-colors text-left group"
                   >
