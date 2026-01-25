@@ -76,7 +76,7 @@ export function ManageConsentDialog({
             <p className="font-medium text-foreground">AI processing</p>
             <p className="mt-1">
               AI drafting/translation runs locally in your browser. Your text is not sent to any cloud AI service.
-              The AI model files may be downloaded from third‑party model hosts (e.g., Hugging Face) when you enable the AI Module.
+              Model files are downloaded from this website (self-hosted) when you enable the AI Module.
             </p>
           </div>
         </div>
@@ -179,7 +179,7 @@ export function CookieConsent() {
               <p className="font-medium text-foreground">AI processing</p>
               <p className="mt-1">
                 AI drafting/translation runs locally in your browser. Your text is not sent to any cloud AI service.
-                The AI model files may be downloaded from third‑party model hosts (e.g., Hugging Face) when you enable the AI Module.
+              Model files are downloaded from this website (self-hosted) when you enable the AI Module.
               </p>
             </div>
           </div>

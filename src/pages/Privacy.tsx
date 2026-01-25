@@ -55,7 +55,7 @@ export default function Privacy() {
                 <p className="font-medium">Model downloads (optional)</p>
                 <p className="text-sm text-muted-foreground mt-1">
                   If you enable the Local AI Module, your browser may download model files from third‑party model hosting
-                  (for example Hugging Face and related configuration endpoints). These requests share standard network
+              Your browser may download AI model files from this website (self-hosted) when you enable the local AI module.
                   metadata such as your IP address.
                 </p>
               </div>
@@ -83,7 +83,7 @@ export default function Privacy() {
             </p>
 
             <p className="text-sm text-muted-foreground">
-              Your browser may download model files from third‑party sources (for example Hugging Face / GitHub) when the module is enabled.
+              Your browser may download AI model files from this website (self-hosted) when you enable the local AI module.
               These downloads do not include your action text.
             </p>
           </section>

@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "fetch-models": "python scripts/fetch-models.py"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.0.2",

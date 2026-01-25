@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { Component, ReactNode } from "react";
 import App from "./App.tsx";
 import "./index.css";
+import "./lib/transformersEnv";
 
 // CRITICAL FIX: Hide loading screen function - ALWAYS runs in finally block
 const hideLoadingScreen = () => {
