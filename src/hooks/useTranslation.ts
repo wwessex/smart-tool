@@ -75,21 +75,23 @@ export function useTranslation(options: UseTranslationOptions = {}) {
   }, []);
 
   const translate = useCallback(
-    async (text: string, language: string) => {
+    async (text: string, language: string): Promise<TranslationResult | null> => {
+      // NOTE: SmartActionTool expects translate() to return a result (or null) and expose
+      // flat properties like isTranslating/canTranslate/error. Keep internal state too.
       if (!enabled) {
         setState({ isTranslating: false, error: 'Translation is disabled.', result: null });
-        return;
+        return null;
       }
 
       if (!text?.trim() || language === 'none') {
         setState({ isTranslating: false, error: null, result: null });
-        return;
+        return null;
       }
 
       const langMeta = SUPPORTED_LANGUAGES[language];
       if (!langMeta) {
         setState({ isTranslating: false, error: `Unsupported language: ${language}`, result: null });
-        return;
+        return null;
       }
 
       setState({ isTranslating: true, error: null, result: null });
@@ -97,22 +99,28 @@ export function useTranslation(options: UseTranslationOptions = {}) {
       try {
         const translated = await translateOffline(text, language);
 
+        const result: TranslationResult = {
+          original: text,
+          translated,
+          language,
+          languageName: langMeta.name,
+        };
+
         setState({
           isTranslating: false,
           error: null,
-          result: {
-            original: text,
-            translated,
-            language,
-            languageName: langMeta.name,
-          },
+          result,
         });
+
+        return result;
       } catch (e: any) {
         setState({
           isTranslating: false,
           error: e?.message ?? 'Translation failed',
           result: null,
         });
+
+        return null;
       }
     },
     [enabled]
@@ -121,9 +129,17 @@ export function useTranslation(options: UseTranslationOptions = {}) {
   const isRTL = useCallback((language: string) => _isRTL(language), []);
 
   return {
+    // keep the full state object for any existing callers
     state,
+    // expose flat fields expected by SmartActionTool
+    isTranslating: state.isTranslating,
+    error: state.error,
+    result: state.result,
+    canTranslate: enabled,
     languages,
     translate,
+    // SmartActionTool expects clearTranslation()
+    clearTranslation: clear,
     clear,
     isRTL,
   };
