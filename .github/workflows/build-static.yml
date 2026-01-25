@@ -26,34 +26,6 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Download local AI models (self-hosted)
-        run: |
-          set -euo pipefail
-          python -m pip install --upgrade pip
-          python -m pip install --no-cache-dir huggingface_hub==0.24.6
-          python - <<'PY'
-          from huggingface_hub import snapshot_download
-          import os
-
-          os.makedirs("public/models", exist_ok=True)
-
-          models = [
-            "HuggingFaceTB/SmolLM2-360M-Instruct",
-            "Xenova/nllb-200-distilled-600M",
-          ]
-
-          for mid in models:
-            org, repo = mid.split("/", 1)
-            dest = os.path.join("public", "models", org, repo)
-            print("Downloading", mid, "->", dest)
-            snapshot_download(
-              repo_id=mid,
-              local_dir=dest,
-              local_dir_use_symlinks=False,
-              resume_download=True,
-            )
-          print("Done.")
-          PY
       
       - name: Fix Tailwind glass opacity (CI guard)
         run: |
@@ -84,34 +56,6 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Download local AI models (self-hosted)
-        run: |
-          set -euo pipefail
-          python -m pip install --upgrade pip
-          python -m pip install --no-cache-dir huggingface_hub==0.24.6
-          python - <<'PY'
-          from huggingface_hub import snapshot_download
-          import os
-
-          os.makedirs("public/models", exist_ok=True)
-
-          models = [
-            "HuggingFaceTB/SmolLM2-360M-Instruct",
-            "Xenova/nllb-200-distilled-600M",
-          ]
-
-          for mid in models:
-            org, repo = mid.split("/", 1)
-            dest = os.path.join("public", "models", org, repo)
-            print("Downloading", mid, "->", dest)
-            snapshot_download(
-              repo_id=mid,
-              local_dir=dest,
-              local_dir_use_symlinks=False,
-              resume_download=True,
-            )
-          print("Done.")
-          PY
       
       - name: Run tests
         run: bun run test
@@ -134,37 +78,18 @@ jobs:
         with:
           bun-version: latest
       
-      - name: Install dependencies
-        run: bun install
-
-      - name: Download local AI models (self-hosted)
+      - name: Download local AI models (self-hosted, disk-safe)
+        env:
+          HF_HUB_CACHE: /tmp/hf-cache
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install --no-cache-dir huggingface_hub==0.24.6
-          python - <<'PY'
-          from huggingface_hub import snapshot_download
-          import os
+          python scripts/fetch-models.py
+          rm -rf /tmp/hf-cache || true
+      - name: Install dependencies
+        run: bun install
 
-          os.makedirs("public/models", exist_ok=True)
-
-          models = [
-            "HuggingFaceTB/SmolLM2-360M-Instruct",
-            "Xenova/nllb-200-distilled-600M",
-          ]
-
-          for mid in models:
-            org, repo = mid.split("/", 1)
-            dest = os.path.join("public", "models", org, repo)
-            print("Downloading", mid, "->", dest)
-            snapshot_download(
-              repo_id=mid,
-              local_dir=dest,
-              local_dir_use_symlinks=False,
-              resume_download=True,
-            )
-          print("Done.")
-          PY
       
       - name: Build static site
         run: bun run build
