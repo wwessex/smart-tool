@@ -2628,11 +2628,23 @@ llm.clearError();
             ) : (
               <div className="space-y-2">
                 {llm.supportedModels.map((model) => (
-                  <button
+                    <button
                     key={model.id}
                     onClick={async () => {
+                      // When a local model is selected and loaded, automatically set the draft mode
+                      // to "ai" and remember the chosen model. Without this, if the user is
+                      // currently in template mode the Smart Action Tool will continue
+                      // to use templates even after downloading the model. Persisting the
+                      // preference ensures that subsequent drafts use the local AI by default.
                       await llm.loadModel(model.id);
                       if (llm.isReady) {
+                        // Persist preferred model and enable AI mode
+                        if (storage.updatePreferredLLMModel) {
+                          storage.updatePreferredLLMModel(model.id);
+                        }
+                        if (storage.updateAIDraftMode) {
+                          storage.updateAIDraftMode('ai');
+                        }
                         setShowLLMPicker(false);
                         toast({ title: 'Model loaded', description: `${model.name} is ready for AI Draft.` });
                       }
