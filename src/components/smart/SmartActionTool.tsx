@@ -2636,8 +2636,8 @@ llm.clearError();
                       // currently in template mode the Smart Action Tool will continue
                       // to use templates even after downloading the model. Persisting the
                       // preference ensures that subsequent drafts use the local AI by default.
-                      await llm.loadModel(model.id);
-                      if (llm.isReady) {
+                      const success = await llm.loadModel(model.id);
+                      if (success) {
                         // Persist preferred model and enable AI mode
                         if (storage.updatePreferredLLMModel) {
                           storage.updatePreferredLLMModel(model.id);

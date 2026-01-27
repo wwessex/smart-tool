@@ -121,10 +121,17 @@ export function useTranslation(options: UseTranslationOptions = {}) {
   const isRTL = useCallback((language: string) => _isRTL(language), []);
 
   return {
+    // Original nested state for backwards compatibility
     state,
     languages,
     translate,
     clear,
     isRTL,
+    // Flattened properties for easier access in SmartActionTool
+    isTranslating: state.isTranslating,
+    error: state.error,
+    result: state.result,
+    canTranslate: enabled,
+    clearTranslation: clear,
   };
 }

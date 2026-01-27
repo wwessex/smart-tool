@@ -546,14 +546,14 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
   }, []);
 
   // Load a model
-  const loadModel = useCallback(async (modelId: string): Promise<void> => {
+  const loadModel = useCallback(async (modelId: string): Promise<boolean> => {
     // Mobile policy
     if (isMobileBlocked) {
       setState((prev) => ({
         ...prev,
         error: device.isAndroid ? "Local AI is not available on Android yet. Please use template-based drafting instead." : "Local AI is disabled on iPhone/iPad by default. Enable it in Settings (Experimental Local AI) and use the smallest model.",
       }));
-      return;
+      return false;
     }
 
     if (!isModelAvailable(modelId)) {
@@ -561,7 +561,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
         ...prev,
         error: `Model ${modelId} is not in our recommended list`,
       }));
-      return;
+      return false;
     }
 
     // Log platform info for debugging
@@ -611,6 +611,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
         loadingProgress: 100,
         loadingStatus: "Ready!",
       }));
+      return true;
     } catch (err) {
       console.error("Failed to load model:", err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load model";
@@ -632,6 +633,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
         isLoading: false,
         error: friendlyError,
       }));
+      return false;
     }
   }, [isModelAvailable, checkDevice, loadModelWithRetry, warmupModel]);
 
