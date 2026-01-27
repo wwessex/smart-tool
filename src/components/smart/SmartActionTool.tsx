@@ -146,7 +146,7 @@ export function SmartActionTool() {
   // unload the local model shortly after generation to free memory, while keeping
   // the downloaded weights in browser storage/cache.
   const iosAutoUnloadTimer = useRef<number | null>(null);
-  const scheduleIOSModelUnload = useCallback(() => {
+  const scheduleIOSModelUnload = useCallback((delayMs?: number) => {
     // Only do this on mobile (iPhone/iPad) and only when local AI is active.
     if (!llm.isMobile) return;
     if (storage.aiDraftMode !== 'local') return;
@@ -154,13 +154,14 @@ export function SmartActionTool() {
       window.clearTimeout(iosAutoUnloadTimer.current);
       iosAutoUnloadTimer.current = null;
     }
+    const timeoutMs = delayMs ?? (llm.browserInfo.isSafari ? 400 : 1200);
     iosAutoUnloadTimer.current = window.setTimeout(() => {
       try {
         llm.unload();
       } catch {
         // ignore
       }
-    }, 2500);
+    }, timeoutMs);
   }, [llm, storage.aiDraftMode]);
 
   useEffect(() => {
@@ -671,6 +672,7 @@ export function SmartActionTool() {
       } else {
         templateDraftFuture();
       }
+      scheduleIOSModelUnload(0);
     } finally {
       setAIDrafting(false);
     }
