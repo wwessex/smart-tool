@@ -134,7 +134,10 @@ export function SmartActionTool() {
   const { theme, setTheme } = useTheme();
   const storage = useSmartStorage();
   const localSync = useLocalSync();
-  const llm = useTransformersLLM({ allowMobileLLM: storage.allowMobileLLM });
+  const llm = useTransformersLLM({
+    allowMobileLLM: storage.allowMobileLLM,
+    safariWebGPUEnabled: storage.safariWebGPUEnabled,
+  });
   const translation = useTranslation({ llm, enabled: llm.canUseLocalAI });
 
   const { pack: promptPack, source: promptPackSource } = usePromptPack();
@@ -150,7 +153,7 @@ export function SmartActionTool() {
     // Only do this on Safari or mobile, and only when local AI is active.
     if (!llm.isMobile && !llm.browserInfo.isSafari) return;
     if (llm.browserInfo.isSafari && storage.keepSafariModelLoaded) return;
-    if (storage.aiDraftMode !== 'ai') return;
+    if (storage.aiDraftMode !== 'local') return;
     if (iosAutoUnloadTimer.current) {
       window.clearTimeout(iosAutoUnloadTimer.current);
       iosAutoUnloadTimer.current = null;
@@ -1435,8 +1438,28 @@ llm.clearError();
                       </div>
                     )}
 
+                    {/* Safari WebGPU toggle (experimental) */}
+                    {storage.aiDraftMode === 'ai' && llm.browserInfo?.isSafari && (
+                      <div className="pt-4 border-t space-y-3">
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={storage.safariWebGPUEnabled}
+                            onChange={e => storage.updateSafariWebGPUEnabled(e.target.checked)}
+                            className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary mt-0.5"
+                          />
+                          <div>
+                            <span className="text-sm font-medium">Safari WebGPU (experimental)</span>
+                            <p className="text-xs text-muted-foreground">
+                              Safari WebGPU can cause tab reloads on heavy models.
+                            </p>
+                          </div>
+                        </label>
+                      </div>
+                    )}
+
                     {/* Safari model unload behavior */}
-                    {storage.aiDraftMode === 'ai' && llm.browserInfo.isSafari && (
+                    {storage.aiDraftMode === 'ai' && llm.browserInfo?.isSafari && (
                       <div className="pt-4 border-t space-y-3">
                         <label className="flex items-start gap-3 cursor-pointer">
                           <input

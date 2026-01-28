@@ -18,6 +18,7 @@ const STORAGE = {
   aiDraftMode: "smartTool.aiDraftMode",
   preferredLLMModel: "smartTool.preferredLLMModel",
   allowMobileLLM: "smartTool.allowMobileLLM",
+  safariWebGPUEnabled: "smartTool.safariWebGPUEnabled",
   keepSafariModelLoaded: "smartTool.keepSafariModelLoaded"
 };
 
@@ -68,6 +69,7 @@ export interface SmartToolSettings {
   aiDraftMode?: AIDraftMode;
   preferredLLMModel?: string;
   allowMobileLLM?: boolean;
+  safariWebGPUEnabled?: boolean;
   keepSafariModelLoaded?: boolean;
 }
 
@@ -169,6 +171,7 @@ export function useSmartStorage() {
     }
   });
   const [allowMobileLLM, setAllowMobileLLM] = useState<boolean>(() => loadBoolean(STORAGE.allowMobileLLM, false));
+  const [safariWebGPUEnabled, setSafariWebGPUEnabled] = useState<boolean>(() => loadBoolean(STORAGE.safariWebGPUEnabled, false));
   const [keepSafariModelLoaded, setKeepSafariModelLoaded] = useState<boolean>(() => loadBoolean(STORAGE.keepSafariModelLoaded, false));
 
 
@@ -296,6 +299,10 @@ const importData = useCallback((data: {
         setAllowMobileLLM(data.settings.allowMobileLLM);
         safeSetItem(STORAGE.allowMobileLLM, data.settings.allowMobileLLM ? "true" : "false");
       }
+      if (typeof data.settings.safariWebGPUEnabled === 'boolean') {
+        setSafariWebGPUEnabled(data.settings.safariWebGPUEnabled);
+        safeSetItem(STORAGE.safariWebGPUEnabled, data.settings.safariWebGPUEnabled ? "true" : "false");
+      }
       if (typeof data.settings.keepSafariModelLoaded === 'boolean') {
         setKeepSafariModelLoaded(data.settings.keepSafariModelLoaded);
         safeSetItem(STORAGE.keepSafariModelLoaded, data.settings.keepSafariModelLoaded ? "true" : "false");
@@ -363,6 +370,7 @@ const exportAllData = useCallback(() => {
         aiDraftMode,
         preferredLLMModel,
         allowMobileLLM,
+        safariWebGPUEnabled,
         keepSafariModelLoaded,
       },
     };
@@ -381,6 +389,7 @@ const exportAllData = useCallback(() => {
     aiDraftMode,
     preferredLLMModel,
     allowMobileLLM,
+    safariWebGPUEnabled,
     keepSafariModelLoaded,
   ]);
 
@@ -405,6 +414,7 @@ const exportAllData = useCallback(() => {
     setAIDraftMode('ai');
     setPreferredLLMModel(null);
     setAllowMobileLLM(false);
+    setSafariWebGPUEnabled(false);
     setKeepSafariModelLoaded(false);
   }, []);
 
@@ -442,6 +452,11 @@ const exportAllData = useCallback(() => {
     setAllowMobileLLM(enabled);
     safeSetItem(STORAGE.allowMobileLLM, enabled ? "true" : "false");
   }, []);
+  const updateSafariWebGPUEnabled = useCallback((enabled: boolean) => {
+    setSafariWebGPUEnabled(enabled);
+    safeSetItem(STORAGE.safariWebGPUEnabled, enabled ? "true" : "false");
+  }, []);
+
   const updateKeepSafariModelLoaded = useCallback((enabled: boolean) => {
     setKeepSafariModelLoaded(enabled);
     safeSetItem(STORAGE.keepSafariModelLoaded, enabled ? "true" : "false");
@@ -511,6 +526,7 @@ const exportAllData = useCallback(() => {
     aiDraftMode,
     preferredLLMModel,
     allowMobileLLM,
+    safariWebGPUEnabled,
     keepSafariModelLoaded,
     updateBarriers,
     resetBarriers,
@@ -532,6 +548,7 @@ const exportAllData = useCallback(() => {
     updateAIDraftMode,
     updatePreferredLLMModel,
     updateAllowMobileLLM,
+    updateSafariWebGPUEnabled,
     updateKeepSafariModelLoaded,
     cleanupOldHistory,
     shouldRunCleanup,
