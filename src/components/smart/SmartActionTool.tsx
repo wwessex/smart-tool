@@ -150,7 +150,7 @@ export function SmartActionTool() {
     // Only do this on Safari or mobile, and only when local AI is active.
     if (!llm.isMobile && !llm.browserInfo.isSafari) return;
     if (llm.browserInfo.isSafari && storage.keepSafariModelLoaded) return;
-    if (storage.aiDraftMode !== 'local') return;
+    if (storage.aiDraftMode !== 'ai') return;
     if (iosAutoUnloadTimer.current) {
       window.clearTimeout(iosAutoUnloadTimer.current);
       iosAutoUnloadTimer.current = null;
