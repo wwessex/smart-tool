@@ -171,16 +171,24 @@ export function formatActionForFile(item: HistoryItem): string {
 
 // Check if File System Access API is supported
 const isFileSystemAccessSupported = (): boolean => {
-  return 'showDirectoryPicker' in window;
+  return typeof window !== 'undefined' && 'showDirectoryPicker' in window;
+};
+
+const safeGetItem = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
 };
 
 export function useLocalSync() {
   const [state, setState] = useState<LocalSyncState>(() => ({
-    isConnected: !!localStorage.getItem(STORAGE_KEYS.folderName),
+    isConnected: !!safeGetItem(STORAGE_KEYS.folderName),
     isConnecting: false,
-    folderName: localStorage.getItem(STORAGE_KEYS.folderName),
-    syncEnabled: localStorage.getItem(STORAGE_KEYS.syncEnabled) === 'true',
-    lastSync: localStorage.getItem(STORAGE_KEYS.lastSync),
+    folderName: safeGetItem(STORAGE_KEYS.folderName),
+    syncEnabled: safeGetItem(STORAGE_KEYS.syncEnabled) === 'true',
+    lastSync: safeGetItem(STORAGE_KEYS.lastSync),
     error: null,
     isSupported: isFileSystemAccessSupported(),
   }));
@@ -301,12 +309,14 @@ export function useLocalSync() {
 
     localStorage.removeItem(STORAGE_KEYS.folderName);
     localStorage.removeItem(STORAGE_KEYS.lastSync);
+    localStorage.removeItem(STORAGE_KEYS.syncEnabled);
 
     setState(prev => ({
       ...prev,
       isConnected: false,
       folderName: null,
       lastSync: null,
+      syncEnabled: false,
     }));
   }, []);
 

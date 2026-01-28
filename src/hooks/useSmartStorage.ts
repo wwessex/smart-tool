@@ -261,37 +261,37 @@ const importData = useCallback((data: {
 if (data.settings && typeof data.settings === 'object') {
       if (typeof data.settings.minScoreEnabled === 'boolean') {
         setMinScoreEnabled(data.settings.minScoreEnabled);
-        localStorage.setItem(STORAGE.minScoreEnabled, String(data.settings.minScoreEnabled));
+        safeSetItem(STORAGE.minScoreEnabled, String(data.settings.minScoreEnabled));
       }
       if (typeof data.settings.minScoreThreshold === 'number') {
         const clamped = Math.max(1, Math.min(5, Math.round(data.settings.minScoreThreshold)));
         setMinScoreThreshold(clamped);
-        localStorage.setItem(STORAGE.minScoreThreshold, String(clamped));
+        safeSetItem(STORAGE.minScoreThreshold, String(clamped));
       }
       if (typeof data.settings.retentionEnabled === 'boolean') {
         setRetentionEnabled(data.settings.retentionEnabled);
-        localStorage.setItem(STORAGE.retentionEnabled, String(data.settings.retentionEnabled));
+        safeSetItem(STORAGE.retentionEnabled, String(data.settings.retentionEnabled));
       }
       if (typeof data.settings.retentionDays === 'number') {
         const clamped = Math.max(7, Math.min(365, Math.round(data.settings.retentionDays)));
         setRetentionDays(clamped);
-        localStorage.setItem(STORAGE.retentionDays, String(clamped));
+        safeSetItem(STORAGE.retentionDays, String(clamped));
       }
       if (typeof data.settings.participantLanguage === 'string') {
         setParticipantLanguage(data.settings.participantLanguage);
-        localStorage.setItem(STORAGE.participantLanguage, data.settings.participantLanguage);
+        safeSetItem(STORAGE.participantLanguage, data.settings.participantLanguage);
       }
       if (data.settings.aiDraftMode === 'ai' || data.settings.aiDraftMode === 'template') {
         setAIDraftMode(data.settings.aiDraftMode);
-        localStorage.setItem(STORAGE.aiDraftMode, data.settings.aiDraftMode);
+        safeSetItem(STORAGE.aiDraftMode, data.settings.aiDraftMode);
       }
       if (typeof data.settings.preferredLLMModel === 'string') {
         setPreferredLLMModel(data.settings.preferredLLMModel);
-        localStorage.setItem(STORAGE.preferredLLMModel, data.settings.preferredLLMModel);
+        safeSetItem(STORAGE.preferredLLMModel, data.settings.preferredLLMModel);
       }
       if (typeof data.settings.allowMobileLLM === 'boolean') {
         setAllowMobileLLM(data.settings.allowMobileLLM);
-        localStorage.setItem(STORAGE.allowMobileLLM, data.settings.allowMobileLLM ? "true" : "false");
+        safeSetItem(STORAGE.allowMobileLLM, data.settings.allowMobileLLM ? "true" : "false");
       }
     }
   }, []);
@@ -469,14 +469,18 @@ const exportAllData = useCallback(() => {
 
   // Check if we should run cleanup (once per day)
   const shouldRunCleanup = useCallback((): boolean => {
-    const lastCheck = localStorage.getItem(STORAGE.lastRetentionCheck);
-    if (!lastCheck) return true;
-    
-    const lastCheckDate = new Date(lastCheck);
-    const now = new Date();
-    const hoursSinceLastCheck = (now.getTime() - lastCheckDate.getTime()) / (1000 * 60 * 60);
-    
-    return hoursSinceLastCheck >= 24;
+    try {
+      const lastCheck = localStorage.getItem(STORAGE.lastRetentionCheck);
+      if (!lastCheck) return true;
+
+      const lastCheckDate = new Date(lastCheck);
+      const now = new Date();
+      const hoursSinceLastCheck = (now.getTime() - lastCheckDate.getTime()) / (1000 * 60 * 60);
+
+      return hoursSinceLastCheck >= 24;
+    } catch {
+      return true;
+    }
   }, []);
 
   return {

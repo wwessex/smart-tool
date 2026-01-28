@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, ChevronLeft, Check, Sparkles, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -159,6 +159,12 @@ export function ActionWizard({ mode, barriers, timescales, recentNames, onComple
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [drafting, setDrafting] = useState(false);
+
+  useEffect(() => {
+    setCurrentStep(0);
+    setFormData({});
+    setDrafting(false);
+  }, [mode]);
 
   const step = steps[currentStep];
   const progress = ((currentStep + 1) / steps.length) * 100;

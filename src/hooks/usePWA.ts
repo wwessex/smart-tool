@@ -6,9 +6,17 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 // Check if SW should be disabled (for debugging deployment issues)
-const SW_DISABLED = typeof window !== 'undefined' && 
-  (new URLSearchParams(window.location.search).has('no-sw') ||
-   localStorage.getItem('disable-sw') === 'true');
+const getSWDisabled = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    return (
+      new URLSearchParams(window.location.search).has('no-sw') ||
+      localStorage.getItem('disable-sw') === 'true'
+    );
+  } catch {
+    return false;
+  }
+};
 
 export function usePWA() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -54,9 +62,14 @@ export function usePWA() {
 
   useEffect(() => {
     // Skip SW registration if disabled or not supported
-    if (SW_DISABLED || !('serviceWorker' in navigator)) {
+    if (getSWDisabled() || !('serviceWorker' in navigator)) {
       return;
     }
+
+    let updateInterval: number | null = null;
+    let idleCallbackId: number | null = null;
+    let timeoutId: number | null = null;
+    let loadHandler: (() => void) | null = null;
 
     // CRITICAL: Only register SW after app is fully interactive
     // Use requestIdleCallback or setTimeout as fallback
@@ -84,11 +97,9 @@ export function usePWA() {
           });
 
           // Periodically check for updates (every hour)
-          const updateInterval = setInterval(() => {
+          updateInterval = window.setInterval(() => {
             reg.update().catch(() => {});
           }, 60 * 60 * 1000);
-
-          return () => clearInterval(updateInterval);
         } catch (err) {
           // Silently fail - app works without SW
           console.warn('[PWA] SW registration failed:', err);
@@ -97,9 +108,9 @@ export function usePWA() {
 
       // Use requestIdleCallback if available, otherwise setTimeout
       if ('requestIdleCallback' in window) {
-        (window as any).requestIdleCallback(doRegister, { timeout: 5000 });
+        idleCallbackId = (window as any).requestIdleCallback(doRegister, { timeout: 5000 });
       } else {
-        setTimeout(doRegister, 3000);
+        timeoutId = window.setTimeout(doRegister, 3000);
       }
     };
 
@@ -107,8 +118,24 @@ export function usePWA() {
     if (document.readyState === 'complete') {
       registerSW();
     } else {
-      window.addEventListener('load', registerSW, { once: true });
+      loadHandler = () => registerSW();
+      window.addEventListener('load', loadHandler, { once: true });
     }
+
+    return () => {
+      if (updateInterval) {
+        window.clearInterval(updateInterval);
+      }
+      if (idleCallbackId && 'cancelIdleCallback' in window) {
+        (window as any).cancelIdleCallback(idleCallbackId);
+      }
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+      if (loadHandler) {
+        window.removeEventListener('load', loadHandler);
+      }
+    };
   }, []);
 
   const promptInstall = useCallback(async () => {
