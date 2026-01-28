@@ -134,7 +134,10 @@ export function SmartActionTool() {
   const { theme, setTheme } = useTheme();
   const storage = useSmartStorage();
   const localSync = useLocalSync();
-  const llm = useTransformersLLM({ allowMobileLLM: storage.allowMobileLLM });
+  const llm = useTransformersLLM({
+    allowMobileLLM: storage.allowMobileLLM,
+    safariWebGPUEnabled: storage.safariWebGPUEnabled,
+  });
   const translation = useTranslation({ llm, enabled: llm.canUseLocalAI });
 
   const { pack: promptPack, source: promptPackSource } = usePromptPack();
@@ -1435,8 +1438,8 @@ llm.clearError();
                       </div>
                     )}
 
-                    {/* Safari model unload behavior */}
-                    {storage.aiDraftMode === 'ai' && llm.browserInfo.isSafari && (
+                    {/* Safari-specific settings */}
+                    {storage.aiDraftMode === 'ai' && llm.browserInfo?.isSafari && (
                       <div className="pt-4 border-t space-y-3">
                         <label className="flex items-start gap-3 cursor-pointer">
                           <input
@@ -1450,6 +1453,20 @@ llm.clearError();
                             <p className="text-xs text-muted-foreground">
                               Safari unloads the local model shortly after each draft to reduce memory pressure and
                               avoid tab reloads. Enable this to keep it loaded between drafts.
+                            </p>
+                          </div>
+                        </label>
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={storage.safariWebGPUEnabled}
+                            onChange={e => storage.updateSafariWebGPUEnabled(e.target.checked)}
+                            className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary mt-0.5"
+                          />
+                          <div>
+                            <span className="text-sm font-medium">Safari WebGPU (experimental)</span>
+                            <p className="text-xs text-muted-foreground">
+                              Safari WebGPU can cause tab reloads on heavy models.
                             </p>
                           </div>
                         </label>

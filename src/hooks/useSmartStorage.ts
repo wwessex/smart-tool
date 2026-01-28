@@ -18,7 +18,8 @@ const STORAGE = {
   aiDraftMode: "smartTool.aiDraftMode",
   preferredLLMModel: "smartTool.preferredLLMModel",
   allowMobileLLM: "smartTool.allowMobileLLM",
-  keepSafariModelLoaded: "smartTool.keepSafariModelLoaded"
+  keepSafariModelLoaded: "smartTool.keepSafariModelLoaded",
+  safariWebGPUEnabled: "smartTool.safariWebGPUEnabled",
 };
 
 // Default retention period in days
@@ -69,6 +70,7 @@ export interface SmartToolSettings {
   preferredLLMModel?: string;
   allowMobileLLM?: boolean;
   keepSafariModelLoaded?: boolean;
+  safariWebGPUEnabled?: boolean;
 }
 
 /**
@@ -170,6 +172,7 @@ export function useSmartStorage() {
   });
   const [allowMobileLLM, setAllowMobileLLM] = useState<boolean>(() => loadBoolean(STORAGE.allowMobileLLM, false));
   const [keepSafariModelLoaded, setKeepSafariModelLoaded] = useState<boolean>(() => loadBoolean(STORAGE.keepSafariModelLoaded, false));
+  const [safariWebGPUEnabled, setSafariWebGPUEnabled] = useState<boolean>(() => loadBoolean(STORAGE.safariWebGPUEnabled, false));
 
 
   const updateBarriers = useCallback((newBarriers: string[]) => {
@@ -300,6 +303,10 @@ const importData = useCallback((data: {
         setKeepSafariModelLoaded(data.settings.keepSafariModelLoaded);
         safeSetItem(STORAGE.keepSafariModelLoaded, data.settings.keepSafariModelLoaded ? "true" : "false");
       }
+      if (typeof data.settings.safariWebGPUEnabled === 'boolean') {
+        setSafariWebGPUEnabled(data.settings.safariWebGPUEnabled);
+        safeSetItem(STORAGE.safariWebGPUEnabled, data.settings.safariWebGPUEnabled ? "true" : "false");
+      }
     }
   }, []);
 
@@ -364,6 +371,7 @@ const exportAllData = useCallback(() => {
         preferredLLMModel,
         allowMobileLLM,
         keepSafariModelLoaded,
+        safariWebGPUEnabled,
       },
     };
     return exportData;
@@ -382,6 +390,7 @@ const exportAllData = useCallback(() => {
     preferredLLMModel,
     allowMobileLLM,
     keepSafariModelLoaded,
+    safariWebGPUEnabled,
   ]);
 
   // Delete all user data for GDPR right to erasure
@@ -406,6 +415,7 @@ const exportAllData = useCallback(() => {
     setPreferredLLMModel(null);
     setAllowMobileLLM(false);
     setKeepSafariModelLoaded(false);
+    setSafariWebGPUEnabled(false);
   }, []);
 
   // Update retention settings
@@ -445,6 +455,10 @@ const exportAllData = useCallback(() => {
   const updateKeepSafariModelLoaded = useCallback((enabled: boolean) => {
     setKeepSafariModelLoaded(enabled);
     safeSetItem(STORAGE.keepSafariModelLoaded, enabled ? "true" : "false");
+  }, []);
+  const updateSafariWebGPUEnabled = useCallback((enabled: boolean) => {
+    setSafariWebGPUEnabled(enabled);
+    safeSetItem(STORAGE.safariWebGPUEnabled, enabled ? "true" : "false");
   }, []);
 
 
@@ -512,6 +526,7 @@ const exportAllData = useCallback(() => {
     preferredLLMModel,
     allowMobileLLM,
     keepSafariModelLoaded,
+    safariWebGPUEnabled,
     updateBarriers,
     resetBarriers,
     updateTimescales,
@@ -533,6 +548,7 @@ const exportAllData = useCallback(() => {
     updatePreferredLLMModel,
     updateAllowMobileLLM,
     updateKeepSafariModelLoaded,
+    updateSafariWebGPUEnabled,
     cleanupOldHistory,
     shouldRunCleanup,
     exportAllData,

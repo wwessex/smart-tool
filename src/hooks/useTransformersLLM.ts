@@ -99,6 +99,8 @@ function detectDevice(): DeviceInfo {
 export interface UseTransformersLLMOptions {
   // Allow local LLM on iPhone/iPad (experimental). Android remains blocked.
   allowMobileLLM?: boolean;
+  // Enable Safari WebGPU (experimental).
+  safariWebGPUEnabled?: boolean;
 }
 
 function detectBrowser(): BrowserInfo {
@@ -119,7 +121,10 @@ function detectBrowser(): BrowserInfo {
 }
 
 // Get browser-specific optimizations
-function getBrowserOptimizations(browser: BrowserInfo): {
+function getBrowserOptimizations(
+  browser: BrowserInfo,
+  options: { safariWebGPUEnabled?: boolean } = {}
+): {
   preferWebGPU: boolean;
   wasmThreads: number;
   dtype: "q4" | "fp16" | "fp32";
@@ -145,17 +150,20 @@ function getBrowserOptimizations(browser: BrowserInfo): {
     // WebGPU model init (memory/GPU resets). For stability, force WASM on iPhone/iPad.
     const device = detectDevice();
     const isIOSFamily = device.isIPhone || device.isIPad;
+    const safariWebGPUEnabled = !!options.safariWebGPUEnabled;
     const hasWebGPU =
       !isIOSFamily &&
       typeof navigator !== 'undefined' &&
       !!(navigator as Navigator & { gpu?: unknown }).gpu;
     return {
-      preferWebGPU: hasWebGPU,
+      preferWebGPU: safariWebGPUEnabled && hasWebGPU,
       // Keep threads at 1 to avoid SharedArrayBuffer/COOP+COEP requirements that can break
       // local inference on Safari/iPadOS deployments.
       wasmThreads: 1,
       dtype: 'q4',
-      notes: hasWebGPU ? 'Using WebGPU on Safari (desktop)' : 'Using WASM for Safari compatibility',
+      notes: safariWebGPUEnabled && hasWebGPU
+        ? 'Using WebGPU on Safari (experimental)'
+        : 'Using WASM for Safari compatibility',
     };
   }
   
@@ -189,11 +197,11 @@ const isMobileDevice = (): boolean => {
 export const checkIsMobile = isMobileDevice;
 
 // Log platform info for debugging
-function logPlatformInfo(): void {
+function logPlatformInfo(safariWebGPUEnabled: boolean): void {
   if (typeof navigator === "undefined") return;
   
   const browser = detectBrowser();
-  const optimizations = getBrowserOptimizations(browser);
+  const optimizations = getBrowserOptimizations(browser, { safariWebGPUEnabled });
   const hasWebGPU = !!(navigator as Navigator & { gpu?: unknown }).gpu;
   const memory = (performance as { memory?: { jsHeapSizeLimit?: number } }).memory?.jsHeapSizeLimit;
   const cores = navigator.hardwareConcurrency;
@@ -259,6 +267,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
   // Device policy: Android remains blocked; iPhone/iPad can be enabled via settings (experimental).
   const device = deviceRef.current;
   const allowMobileLLM = !!options.allowMobileLLM && device.isIOS;
+  const safariWebGPUEnabled = !!options.safariWebGPUEnabled;
   const isMobileBlocked = (device.isAndroid || (device.isIOS && device.isMobile && !allowMobileLLM));
   const isMobile = device.isMobile;
 
@@ -300,7 +309,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
     }
 
     const browser = browserRef.current;
-    const optimizations = getBrowserOptimizations(browser);
+    const optimizations = getBrowserOptimizations(browser, { safariWebGPUEnabled });
     
     // Try WebGPU first if preferred for this browser
     if (optimizations.preferWebGPU) {
@@ -320,7 +329,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
     
     // WASM is available as fallback on desktop
     return { available: true, device: "wasm" };
-  }, [isMobileBlocked, device]);
+  }, [isMobileBlocked, device, safariWebGPUEnabled]);
 
   // Warmup the model with a quick generation
   const warmupModel = useCallback(async (generator: TextGenerationPipeline): Promise<void> => {
@@ -340,7 +349,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
     maxRetries: number = 3
   ): Promise<TextGenerationPipeline> => {
     const browser = browserRef.current;
-    const optimizations = getBrowserOptimizations(browser);
+    const optimizations = getBrowserOptimizations(browser, { safariWebGPUEnabled });
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -543,7 +552,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
     }
     
     throw new Error("Failed to load model after all retries");
-  }, []);
+  }, [safariWebGPUEnabled]);
 
   // Load a model
   const loadModel = useCallback(async (modelId: string): Promise<boolean> => {
@@ -565,7 +574,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
     }
 
     // Log platform info for debugging
-    logPlatformInfo();
+    logPlatformInfo(safariWebGPUEnabled);
 
     setState((prev) => ({
       ...prev,
@@ -635,7 +644,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
       }));
       return false;
     }
-  }, [isModelAvailable, checkDevice, loadModelWithRetry, warmupModel, isMobileBlocked, device]);
+  }, [isModelAvailable, checkDevice, loadModelWithRetry, warmupModel, isMobileBlocked, device, safariWebGPUEnabled]);
 
 
   const getConfigForDevice = useCallback((name: string): GenerationConfig => {
