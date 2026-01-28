@@ -135,7 +135,7 @@ export function SmartActionTool() {
   const storage = useSmartStorage();
   const localSync = useLocalSync();
   const llm = useTransformersLLM({ allowMobileLLM: storage.allowMobileLLM });
-  const translation = useTranslation({ llm, enabled: llm.isReady && llm.canUseLocalAI });
+  const translation = useTranslation({ llm, enabled: llm.canUseLocalAI });
 
   const { pack: promptPack, source: promptPackSource } = usePromptPack();
   const today = todayISO();
@@ -200,6 +200,7 @@ export function SmartActionTool() {
   const [output, setOutput] = useState('');
   const [outputSource, setOutputSource] = useState<'form' | 'ai' | 'manual'>('form');
   const [translatedOutput, setTranslatedOutput] = useState<string | null>(null);
+  const hasOutput = output.trim().length > 0;
   const [showValidation, setShowValidation] = useState(false);
   const [suggestQuery, setSuggestQuery] = useState('');
   const [historySearch, setHistorySearch] = useState('');
@@ -850,6 +851,24 @@ export function SmartActionTool() {
 
   // Handle wizard AI draft - provides field-specific AI drafts within the wizard
   const handleWizardAIDraft = useCallback(async (field: string, context: Record<string, string>): Promise<string> => {
+    if (storage.aiDraftMode === 'ai' && !llm.isReady) {
+      if (llm.canUseLocalAI) {
+        setShowLLMPicker(true);
+        toast({
+          title: 'Load Local AI',
+          description: 'Pick a model to enable AI drafting.',
+          variant: 'default'
+        });
+      } else {
+        toast({
+          title: 'Local AI not available',
+          description: 'Enable Local AI in Settings or use Smart Templates.',
+          variant: 'destructive'
+        });
+      }
+      return '';
+    }
+
     // If LLM is ready, use it
     if (llm.isReady) {
       try {
@@ -907,7 +926,7 @@ export function SmartActionTool() {
       }
     }
     return '';
-  }, [mode, nowForm.date, today, llm, effectivePromptPack, llmSystemPrompt]);
+  }, [mode, nowForm.date, today, llm, effectivePromptPack, llmSystemPrompt, storage.aiDraftMode, toast]);
 
   // Handle AI improve apply
   const handleApplyImprovement = useCallback((improvedAction: string) => {
@@ -2348,12 +2367,12 @@ llm.clearError();
                 onChange={handleLanguageChange}
                 disabled={translation.isTranslating || !translation.canTranslate}
               />
-              {storage.participantLanguage !== 'none' && output.trim() && (
+              {storage.participantLanguage !== 'none' && (
                 <Button 
                   size="sm" 
                   variant="outline"
                   onClick={handleTranslate}
-                  disabled={translation.isTranslating || !translation.canTranslate}
+                  disabled={!hasOutput || translation.isTranslating || !translation.canTranslate}
                   className="border-primary/30 hover:bg-primary/10"
                 >
                   {translation.isTranslating ? (
@@ -2571,7 +2590,7 @@ llm.clearError();
         onClear={handleClear}
         onAIDraft={handleAIDraft}
         onDownload={handleDownload}
-        hasOutput={!!output.trim()}
+        hasOutput={hasOutput}
         copied={copied}
         shortcutMap={shortcutMap}
       />
