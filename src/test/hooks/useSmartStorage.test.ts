@@ -61,6 +61,7 @@ describe("useSmartStorage", () => {
       expect(result.current.minScoreThreshold).toBe(5);
       expect(result.current.retentionEnabled).toBe(true);
       expect(result.current.retentionDays).toBe(90);
+      expect(result.current.safariWebGPUEnabled).toBe(false);
     });
   });
 
@@ -606,6 +607,18 @@ describe("useSmartStorage", () => {
       });
 
       expect(result.current.allowMobileLLM).toBe(true);
+    });
+
+    it("updates safariWebGPUEnabled setting", () => {
+      const { result } = renderHook(() => useSmartStorage());
+
+      expect(result.current.safariWebGPUEnabled).toBe(false);
+
+      act(() => {
+        result.current.updateSafariWebGPUEnabled(true);
+      });
+
+      expect(result.current.safariWebGPUEnabled).toBe(true);
     });
   });
 });
