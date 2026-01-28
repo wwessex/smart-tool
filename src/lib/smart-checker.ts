@@ -337,7 +337,11 @@ export function checkSmart(text: string, meta?: {
 
   // RELEVANT check - now includes barrier alignment with improved matching
   const relevantMatches = countMatchesWithCache(fullContext, RELEVANT_PATTERNS, patternCache);
-  const hasBarrierRef = meta?.barrier && lowerText.includes(meta.barrier.toLowerCase().split(/\s+/)[0]); // First word only for partial match
+  // Check if any significant word from the barrier (3+ chars) appears in the action text
+  const hasBarrierRef = meta?.barrier && meta.barrier.toLowerCase()
+    .split(/\s+/)
+    .filter(word => word.length >= 3 && !['and', 'the', 'for', 'with'].includes(word))
+    .some(word => lowerText.includes(word));
   const hasGoalConnection = RELEVANT_PATTERNS.goal.test(fullContext) && RELEVANT_PATTERNS.connection.test(text);
   const hasTaskActivity = RELEVANT_PATTERNS.taskBased.test(fullContext);
   const barrierAlignment = checkBarrierAlignment(text, meta?.barrier);

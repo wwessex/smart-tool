@@ -320,7 +320,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
     
     // WASM is available as fallback on desktop
     return { available: true, device: "wasm" };
-  }, [isMobile]);
+  }, [isMobileBlocked, device]);
 
   // Warmup the model with a quick generation
   const warmupModel = useCallback(async (generator: TextGenerationPipeline): Promise<void> => {
@@ -635,10 +635,10 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
       }));
       return false;
     }
-  }, [isModelAvailable, checkDevice, loadModelWithRetry, warmupModel]);
+  }, [isModelAvailable, checkDevice, loadModelWithRetry, warmupModel, isMobileBlocked, device]);
 
 
-  function getConfigForDevice(name: string): GenerationConfig {
+  const getConfigForDevice = useCallback((name: string): GenerationConfig => {
     const base = GENERATION_CONFIGS[name] || GENERATION_CONFIGS.default;
     if (device.isIOS && allowMobileLLM) {
       // Keep iOS stable: shorter outputs and smaller KV cache usage
@@ -658,7 +658,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
       };
     }
     return base;
-  }
+  }, [device.isIOS, allowMobileLLM]);
 
   // Generate chat response (streaming simulation via chunking)
   const chat = useCallback(
@@ -759,7 +759,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
         setState((prev) => ({ ...prev, isGenerating: false }));
       }
     },
-    []
+    [getConfigForDevice]
   );
 
   // Simple single-shot generation with optional config
@@ -781,7 +781,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
       }
       return trimmed;
     },
-    [chat]
+    [chat, getConfigForDevice]
   );
 
   // Abort current generation

@@ -33,6 +33,12 @@ export function useCloudAI() {
       messages: ChatMessage[],
       systemPrompt?: string
     ): AsyncGenerator<string, void, unknown> {
+      // GDPR: Check consent before making cloud AI request
+      if (!hasConsent) {
+        setState({ isGenerating: false, error: "AI consent required" });
+        throw new Error("Cloud AI requires user consent. Please enable AI features in settings.");
+      }
+
       setState({ isGenerating: true, error: null });
       abortControllerRef.current = new AbortController();
 
@@ -129,7 +135,7 @@ export function useCloudAI() {
         abortControllerRef.current = null;
       }
     },
-    []
+    [hasConsent]
   );
 
   const abort = useCallback(() => {
