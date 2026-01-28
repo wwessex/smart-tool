@@ -142,19 +142,20 @@ export function SmartActionTool() {
   const effectivePromptPack = promptPack || DEFAULT_PROMPT_PACK;
   const llmSystemPrompt = buildSystemPrompt(effectivePromptPack);
 
-  // iOS Safari can aggressively reload tabs under memory pressure. We proactively
-  // unload the local model shortly after generation to free memory, while keeping
-  // the downloaded weights in browser storage/cache.
+  // Safari (especially iOS) can aggressively reload tabs under memory pressure. We
+  // proactively unload the local model shortly after generation to free memory,
+  // while keeping the downloaded weights in browser storage/cache.
   const iosAutoUnloadTimer = useRef<number | null>(null);
   const scheduleIOSModelUnload = useCallback((delayMs?: number) => {
-    // Only do this on mobile (iPhone/iPad) and only when local AI is active.
-    if (!llm.isMobile) return;
+    // Only do this on Safari or mobile, and only when local AI is active.
+    if (!llm.isMobile && !llm.browserInfo.isSafari) return;
+    if (llm.browserInfo.isSafari && storage.keepSafariModelLoaded) return;
     if (storage.aiDraftMode !== 'local') return;
     if (iosAutoUnloadTimer.current) {
       window.clearTimeout(iosAutoUnloadTimer.current);
       iosAutoUnloadTimer.current = null;
     }
-    const timeoutMs = delayMs ?? (llm.browserInfo.isSafari ? 400 : 1200);
+    const timeoutMs = delayMs ?? (llm.browserInfo.isSafari ? (llm.isMobile ? 400 : 800) : 1200);
     iosAutoUnloadTimer.current = window.setTimeout(() => {
       try {
         llm.unload();
@@ -162,7 +163,7 @@ export function SmartActionTool() {
         // ignore
       }
     }, timeoutMs);
-  }, [llm, storage.aiDraftMode]);
+  }, [llm, storage.aiDraftMode, storage.keepSafariModelLoaded]);
 
   useEffect(() => {
     return () => {
@@ -650,7 +651,7 @@ export function SmartActionTool() {
         setNowForm(prev => ({ ...prev, action, help }));
         toast({ title: 'AI Draft ready', description: 'Generated with local AI. Edit as needed.' });
 
-        // Prevent iOS Safari from reloading the tab under memory pressure.
+        // Prevent Safari from reloading the tab under memory pressure.
         scheduleIOSModelUnload();
       } else {
         // Generate outcome
@@ -662,7 +663,7 @@ export function SmartActionTool() {
         setFutureForm(prev => ({ ...prev, outcome }));
         toast({ title: 'AI Draft ready', description: 'Generated with local AI. Edit as needed.' });
 
-        // Prevent iOS Safari from reloading the tab under memory pressure.
+        // Prevent Safari from reloading the tab under memory pressure.
         scheduleIOSModelUnload();
       }
     } catch (err) {
@@ -1428,6 +1429,27 @@ llm.clearError();
                             <span className="text-sm font-medium">Enable Local AI on iPhone/iPad (experimental)</span>
                             <p className="text-xs text-muted-foreground">
                               iPhone is limited to the smallest model and shorter outputs to reduce memory use.
+                            </p>
+                          </div>
+                        </label>
+                      </div>
+                    )}
+
+                    {/* Safari model unload behavior */}
+                    {storage.aiDraftMode === 'ai' && llm.browserInfo.isSafari && (
+                      <div className="pt-4 border-t space-y-3">
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={storage.keepSafariModelLoaded}
+                            onChange={e => storage.updateKeepSafariModelLoaded(e.target.checked)}
+                            className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary mt-0.5"
+                          />
+                          <div>
+                            <span className="text-sm font-medium">Keep model loaded (Safari)</span>
+                            <p className="text-xs text-muted-foreground">
+                              Safari unloads the local model shortly after each draft to reduce memory pressure and
+                              avoid tab reloads. Enable this to keep it loaded between drafts.
                             </p>
                           </div>
                         </label>
