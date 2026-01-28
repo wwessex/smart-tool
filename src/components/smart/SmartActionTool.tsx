@@ -148,18 +148,19 @@ export function SmartActionTool() {
   // Safari (especially iOS) can aggressively reload tabs under memory pressure. We
   // proactively unload the local model shortly after generation to free memory,
   // while keeping the downloaded weights in browser storage/cache.
-  const iosAutoUnloadTimer = useRef<number | null>(null);
-  const scheduleIOSModelUnload = useCallback((delayMs?: number) => {
-    // Only do this on Safari or mobile, and only when local AI is active.
-    if (!llm.isMobile && !llm.browserInfo.isSafari) return;
-    if (llm.browserInfo.isSafari && storage.keepSafariModelLoaded) return;
-    if (storage.aiDraftMode !== 'local') return;
-    if (iosAutoUnloadTimer.current) {
-      window.clearTimeout(iosAutoUnloadTimer.current);
-      iosAutoUnloadTimer.current = null;
+  const safariAutoUnloadTimer = useRef<number | null>(null);
+  const scheduleSafariModelUnload = useCallback((delayMs?: number) => {
+    if (!llm.browserInfo.isSafari) return;
+    if (storage.aiDraftMode !== 'ai') return;
+    if (storage.keepSafariModelLoaded) return;
+    if (!llm.isReady) return;
+    if (safariAutoUnloadTimer.current) {
+      window.clearTimeout(safariAutoUnloadTimer.current);
+      safariAutoUnloadTimer.current = null;
     }
-    const timeoutMs = delayMs ?? (llm.browserInfo.isSafari ? (llm.isMobile ? 400 : 800) : 1200);
-    iosAutoUnloadTimer.current = window.setTimeout(() => {
+    const isIOS = llm.deviceInfo?.isIOS;
+    const timeoutMs = delayMs ?? (isIOS ? 200 : 800);
+    safariAutoUnloadTimer.current = window.setTimeout(() => {
       try {
         llm.unload();
       } catch {
@@ -170,9 +171,9 @@ export function SmartActionTool() {
 
   useEffect(() => {
     return () => {
-      if (iosAutoUnloadTimer.current) {
-        window.clearTimeout(iosAutoUnloadTimer.current);
-        iosAutoUnloadTimer.current = null;
+      if (safariAutoUnloadTimer.current) {
+        window.clearTimeout(safariAutoUnloadTimer.current);
+        safariAutoUnloadTimer.current = null;
       }
     };
   }, []);
@@ -655,7 +656,7 @@ export function SmartActionTool() {
         toast({ title: 'AI Draft ready', description: 'Generated with local AI. Edit as needed.' });
 
         // Prevent Safari from reloading the tab under memory pressure.
-        scheduleIOSModelUnload();
+        scheduleSafariModelUnload();
       } else {
         // Generate outcome
         const outcomePrompt = buildDraftOutcomePrompt(effectivePromptPack, {
@@ -667,7 +668,7 @@ export function SmartActionTool() {
         toast({ title: 'AI Draft ready', description: 'Generated with local AI. Edit as needed.' });
 
         // Prevent Safari from reloading the tab under memory pressure.
-        scheduleIOSModelUnload();
+        scheduleSafariModelUnload();
       }
     } catch (err) {
       console.warn('LLM draft failed, falling back to templates:', err);
@@ -677,11 +678,11 @@ export function SmartActionTool() {
       } else {
         templateDraftFuture();
       }
-      scheduleIOSModelUnload(0);
+      scheduleSafariModelUnload(0);
     } finally {
       setAIDrafting(false);
     }
-  }, [mode, nowForm, futureForm, llm, today, templateDraftNow, templateDraftFuture, toast, storage.aiDraftMode, effectivePromptPack, llmSystemPrompt]);
+  }, [mode, nowForm, futureForm, llm, today, templateDraftNow, templateDraftFuture, toast, storage.aiDraftMode, effectivePromptPack, llmSystemPrompt, scheduleSafariModelUnload]);
 
   const handleEditHistory = (item: HistoryItem) => {
     setMode(item.mode);
@@ -889,21 +890,26 @@ export function SmartActionTool() {
               targetTime: nowForm.time || "",
               responsible: context.responsible || 'Advisor',
             });
-            return sanitizeActionPhrase(await llm.generate(actionPrompt, llmSystemPrompt, 'action'), context.forename || '');
-          } else {
-            const helpSubject = getHelpSubject(context.forename || '', context.responsible || 'Advisor');
-            const helpPrompt = buildDraftHelpPrompt(effectivePromptPack, {
-              action: context.action || '',
-              subject: helpSubject,
-            });
-            return sanitizeOnePhrase(await llm.generate(helpPrompt, llmSystemPrompt, 'help'));
+            const action = sanitizeActionPhrase(await llm.generate(actionPrompt, llmSystemPrompt, 'action'), context.forename || '');
+            scheduleSafariModelUnload();
+            return action;
           }
+          const helpSubject = getHelpSubject(context.forename || '', context.responsible || 'Advisor');
+          const helpPrompt = buildDraftHelpPrompt(effectivePromptPack, {
+            action: context.action || '',
+            subject: helpSubject,
+          });
+          const help = sanitizeOnePhrase(await llm.generate(helpPrompt, llmSystemPrompt, 'help'));
+          scheduleSafariModelUnload();
+          return help;
         } else if (mode === 'future' && field === 'outcome') {
           const outcomePrompt = buildDraftOutcomePrompt(effectivePromptPack, {
             forename: context.forename || '',
             task: context.task || '',
           });
-          return sanitizeOneSentence(await llm.generate(outcomePrompt, llmSystemPrompt, 'outcome'));
+          const outcome = sanitizeOneSentence(await llm.generate(outcomePrompt, llmSystemPrompt, 'outcome'));
+          scheduleSafariModelUnload();
+          return outcome;
         }
       } catch (err) {
         console.warn('LLM wizard draft failed, falling back to templates:', err);
@@ -930,7 +936,7 @@ export function SmartActionTool() {
       }
     }
     return '';
-  }, [mode, nowForm.date, today, llm, effectivePromptPack, llmSystemPrompt, storage.aiDraftMode, toast]);
+  }, [mode, nowForm.date, today, llm, effectivePromptPack, llmSystemPrompt, storage.aiDraftMode, toast, scheduleSafariModelUnload]);
 
   // Handle AI improve apply
   const handleApplyImprovement = useCallback((improvedAction: string) => {
