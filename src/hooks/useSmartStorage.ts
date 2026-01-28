@@ -258,7 +258,7 @@ const importData = useCallback((data: {
       setTemplates(data.templates);
       saveList(STORAGE.templates, data.templates);
     }
-if (data.settings && typeof data.settings === 'object') {
+    if (data.settings && typeof data.settings === 'object') {
       if (typeof data.settings.minScoreEnabled === 'boolean') {
         setMinScoreEnabled(data.settings.minScoreEnabled);
         safeSetItem(STORAGE.minScoreEnabled, String(data.settings.minScoreEnabled));
