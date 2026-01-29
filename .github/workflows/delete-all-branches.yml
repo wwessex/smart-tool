@@ -1,0 +1,86 @@
+name: Delete All Branches Except Main
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DELETE ALL BRANCHES to confirm'
+        required: true
+        type: string
+
+jobs:
+  delete-branches:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'DELETE ALL BRANCHES'
+    
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Fetch all branches
+        run: |
+          git fetch --all --prune
+      
+      - name: Delete all branches except main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Fetching list of remote branches..."
+          
+          # Get all remote branches except main
+          branches=$(git ls-remote --heads origin | \
+            grep -v 'refs/heads/main$' | \
+            awk '{print $2}' | \
+            sed 's|refs/heads/||' || true)
+          
+          # Check if there are any branches to delete
+          if [ -z "$branches" ]; then
+            echo "No branches to delete. Only 'main' branch exists."
+            exit 0
+          fi
+          
+          branch_count=$(echo "$branches" | grep -c . || echo "0")
+          
+          echo "Found $branch_count branches to delete (excluding main)"
+          echo ""
+          echo "Branches to be deleted:"
+          echo "$branches" | nl
+          echo ""
+          
+          # Counter for tracking
+          total=0
+          deleted=0
+          failed=0
+          
+          # Delete each branch
+          for branch in $branches; do
+            total=$((total + 1))
+            echo "[$total] Deleting branch: $branch"
+            
+            if git push origin --delete "$branch" 2>&1; then
+              echo "  ✓ Successfully deleted: $branch"
+              deleted=$((deleted + 1))
+            else
+              echo "  ✗ Failed to delete: $branch"
+              failed=$((failed + 1))
+            fi
+          done
+          
+          echo ""
+          echo "================================"
+          echo "Summary:"
+          echo "  Total processed: $total"
+          echo "  Successfully deleted: $deleted"
+          echo "  Failed: $failed"
+          echo "================================"
+          echo ""
+          
+      - name: Verify remaining branches
+        run: |
+          echo "Remaining remote branches:"
+          git ls-remote --heads origin | sed 's|.*refs/heads/||'
