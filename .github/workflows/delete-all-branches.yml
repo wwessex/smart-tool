@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: 'Type "DELETE ALL BRANCHES" to confirm'
+        description: 'Type DELETE ALL BRANCHES to confirm'
         required: true
         type: string
 
@@ -36,9 +36,17 @@ jobs:
           branches=$(git ls-remote --heads origin | \
             grep -v 'refs/heads/main$' | \
             awk '{print $2}' | \
-            sed 's|refs/heads/||')
+            sed 's|refs/heads/||' || true)
           
-          echo "Found $(echo "$branches" | wc -l) branches to delete (excluding main)"
+          # Check if there are any branches to delete
+          if [ -z "$branches" ]; then
+            echo "No branches to delete. Only 'main' branch exists."
+            exit 0
+          fi
+          
+          branch_count=$(echo "$branches" | grep -c . || echo "0")
+          
+          echo "Found $branch_count branches to delete (excluding main)"
           echo ""
           echo "Branches to be deleted:"
           echo "$branches" | nl

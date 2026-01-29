@@ -33,11 +33,12 @@ The `delete-all-branches.yml` workflow provides a safe and automated way to dele
 
 1. **Navigate to the Actions tab** in the GitHub repository: https://github.com/wwessex/smart-tool/actions
 2. **Select the workflow** named "Delete All Branches Except Main" from the list on the left
-3. **Click "Run workflow"** button on the right
-4. **Type confirmation**: In the input field, type exactly: `DELETE ALL BRANCHES`
-5. **Click "Run workflow"** button to start the process
-6. **Monitor progress** in the workflow run logs
-7. **Review summary** after completion
+3. **Click "Run workflow"** dropdown button on the right
+4. **Select branch**: Choose `main` from the branch dropdown (if shown)
+5. **Type confirmation**: In the input field, type exactly `DELETE ALL BRANCHES` (without quotes)
+6. **Click the green "Run workflow"** button to start the process
+7. **Monitor progress** in the workflow run logs
+8. **Review summary** after completion
 
 ### Safety Features
 

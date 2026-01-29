@@ -6,7 +6,8 @@
 
 set -e
 
-REPO_PATH="/home/runner/work/smart-tool/smart-tool"
+# Get the repository root directory
+REPO_PATH="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$REPO_PATH"
 
 echo "=== Branch Deletion Script ==="
@@ -32,9 +33,15 @@ fi
 echo "✓ GitHub CLI is authenticated"
 echo ""
 
-# Get repository information
-REPO_OWNER="wwessex"
-REPO_NAME="smart-tool"
+# Get repository information dynamically
+REPO_INFO=$(gh repo view --json owner,name --jq '.owner.login + "/" + .name' 2>/dev/null)
+if [ -z "$REPO_INFO" ]; then
+  echo "Error: Could not determine repository information"
+  echo "Make sure you're in a git repository with a GitHub remote"
+  exit 1
+fi
+REPO_OWNER=$(echo "$REPO_INFO" | cut -d'/' -f1)
+REPO_NAME=$(echo "$REPO_INFO" | cut -d'/' -f2)
 
 echo "Repository: $REPO_OWNER/$REPO_NAME"
 echo ""
@@ -45,9 +52,15 @@ git fetch --prune
 
 # Get all remote branches except main
 echo "Getting list of branches..."
-branches=$(gh api repos/$REPO_OWNER/$REPO_NAME/branches --paginate | jq -r '.[].name' | grep -v '^main$')
+branches=$(gh api repos/$REPO_OWNER/$REPO_NAME/branches --paginate | jq -r '.[].name' | grep -v '^main$' || true)
 
-branch_count=$(echo "$branches" | wc -l)
+# Check if there are any branches to delete
+if [ -z "$branches" ]; then
+  echo "No branches to delete. Only 'main' branch exists."
+  exit 0
+fi
+
+branch_count=$(echo "$branches" | grep -c . || echo "0")
 
 echo ""
 echo "Found $branch_count branches to delete (excluding main)"
@@ -73,6 +86,7 @@ total=0
 deleted=0
 failed=0
 
+# Delete branches
 for branch in $branches; do
   total=$((total + 1))
   echo -n "[$total] Deleting branch: $branch ... "
