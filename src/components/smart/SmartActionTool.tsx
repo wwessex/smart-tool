@@ -678,6 +678,11 @@ export function SmartActionTool() {
       } else {
         templateDraftFuture();
       }
+      toast({
+        title: 'Using smart templates',
+        description: 'AI generation failed. Applied templates instead. Try reloading the model in Settings.',
+        variant: 'destructive',
+      });
       scheduleSafariModelUnload(0);
     } finally {
       setAIDrafting(false);

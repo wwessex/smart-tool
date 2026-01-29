@@ -96,9 +96,13 @@ function detectDevice(): DeviceInfo {
   }
 
   const ua = navigator.userAgent || "";
+  // Explicitly detect Windows to ensure it's never misclassified as mobile
+  const isWindows = /Windows/i.test(ua);
   const isIPhone = /iPhone|iPod/i.test(ua);
-  // iPadOS 13+ reports as MacIntel + touch points
-  const isIPad = /iPad/i.test(ua) || ((navigator as unknown as { platform?: string; maxTouchPoints?: number }).platform === 'MacIntel' && (navigator as unknown as { maxTouchPoints?: number }).maxTouchPoints && (navigator as unknown as { maxTouchPoints?: number }).maxTouchPoints! > 1);
+  // iPadOS 13+ reports as MacIntel + touch points, but ensure we don't misdetect Windows touchscreens
+  const platform = (navigator as unknown as { platform?: string }).platform || "";
+  const maxTouchPoints = (navigator as unknown as { maxTouchPoints?: number }).maxTouchPoints || 0;
+  const isIPad = !isWindows && (/iPad/i.test(ua) || (platform === 'MacIntel' && maxTouchPoints > 1));
   const isIOS = isIPhone || isIPad;
   const isAndroid = /android/i.test(ua);
   const isMobile = isIOS || isAndroid;
