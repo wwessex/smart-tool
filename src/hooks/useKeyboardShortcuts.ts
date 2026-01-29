@@ -36,10 +36,12 @@ export function useKeyboardShortcuts(shortcuts: ShortcutConfig[], enabled: boole
                        target.closest('[data-radix-popper-content-wrapper]') !== null;
     
     for (const shortcut of shortcuts) {
-      const keyMatches = event.key.toLowerCase() === shortcut.key.toLowerCase();
+      const isQuestionMark = shortcut.key === '?' && !shortcut.ctrl && !shortcut.alt;
+      const keyMatches = isQuestionMark
+        ? event.key === '?' || event.key === '/'
+        : event.key.toLowerCase() === shortcut.key.toLowerCase();
       const ctrlMatches = shortcut.ctrl ? (event.ctrlKey || event.metaKey) : !(event.ctrlKey || event.metaKey);
       // Special case: allow "?" regardless of whether Shift is required on the user's keyboard layout
-      const isQuestionMark = shortcut.key === '?' && !shortcut.ctrl && !shortcut.alt;
       const shiftMatches = shortcut.shift ? event.shiftKey : (isQuestionMark ? true : !event.shiftKey);
       const altMatches = shortcut.alt ? event.altKey : !event.altKey;
       

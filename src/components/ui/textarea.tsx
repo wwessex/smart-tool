@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement>;
 
-const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(({ className, ...props }, ref) => {
+const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(({ className, spellCheck, ...props }, ref) => {
   return (
     <textarea
       className={cn(
@@ -12,8 +12,8 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(({ classNa
         className,
       )}
       ref={ref}
-      spellCheck={props.spellCheck ?? true}
       {...props}
+      spellCheck={spellCheck ?? true}
     />
   );
 });

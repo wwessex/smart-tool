@@ -1384,7 +1384,8 @@ llm.clearError();
                       <h3 className="font-bold">AI Draft</h3>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Choose how the AI Draft button generates action suggestions.
+                      AI drafting runs locally in your browser with no cloud AI services. If local AI is unavailable, switch
+                      to Smart Templates for instant built-in suggestions.
                     </p>
                     
                     {/* Mode Toggle */}
@@ -2348,6 +2349,7 @@ llm.clearError();
                 templates={storage.templates}
                 onSaveTemplate={storage.addTemplate}
                 onDeleteTemplate={storage.deleteTemplate}
+                onUpdateTemplate={storage.updateTemplate}
                 onInsertTemplate={handleInsertTemplate}
                 currentMode={mode}
                 currentForm={mode === 'now' 

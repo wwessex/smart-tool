@@ -47,6 +47,16 @@ export const ComboboxInput = memo(function ComboboxInput({
     if (!open) setOpen(true);
   };
 
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter' && inputValue.trim()) {
+      event.preventDefault();
+      handleSelect(inputValue.trim());
+    }
+    if (event.key === 'Escape') {
+      setOpen(false);
+    }
+  };
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -56,6 +66,7 @@ export const ComboboxInput = memo(function ComboboxInput({
             type="text"
             value={inputValue}
             onChange={(e) => handleInputChange(e.target.value)}
+            onKeyDown={handleKeyDown}
             onFocus={() => setOpen(true)}
             placeholder={placeholder}
             role="combobox"

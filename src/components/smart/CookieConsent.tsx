@@ -16,12 +16,13 @@ export interface GDPRConsent {
   version: number;
 }
 
-const CONSENT_KEY = 'smartTool.gdprConsent';
+export const GDPR_CONSENT_STORAGE_KEY = 'smartTool.gdprConsent';
+export const GDPR_CONSENT_CHANGE_EVENT = 'smartTool.gdprConsentChanged';
 const CONSENT_VERSION = 2;
 
 export function getStoredConsent(): GDPRConsent | null {
   try {
-    const raw = localStorage.getItem(CONSENT_KEY);
+    const raw = localStorage.getItem(GDPR_CONSENT_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as GDPRConsent;
     if (!parsed || typeof parsed !== 'object') return null;
@@ -38,7 +39,15 @@ function storeConsent() {
     consentDate: new Date().toISOString(),
     version: CONSENT_VERSION,
   };
-  localStorage.setItem(CONSENT_KEY, JSON.stringify(consent));
+  localStorage.setItem(GDPR_CONSENT_STORAGE_KEY, JSON.stringify(consent));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(GDPR_CONSENT_CHANGE_EVENT));
+  }
+}
+
+export function hasAIConsent(): boolean {
+  if (typeof window === 'undefined') return false;
+  return !!getStoredConsent();
 }
 
 export function ManageConsentDialog({

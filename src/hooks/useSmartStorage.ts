@@ -345,7 +345,8 @@ const importData = useCallback((data: {
   }, []);
 
   const updateMinScoreThreshold = useCallback((threshold: number) => {
-    const clamped = Math.max(1, Math.min(5, threshold));
+    const normalized = Number.isFinite(threshold) ? Math.round(threshold) : 5;
+    const clamped = Math.max(1, Math.min(5, normalized));
     setMinScoreThreshold(clamped);
     safeSetItem(STORAGE.minScoreThreshold, String(clamped));
   }, []);

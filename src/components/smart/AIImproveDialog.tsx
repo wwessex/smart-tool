@@ -7,6 +7,7 @@ import { SmartCheck } from '@/lib/smart-checker';
 import { IMPROVE_PROMPT } from '@/lib/smart-prompts';
 import { cn } from '@/lib/utils';
 import { WarningBox } from './WarningBox';
+import { useAIConsent } from '@/hooks/useAIConsent';
 
 interface LocalLLMHandle {
   isReady: boolean;
@@ -45,6 +46,7 @@ export function AIImproveDialog({
   llm,
 }: AIImproveDialogProps) {
   const { isGenerating, abort, error: llmError, clearError, generate, isReady } = llm;
+  const hasConsent = useAIConsent();
 
   const [result, setResult] = useState<ImproveResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +61,10 @@ export function AIImproveDialog({
   ].filter(Boolean).join(', ');
 
   const handleImprove = useCallback(async () => {
+    if (!hasConsent) {
+      setError('AI consent required to improve actions.');
+      return;
+    }
     clearError();
     setError(null);
     setResult(null);
@@ -88,7 +94,7 @@ export function AIImproveDialog({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to improve action');
     }
-  }, [originalAction, barrier, forename, smartCheck.overallScore, unmetCriteria, clearError]);
+  }, [originalAction, barrier, forename, smartCheck.overallScore, unmetCriteria, clearError, hasConsent]);
 
   const handleDismissError = useCallback(() => {
     setError(null);
@@ -146,7 +152,7 @@ export function AIImproveDialog({
           </div>
 
           {/* Consent Warning */}
-          {!true && (
+          {!hasConsent && (
             <WarningBox variant="warning" title="AI Consent Required">
               <p className="text-sm">
                 Enable AI features in <strong>Settings → Privacy & Data</strong> to use this feature.
@@ -165,12 +171,12 @@ export function AIImproveDialog({
                 onClick={handleImprove} 
                 size="lg" 
                 className="gap-2"
-                disabled={!true}
+                disabled={!hasConsent}
               >
                 <Wand2 className="w-4 h-4" />
                 Generate Improvement
               </Button>
-              {!true && (
+              {!hasConsent && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Shield className="w-3 h-3" />
                   AI consent required
