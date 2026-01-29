@@ -26,6 +26,7 @@ interface TemplateLibraryProps {
   templates: ActionTemplate[];
   onSaveTemplate: (template: Omit<ActionTemplate, 'id' | 'createdAt'>) => void;
   onDeleteTemplate: (id: string) => void;
+  onUpdateTemplate: (id: string, updates: Partial<ActionTemplate>) => void;
   onInsertTemplate: (template: ActionTemplate) => void;
   currentMode: 'now' | 'future';
   currentForm: {
@@ -43,6 +44,7 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
   templates,
   onSaveTemplate,
   onDeleteTemplate,
+  onUpdateTemplate,
   onInsertTemplate,
   currentMode,
   currentForm,
@@ -91,6 +93,18 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
     onInsertTemplate(template);
     setLibraryOpen(false);
     toast({ title: 'Template inserted', description: 'Edit the fields as needed.' });
+  };
+
+  const handleUpdate = (template: ActionTemplate) => {
+    const nextName = editName.trim();
+    if (!nextName) {
+      toast({ title: 'Name required', description: 'Enter a template name before saving.', variant: 'destructive' });
+      return;
+    }
+    if (nextName !== template.name) {
+      onUpdateTemplate(template.id, { name: nextName });
+    }
+    setEditingId(null);
   };
 
   return (
@@ -187,6 +201,15 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
                         <Input
                           value={editName}
                           onChange={e => setEditName(e.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault();
+                              handleUpdate(template);
+                            }
+                            if (event.key === 'Escape') {
+                              setEditingId(null);
+                            }
+                          }}
                           className="text-sm h-8"
                           autoFocus
                         />
@@ -195,8 +218,7 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
                           variant="ghost" 
                           className="h-8 w-8 p-0"
                           onClick={() => {
-                            // Would need updateTemplate function
-                            setEditingId(null);
+                            handleUpdate(template);
                           }}
                         >
                           <Check className="w-4 h-4" />
