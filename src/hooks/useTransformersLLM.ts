@@ -18,6 +18,16 @@ export const RECOMMENDED_MODELS: ModelInfo[] = [
   },
 ];
 
+// Extra-small model for iPhone/iPad stability.
+const MOBILE_RECOMMENDED_MODELS: ModelInfo[] = [
+  {
+    id: "HuggingFaceTB/SmolLM2-135M-Instruct",
+    name: "AI Module (Mobile)",
+    size: "~220MB",
+    description: "Smaller offline AI module for mobile Safari",
+  },
+];
+
 export interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
@@ -279,9 +289,13 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
     // iPhone/iPad: allow only when the experimental toggle is enabled.
     if (device.isMobile && !allowMobileLLM) return [];
 
+    if (device.isIOS) {
+      return device.isIPhone ? MOBILE_RECOMMENDED_MODELS : RECOMMENDED_MODELS;
+    }
+
     // Otherwise (desktop + enabled iOS), allow the single recommended module.
     return RECOMMENDED_MODELS;
-  }, [allowMobileLLM]);
+  }, [allowMobileLLM, device.isAndroid, device.isMobile, device.isIOS, device.isIPhone]);
 
   // iOS memory guardrails
   const isIOSMobile = device.isIOS && device.isMobile && allowMobileLLM;
