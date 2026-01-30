@@ -350,14 +350,30 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
   }, [isMobileBlocked, device, safariWebGPUEnabled]);
 
   // Warmup the model with a quick generation
+  // If warmup fails, the model is likely broken and shouldn't be marked as ready
   const warmupModel = useCallback(async (generator: TextGenerationPipeline): Promise<void> => {
-    try {
-      console.log("[LLM] Warming up model...");
-      await generator([{ role: "user", content: "Hello" }], { max_new_tokens: 5 });
-      console.log("[LLM] Warmup complete");
-    } catch (err) {
-      console.warn("[LLM] Warmup failed (non-critical):", err);
+    const maxAttempts = 3;
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        console.log(`[LLM] Warming up model (attempt ${attempt}/${maxAttempts})...`);
+        await generator([{ role: "user", content: "Hello" }], { max_new_tokens: 5 });
+        console.log("[LLM] Warmup complete");
+        return; // Success
+      } catch (err) {
+        lastError = err;
+        console.warn(`[LLM] Warmup attempt ${attempt} failed:`, err);
+        if (attempt < maxAttempts) {
+          // Brief delay before retry
+          await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+        }
+      }
     }
+
+    // All attempts failed - throw to prevent marking model as ready
+    const errorMsg = lastError instanceof Error ? lastError.message : "Unknown warmup error";
+    throw new Error(`Model warmup failed after ${maxAttempts} attempts: ${errorMsg}`);
   }, []);
 
   // Load a model with retry logic
@@ -642,7 +658,10 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
     } catch (err) {
       console.error("Failed to load model:", err);
       const errorMessage = err instanceof Error ? err.message : "Failed to load model";
-      
+
+      // Clean up any partially loaded pipeline
+      pipelineRef.current = null;
+
       // Provide friendly error messages
       let friendlyError = errorMessage;
       if (errorMessage.includes("out of memory") || errorMessage.includes("OOM")) {
@@ -653,8 +672,10 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
         friendlyError = "WebGPU initialization failed. Try reloading the page or use a different browser.";
       } else if (errorMessage.includes("SharedArrayBuffer")) {
         friendlyError = "Your browser doesn't support required features. Try Chrome or Edge for best compatibility.";
+      } else if (errorMessage.includes("warmup failed")) {
+        friendlyError = "Model loaded but failed to initialize. Try reloading or use a different browser.";
       }
-      
+
       setState((prev) => ({
         ...prev,
         isLoading: false,
@@ -696,7 +717,16 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
     ): AsyncGenerator<string, void, unknown> {
       const generator = pipelineRef.current;
       if (!generator) {
-        throw new Error("Model not loaded");
+        // Sync state if pipeline is null but state thinks model is ready
+        // This can happen due to race conditions with unload() or memory pressure
+        setState((prev) => {
+          if (prev.isReady) {
+            console.warn("[LLM] Pipeline null but isReady was true - syncing state");
+            return { ...prev, isReady: false, isWarmedUp: false, selectedModel: null };
+          }
+          return prev;
+        });
+        throw new Error("Model not loaded. Please reload the AI module in Settings.");
       }
 
       setState((prev) => ({ ...prev, isGenerating: true, error: null }));
