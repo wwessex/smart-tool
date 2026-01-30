@@ -1536,7 +1536,17 @@ llm.clearError();
                             {llm.supportedModels.map((model) => (
                               <button
                                 key={model.id}
-                                onClick={() => llm.loadModel(model.id)}
+                                onClick={async () => {
+                                  const success = await llm.loadModel(model.id);
+                                  if (success) {
+                                    if (storage.updatePreferredLLMModel) {
+                                      storage.updatePreferredLLMModel(model.id);
+                                    }
+                                    if (storage.updateAIDraftMode) {
+                                      storage.updateAIDraftMode('ai');
+                                    }
+                                  }
+                                }}
                                 className="w-full p-3 rounded-lg border hover:border-primary/50 hover:bg-primary/5 transition-colors text-left"
                               >
                                 <div className="flex items-center justify-between">
