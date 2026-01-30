@@ -1505,14 +1505,31 @@ llm.clearError();
                               <Check className="w-4 h-4" />
                               {llm.supportedModels.find(m => m.id === llm.selectedModel)?.name || 'Model'} loaded
                             </div>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => llm.unload()}
-                              className="h-7 text-xs"
-                            >
-                              Unload
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={async () => {
+                                  const modelId = llm.selectedModel;
+                                  if (modelId) {
+                                    llm.unload();
+                                    await llm.loadModel(modelId);
+                                  }
+                                }}
+                                className="h-7 text-xs"
+                              >
+                                <RefreshCw className="w-3 h-3 mr-1" />
+                                Reload
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => llm.unload()}
+                                className="h-7 text-xs"
+                              >
+                                Unload
+                              </Button>
+                            </div>
                           </div>
                         )}
                         
@@ -1560,9 +1577,37 @@ llm.clearError();
                         )}
                         
                         {llm.error && (
-                          <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                            <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-                            <p className="text-xs text-destructive">{llm.error}</p>
+                          <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 space-y-2">
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                              <p className="text-xs text-destructive">{llm.error}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={async () => {
+                                  llm.clearError();
+                                  const modelId = llm.selectedModel || storage.preferredLLMModel || llm.supportedModels[0]?.id;
+                                  if (modelId) {
+                                    llm.unload();
+                                    await llm.loadModel(modelId);
+                                  }
+                                }}
+                              >
+                                <RefreshCw className="w-3 h-3 mr-1" />
+                                Try Again
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => llm.clearError()}
+                              >
+                                Dismiss
+                              </Button>
+                            </div>
                           </div>
                         )}
                       </div>
