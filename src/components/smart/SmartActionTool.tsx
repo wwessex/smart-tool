@@ -918,6 +918,12 @@ export function SmartActionTool() {
         }
       } catch (err) {
         console.warn('LLM wizard draft failed, falling back to templates:', err);
+        toast({
+          title: 'Using smart templates',
+          description: 'AI generation failed. Applied templates instead. Try reloading the model in Settings.',
+          variant: 'destructive',
+        });
+        scheduleSafariModelUnload(0);
         // Fall through to template fallback
       }
     }
