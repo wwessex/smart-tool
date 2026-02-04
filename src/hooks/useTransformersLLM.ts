@@ -349,17 +349,41 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
     return { available: true, device: "wasm" };
   }, [isMobileBlocked, device, safariWebGPUEnabled]);
 
-  // Warmup the model with a quick generation
+  // Warmup the model with a realistic generation that matches actual usage
   // If warmup fails, the model is likely broken and shouldn't be marked as ready
   const warmupModel = useCallback(async (generator: TextGenerationPipeline): Promise<void> => {
     const maxAttempts = 3;
     let lastError: unknown;
 
+    // Use a realistic warmup that mimics actual draft generation:
+    // - System prompt (like we use in real generation)
+    // - User prompt with context
+    // - 30 tokens (less than action's 80 but enough to validate generation works)
+    const warmupMessages = [
+      { role: "system", content: "You are a helpful assistant that writes concise action plans." },
+      { role: "user", content: "Write a short action for someone looking for work." }
+    ];
+
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         console.log(`[LLM] Warming up model (attempt ${attempt}/${maxAttempts})...`);
-        await generator([{ role: "user", content: "Hello" }], { max_new_tokens: 5 });
-        console.log("[LLM] Warmup complete");
+        const result = await generator(warmupMessages, {
+          max_new_tokens: 30,
+          do_sample: true,
+          temperature: 0.6
+        });
+
+        // Validate that we actually got a response
+        const generated = result[0]?.generated_text;
+        const hasContent = Array.isArray(generated)
+          ? generated.some((m: { role: string; content: string }) => m.role === "assistant" && m.content?.trim())
+          : typeof generated === "string" && generated.trim().length > 0;
+
+        if (!hasContent) {
+          throw new Error("Warmup returned empty response");
+        }
+
+        console.log("[LLM] Warmup complete - model validated");
         return; // Success
       } catch (err) {
         lastError = err;
