@@ -672,11 +672,24 @@ export function SmartActionTool() {
       }
     } catch (err) {
       console.warn('LLM draft failed, falling back to templates:', err);
-      // Fallback to templates
+      // Fallback to templates - inline the logic to avoid duplicate toasts
       if (mode === 'now') {
-        templateDraftNow();
+        let timescale = nowForm.timescale;
+        if (!timescale) {
+          timescale = '2 weeks';
+        }
+        const { action, help } = aiDraftNow(
+          nowForm.barrier,
+          nowForm.forename,
+          nowForm.responsible,
+          timescale,
+          nowForm.date,
+          suggestQuery
+        );
+        setNowForm(prev => ({ ...prev, action, help, timescale }));
       } else {
-        templateDraftFuture();
+        const outcome = aiDraftFuture(futureForm.task, futureForm.forename);
+        setFutureForm(prev => ({ ...prev, outcome }));
       }
       toast({
         title: 'Using smart templates',
@@ -687,7 +700,7 @@ export function SmartActionTool() {
     } finally {
       setAIDrafting(false);
     }
-  }, [mode, nowForm, futureForm, llm, today, templateDraftNow, templateDraftFuture, toast, storage.aiDraftMode, effectivePromptPack, llmSystemPrompt, scheduleSafariModelUnload]);
+  }, [mode, nowForm, futureForm, llm, today, templateDraftNow, templateDraftFuture, toast, storage.aiDraftMode, effectivePromptPack, llmSystemPrompt, scheduleSafariModelUnload, suggestQuery]);
 
   const handleEditHistory = (item: HistoryItem) => {
     setMode(item.mode);
