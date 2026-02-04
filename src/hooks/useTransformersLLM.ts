@@ -80,6 +80,17 @@ interface BrowserInfo {
   isLinux: boolean;
 }
 
+// Check if SharedArrayBuffer is available (requires cross-origin isolation)
+function isSharedArrayBufferAvailable(): boolean {
+  try {
+    // SharedArrayBuffer requires cross-origin isolation (COOP/COEP headers)
+    // If not available, multi-threaded WASM will fail
+    return typeof SharedArrayBuffer !== "undefined";
+  } catch {
+    return false;
+  }
+}
+
 
 // Device classification (used to decide whether local LLM is allowed)
 interface DeviceInfo {
@@ -147,15 +158,24 @@ function getBrowserOptimizations(
   // WebGPU is most stable on Windows Chrome/Edge
   // Safari has experimental WebGPU but WASM is more reliable
   // Firefox uses WASM with reduced threads due to SharedArrayBuffer limitations
-  
+
+  // Check if SharedArrayBuffer is available for multi-threaded WASM
+  // Without cross-origin isolation headers (COOP/COEP), SharedArrayBuffer is unavailable
+  // and multi-threaded WASM will fail with cryptic errors
+  const hasSharedArrayBuffer = isSharedArrayBufferAvailable();
+
   if (browser.isChrome || browser.isEdge) {
     // Chrome/Edge on Windows have excellent WebGPU support
     // Chrome on Mac has decent WebGPU but can be unstable
+    // If SharedArrayBuffer is unavailable, fall back to single-threaded WASM
+    const desiredThreads = 4;
+    const safeThreads = hasSharedArrayBuffer ? desiredThreads : 1;
+    const threadNote = !hasSharedArrayBuffer ? " (single-threaded: no cross-origin isolation)" : "";
     return {
       preferWebGPU: browser.isWindows || browser.isLinux,
-      wasmThreads: 4,
+      wasmThreads: safeThreads,
       dtype: "q4",
-      notes: browser.isWindows ? "Optimized for Chrome/Edge on Windows" : "Using compatible settings",
+      notes: (browser.isWindows ? "Optimized for Chrome/Edge on Windows" : "Using compatible settings") + threadNote,
     };
   }
   
@@ -192,11 +212,12 @@ function getBrowserOptimizations(
   }
   
   // Default fallback
+  // Use multi-threaded only if SharedArrayBuffer is available
   return {
     preferWebGPU: false,
-    wasmThreads: 2,
+    wasmThreads: hasSharedArrayBuffer ? 2 : 1,
     dtype: "q4",
-    notes: "Using compatible WASM settings",
+    notes: hasSharedArrayBuffer ? "Using compatible WASM settings" : "Using compatible WASM settings (single-threaded: no cross-origin isolation)",
   };
 }
 
@@ -213,18 +234,21 @@ export const checkIsMobile = isMobileDevice;
 // Log platform info for debugging
 function logPlatformInfo(safariWebGPUEnabled: boolean): void {
   if (typeof navigator === "undefined") return;
-  
+
   const browser = detectBrowser();
   const optimizations = getBrowserOptimizations(browser, { safariWebGPUEnabled });
   const hasWebGPU = !!(navigator as Navigator & { gpu?: unknown }).gpu;
+  const hasSharedArrayBuffer = isSharedArrayBufferAvailable();
   const memory = (performance as { memory?: { jsHeapSizeLimit?: number } }).memory?.jsHeapSizeLimit;
   const cores = navigator.hardwareConcurrency;
-  
+
   console.log("[LLM Platform]", {
     browser: browser.isChrome ? "Chrome" : browser.isEdge ? "Edge" : browser.isSafari ? "Safari" : browser.isFirefox ? "Firefox" : "Other",
     os: browser.isMac ? "macOS" : browser.isWindows ? "Windows" : browser.isLinux ? "Linux" : "Other",
     webgpuAvailable: hasWebGPU,
     preferWebGPU: optimizations.preferWebGPU,
+    sharedArrayBuffer: hasSharedArrayBuffer,
+    wasmThreads: optimizations.wasmThreads,
     memoryLimit: memory ? `${Math.round(memory / 1024 / 1024)}MB` : "unknown",
     cores,
     notes: optimizations.notes,

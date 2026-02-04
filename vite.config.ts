@@ -18,6 +18,7 @@ function cacheBustPlugin(): Plugin {
     },
     generateBundle(_, bundle) {
       // Add _headers file for Netlify/Cloudflare Pages with cache control
+      // and cross-origin isolation headers for SharedArrayBuffer support
       this.emitFile({
         type: 'asset',
         fileName: '_headers',
@@ -25,6 +26,8 @@ function cacheBustPlugin(): Plugin {
   Cache-Control: no-cache, no-store, must-revalidate
   Pragma: no-cache
   Expires: 0
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: credentialless
 
 /*.html
   Cache-Control: no-cache, no-store, must-revalidate
@@ -50,6 +53,12 @@ export default defineConfig(({ mode }) => {
       port: 8080,
       hmr: {
         overlay: false,
+      },
+      // Enable cross-origin isolation for SharedArrayBuffer support
+      // Required for multi-threaded WASM in local AI inference
+      headers: {
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Cross-Origin-Embedder-Policy": "credentialless",
       },
     },
     plugins: [react(), cacheBustPlugin(), mode === "development" && componentTagger()].filter(Boolean),
