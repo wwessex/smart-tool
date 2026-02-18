@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { classifyAIError, type ClassifiedError } from "@/lib/error-handling";
 
 export interface ModelInfo {
   id: string;
@@ -57,6 +58,8 @@ interface UseTransformersLLMState {
   isGenerating: boolean;
   isReady: boolean;
   error: string | null;
+  /** Structured error with category, retryable flag, and recovery message. */
+  classifiedError: ClassifiedError | null;
   selectedModel: string | null;
   isWarmedUp: boolean;
 }
@@ -290,6 +293,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
     isGenerating: false,
     isReady: false,
     error: null,
+    classifiedError: null,
     selectedModel: null,
     isWarmedUp: false,
   });
@@ -659,6 +663,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
       loadingProgress: 0,
       loadingStatus: "Checking device capabilities...",
       error: null,
+      classifiedError: null,
       isWarmedUp: false,
     }));
 
@@ -700,29 +705,18 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
       return true;
     } catch (err) {
       console.error("Failed to load model:", err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to load model";
 
       // Clean up any partially loaded pipeline
       pipelineRef.current = null;
 
-      // Provide friendly error messages
-      let friendlyError = errorMessage;
-      if (errorMessage.includes("out of memory") || errorMessage.includes("OOM")) {
-        friendlyError = "Not enough memory to load this model. Try a smaller model or close other tabs.";
-      } else if (errorMessage.includes("network") || errorMessage.includes("fetch") || errorMessage.includes("Failed to fetch")) {
-        friendlyError = "Network error while downloading model. Check your connection and try again.";
-      } else if (errorMessage.includes("WebGPU") || errorMessage.includes("webgpu")) {
-        friendlyError = "WebGPU initialization failed. Try reloading the page or use a different browser.";
-      } else if (errorMessage.includes("SharedArrayBuffer")) {
-        friendlyError = "Your browser doesn't support required features. Try Chrome or Edge for best compatibility.";
-      } else if (errorMessage.includes("warmup failed")) {
-        friendlyError = "Model loaded but failed to initialize. Try reloading or use a different browser.";
-      }
+      // Classify the error to provide consistent user-friendly messages
+      const classified = classifyAIError(err);
 
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: friendlyError,
+        error: classified.message,
+        classifiedError: classified,
       }));
       return false;
     }
@@ -772,7 +766,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
         throw new Error("Model not loaded. Please reload the AI module in Settings.");
       }
 
-      setState((prev) => ({ ...prev, isGenerating: true, error: null }));
+      setState((prev) => ({ ...prev, isGenerating: true, error: null, classifiedError: null }));
       abortRef.current = false;
 
       // Use provided config or default (with device caps)
@@ -849,9 +843,11 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
       } catch (err) {
         if (!abortRef.current) {
           console.error("[LLM] Chat error:", err);
+          const classified = classifyAIError(err);
           setState((prev) => ({
             ...prev,
-            error: err instanceof Error ? err.message : "Generation failed",
+            error: classified.message,
+            classifiedError: classified,
           }));
           throw err;
         }
@@ -892,7 +888,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
 
   // Reset error
   const clearError = useCallback(() => {
-    setState((prev) => ({ ...prev, error: null }));
+    setState((prev) => ({ ...prev, error: null, classifiedError: null }));
   }, []);
 
   // Unload model and cleanup
@@ -905,6 +901,7 @@ export function useTransformersLLM(options: UseTransformersLLMOptions = {}) {
       isGenerating: false,
       isReady: false,
       error: null,
+      classifiedError: null,
       selectedModel: null,
       isWarmedUp: false,
     });

@@ -262,6 +262,17 @@ export function SmartActionTool() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Show toast when LLM encounters an error (e.g. model load failure, generation error)
+  useEffect(() => {
+    if (llm.classifiedError) {
+      toast({
+        title: llm.classifiedError.title,
+        description: llm.classifiedError.message,
+        variant: 'destructive',
+      });
+    }
+  }, [llm.classifiedError, toast]);
+
   // BUG FIX #1: Validate future date - must be today or later
   const futureDateError = useMemo(() => {
     if (!futureForm.date) return '';
@@ -1093,6 +1104,9 @@ llm.clearError();
     }
     
     const reader = new FileReader();
+    reader.onerror = () => {
+      toast({ title: 'Import failed', description: 'Could not read the file. Please try again.', variant: 'destructive' });
+    };
     reader.onload = () => {
       try {
         const rawData = JSON.parse(String(reader.result || '{}'));
@@ -1599,25 +1613,32 @@ llm.clearError();
                           <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 space-y-2">
                             <div className="flex items-start gap-2">
                               <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-                              <p className="text-xs text-destructive">{llm.error}</p>
+                              <div className="space-y-1">
+                                {llm.classifiedError && (
+                                  <p className="text-xs font-medium text-destructive">{llm.classifiedError.title}</p>
+                                )}
+                                <p className="text-xs text-destructive">{llm.error}</p>
+                              </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 text-xs"
-                                onClick={async () => {
-                                  llm.clearError();
-                                  const modelId = llm.selectedModel || storage.preferredLLMModel || llm.supportedModels[0]?.id;
-                                  if (modelId) {
-                                    llm.unload();
-                                    await llm.loadModel(modelId);
-                                  }
-                                }}
-                              >
-                                <RefreshCw className="w-3 h-3 mr-1" />
-                                Try Again
-                              </Button>
+                              {(!llm.classifiedError || llm.classifiedError.retryable) && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  onClick={async () => {
+                                    llm.clearError();
+                                    const modelId = llm.selectedModel || storage.preferredLLMModel || llm.supportedModels[0]?.id;
+                                    if (modelId) {
+                                      llm.unload();
+                                      await llm.loadModel(modelId);
+                                    }
+                                  }}
+                                >
+                                  <RefreshCw className="w-3 h-3 mr-1" />
+                                  Try Again
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -2767,16 +2788,37 @@ llm.clearError();
                 </p>
               </div>
             ) : llm.error ? (
-              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 space-y-2">
+                {llm.classifiedError && (
+                  <p className="text-sm font-medium text-destructive">{llm.classifiedError.title}</p>
+                )}
                 <p className="text-sm text-destructive">{llm.error}</p>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="mt-2"
-                  onClick={() => llm.clearError()}
-                >
-                  Dismiss
-                </Button>
+                <div className="flex items-center gap-2">
+                  {(!llm.classifiedError || llm.classifiedError.retryable) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        llm.clearError();
+                        const modelId = llm.selectedModel || storage.preferredLLMModel || llm.supportedModels[0]?.id;
+                        if (modelId) {
+                          llm.unload();
+                          await llm.loadModel(modelId);
+                        }
+                      }}
+                    >
+                      <RefreshCw className="w-3 h-3 mr-1" />
+                      Try Again
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => llm.clearError()}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="space-y-2">
