@@ -2,6 +2,10 @@ import { createRoot } from "react-dom/client";
 import { Component, ReactNode } from "react";
 import App from "./App.tsx";
 import "./index.css";
+import { installGlobalErrorHandlers } from "./lib/error-handling";
+
+// Install global unhandled-rejection listener early so no async error is lost.
+installGlobalErrorHandlers();
 // NOTE: @huggingface/transformers is imported lazily (dynamic import) inside
 // useTransformersLLM and localTranslator to avoid crashing iOS Safari at startup.
 // Do NOT add a static import of transformersEnv here.
