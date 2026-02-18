@@ -6,8 +6,8 @@ import { pipeline, type TranslationPipeline } from "@huggingface/transformers";
  *
  * Model: Xenova/nllb-200-distilled-600M (broad language coverage)
  *
- * NOTE: This model must be self-hosted under:
- *   public/models/Xenova/nllb-200-distilled-600M/...
+ * The model is downloaded from Hugging Face Hub on first use and cached
+ * in the browser for subsequent offline access.
  */
 const MODEL_ID = "Xenova/nllb-200-distilled-600M";
 

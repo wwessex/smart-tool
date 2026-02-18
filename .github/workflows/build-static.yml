@@ -78,15 +78,6 @@ jobs:
         with:
           bun-version: latest
       
-      - name: Download local AI models (self-hosted, disk-safe)
-        env:
-          HF_HUB_CACHE: /tmp/hf-cache
-        run: |
-          set -euo pipefail
-          python -m pip install --upgrade pip
-          python -m pip install --no-cache-dir huggingface_hub==0.24.6
-          python scripts/fetch-models.py
-          rm -rf /tmp/hf-cache || true
       - name: Install dependencies
         run: bun install
 
@@ -98,14 +89,6 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1eHZwa2N6aGRlc2xiaHdwbnlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjQ3NzEsImV4cCI6MjA4NDAwMDc3MX0.ZCrDnhzH1TWYbtaIbvenYRJHMjOvOdL2P1b2-kHgV4c' }}
           VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID || 'wuxvpkczhdeslbhwpnyd' }}
       
-      - name: Copy models into dist (self-hosted)
-        run: |
-          set -euo pipefail
-          if [ -d public/models ]; then
-            mkdir -p dist/models
-            cp -R public/models/* dist/models/
-          fi
-
       - name: Verify build output
         run: |
           echo "=== Build output ==="
