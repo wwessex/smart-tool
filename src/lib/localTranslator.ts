@@ -1,4 +1,7 @@
-import { pipeline, type TranslationPipeline } from "@huggingface/transformers";
+// NOTE: @huggingface/transformers is imported dynamically (not at module level)
+// to avoid crashing iOS Safari at page load. The library is very large and
+// eagerly importing it causes the WebContent process to exceed memory limits.
+import type { TranslationPipeline } from "@huggingface/transformers";
 
 /**
  * Offline translation using a real translation model (NOT a chat LLM prompt).
@@ -30,7 +33,10 @@ let translatorPromise: Promise<TranslationPipeline> | null = null;
 
 async function getTranslator() {
   if (!translatorPromise) {
-    translatorPromise = pipeline("translation", MODEL_ID) as Promise<TranslationPipeline>;
+    translatorPromise = (async () => {
+      const { pipeline } = await import("@huggingface/transformers");
+      return pipeline("translation", MODEL_ID) as Promise<TranslationPipeline>;
+    })();
   }
   return translatorPromise;
 }

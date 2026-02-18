@@ -2,7 +2,9 @@ import { createRoot } from "react-dom/client";
 import { Component, ReactNode } from "react";
 import App from "./App.tsx";
 import "./index.css";
-import "./lib/transformersEnv";
+// NOTE: @huggingface/transformers is imported lazily (dynamic import) inside
+// useTransformersLLM and localTranslator to avoid crashing iOS Safari at startup.
+// Do NOT add a static import of transformersEnv here.
 
 // CRITICAL FIX: Hide loading screen function - ALWAYS runs in finally block
 const hideLoadingScreen = () => {
