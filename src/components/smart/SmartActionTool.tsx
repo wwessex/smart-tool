@@ -661,7 +661,10 @@ export function SmartActionTool() {
           responsible: nowForm.responsible || 'Advisor',
         });
         const action = sanitizeActionPhrase(await llm.generate(actionPrompt, llmSystemPrompt, 'action'), nowForm.forename);
-        
+        if (!action) {
+          throw new Error('AI produced an unusable action phrase. Try again or use a different barrier.');
+        }
+
         // Generate help - use correct subject based on responsible person
         const helpSubject = getHelpSubject(nowForm.forename, nowForm.responsible);
         const helpPrompt = buildDraftHelpPrompt(effectivePromptPack, {
@@ -927,6 +930,9 @@ export function SmartActionTool() {
               responsible: context.responsible || 'Advisor',
             });
             const action = sanitizeActionPhrase(await llm.generate(actionPrompt, llmSystemPrompt, 'action'), context.forename || '');
+            if (!action) {
+              throw new Error('AI produced an unusable action phrase. Try again or use a different barrier.');
+            }
             scheduleSafariModelUnload();
             return action;
           }

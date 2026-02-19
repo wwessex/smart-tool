@@ -214,6 +214,10 @@ function normalize(s: string): string {
   return (s || "").toLowerCase();
 }
 
+function stripTrailingPunctuation(s: string): string {
+  return (s || "").trim().replace(/[.!?]+$/, "");
+}
+
 function applyExampleTemplate(template: string, params: { forename: string; targetDate: string; targetTime?: string }): string {
   let t = (template || "").trim();
   // Replace common placeholder tokens with runtime values.
@@ -320,7 +324,6 @@ export function buildDraftActionPrompt(pack: PromptPack, params: {
     params.targetTime ? `- Time: ${params.targetTime}` : '',
     `- Supporter: ${params.responsible || "Advisor"}`,
     guidanceLine,
-    exampleBlock ? "" : "",
     exampleBlock,
     "OUTPUT: One short phrase only. No quotes. No bullet points.",
   ]
