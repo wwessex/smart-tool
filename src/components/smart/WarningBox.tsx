@@ -68,7 +68,7 @@ export function WarningBox({
           initial={{ opacity: 0, height: 0, marginTop: 0 }}
           animate={{ opacity: 1, height: 'auto', marginTop: undefined }}
           exit={{ opacity: 0, height: 0, marginTop: 0 }}
-          transition={{ duration: 0.2 }}
+          transition={{ type: "spring", damping: 25, stiffness: 300 }}
           role="alert"
         >
           {pulse && (

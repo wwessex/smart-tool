@@ -54,26 +54,26 @@ export function Footer({ onOpenPrivacySettings, className }: FooterProps) {
           </div>
           
           <div className="flex items-center gap-4">
-            <a 
-              href="#/privacy" 
-              className="hover:text-foreground transition-colors flex items-center gap-1.5"
+            <a
+              href="#/privacy"
+              className="hover:text-foreground transition-all duration-200 ease-spring flex items-center gap-1.5 hover:-translate-y-0.5"
             >
               <Shield className="w-3.5 h-3.5" />
               Privacy
             </a>
-            
-            <a 
-              href="#/terms" 
-              className="hover:text-foreground transition-colors flex items-center gap-1.5"
+
+            <a
+              href="#/terms"
+              className="hover:text-foreground transition-all duration-200 ease-spring flex items-center gap-1.5 hover:-translate-y-0.5"
             >
               <Scale className="w-3.5 h-3.5" />
               Terms
             </a>
-            
+
             {onOpenPrivacySettings && (
               <button
                 onClick={onOpenPrivacySettings}
-                className="hover:text-foreground transition-colors"
+                className="hover:text-foreground transition-all duration-200 ease-spring hover:-translate-y-0.5"
               >
                 Cookie Settings
               </button>

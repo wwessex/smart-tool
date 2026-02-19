@@ -84,13 +84,14 @@ export function FloatingToolbar({
         aria-label="Action toolbar"
         className={cn(
           "fixed bottom-6 left-1/2 -translate-x-1/2 z-50",
-          "bg-card/95 backdrop-blur-xl border border-border/50 rounded-full shadow-lg",
+          "bg-card/95 backdrop-blur-xl border border-border/50 rounded-full",
           "px-2 py-2 flex items-center gap-1",
+          "shadow-lg hover:shadow-xl transition-shadow duration-300",
           className
         )}
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ type: "spring", damping: 25, stiffness: 300, delay: 0.5 }}
+        transition={{ type: "spring", damping: 20, stiffness: 260, delay: 0.5 }}
       >
         {actions.map((action, index) => (
           <Tooltip key={action.id}>
@@ -98,7 +99,9 @@ export function FloatingToolbar({
               <motion.div
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.6 + index * 0.05 }}
+                transition={{ type: "spring", damping: 15, stiffness: 300, delay: 0.6 + index * 0.06 }}
+                whileHover={{ scale: 1.15, y: -3 }}
+                whileTap={{ scale: 0.9 }}
               >
                 <Button
                   variant={action.variant}
@@ -106,20 +109,27 @@ export function FloatingToolbar({
                   onClick={action.onClick}
                   disabled={action.disabled}
                   aria-label={action.label}
-	                  // CodeQL: avoid redundant replacement (e.g. replacing "Shift+" with itself)
-	                  aria-keyshortcuts={getShortcut(action.id)?.replace('Ctrl+', 'Control+')}
+                  // CodeQL: avoid redundant replacement (e.g. replacing "Shift+" with itself)
+                  aria-keyshortcuts={getShortcut(action.id)?.replace('Ctrl+', 'Control+')}
                   className={cn(
-                    "h-10 w-10 rounded-full p-0",
+                    "h-10 w-10 rounded-full p-0 transition-all duration-200",
                     action.disabled && "opacity-50 cursor-not-allowed",
+                    !action.disabled && "hover:shadow-md",
                     action.className
                   )}
                 >
-                  <action.icon className="w-4 h-4" aria-hidden="true" />
+                  <motion.span
+                    className="flex items-center justify-center"
+                    whileHover={{ rotate: action.id === 'clear' ? 15 : action.id === 'ai-draft' ? [0, -10, 10, 0] : 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <action.icon className="w-4 h-4" aria-hidden="true" />
+                  </motion.span>
                   <span className="sr-only">{action.label}</span>
                 </Button>
               </motion.div>
             </TooltipTrigger>
-            <TooltipContent side="top" className="flex items-center gap-2">
+            <TooltipContent side="top" className="flex items-center gap-2 animate-scale-in">
               <span>{action.label}</span>
               {getShortcut(action.id) && (
                 <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded font-mono">

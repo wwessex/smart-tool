@@ -200,6 +200,57 @@ All colors MUST be HSL.
   .shadow-glow {
     box-shadow: var(--shadow-glow);
   }
+
+  /* Micro-interaction: interactive element base - soft physics transitions */
+  .interactive {
+    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.2s cubic-bezier(0.25, 0.1, 0.25, 1),
+                border-color 0.2s cubic-bezier(0.25, 0.1, 0.25, 1),
+                background-color 0.15s ease;
+  }
+
+  .interactive:hover {
+    transform: translateY(-1px);
+  }
+
+  .interactive:active {
+    transform: translateY(0) scale(0.98);
+  }
+
+  /* Micro-interaction: pressable button feel */
+  .pressable {
+    transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.15s cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+
+  .pressable:hover {
+    transform: scale(1.02);
+  }
+
+  .pressable:active {
+    transform: scale(0.97);
+    transition-duration: 0.1s;
+  }
+
+  /* Micro-interaction: focus ring with soft glow */
+  .focus-glow:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background)),
+                0 0 0 4px hsl(var(--ring)),
+                0 0 12px hsl(var(--ring) / 0.25);
+  }
+
+  /* Shimmer skeleton effect */
+  .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 0%,
+      hsl(var(--muted) / 0.5) 40%,
+      hsl(var(--muted)) 80%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s ease-in-out infinite;
+  }
 }
 
 /* Landscape optimizations for mobile/tablet devices */

@@ -87,14 +87,14 @@ export const SmartChecklist = memo(function SmartChecklist({ check, className, a
       actionText={actionText}
     />
     <TooltipProvider delayDuration={300}>
-      <motion.div 
+      <motion.div
         className={cn(
-          "rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm p-4 space-y-3",
+          "rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm p-4 space-y-3 hover:shadow-sm transition-shadow duration-300",
           className
         )}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
+        transition={{ type: "spring", damping: 25, stiffness: 260 }}
       >
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -140,7 +140,7 @@ export const SmartChecklist = memo(function SmartChecklist({ check, className, a
             )}
             initial={{ width: 0 }}
             animate={{ width: `${(check.overallScore / 5) * 100}%` }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
+            transition={{ type: "spring", damping: 20, stiffness: 100, mass: 0.5 }}
           />
         </div>
 
@@ -169,12 +169,14 @@ export const SmartChecklist = memo(function SmartChecklist({ check, className, a
                 <motion.div
                   key={key}
                   className={cn(
-                    "relative flex items-center gap-3 p-2 rounded-lg transition-colors overflow-hidden",
+                    "relative flex items-center gap-3 p-2 rounded-lg overflow-hidden",
+                    "hover:bg-muted/40 transition-[background-color] duration-200",
                     isMet ? "bg-green-500/5" : "bg-muted/50"
                   )}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
+                  transition={{ type: "spring", damping: 22, stiffness: 260, delay: index * 0.04 }}
+                  whileHover={{ x: 2 }}
                 >
                   {/* Celebration glow effect */}
                   {isCelebrating && (

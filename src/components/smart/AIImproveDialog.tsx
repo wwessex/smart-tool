@@ -7,6 +7,7 @@ import { SmartCheck } from '@/lib/smart-checker';
 import { IMPROVE_PROMPT } from '@/lib/smart-prompts';
 import { cn } from '@/lib/utils';
 import { WarningBox } from './WarningBox';
+import { DelightfulError } from './DelightfulError';
 import { useAIConsent } from '@/hooks/useAIConsent';
 
 interface LocalLLMHandle {
@@ -188,12 +189,24 @@ export function AIImproveDialog({
           {/* Loading State */}
           {isGenerating && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: "spring", damping: 20, stiffness: 200 }}
               className="flex flex-col items-center gap-3 py-6"
             >
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Analyzing and improving your action...</p>
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+              >
+                <Loader2 className="w-8 h-8 text-primary" />
+              </motion.div>
+              <motion.p
+                className="text-sm text-muted-foreground"
+                animate={{ opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              >
+                Analyzing and improving your action...
+              </motion.p>
               <Button variant="outline" size="sm" onClick={abort}>
                 Cancel
               </Button>
@@ -202,27 +215,13 @@ export function AIImproveDialog({
 
           {/* Error State */}
           {errorMessage && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-4 rounded-lg bg-destructive/10 border border-destructive/20"
-            >
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-destructive shrink-0" />
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-destructive">Failed to improve action</p>
-                  <p className="text-xs text-muted-foreground">{errorMessage}</p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={handleImprove}>
-                      <RefreshCw className="w-3 h-3 mr-1" /> Try Again
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={handleDismissError}>
-                      Dismiss
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
+            <DelightfulError
+              variant="ai"
+              title="Failed to improve action"
+              message={errorMessage}
+              onRetry={handleImprove}
+              onDismiss={handleDismissError}
+            />
           )}
 
           {/* Result */}
@@ -232,6 +231,7 @@ export function AIImproveDialog({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
+                transition={{ type: "spring", damping: 22, stiffness: 260 }}
                 className="space-y-4"
               >
                 {/* Improved Action */}

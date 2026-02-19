@@ -266,7 +266,7 @@ export function ActionWizard({ mode, barriers, timescales, recentNames, onComple
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.2 }}
+          transition={{ type: "spring", damping: 22, stiffness: 260 }}
         >
           <div className="space-y-2">
             <div className="flex items-start justify-between gap-2">

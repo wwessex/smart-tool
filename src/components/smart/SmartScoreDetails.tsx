@@ -42,6 +42,7 @@ export function SmartScoreDetails({ open, onOpenChange, check, actionText }: Sma
               )}
               initial={{ scale: 0.8 }}
               animate={{ scale: 1 }}
+              transition={{ type: "spring", damping: 15, stiffness: 300 }}
             >
               {check.overallScore}/5 {getSmartLabel(check.overallScore)}
             </motion.div>
