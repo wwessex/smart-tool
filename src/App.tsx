@@ -171,7 +171,7 @@ const PageLoader = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-3 text-center p-4 max-w-sm">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" style={{ animationTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)' }} />
         <p className="text-sm text-muted-foreground">Loading SMART Action Tool...</p>
         
         {stage === 'slow' && (

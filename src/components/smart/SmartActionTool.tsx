@@ -24,20 +24,22 @@ import { ActionWizard } from './ActionWizard';
 import { AIImproveDialog } from './AIImproveDialog';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { OnboardingTutorial, useOnboarding } from './OnboardingTutorial';
+import { EmptyState } from './EmptyState';
+import { DelightfulError } from './DelightfulError';
 import { useLocalSync } from '@/hooks/useLocalSync';
 
 // Lazy load HistoryInsights as it uses recharts which is a heavy dependency
 const HistoryInsights = lazy(() => import('./HistoryInsights').then(module => ({ default: module.HistoryInsights })));
 
-// Skeleton loader for lazy-loaded components
+// Skeleton loader for lazy-loaded components with shimmer effect
 const InsightsSkeleton = () => (
-  <div className="space-y-4 animate-pulse">
+  <div className="space-y-4">
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
       {[1, 2, 3, 4].map(i => (
-        <div key={i} className="h-20 rounded-xl bg-muted" />
+        <div key={i} className="h-20 rounded-xl skeleton-shimmer" style={{ animationDelay: `${i * 0.15}s` }} />
       ))}
     </div>
-    <div className="h-48 rounded-xl bg-muted" />
+    <div className="h-48 rounded-xl skeleton-shimmer" style={{ animationDelay: '0.6s' }} />
   </div>
 );
 import { FloatingToolbar } from './FloatingToolbar';
@@ -80,7 +82,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { cn } from '@/lib/utils';
 import { ComboboxInput } from './ComboboxInput';
 
-// Animation variants
+// Animation variants - soft physics with spring easing
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
   animate: { opacity: 1, y: 0 },
@@ -90,22 +92,27 @@ const fadeInUp = {
 const staggerContainer = {
   animate: {
     transition: {
-      staggerChildren: 0.1
+      staggerChildren: 0.08,
+      delayChildren: 0.05
     }
   }
 };
 
 const slideInLeft = {
-  initial: { opacity: 0, x: -20 },
+  initial: { opacity: 0, x: -24 },
   animate: { opacity: 1, x: 0 },
-  exit: { opacity: 0, x: 20 }
+  exit: { opacity: 0, x: 24 }
 };
 
 const slideInRight = {
-  initial: { opacity: 0, x: 20 },
+  initial: { opacity: 0, x: 24 },
   animate: { opacity: 1, x: 0 },
-  exit: { opacity: 0, x: -20 }
+  exit: { opacity: 0, x: -24 }
 };
+
+// Spring config for soft physics feel
+const springTransition = { type: "spring" as const, damping: 22, stiffness: 260 };
+const softSpring = { type: "spring" as const, damping: 28, stiffness: 200 };
 
 type Mode = 'now' | 'future';
 
@@ -1251,7 +1258,13 @@ llm.clearError();
                 </DialogHeader>
                 <div className="flex-1 space-y-4 overflow-y-auto pr-2">
                   {GUIDANCE.map((g, i) => (
-                    <div key={i} className="p-4 rounded-lg border bg-card">
+                    <motion.div
+                      key={i}
+                      className="p-4 rounded-lg border bg-card hover:border-primary/30 hover:shadow-sm transition-all duration-200 ease-spring"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                    >
                       <h3 className="font-bold mb-2">{g.title}</h3>
                       {Array.isArray(g.body) ? (
                         <ul className="list-disc pl-4 text-sm text-muted-foreground space-y-1">
@@ -1260,7 +1273,7 @@ llm.clearError();
                       ) : (
                         <p className="text-sm text-muted-foreground">{g.body}</p>
                       )}
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               </DialogContent>
@@ -1296,7 +1309,7 @@ llm.clearError();
                 </DialogHeader>
                 <div className="flex-1 overflow-y-auto pr-2 space-y-4">
                   <div className="grid md:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-lg border bg-card space-y-3">
+                  <div className="p-4 rounded-lg border bg-card space-y-3 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
                     <h3 className="font-bold">Barriers list</h3>
                     <p className="text-xs text-muted-foreground">One per line. Users can still type custom barriers.</p>
                     <Textarea 
@@ -1321,7 +1334,7 @@ llm.clearError();
                       }}>Save</Button>
                     </div>
                   </div>
-                  <div className="p-4 rounded-lg border bg-card space-y-3">
+                  <div className="p-4 rounded-lg border bg-card space-y-3 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
                     <h3 className="font-bold">Timescales</h3>
                     <p className="text-xs text-muted-foreground">One per line.</p>
                     <Textarea 
@@ -1349,7 +1362,7 @@ llm.clearError();
                   </div>
                 
                   {/* Quality Enforcement Section */}
-                  <div className="p-4 rounded-lg border bg-card space-y-4">
+                  <div className="p-4 rounded-lg border bg-card space-y-4 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
                     <div className="flex items-center gap-2">
                       <ShieldCheck className="w-5 h-5 text-primary" />
                       <h3 className="font-bold">Quality Enforcement</h3>
@@ -1396,7 +1409,7 @@ llm.clearError();
                   </div>
 
                   {/* Wizard Mode Toggle */}
-                  <div className="p-4 rounded-lg border bg-card space-y-4">
+                  <div className="p-4 rounded-lg border bg-card space-y-4 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
                     <div className="flex items-center gap-2">
                       <Wand2 className="w-5 h-5 text-primary" />
                       <h3 className="font-bold">Guided Wizard Mode</h3>
@@ -1416,7 +1429,7 @@ llm.clearError();
                   </div>
 
                   {/* AI Draft Settings Section */}
-                  <div className="p-4 rounded-lg border bg-card space-y-4">
+                  <div className="p-4 rounded-lg border bg-card space-y-4 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
                     <div className="flex items-center gap-2">
                       <Bot className="w-5 h-5 text-primary" />
                       <h3 className="font-bold">AI Draft</h3>
@@ -1664,7 +1677,7 @@ llm.clearError();
                     )}
                   </div>
 
-                  <div className="p-4 rounded-lg border bg-card space-y-4">
+                  <div className="p-4 rounded-lg border bg-card space-y-4 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
                     <div className="flex items-center gap-2">
                       <HelpCircle className="w-5 h-5 text-primary" />
                       <h3 className="font-bold">Tutorial</h3>
@@ -1688,7 +1701,7 @@ llm.clearError();
                   </div>
 
                   {/* Local Folder Sync / Export Section */}
-                  <div className="p-4 rounded-lg border bg-card space-y-4">
+                  <div className="p-4 rounded-lg border bg-card space-y-4 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         {localSync.isSupported ? (
@@ -1826,7 +1839,7 @@ llm.clearError();
                   </div>
 
                   {/* Data Retention Section */}
-                  <div className="p-4 rounded-lg border bg-card space-y-4">
+                  <div className="p-4 rounded-lg border bg-card space-y-4 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
                     <div className="flex items-center gap-2">
                       <Clock className="w-5 h-5 text-primary" />
                       <h3 className="font-bold">Data Retention</h3>
@@ -1880,7 +1893,7 @@ llm.clearError();
                   </div>
 
                   {/* Privacy & Data Section - GDPR Compliance */}
-                  <div className="p-4 rounded-lg border bg-card space-y-4">
+                  <div className="p-4 rounded-lg border bg-card space-y-4 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Shield className="w-5 h-5 text-primary" />
@@ -1995,10 +2008,10 @@ llm.clearError();
           animate="animate"
         >
           {/* Left Panel - Form or Wizard */}
-          <motion.div 
-            className="glass-panel rounded-2xl p-6 space-y-6 shadow-soft"
+          <motion.div
+            className="glass-panel rounded-2xl p-6 space-y-6 shadow-soft hover:shadow-md transition-shadow duration-300"
             variants={slideInLeft}
-            transition={{ duration: 0.4, ease: "easeOut" }}
+            transition={softSpring}
           >
             {wizardMode ? (
               <ActionWizard
@@ -2039,7 +2052,7 @@ llm.clearError();
                 className="absolute inset-y-1 rounded-full bg-primary shadow-md pointer-events-none"
                 style={{ width: 'calc(50% - 4px)' }}
                 animate={{ x: mode === 'now' ? 4 : 'calc(100% + 4px)' }}
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                transition={{ type: "spring", stiffness: 350, damping: 25, mass: 0.8 }}
                 aria-hidden="true"
               />
               <Button
@@ -2076,7 +2089,7 @@ llm.clearError();
 
             <AnimatePresence mode="wait">
             {mode === 'now' ? (
-              <motion.div 
+              <motion.div
                 key="now-form"
                 id="now-form-panel"
                 role="tabpanel"
@@ -2085,7 +2098,7 @@ llm.clearError();
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: 0.3 }}
+                transition={springTransition}
               >
                 <div className="flex flex-col sm:flex-row">
                   <div className="space-y-2 shrink-0 mb-4 sm:mb-0 sm:mr-6" style={{ width: 'clamp(140px, 40%, 220px)' }}>
@@ -2267,7 +2280,7 @@ llm.clearError();
                 </div>
               </motion.div>
             ) : (
-              <motion.div 
+              <motion.div
                 key="future-form"
                 id="future-form-panel"
                 role="tabpanel"
@@ -2276,7 +2289,7 @@ llm.clearError();
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.3 }}
+                transition={springTransition}
               >
                 <p className="text-sm text-muted-foreground">Schedule a future task, event, or activity for the participant.</p>
                 
@@ -2489,10 +2502,10 @@ llm.clearError();
           </motion.div>
 
           {/* Right Panel - Output & History */}
-          <motion.div 
-            className="glass-panel rounded-2xl p-6 space-y-6 shadow-soft"
+          <motion.div
+            className="glass-panel rounded-2xl p-6 space-y-6 shadow-soft hover:shadow-md transition-shadow duration-300"
             variants={slideInRight}
-            transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
+            transition={{ ...softSpring, delay: 0.1 }}
           >
             <div className="flex items-end justify-between gap-4 flex-wrap">
               <div>
@@ -2541,11 +2554,11 @@ llm.clearError();
             </div>
 
             <AnimatePresence mode="wait">
-              <motion.div 
+              <motion.div
                 key="output-container"
                 initial={{ opacity: 0.5, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.2 }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
                 className="space-y-4"
               >
                 {/* English output */}
@@ -2584,28 +2597,13 @@ llm.clearError();
             </AnimatePresence>
 
             {llm.error && (
-              <WarningBox variant="error" title="AI request failed">
-                <div className="space-y-2">
-                  <p>{llm.error}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {lastFixAttempt && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleRetryFix}
-                        disabled={!!fixingCriterion}
-                        className="bg-background text-foreground"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                        Retry AI fix
-                      </Button>
-                    )}
-                    <Button size="sm" variant="ghost" onClick={() => llm.clearError()} className="text-foreground">
-                      Dismiss
-                    </Button>
-                  </div>
-                </div>
-              </WarningBox>
+              <DelightfulError
+                variant="ai"
+                title={llm.classifiedError?.title || "AI took a nap"}
+                message={llm.error}
+                onRetry={lastFixAttempt ? handleRetryFix : undefined}
+                onDismiss={() => llm.clearError()}
+              />
             )}
 
             {/* SMART Checklist */}
@@ -2673,16 +2671,19 @@ llm.clearError();
 
                   <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
                     {filteredHistory.length === 0 ? (
-                      <div className="p-6 rounded-xl border-2 border-dashed text-sm text-muted-foreground text-center">
-                        {historySearch ? 'No matching items found.' : 'No saved items yet. Generate and save actions to build your history.'}
-                      </div>
+                      <EmptyState
+                        variant={historySearch ? 'search' : 'history'}
+                        className="py-6"
+                      />
                     ) : (
                       <ul role="list" aria-label="Saved actions history">
                         {filteredHistory.map((h, index) => (
-                          <li 
-                            key={h.id} 
-                            className="p-4 rounded-xl border border-border/50 bg-muted/30 space-y-3 hover:border-primary/30 transition-colors animate-slide-in mb-3 last:mb-0"
-                            style={{ animationDelay: `${index * 0.05}s` }}
+                          <motion.li
+                            key={h.id}
+                            className="p-4 rounded-xl border border-border/50 bg-muted/30 space-y-3 hover:border-primary/30 hover:bg-muted/50 hover:shadow-sm mb-3 last:mb-0 transition-[border-color,background-color,box-shadow] duration-200 ease-spring"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.04, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                           >
                             <div className="flex flex-wrap gap-2 text-xs">
                               <span className={cn(
@@ -2718,7 +2719,7 @@ llm.clearError();
                                 <span className="sr-only">Delete</span>
                               </Button>
                             </div>
-                          </li>
+                          </motion.li>
                         ))}
                       </ul>
                     )}
@@ -2844,7 +2845,7 @@ llm.clearError();
                         toast({ title: 'Model loaded', description: `${model.name} is ready for AI Draft.` });
                       }
                     }}
-                    className="w-full p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 transition-colors text-left group"
+                    className="w-full p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 ease-spring text-left group"
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-medium">{model.name}</span>

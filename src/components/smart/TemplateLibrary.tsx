@@ -180,21 +180,31 @@ export const TemplateLibrary = forwardRef<HTMLDivElement, TemplateLibraryProps>(
           </DialogHeader>
           <div className="space-y-3 max-h-[400px] overflow-y-auto py-2">
             {filteredTemplates.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <FileText className="w-10 h-10 mx-auto mb-3 opacity-50" />
+              <motion.div
+                className="text-center py-8 text-muted-foreground"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: "spring", damping: 20, stiffness: 200 }}
+              >
+                <motion.div
+                  animate={{ y: [0, -4, 0] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  <FileText className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                </motion.div>
                 <p className="text-sm">No templates yet</p>
                 <p className="text-xs mt-1">Save your first template to build your library.</p>
-              </div>
+              </motion.div>
             ) : (
               <AnimatePresence mode="popLayout">
                 {filteredTemplates.map((template, index) => (
                   <motion.div
                     key={template.id}
-                    className="p-3 rounded-lg border border-border/50 bg-muted/30 hover:border-primary/30 transition-colors"
+                    className="p-3 rounded-lg border border-border/50 bg-muted/30 hover:border-primary/30 hover:bg-muted/50 hover:shadow-sm transition-all duration-200 ease-spring"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ delay: index * 0.05 }}
+                    transition={{ type: "spring", damping: 22, stiffness: 260, delay: index * 0.04 }}
                   >
                     {editingId === template.id ? (
                       <div className="flex items-center gap-2">

@@ -70,10 +70,46 @@ module.exports = {
           from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: '0' },
         },
+        'shimmer': {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
+        'slide-in': {
+          from: { opacity: '0', transform: 'translateY(8px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        'scale-in': {
+          from: { opacity: '0', transform: 'scale(0.95)' },
+          to: { opacity: '1', transform: 'scale(1)' },
+        },
+        'float': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-4px)' },
+        },
+        'wiggle': {
+          '0%, 100%': { transform: 'rotate(0deg)' },
+          '25%': { transform: 'rotate(-3deg)' },
+          '75%': { transform: 'rotate(3deg)' },
+        },
+        'pulse-soft': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.7' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'shimmer': 'shimmer 2s ease-in-out infinite',
+        'slide-in': 'slide-in 0.3s cubic-bezier(0.22, 1, 0.36, 1)',
+        'scale-in': 'scale-in 0.2s cubic-bezier(0.22, 1, 0.36, 1)',
+        'float': 'float 3s ease-in-out infinite',
+        'wiggle': 'wiggle 0.5s ease-in-out',
+        'pulse-soft': 'pulse-soft 2s ease-in-out infinite',
+      },
+      transitionTimingFunction: {
+        'spring': 'cubic-bezier(0.22, 1, 0.36, 1)',
+        'soft': 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+        'bounce-out': 'cubic-bezier(0.34, 1.56, 0.64, 1)',
       },
     },
   },
