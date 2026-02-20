@@ -120,22 +120,35 @@ export const SMART_ACTION_SCHEMA = new SmartActionSchema();
 export function parseJsonOutput(rawOutput: string): unknown[] | null {
   const text = rawOutput.trim();
 
-  // Try extracting from <|json|>...<|/json|> tags
-  const jsonTagMatch = text.match(/<\|json\|>([\s\S]*?)(?:<\|\/json\|>|$)/);
-  if (jsonTagMatch) {
-    return tryParseArray(jsonTagMatch[1].trim());
+  // Try extracting from <|json|>...<|/json|> tags (manual indexOf to avoid ReDoS)
+  const jsonTagStart = text.indexOf("<|json|>");
+  if (jsonTagStart !== -1) {
+    const contentStart = jsonTagStart + "<|json|>".length;
+    const jsonTagEnd = text.indexOf("<|/json|>", contentStart);
+    const content = jsonTagEnd !== -1
+      ? text.slice(contentStart, jsonTagEnd)
+      : text.slice(contentStart);
+    return tryParseArray(content.trim());
   }
 
-  // Try extracting from ```json...``` blocks
-  const codeBlockMatch = text.match(/```json\s*([\s\S]*?)```/);
-  if (codeBlockMatch) {
-    return tryParseArray(codeBlockMatch[1].trim());
+  // Try extracting from ```json...``` blocks (manual indexOf to avoid ReDoS)
+  const jsonBlockStart = text.indexOf("```json");
+  if (jsonBlockStart !== -1) {
+    const contentStart = jsonBlockStart + "```json".length;
+    const blockEnd = text.indexOf("```", contentStart);
+    if (blockEnd !== -1) {
+      return tryParseArray(text.slice(contentStart, blockEnd).trim());
+    }
   }
 
   // Try extracting from ``` blocks (without json tag)
-  const genericBlockMatch = text.match(/```\s*([\s\S]*?)```/);
-  if (genericBlockMatch) {
-    return tryParseArray(genericBlockMatch[1].trim());
+  const genericBlockStart = text.indexOf("```");
+  if (genericBlockStart !== -1) {
+    const contentStart = genericBlockStart + 3;
+    const blockEnd = text.indexOf("```", contentStart);
+    if (blockEnd !== -1) {
+      return tryParseArray(text.slice(contentStart, blockEnd).trim());
+    }
   }
 
   // Try finding a JSON array directly

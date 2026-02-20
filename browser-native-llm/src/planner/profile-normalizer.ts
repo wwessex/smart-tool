@@ -141,8 +141,12 @@ function normalizeGoal(goal: string): string {
     normalized = normalized.replace(prefix, "");
   }
 
-  // Remove trailing punctuation
-  normalized = normalized.replace(/[.!]+$/, "").trim();
+  // Remove trailing punctuation (manual loop to avoid ReDoS)
+  let end = normalized.length;
+  while (end > 0 && (normalized[end - 1] === "." || normalized[end - 1] === "!")) {
+    end--;
+  }
+  normalized = normalized.slice(0, end).trim();
 
   // Capitalise first letter
   if (normalized.length > 0) {
@@ -158,11 +162,13 @@ function parseHoursPerWeek(
 ): number {
   if (explicit !== undefined && explicit > 0) return explicit;
 
-  // Try to extract from timeframe string
+  // Try to extract from timeframe string (manual parse to avoid ReDoS)
   if (timeframeStr) {
-    const bounded = timeframeStr.slice(0, 500);
-    const hoursMatch = bounded.match(/(\d+)\s*hours?\s*(?:per|\/|a)\s*week/i);
-    if (hoursMatch) return parseInt(hoursMatch[1], 10);
+    const lower = timeframeStr.slice(0, 500).toLowerCase();
+    if (lower.includes("week") && lower.includes("hour")) {
+      const hours = findNumberBeforeKeyword(lower, "hour");
+      if (hours !== null && hours > 0) return hours;
+    }
   }
 
   return DEFAULTS.hours_per_week;
@@ -173,17 +179,17 @@ function parseTimeframeWeeks(timeframeStr?: string): number {
 
   const str = timeframeStr.trim().toLowerCase().slice(0, 500);
 
-  // "X weeks"
-  const weeksMatch = str.match(/(\d+)\s*weeks?/);
-  if (weeksMatch) return parseInt(weeksMatch[1], 10);
+  // "X weeks" (manual parse to avoid ReDoS)
+  const weeks = findNumberBeforeKeyword(str, "week");
+  if (weeks !== null) return weeks;
 
   // "X months"
-  const monthsMatch = str.match(/(\d+)\s*months?/);
-  if (monthsMatch) return parseInt(monthsMatch[1], 10) * 4;
+  const months = findNumberBeforeKeyword(str, "month");
+  if (months !== null) return months * 4;
 
   // "X days"
-  const daysMatch = str.match(/(\d+)\s*days?/);
-  if (daysMatch) return Math.ceil(parseInt(daysMatch[1], 10) / 7);
+  const days = findNumberBeforeKeyword(str, "day");
+  if (days !== null) return Math.ceil(days / 7);
 
   return DEFAULTS.timeframe_weeks;
 }
@@ -268,4 +274,25 @@ function parseWorkArrangement(
   if (str.includes("on-site") || str.includes("onsite") || str.includes("office"))
     return "on-site";
   return "any";
+}
+
+/**
+ * Find a number immediately preceding a keyword in text.
+ * Manual string scanning to avoid ReDoS from regex patterns like /(\d+)\s*keyword/.
+ */
+function findNumberBeforeKeyword(text: string, keyword: string): number | null {
+  const idx = text.indexOf(keyword);
+  if (idx <= 0) return null;
+
+  // Skip whitespace before keyword
+  let i = idx - 1;
+  while (i >= 0 && text[i] === " ") i--;
+
+  // Collect digits backwards
+  const digitEnd = i + 1;
+  while (i >= 0 && text[i] >= "0" && text[i] <= "9") i--;
+
+  if (i + 1 === digitEnd) return null;
+  const num = parseInt(text.slice(i + 1, digitEnd), 10);
+  return isNaN(num) ? null : num;
 }

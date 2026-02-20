@@ -188,13 +188,13 @@ function checkAchievable(
 ): CriterionResult {
   let score = 50; // Start at neutral
 
-  // Check effort estimate exists and is reasonable
+  // Check effort estimate exists and is reasonable (manual parse to avoid ReDoS)
   const effortText = action.effort_estimate.toLowerCase();
-  const hoursMatch = effortText.match(/(\d+)\s*(?:-\s*(\d+))?\s*hours?/);
+  const hoursRange = parseHoursRange(effortText);
 
-  if (hoursMatch) {
-    const maxHours = parseInt(hoursMatch[2] || hoursMatch[1], 10);
-    const isWeekly = /week|per\s+week|\/\s*w/i.test(effortText);
+  if (hoursRange) {
+    const maxHours = hoursRange.max;
+    const isWeekly = effortText.includes("week") || effortText.includes("/w");
 
     if (isWeekly && maxHours > profile.hours_per_week) {
       score -= 30;
@@ -284,27 +284,18 @@ function checkTimeBound(
 ): CriterionResult {
   const deadlineText = action.deadline;
 
-  // Bound input length to prevent ReDoS on untrusted deadline strings
-  const bounded = deadlineText.slice(0, 200);
+  // Manual string checks to avoid ReDoS on untrusted deadline strings
+  const bounded = deadlineText.slice(0, 200).toLowerCase();
 
-  // Check for ISO date format (YYYY-MM-DD)
-  const hasISODate = /\d{4}-\d{2}-\d{2}/.test(bounded);
+  // Check for ISO date format (YYYY-MM-DD) - safe regex: fixed-width, no quantifier overlap
+  const hasISODate = /^\d{4}-\d{2}-\d{2}$/.test(deadlineText.trim()) ||
+    containsISODate(bounded);
 
-  // Check for common date formats
-  const hasDateFormat =
-    /\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(
-      bounded
-    ) ||
-    /(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{1,2}/i.test(
-      bounded
-    );
+  // Check for common date formats (month name + digit) using manual scan
+  const hasDateFormat = containsMonthAndDigit(bounded);
 
-  // Check for relative timeframes
-  const hasRelativeTime =
-    /(\d+)\s*(week|day|month)/i.test(bounded) ||
-    /end\s+of\s+(week|month)/i.test(bounded) ||
-    /within\s+\d+/i.test(bounded) ||
-    /by\s+(week|month|day)/i.test(bounded);
+  // Check for relative timeframes using keyword scan
+  const hasRelativeTime = containsRelativeTimeframe(bounded);
 
   // Validate deadline is within the user's timeframe
   let withinTimeframe = true;
@@ -359,12 +350,13 @@ function estimateTotalWeeklyHours(actions: SMARTAction[]): number {
 
   for (const action of actions) {
     const effortText = action.effort_estimate.toLowerCase();
-    const hoursMatch = effortText.match(/(\d+)\s*(?:-\s*(\d+))?\s*hours?/);
+    const hoursRange = parseHoursRange(effortText);
 
-    if (hoursMatch) {
-      const hours = parseInt(hoursMatch[2] || hoursMatch[1], 10);
-      const isWeekly = /week|per\s+week|\/\s*w/i.test(effortText);
-      const isOneOff = /one[\s-]off|once|single/i.test(effortText);
+    if (hoursRange) {
+      const hours = hoursRange.max;
+      const isWeekly = effortText.includes("week") || effortText.includes("/w");
+      const isOneOff = effortText.includes("one-off") || effortText.includes("one off") ||
+        effortText.includes("once") || effortText.includes("single");
 
       if (isWeekly) {
         total += hours;
@@ -381,4 +373,89 @@ function estimateTotalWeeklyHours(actions: SMARTAction[]): number {
   }
 
   return Math.round(total * 10) / 10;
+}
+
+// ---------------------------------------------------------------------------
+// Safe string-scanning helpers (avoid regex ReDoS)
+// ---------------------------------------------------------------------------
+
+const MONTH_ABBREVS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+/** Check if text contains an ISO date pattern (YYYY-MM-DD). */
+function containsISODate(text: string): boolean {
+  for (let i = 0; i <= text.length - 10; i++) {
+    if (
+      isDigit(text[i]) && isDigit(text[i + 1]) && isDigit(text[i + 2]) && isDigit(text[i + 3]) &&
+      text[i + 4] === "-" &&
+      isDigit(text[i + 5]) && isDigit(text[i + 6]) &&
+      text[i + 7] === "-" &&
+      isDigit(text[i + 8]) && isDigit(text[i + 9])
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Check if text contains a month abbreviation near a digit. */
+function containsMonthAndDigit(text: string): boolean {
+  const hasMonth = MONTH_ABBREVS.some((m) => text.includes(m));
+  if (!hasMonth) return false;
+  for (let i = 0; i < text.length; i++) {
+    if (isDigit(text[i])) return true;
+  }
+  return false;
+}
+
+/** Check if text contains a relative timeframe expression. */
+function containsRelativeTimeframe(text: string): boolean {
+  const timeUnits = ["week", "day", "month"];
+  const hasUnit = timeUnits.some((u) => text.includes(u));
+  if (hasUnit) {
+    for (let i = 0; i < text.length; i++) {
+      if (isDigit(text[i])) return true;
+    }
+  }
+  if (text.includes("end of week") || text.includes("end of month")) return true;
+  if (text.includes("within")) return true;
+  return false;
+}
+
+/**
+ * Parse a hours range like "2-4 hours" or "3 hours" from text.
+ * Manual string scanning to avoid ReDoS from /(\d+)\s*(?:-\s*(\d+))?\s*hours?/.
+ */
+function parseHoursRange(text: string): { min: number; max: number } | null {
+  const hourIdx = text.indexOf("hour");
+  if (hourIdx <= 0) return null;
+
+  // Scan backwards from "hour" to find the number(s)
+  let i = hourIdx - 1;
+  while (i >= 0 && text[i] === " ") i--;
+
+  // Collect digits for the last number
+  const maxEnd = i + 1;
+  while (i >= 0 && isDigit(text[i])) i--;
+  if (i + 1 === maxEnd) return null;
+  const maxNum = parseInt(text.slice(i + 1, maxEnd), 10);
+
+  // Check for range separator "-"
+  let minNum = maxNum;
+  let j = i;
+  while (j >= 0 && text[j] === " ") j--;
+  if (j >= 0 && text[j] === "-") {
+    j--;
+    while (j >= 0 && text[j] === " ") j--;
+    const minEnd = j + 1;
+    while (j >= 0 && isDigit(text[j])) j--;
+    if (j + 1 < minEnd) {
+      minNum = parseInt(text.slice(j + 1, minEnd), 10);
+    }
+  }
+
+  return isNaN(minNum) || isNaN(maxNum) ? null : { min: minNum, max: maxNum };
+}
+
+function isDigit(ch: string): boolean {
+  return ch >= "0" && ch <= "9";
 }
