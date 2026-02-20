@@ -235,6 +235,12 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
         // Step 2: create SmartPlanner
         const { SmartPlanner } = await import("@smart-tool/browser-native-llm");
 
+        // Create worker via inline Blob URL so Vite bundles all dependencies
+        const workerModule = await import(
+          "../../browser-native-llm/src/runtime/worker.ts?worker"
+        );
+        const worker: Worker = new workerModule.default();
+
         const planner = new SmartPlanner({
           inference: {
             model_id: effectiveModelId,
@@ -247,7 +253,8 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
             repetition_penalty: 1.1,
           },
           retrieval_pack_url: "./retrieval-packs/job-search-actions.json",
-          worker_url: "", // worker created inline below
+          worker_url: "",
+          worker,
           max_repair_attempts: 2,
           min_validation_score: 60,
         });

@@ -62,6 +62,10 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [react(), cacheBustPlugin(), mode === "development" && componentTagger()].filter(Boolean),
+    // Build workers as ES modules to support dynamic imports (e.g. @huggingface/transformers)
+    worker: {
+      format: 'es',
+    },
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
