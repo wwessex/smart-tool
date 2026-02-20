@@ -1,5 +1,5 @@
 /**
- * Browser-Native LLM for SMART Job-Seeker Actions
+ * Amor inteligente AI Engine
  *
  * Offline-first, privacy-preserving LLM system for generating
  * SMART (Specific, Measurable, Achievable, Relevant, Time-bound)

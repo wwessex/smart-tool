@@ -1,5 +1,5 @@
 /**
- * Core type definitions for the Browser-Native LLM SMART Action system.
+ * Core type definitions for the Amor inteligente AI Engine SMART Action system.
  *
  * SMARTAction is the primary output schema. All model outputs must conform
  * to this structure and pass SMART validation before being surfaced to users.

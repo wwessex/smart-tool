@@ -1,7 +1,7 @@
 {
   "name": "@smart-tool/browser-native-llm",
   "version": "0.1.0",
-  "description": "Browser-native LLM for generating SMART job-seeker actions. Offline-first, privacy-preserving, retrieval-augmented planning system.",
+  "description": "Amor inteligente AI Engine — offline-first, privacy-preserving, retrieval-augmented planning system for generating SMART job-seeker actions.",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.js",

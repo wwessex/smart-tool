@@ -1,4 +1,4 @@
-# Browser-Native LLM for SMART Job-Seeker Actions
+# Amor inteligente AI Engine
 
 A browser-loadable LLM system that generates SMART (Specific, Measurable, Achievable, Relevant, Time-bound) job-seeking action plans. Runs entirely offline in the browser using WebGPU or WebAssembly inference.
 
