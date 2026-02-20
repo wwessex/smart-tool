@@ -390,7 +390,7 @@ export class SmartPlanner {
     const planResult = validatePlan(validatedActions, profile);
     callbacks?.onValidationResult?.(planResult.score, planResult.issues);
 
-    if (validatedActions.length < 3) {
+    if (validatedActions.length < 1) {
       return null;
     }
 

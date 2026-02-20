@@ -128,6 +128,9 @@ interface HookState {
   activeBackend: InferenceBackend | null;
 }
 
+/** Maximum time (ms) to wait for plan generation before timing out. */
+const PLAN_GENERATION_TIMEOUT_MS = 60_000;
+
 const INITIAL_STATE: HookState = {
   isLoading: false,
   loadingProgress: 0,
@@ -323,7 +326,15 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
       abortRef.current = false;
 
       try {
-        const plan = await planner.generatePlan(input, callbacks);
+        const plan = await Promise.race([
+          planner.generatePlan(input, callbacks),
+          new Promise<never>((_, reject) => {
+            setTimeout(
+              () => reject(new Error("Plan generation timed out")),
+              PLAN_GENERATION_TIMEOUT_MS,
+            );
+          }),
+        ]);
         setState((prev) => ({ ...prev, isGenerating: false }));
         return plan;
       } catch (err) {
