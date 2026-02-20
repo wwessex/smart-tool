@@ -15,8 +15,8 @@ import type { TranslationPipeline } from "@huggingface/transformers";
 const MODEL_ID = "Xenova/nllb-200-distilled-600M";
 
 const TARGET_LANG: Record<string, string> = {
-  ar: "ara_Arab",
-  ps: "pus_Arab",
+  ar: "arb_Arab",
+  ps: "pbt_Arab",
   ur: "urd_Arab",
   bn: "ben_Beng",
   hi: "hin_Deva",
