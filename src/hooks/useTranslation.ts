@@ -75,21 +75,21 @@ export function useTranslation(options: UseTranslationOptions = {}) {
   }, []);
 
   const translate = useCallback(
-    async (text: string, language: string) => {
+    async (text: string, language: string): Promise<TranslationResult | null> => {
       if (!enabled) {
         setState({ isTranslating: false, error: 'Translation is disabled.', result: null });
-        return;
+        return null;
       }
 
       if (!text?.trim() || language === 'none') {
         setState({ isTranslating: false, error: null, result: null });
-        return;
+        return null;
       }
 
       const langMeta = SUPPORTED_LANGUAGES[language];
       if (!langMeta) {
         setState({ isTranslating: false, error: `Unsupported language: ${language}`, result: null });
-        return;
+        return null;
       }
 
       setState({ isTranslating: true, error: null, result: null });
@@ -97,22 +97,28 @@ export function useTranslation(options: UseTranslationOptions = {}) {
       try {
         const translated = await translateOffline(text, language);
 
+        const result: TranslationResult = {
+          original: text,
+          translated,
+          language,
+          languageName: langMeta.name,
+        };
+
         setState({
           isTranslating: false,
           error: null,
-          result: {
-            original: text,
-            translated,
-            language,
-            languageName: langMeta.name,
-          },
+          result,
         });
+
+        return result;
       } catch (e: any) {
         setState({
           isTranslating: false,
           error: e?.message ?? 'Translation failed',
           result: null,
         });
+
+        return null;
       }
     },
     [enabled]
