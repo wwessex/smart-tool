@@ -11,7 +11,7 @@ const fadeIn = {
 
 export default function Terms() {
   const navigate = useNavigate();
-  const lastUpdated = "16 January 2026";
+  const lastUpdated = "20 February 2026";
 
   return (
     <div className="min-h-screen bg-background">
@@ -73,7 +73,7 @@ export default function Terms() {
             <ul className="list-disc pl-6 text-muted-foreground space-y-1 mt-2">
               <li>Action creation and editing tools</li>
               <li>SMART quality checking and validation</li>
-              <li>AI-powered suggestions and improvements (with user consent)</li>
+              <li>Local AI-powered suggestions and improvements (runs in your browser)</li>
               <li>Local storage of action history and templates</li>
               <li>Data export and management features</li>
             </ul>
@@ -105,7 +105,7 @@ export default function Terms() {
                 Use the Tool to generate content that is discriminatory, harassing, or harmful
               </li>
               <li>
-                Interfere with or disrupt the Tool's functionality or servers
+                Interfere with or disrupt the Tool's functionality
               </li>
               <li>
                 Use automated systems or software to extract data from the Tool
@@ -144,14 +144,18 @@ export default function Terms() {
 
           {/* AI Features */}
           <section className="p-6 rounded-xl border bg-card">
-            <h2 className="text-xl font-semibold mb-4">AI-Powered Features</h2>
+            <h2 className="text-xl font-semibold mb-4">Local AI Features</h2>
             <p className="text-muted-foreground mb-4">
-              The Tool includes optional AI-powered features to help improve your SMART actions. 
-              By using these features, you acknowledge that:
+              The Tool includes an optional Local AI Module that runs entirely in your browser.
+              No action text, participant details, or other content is sent to any external server
+              for AI processing. By using these features, you acknowledge that:
             </p>
             <ul className="list-disc pl-6 text-muted-foreground space-y-2">
               <li>
-                Action text is sent to our AI service for processing when you use AI features
+                AI processing happens on your device using browser-based models — your data stays local
+              </li>
+              <li>
+                Your browser may download AI model files when you enable the Local AI Module
               </li>
               <li>
                 AI suggestions are provided as guidance only and should be reviewed before use
@@ -162,11 +166,14 @@ export default function Terms() {
               <li>
                 AI-generated content may not always be accurate or suitable for your specific context
               </li>
+              <li>
+                Performance depends on your device's hardware capabilities (WebGPU or WASM support)
+              </li>
             </ul>
             <div className="mt-4 p-4 rounded-lg bg-muted/50">
               <p className="text-sm text-muted-foreground">
-                <strong>Note:</strong> AI features require separate consent and can be disabled in 
-                your privacy preferences.
+                <strong>Note:</strong> The Local AI Module is optional and can be enabled or disabled
+                in your preferences. No cloud AI services are used.
               </p>
             </div>
           </section>
@@ -185,7 +192,7 @@ export default function Terms() {
               <li>The accuracy, reliability, or completeness of the Tool's output</li>
               <li>The suitability of generated actions for any particular purpose</li>
               <li>Uninterrupted or error-free operation of the Service</li>
-              <li>The accuracy of AI-generated suggestions</li>
+              <li>The accuracy of locally generated AI suggestions</li>
             </ul>
             <p className="text-muted-foreground mt-4">
               You are solely responsible for reviewing and validating all SMART actions before using 
