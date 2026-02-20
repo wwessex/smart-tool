@@ -42,9 +42,9 @@ export interface GenerationConfig {
 
 // Optimized generation configs for different prompt types
 export const GENERATION_CONFIGS: Record<string, GenerationConfig> = {
-  action: { max_new_tokens: 80, temperature: 0.6, do_sample: true },
-  help: { max_new_tokens: 40, temperature: 0.5, do_sample: true },
-  outcome: { max_new_tokens: 60, temperature: 0.6, do_sample: true },
+  action: { max_new_tokens: 80, temperature: 0.3, do_sample: true },
+  help: { max_new_tokens: 40, temperature: 0.3, do_sample: true },
+  outcome: { max_new_tokens: 60, temperature: 0.3, do_sample: true },
   improve: { max_new_tokens: 200, temperature: 0.7, do_sample: true },
   chat: { max_new_tokens: 150, temperature: 0.7, do_sample: true },
   translate: { max_new_tokens: 260, temperature: 0.2, do_sample: false },
