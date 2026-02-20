@@ -104,7 +104,7 @@ export const WIZARD_PROMPTS = {
 // Keep prompts concise, direct, and context-specific
 // CRITICAL: Include negative instructions to prevent off-topic generation
 
-export const DRAFT_ACTION_PROMPT = `TASK: Write ONE employment action sentence.
+export const DRAFT_ACTION_PROMPT = `TASK: Write ONE realistic employment action sentence.
 
 CONTEXT:
 - Person: {forename}
@@ -117,8 +117,10 @@ RULES:
 2. Include specific task related to "{barrier}"
 3. End with "by {targetDate}"
 4. Employment focus only - job search, skills, interviews, CV, etc.
+5. NEVER mention money, prizes, awards, payments, or rewards.
+6. NEVER promise job offers or guaranteed outcomes.
 
-WRONG: "working on a project", "learning Python", "Hugging Face", "team meeting"
+WRONG: "working on a project", "learning Python", "be awarded £5000", "receive a prize", "get hired"
 RIGHT: "{forename} will apply for 3 jobs on Indeed by {targetDate}."
 
 OUTPUT: One sentence only, no quotes.`;
@@ -131,7 +133,7 @@ Deadline: {targetDate}
 
 Format: "{forename} will [job search action] by {targetDate}."
 
-NOT about: projects, coding, teams, AI, meetings.
+NOT about: projects, coding, teams, AI, meetings, prizes, money, awards.
 ONLY about: jobs, CV, interviews, applications, skills.
 
 One sentence:`;
@@ -154,7 +156,7 @@ export const DRAFT_HELP_PROMPT_COMPACT = `Action: "{action}"
 
 Job benefit for {subject}? One phrase:`;
 
-export const DRAFT_OUTCOME_PROMPT = `TASK: Write what {forename} will achieve from this activity.
+export const DRAFT_OUTCOME_PROMPT = `TASK: Write what {forename} will realistically achieve from this activity.
 
 Activity: {task}
 
@@ -162,8 +164,9 @@ RULES:
 1. Start with "{forename} will"
 2. Focus on employment benefit (job skills, confidence, knowledge)
 3. One or two sentences max
+4. NEVER mention money, prizes, awards, or guaranteed job offers.
 
-WRONG: "complete the project", "learn new technologies"
+WRONG: "complete the project", "learn new technologies", "be awarded £5000", "receive a prize"
 RIGHT: "{forename} will gain interview skills and feel more confident meeting employers."
 
 OUTPUT: One sentence, no quotes.`;
@@ -173,6 +176,7 @@ export const DRAFT_OUTCOME_PROMPT_COMPACT = `Activity: {task}
 
 What will {forename} gain for job search?
 Format: "{forename} will [employment benefit]."
+NOT: money, prizes, awards, job offers.
 
 One sentence:`;
 

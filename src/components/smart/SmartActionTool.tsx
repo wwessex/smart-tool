@@ -950,6 +950,9 @@ export function SmartActionTool() {
             task: context.task || '',
           });
           const outcome = sanitizeOneSentence(await llm.generate(outcomePrompt, llmSystemPrompt, 'outcome'));
+          if (!outcome) {
+            throw new Error('AI produced an unusable outcome. Try again or rephrase the task.');
+          }
           scheduleSafariModelUnload();
           return outcome;
         }

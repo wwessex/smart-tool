@@ -21,15 +21,24 @@ export interface PromptPack {
 // -------- Defaults (ships with the app) --------
 
 export const DEFAULT_PROMPT_PACK: PromptPack = {
-  version: 1,
+  version: 2,
   updatedAt: new Date().toISOString().slice(0, 10),
   systemPrompt:
     "You are a SMART action writing assistant for UK employment advisors. " +
     "Create actions that are Specific, Measurable, Achievable, Relevant, and Time-bound. " +
     "Use UK job search context (Indeed, CV Library, Universal Credit, NHS, local employers). " +
     "Avoid generic waffle. Avoid mentioning booklets or forms unless the user explicitly mentions them. " +
+    "IMPORTANT: Only suggest realistic, practical actions a job seeker can actually do. " +
+    "NEVER invent monetary rewards, prizes, payments, bonuses, or guaranteed job offers. " +
+    "NEVER promise specific outcomes like 'will be awarded', 'will receive £', or 'will get hired'. " +
+    "Focus on practical steps: applications, CV updates, attending events, making calls, practising skills. " +
     "Output must match the requested format exactly.",
-  bannedTopics: ["coding", "software", "AI", "Hugging Face", "Python", "project", "team meeting"],
+  bannedTopics: [
+    "coding", "software", "AI", "Hugging Face", "Python", "project", "team meeting",
+    "prize", "award", "£", "reward", "bonus", "lottery", "winning", "scholarship",
+    "guaranteed job", "will be hired", "will get paid", "payment for attending",
+    "certificate of achievement", "trophy", "competition",
+  ],
   barrierGuidance: {
     Transport: ["routes (bus/rail)", "travel costs", "backup travel plan", "railcard/bus pass"],
     Health: ["GP/NHS support", "reasonable adjustments", "wellbeing routines", "fit note if needed"],
@@ -37,6 +46,15 @@ export const DEFAULT_PROMPT_PACK: PromptPack = {
     Digital: ["email setup", "job site accounts", "upload CV", "basic IT skills"],
     Housing: ["housing options", "support services", "stable contact details", "budget for rent"],
     Finance: ["budget", "priority bills", "benefits check", "travel/work costs"],
+    CV: ["update CV", "tailor CV to roles", "add recent experience", "proofread and format"],
+    Interviews: ["practise answers", "mock interview", "research the employer", "prepare questions"],
+    "Work History": ["volunteering", "work placement", "transferable skills", "reference from activity"],
+    "Job Search": ["search on Indeed/CV Library", "set up job alerts", "apply for suitable roles", "track applications"],
+    Motivation: ["set small daily goals", "routine planning", "identify interests", "reward progress"],
+    "Caring Responsibilities": ["childcare options", "flexible working roles", "support services", "schedule around caring"],
+    "Mental Wellbeing": ["GP referral", "talking therapies", "daily routine", "self-care plan"],
+    Communication: ["practise phone calls", "email templates", "speaking exercises", "group activities"],
+    "Literacy and/or Numeracy": ["skills assessment", "online courses", "library resources", "practice exercises"],
   },
   fewShot: [
     {
@@ -53,6 +71,31 @@ export const DEFAULT_PROMPT_PACK: PromptPack = {
       barrier: "Digital",
       action: "Alex will upload an updated CV to Indeed and apply for 3 suitable roles by 25-Jan-26.",
       help: "increase job applications",
+    },
+    {
+      barrier: "CV",
+      action: "Alex will update their CV with recent work experience and send it to their advisor for feedback by 25-Jan-26.",
+      help: "have a stronger CV for applications",
+    },
+    {
+      barrier: "Interviews",
+      action: "Alex will research 2 target employers and prepare answers to 5 common interview questions by 25-Jan-26.",
+      help: "perform better at interviews",
+    },
+    {
+      barrier: "Job Search",
+      action: "Alex will set up job alerts on Indeed and CV Library and apply for 3 suitable vacancies by 25-Jan-26.",
+      help: "increase chances of getting shortlisted",
+    },
+    {
+      barrier: "Health",
+      action: "Alex will book a GP appointment to discuss a fit note and identify 2 roles with reasonable adjustments by 25-Jan-26.",
+      help: "find suitable work that fits health needs",
+    },
+    {
+      barrier: "Motivation",
+      action: "Alex will create a weekly job search routine with 3 specific daily tasks and review progress with advisor by 25-Jan-26.",
+      help: "stay focused and build momentum",
     },
   ],
 };
@@ -308,7 +351,7 @@ export function buildDraftActionPrompt(pack: PromptPack, params: {
     : "";
 
   return [
-    "TASK: Write ONE employment action PHRASE (no name).",
+    "TASK: Write ONE realistic employment action PHRASE (no name).",
     "FORMAT: a verb phrase that can follow '{forename} will ...'.",
     "RULES:",
     "1) Do NOT include any person's name.",
@@ -317,6 +360,9 @@ export function buildDraftActionPrompt(pack: PromptPack, params: {
     `4) Must be relevant to the barrier: '${params.barrier}'.`,
     `5) Must include the deadline '${params.targetDate}'${params.targetTime ? ` and time '${params.targetTime}'` : ''}.`,
     `6) Avoid: ${banned || "off-topic content"}`,
+    "7) NEVER mention money, prizes, awards, payments, or rewards.",
+    "8) NEVER promise job offers or guaranteed outcomes.",
+    "9) Only suggest practical steps: applying, researching, practising, attending, updating CV, making calls.",
     "CONTEXT:",
     `- Person: ${params.forename}`,
     `- Barrier: ${params.barrier}`,
@@ -325,6 +371,8 @@ export function buildDraftActionPrompt(pack: PromptPack, params: {
     `- Supporter: ${params.responsible || "Advisor"}`,
     guidanceLine,
     exampleBlock,
+    "WRONG: 'be awarded £5000', 'receive a prize', 'get hired', 'win a scholarship'",
+    "RIGHT: 'apply for 3 roles on Indeed', 'attend the job fair and speak to 2 employers', 'update CV and send to advisor'",
     "OUTPUT: One short phrase only. No quotes. No bullet points.",
   ]
     .filter(Boolean)
@@ -337,6 +385,9 @@ export function buildDraftActionPrompt(pack: PromptPack, params: {
  * The app UI renders: "As discussed and agreed, on DATE, {name} ... {name} will {ACTION}."
  * So Local AI should return only the action phrase.
  */
+// Patterns that indicate unrealistic/hallucinated content from small local models
+const UNREALISTIC_PATTERNS = /(?:(?:be |get |receive |win |earn |collect )(?:awarded|paid|given|offered)|£\d|€\d|\$\d|\bprize\b|\baward\b|\breward\b|\bbonus\b|\blottery\b|\bscholarship\b|\btrophy\b|\bcompetition\b|\bwill be hired\b|\bguaranteed (?:a )?job\b|\bwill get (?:a )?job\b|\bwill (?:receive|get|be given) (?:a )?(?:job offer|certificate|diploma)\b)/i;
+
 export function sanitizeActionPhrase(text: string, forename: string): string {
   let t = (text || "").trim();
   t = t.replace(/^"+|"+$/g, "");
@@ -364,6 +415,13 @@ export function sanitizeActionPhrase(text: string, forename: string): string {
 
   // Minimal sanity: avoid returning just "1." etc.
   if (!/[a-z0-9]/i.test(t) || t.length < 4) return "";
+
+  // Reject unrealistic/hallucinated content (monetary rewards, prizes, guaranteed jobs)
+  if (UNREALISTIC_PATTERNS.test(t)) {
+    console.warn("[LLM] Rejected unrealistic action phrase:", t);
+    return "";
+  }
+
   return t;
 }
 
@@ -392,14 +450,18 @@ export function buildDraftOutcomePrompt(pack: PromptPack, params: {
 }): string {
   const banned = pack.bannedTopics?.length ? pack.bannedTopics.join(", ") : "";
   return [
-    "TASK: Write ONE sentence describing the employment outcome.",
+    "TASK: Write ONE sentence describing a realistic employment outcome.",
     `FORMAT: '${params.forename} will ...'.`,
     "CONTEXT:",
     `- Person: ${params.forename}`,
     `- Activity: ${params.task}`,
     "RULES:",
     "- Employment benefit only (skills, confidence, knowledge for work).",
+    "- NEVER mention money, prizes, awards, payments, or guaranteed jobs.",
+    "- Focus on learning, networking, building skills, or gaining experience.",
     banned ? `- Avoid: ${banned}` : "",
+    "WRONG: 'will be awarded £5000', 'will get a job offer', 'will receive a prize'",
+    "RIGHT: 'will gain knowledge of local employers and identify suitable roles to apply for'",
     "OUTPUT: One sentence only. No quotes.",
   ]
     .filter(Boolean)
@@ -417,6 +479,11 @@ export function sanitizeOneSentence(text: string): string {
   if (m && m[1]) t = m[1].trim();
   // Ensure it ends with a period for consistency (unless already ends in ! or ?)
   if (t && !/[.!?]$/.test(t)) t += ".";
+  // Reject unrealistic/hallucinated content
+  if (UNREALISTIC_PATTERNS.test(t)) {
+    console.warn("[LLM] Rejected unrealistic sentence:", t);
+    return "";
+  }
   return t;
 }
 
