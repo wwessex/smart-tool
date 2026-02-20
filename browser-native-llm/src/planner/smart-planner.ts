@@ -169,6 +169,19 @@ export class SmartPlanner {
       } satisfies WorkerMessage);
     });
 
+    // After init succeeds, replace the onerror handler so that worker
+    // crashes during generation reject any pending generation promises
+    // instead of silently calling the (already-resolved) init reject.
+    if (this.worker) {
+      this.worker.onerror = (event: ErrorEvent) => {
+        const error = new Error(`Worker error: ${event.message || "unknown error"}`);
+        for (const [id, gen] of this.pendingGenerations) {
+          this.pendingGenerations.delete(id);
+          gen.reject(error);
+        }
+      };
+    }
+
     this.initialized = true;
   }
 
@@ -294,6 +307,9 @@ export class SmartPlanner {
   // Private helpers
   // -------------------------------------------------------------------------
 
+  /** Maximum time (ms) to wait for a single inference call before timing out. */
+  private static readonly INFERENCE_TIMEOUT_MS = 120_000; // 2 minutes
+
   private runInference(
     prompt: string,
     onToken?: (token: string) => void
@@ -302,9 +318,26 @@ export class SmartPlanner {
       if (!this.worker) return reject(new Error("Worker not available"));
 
       const id = crypto.randomUUID();
+
+      // Timeout guard: if the worker never responds, reject the promise
+      // so the caller can fall back to templates instead of hanging forever.
+      const timer = setTimeout(() => {
+        const gen = this.pendingGenerations.get(id);
+        if (gen) {
+          this.pendingGenerations.delete(id);
+          gen.reject(new Error("Inference timed out"));
+        }
+      }, SmartPlanner.INFERENCE_TIMEOUT_MS);
+
       this.pendingGenerations.set(id, {
-        resolve,
-        reject,
+        resolve: (text: string) => {
+          clearTimeout(timer);
+          resolve(text);
+        },
+        reject: (err: Error) => {
+          clearTimeout(timer);
+          reject(err);
+        },
         tokens: [],
         onToken,
       });
