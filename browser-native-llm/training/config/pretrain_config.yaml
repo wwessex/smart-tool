@@ -1,0 +1,64 @@
+# Pretraining configuration for Stage 1: base language + planning grammar.
+#
+# Goal: give the model general English language ability and structured
+# output (JSON, bullet plans, checklists) capability before domain tuning.
+
+training:
+  stage: "pretrain"
+
+  # Data
+  data:
+    # Mix of general English + planning-format data
+    sources:
+      - name: "english_base"
+        weight: 0.7
+        description: "Clean English text corpus (public domain / permissive)"
+      - name: "planning_format"
+        weight: 0.2
+        description: "JSON output examples, checklists, structured plans"
+      - name: "job_search_text"
+        weight: 0.1
+        description: "Career guidance text from OGL/CC BY sources"
+    total_tokens: 3_000_000_000  # ~3B tokens (compute-optimal for 150M)
+
+  # Optimiser
+  optimizer:
+    type: "adamw"
+    lr: 3.0e-4              # Peak learning rate
+    betas: [0.9, 0.95]
+    weight_decay: 0.1
+    eps: 1.0e-8
+
+  # Schedule
+  schedule:
+    warmup_steps: 2000       # ~1-2% of total
+    total_steps: 150000
+    decay: "cosine"
+    min_lr: 3.0e-5           # 10x reduction from peak
+
+  # Batch
+  batch:
+    micro_batch_size: 16
+    gradient_accumulation_steps: 8
+    effective_batch_tokens: 131072  # ~128K tokens per step
+
+  # Precision
+  precision: "bf16"          # Use fp16 if bf16 not available
+  gradient_clipping: 1.0
+
+  # Checkpointing
+  checkpoint:
+    save_every_steps: 5000
+    keep_last_n: 3
+    output_dir: "./checkpoints/pretrain"
+
+  # Logging
+  logging:
+    log_every_steps: 100
+    eval_every_steps: 1000
+    eval_tokens: 1_000_000
+
+  # Compute estimate (rule of thumb: FLOPs ≈ 6 * params * tokens)
+  # 150M * 3B * 6 ≈ 2.7e18 FLOPs
+  # On a single A100 (~312 TFLOPS bf16): ~2.4 hours
+  # On a V100 (~125 TFLOPS fp16): ~6 hours
