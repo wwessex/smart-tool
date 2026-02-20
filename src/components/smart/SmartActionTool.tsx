@@ -2063,7 +2063,7 @@ export function SmartActionTool() {
                   <div className="flex flex-wrap gap-2">
                     {suggestions.map((s, i) => (
                       <motion.button
-                        key={i}
+                        key={`${s.title}-${i}`}
                         type="button"
                         onClick={() => handleInsertSuggestion(s)}
                         className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-full border border-primary/30 bg-background hover:bg-primary/10 hover:border-primary/50 transition-colors"
@@ -2233,7 +2233,7 @@ export function SmartActionTool() {
                   <div className="flex flex-wrap gap-2">
                     {suggestions.map((s, i) => (
                       <motion.button
-                        key={i}
+                        key={`${s.title}-${i}`}
                         type="button"
                         onClick={() => handleInsertSuggestion(s)}
                         className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-full border border-primary/30 bg-background hover:bg-primary/10 hover:border-primary/50 transition-colors"

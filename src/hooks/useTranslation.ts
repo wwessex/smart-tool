@@ -155,10 +155,10 @@ export function useTranslation(options: UseTranslationOptions = {}) {
         });
 
         return result;
-      } catch (e: any) {
+      } catch (e: unknown) {
         setState({
           isTranslating: false,
-          error: e?.message ?? 'Translation failed',
+          error: e instanceof Error ? e.message : 'Translation failed',
           result: null,
         });
 

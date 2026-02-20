@@ -30,6 +30,7 @@ export function useDebouncedCallback<T extends (...args: unknown[]) => unknown>(
 ): T {
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const callbackRef = useRef(callback);
+  const isMountedRef = useRef(true);
 
   // Keep callback ref updated
   useEffect(() => {
@@ -39,6 +40,7 @@ export function useDebouncedCallback<T extends (...args: unknown[]) => unknown>(
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      isMountedRef.current = false;
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
@@ -51,7 +53,9 @@ export function useDebouncedCallback<T extends (...args: unknown[]) => unknown>(
         clearTimeout(timeoutRef.current);
       }
       timeoutRef.current = setTimeout(() => {
-        callbackRef.current(...args);
+        if (isMountedRef.current) {
+          callbackRef.current(...args);
+        }
       }, delay);
     }) as T,
     [delay]

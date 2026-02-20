@@ -1,10 +1,15 @@
 import { BUILDER_NOW, BUILDER_TASK, ACTION_LIBRARY, FALLBACK_SUGGESTIONS, TASK_SUGGESTIONS } from './smart-data';
 
+/** Extract YYYY-MM-DD from a Date using **local** date components (not UTC). */
+function toLocalISO(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function todayISO(): string {
-  const d = new Date();
-  const tz = d.getTimezoneOffset();
-  const local = new Date(d.getTime() - tz * 60000);
-  return local.toISOString().slice(0, 10);
+  return toLocalISO(new Date());
 }
 
 export function formatDDMMMYY(iso: string): string {
@@ -24,7 +29,7 @@ export function parseTimescaleToTargetISO(baseISO: string, timescale: string): s
   if (w) {
     const days = parseInt(w[1], 10) * 7;
     d.setDate(d.getDate() + days);
-    return d.toISOString().slice(0, 10);
+    return toLocalISO(d);
   }
 
   const m = t.match(/^(\d+)\s*month/);
@@ -35,7 +40,7 @@ export function parseTimescaleToTargetISO(baseISO: string, timescale: string): s
     if (d.getDate() < day) {
       d.setDate(0);
     }
-    return d.toISOString().slice(0, 10);
+    return toLocalISO(d);
   }
 
   return baseISO;
@@ -265,38 +270,42 @@ export function aiDraftNow(
 
 export function aiDraftFuture(task: string, forename: string): string {
   const s = bestTaskSuggestion(task);
-  return s.outcome.replace(/\[Name\]/g, forename);
+  return s.outcome.replace(/\[Name\]/g, () => forename);
 }
+
+// Pre-compiled patterns for formatTaskOutcome (avoids recompilation on every call)
+const PRONOUN_START = /^(they|he|she)\s/i;
+const WILL_START = /^will\s/i;
+const VERB_START = /^(speak|attend|complete|submit|practise|practice|review|participate|collect|hand|receive|prepare|create|discuss|identify|make|apply|learn|meet|call|book|gather|research|write|contact|take|engage|work|visit|follow|organise|organize|arrange|ask|bring|check|confirm|email|find|get|go|help|look|phone|read|register|search|send|sign|talk|update|upload|use)\s/i;
 
 export function formatTaskOutcome(forename: string, rawOutcome: string): string {
   let outcome = (rawOutcome || "").trim().replace(/\s+/g, " ");
   if (!outcome) return "";
-  
+
   if (outcome.endsWith(".")) {
     outcome = outcome.slice(0, -1);
   }
-  
+
   const lowerOutcome = outcome.toLowerCase();
   const lowerName = (forename || "").toLowerCase();
   const name = forename || "They";
-  
+
   if (lowerName && lowerOutcome.startsWith(lowerName + " ")) {
     return forename + outcome.slice(lowerName.length);
   }
-  
-  if (/^(they|he|she)\s/i.test(outcome)) {
+
+  if (PRONOUN_START.test(outcome)) {
     return outcome.charAt(0).toUpperCase() + outcome.slice(1);
   }
-  
-  if (/^will\s/i.test(outcome)) {
+
+  if (WILL_START.test(outcome)) {
     return `${name} ${outcome.charAt(0).toLowerCase() + outcome.slice(1)}`;
   }
-  
-  const startsWithVerb = /^(speak|attend|complete|submit|practise|practice|review|participate|collect|hand|receive|prepare|create|discuss|identify|make|apply|learn|meet|call|book|gather|research|write|contact|take|engage|work|visit|follow|organise|organize|arrange|ask|bring|check|confirm|email|find|get|go|help|look|phone|read|register|search|send|sign|talk|update|upload|use)/i.test(outcome);
-  if (startsWithVerb) {
+
+  if (VERB_START.test(outcome)) {
     return `${name} will ${outcome.charAt(0).toLowerCase() + outcome.slice(1)}`;
   }
-  
+
   return outcome.charAt(0).toUpperCase() + outcome.slice(1);
 }
 

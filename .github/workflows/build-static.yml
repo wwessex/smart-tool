@@ -36,10 +36,10 @@ jobs:
             sed -i 's/border-white\/15/border-white\/20/g' src/index.css || true
           fi
       - name: Run ESLint
-        run: bun run lint || echo "Lint completed with warnings"
-      
+        run: bun run lint
+
       - name: Type check
-        run: bun run tsc --noEmit || echo "Type check completed"
+        run: bun run tsc --noEmit
 
   # Test job
   test:
