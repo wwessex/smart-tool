@@ -34,7 +34,9 @@ const DEFAULT_OPTIONS: ChunkOptions = {
 };
 
 /** Pattern matching common placeholder formats. */
-const PLACEHOLDER_PATTERN = /(\{[^}]+\}|%[sd]|%\d+\$[sd]|\{\{[^}]+\}\})/g;
+// [^{}]+ (not [^}]+) prevents polynomial backtracking on repeated '{' input.
+// Double-brace \{\{…\}\} is listed first so it matches before single-brace.
+const PLACEHOLDER_PATTERN = /(\{\{[^{}]+\}\}|\{[^{}]+\}|%[sd]|%\d+\$[sd])/g;
 
 /**
  * Split text into translation-safe chunks.
