@@ -186,10 +186,14 @@ export function SmartActionTool() {
     };
   }, []);
 
-  
+
   // AI Draft state
   const [aiDrafting, setAIDrafting] = useState(false);
   const [showLLMPicker, setShowLLMPicker] = useState(false);
+  // When the user clicks "AI Draft" but the model isn't loaded yet, we open the
+  // model picker. This ref tracks that a draft is pending so we can auto-trigger
+  // it once the model finishes loading instead of requiring a second click.
+  const pendingAIDraftRef = useRef(false);
 
   const [mode, setMode] = useState<Mode>('now');
   const [nowForm, setNowForm] = useState<NowForm>({
@@ -645,8 +649,9 @@ export function SmartActionTool() {
       return;
     }
 
-    // If AI not ready, show model picker
+    // If AI not ready, show model picker and mark draft as pending
     if (!llm.isReady) {
+      pendingAIDraftRef.current = true;
       setShowLLMPicker(true);
       return;
     }
@@ -706,6 +711,15 @@ export function SmartActionTool() {
       setAIDrafting(false);
     }
   }, [mode, nowForm, futureForm, llm, templateDraftNow, templateDraftFuture, toast, storage.aiDraftMode, scheduleSafariModelUnload, suggestQuery, handleSelectPlanAction]);
+
+  // Auto-trigger AI draft after model finishes loading (when user originally
+  // clicked "AI Draft" which opened the model picker).
+  useEffect(() => {
+    if (llm.isReady && pendingAIDraftRef.current) {
+      pendingAIDraftRef.current = false;
+      handleAIDraft();
+    }
+  }, [llm.isReady, handleAIDraft]);
 
   const handleEditHistory = (item: HistoryItem) => {
     setMode(item.mode);
@@ -2631,7 +2645,10 @@ export function SmartActionTool() {
       </Dialog>
 
       {/* LLM Model Picker Dialog */}
-      <Dialog open={showLLMPicker} onOpenChange={setShowLLMPicker}>
+      <Dialog open={showLLMPicker} onOpenChange={(open) => {
+        setShowLLMPicker(open);
+        if (!open) pendingAIDraftRef.current = false;
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -2714,7 +2731,13 @@ export function SmartActionTool() {
                           storage.updateAIDraftMode('ai');
                         }
                         setShowLLMPicker(false);
-                        toast({ title: 'Model loaded', description: `${model.name} is ready for AI Draft.` });
+
+                        // If there's no pending draft, just show a toast.
+                        // If pendingAIDraftRef is true, the useEffect watching
+                        // llm.isReady will auto-trigger handleAIDraft.
+                        if (!pendingAIDraftRef.current) {
+                          toast({ title: 'Model loaded', description: `${model.name} is ready for AI Draft.` });
+                        }
                       }
                     }}
                     className="w-full p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 ease-spring text-left group"
@@ -2734,6 +2757,7 @@ export function SmartActionTool() {
                 variant="ghost"
                 size="sm"
                 onClick={() => {
+                  pendingAIDraftRef.current = false;
                   setShowLLMPicker(false);
                   // Use template fallback
                   if (mode === 'now') {
@@ -2748,7 +2772,10 @@ export function SmartActionTool() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowLLMPicker(false)}
+                onClick={() => {
+                  pendingAIDraftRef.current = false;
+                  setShowLLMPicker(false);
+                }}
               >
                 Cancel
               </Button>
