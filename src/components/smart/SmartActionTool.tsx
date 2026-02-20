@@ -21,7 +21,7 @@ import { checkSmart, SmartCheck } from '@/lib/smart-checker';
 import { SmartChecklist } from './SmartChecklist';
 import { TemplateLibrary } from './TemplateLibrary';
 import { ActionWizard } from './ActionWizard';
-import { AIImproveDialog } from './AIImproveDialog';
+// AIImproveDialog removed — SmartPlanner validation/repair loop handles quality
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { OnboardingTutorial, useOnboarding } from './OnboardingTutorial';
 import { EmptyState } from './EmptyState';
@@ -49,12 +49,13 @@ import { LanguageSelector } from './LanguageSelector';
 import { WarningBox, WarningText, InputGlow } from './WarningBox';
 import { useKeyboardShortcuts, groupShortcuts, createShortcutMap, ShortcutConfig } from '@/hooks/useKeyboardShortcuts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FIX_CRITERION_PROMPT, CRITERION_GUIDANCE, getHelpSubject } from '@/lib/smart-prompts';
+import { getHelpSubject } from '@/lib/smart-prompts';
 import { SMART_TOOL_SHORTCUTS } from '@/lib/smart-tool-shortcuts';
 import logoIcon from '@/assets/logo-icon.png';
-import { useTransformersLLM } from '@/hooks/useTransformersLLM';
+import { useBrowserNativeLLM } from '@/hooks/useBrowserNativeLLM';
+import type { SMARTAction, SMARTPlan, RawUserInput } from '@/hooks/useBrowserNativeLLM';
 import { usePromptPack } from '@/hooks/usePromptPack';
-import { buildSystemPrompt, buildDraftActionPrompt, buildDraftHelpPrompt, buildDraftOutcomePrompt, sanitizeActionPhrase, sanitizeOneSentence, sanitizeOnePhrase, DEFAULT_PROMPT_PACK } from '@/lib/prompt-pack';
+import { buildSystemPrompt, DEFAULT_PROMPT_PACK } from '@/lib/prompt-pack';
 
 /**
  * Safely remove from localStorage, catching any errors.
@@ -141,16 +142,16 @@ export function SmartActionTool() {
   const { theme, setTheme } = useTheme();
   const storage = useSmartStorage();
   const localSync = useLocalSync();
-  const llm = useTransformersLLM({
+  const llm = useBrowserNativeLLM({
     allowMobileLLM: storage.allowMobileLLM,
     safariWebGPUEnabled: storage.safariWebGPUEnabled,
   });
-  const translation = useTranslation({ llm, enabled: llm.canUseLocalAI });
+  const translation = useTranslation({ enabled: llm.canUseLocalAI });
 
   const { pack: promptPack, source: promptPackSource } = usePromptPack();
   const today = todayISO();
   const effectivePromptPack = promptPack || DEFAULT_PROMPT_PACK;
-  const llmSystemPrompt = buildSystemPrompt(effectivePromptPack);
+  const _llmSystemPrompt = buildSystemPrompt(effectivePromptPack);
 
   // Safari (especially iOS) can aggressively reload tabs under memory pressure. We
   // proactively unload the local model shortly after generation to free memory,
@@ -224,15 +225,13 @@ export function SmartActionTool() {
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
   const [wizardMode, setWizardMode] = useState(false);
-  const [improveDialogOpen, setImproveDialogOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const [historyTab, setHistoryTab] = useState<'history' | 'insights'>('history');
   const [privacySettingsOpen, setPrivacySettingsOpen] = useState(false);
-  const [fixingCriterion, setFixingCriterion] = useState<string | null>(null);
-  const [lastFixAttempt, setLastFixAttempt] = useState<{
-    criterion: 'specific' | 'measurable' | 'achievable' | 'relevant' | 'timeBound';
-    suggestion: string;
-  } | null>(null);
+
+  // SmartPlanner plan picker state
+  const [planResult, setPlanResult] = useState<SMARTPlan | null>(null);
+  const [showPlanPicker, setShowPlanPicker] = useState(false);
 
   // Detect landscape orientation
   useEffect(() => {
@@ -595,6 +594,26 @@ export function SmartActionTool() {
     toast({ title: 'Draft inserted', description: 'Template draft added. Edit as needed.' });
   }, [futureForm, toast]);
 
+  // Map a selected SMARTAction from the plan picker to form fields
+  const handleSelectPlanAction = useCallback((action: SMARTAction) => {
+    if (mode === 'now') {
+      setNowForm(prev => ({
+        ...prev,
+        action: action.action,
+        help: action.first_step || action.rationale,
+        timescale: prev.timescale || '2 weeks',
+      }));
+    } else {
+      setFutureForm(prev => ({
+        ...prev,
+        outcome: action.action,
+      }));
+    }
+    setShowPlanPicker(false);
+    setPlanResult(null);
+    toast({ title: 'Action applied', description: 'SMART action added to form. Edit as needed.' });
+  }, [mode, toast]);
+
   const handleAIDraft = useCallback(async () => {
     if (mode === 'now') {
       if (!nowForm.forename.trim() || !nowForm.barrier.trim()) {
@@ -610,102 +629,67 @@ export function SmartActionTool() {
 
     // User preference: templates - use templates directly
     if (storage.aiDraftMode === 'template') {
-      if (mode === 'now') {
-        templateDraftNow();
-      } else {
-        templateDraftFuture();
-      }
+      if (mode === 'now') templateDraftNow();
+      else templateDraftFuture();
       return;
     }
 
-    // On mobile/iPad, use templates unless Experimental Local AI is enabled in Settings.
-    // (Previously this always forced templates on mobile even when the experimental toggle was on.)
+    // On mobile/iPad, use templates unless Experimental Local AI is enabled
     if (llm.isMobile && !llm.canUseLocalAI) {
-      if (mode === 'now') {
-        templateDraftNow();
-      } else {
-        templateDraftFuture();
-      }
+      if (mode === 'now') templateDraftNow();
+      else templateDraftFuture();
       toast({
         title: 'Smart templates applied',
-        description:
-          'Local AI is disabled on mobile/iPad by default. Enable it in Settings (Experimental) to use Local AI.'
+        description: 'Local AI is disabled on mobile/iPad by default. Enable it in Settings (Experimental) to use Local AI.',
       });
       return;
     }
 
-    // If LLM is not ready on desktop, show picker
+    // If AI not ready, show model picker
     if (!llm.isReady) {
       setShowLLMPicker(true);
       return;
     }
 
-    // Use LLM for drafting
+    // Use SmartPlanner for plan generation
     setAIDrafting(true);
     try {
-      if (mode === 'now') {
-        let timescale = nowForm.timescale;
-        if (!timescale) {
-          timescale = '2 weeks';
-          setNowForm(prev => ({ ...prev, timescale }));
-        }
-        const targetISO = parseTimescaleToTargetISO(nowForm.date || today, timescale);
-        const targetDate = formatDDMMMYY(targetISO);
-        
-        // Generate action (backend-taught prompt pack)
-        const actionPrompt = buildDraftActionPrompt(effectivePromptPack, {
-          forename: nowForm.forename,
-          barrier: nowForm.barrier,
-          targetDate,
-          targetTime: nowForm.time || "",
-          responsible: nowForm.responsible || 'Advisor',
-        });
-        const action = sanitizeActionPhrase(await llm.generate(actionPrompt, llmSystemPrompt, 'action'), nowForm.forename);
-        if (!action) {
-          throw new Error('AI produced an unusable action phrase. Try again or use a different barrier.');
-        }
+      // Build RawUserInput from current form fields
+      const input: RawUserInput = mode === 'now'
+        ? {
+            goal: `Address ${nowForm.barrier} barrier for ${nowForm.forename}`,
+            barriers: nowForm.barrier,
+            timeframe: nowForm.timescale || '2 weeks',
+            situation: `Employment advisor helping ${nowForm.forename} with ${nowForm.barrier}`,
+          }
+        : {
+            goal: futureForm.task,
+            timeframe: futureForm.timescale || '4 weeks',
+            situation: `Employment advisor helping ${futureForm.forename} plan ahead`,
+          };
 
-        // Generate help - use correct subject based on responsible person
-        const helpSubject = getHelpSubject(nowForm.forename, nowForm.responsible);
-        const helpPrompt = buildDraftHelpPrompt(effectivePromptPack, {
-          action,
-          subject: helpSubject,
-        });
-        const help = sanitizeOnePhrase(await llm.generate(helpPrompt, llmSystemPrompt, 'help'));
-        
-        setNowForm(prev => ({ ...prev, action, help }));
-        toast({ title: 'AI Draft ready', description: 'Generated with local AI. Edit as needed.' });
+      const plan = await llm.generatePlan(input);
 
-        // Prevent Safari from reloading the tab under memory pressure.
-        scheduleSafariModelUnload();
+      if (plan.actions.length === 1) {
+        // Single action — apply directly
+        handleSelectPlanAction(plan.actions[0]);
+      } else if (plan.actions.length > 1) {
+        // Multiple actions — show picker
+        setPlanResult(plan);
+        setShowPlanPicker(true);
       } else {
-        // Generate outcome
-        const outcomePrompt = buildDraftOutcomePrompt(effectivePromptPack, {
-          forename: futureForm.forename,
-          task: futureForm.task,
-        });
-        const outcome = sanitizeOneSentence(await llm.generate(outcomePrompt, llmSystemPrompt, 'outcome'));
-        setFutureForm(prev => ({ ...prev, outcome }));
-        toast({ title: 'AI Draft ready', description: 'Generated with local AI. Edit as needed.' });
-
-        // Prevent Safari from reloading the tab under memory pressure.
-        scheduleSafariModelUnload();
+        throw new Error('Plan generation returned no actions.');
       }
+
+      scheduleSafariModelUnload();
     } catch (err) {
-      console.warn('LLM draft failed, falling back to templates:', err);
-      // Fallback to templates - inline the logic to avoid duplicate toasts
+      console.warn('SmartPlanner draft failed, falling back to templates:', err);
       if (mode === 'now') {
         let timescale = nowForm.timescale;
-        if (!timescale) {
-          timescale = '2 weeks';
-        }
+        if (!timescale) timescale = '2 weeks';
         const { action, help } = aiDraftNow(
-          nowForm.barrier,
-          nowForm.forename,
-          nowForm.responsible,
-          timescale,
-          nowForm.date,
-          suggestQuery
+          nowForm.barrier, nowForm.forename, nowForm.responsible,
+          timescale, nowForm.date, suggestQuery,
         );
         setNowForm(prev => ({ ...prev, action, help, timescale }));
       } else {
@@ -714,14 +698,14 @@ export function SmartActionTool() {
       }
       toast({
         title: 'Using smart templates',
-        description: 'AI generation failed. Applied templates instead. Try reloading the model in Settings.',
+        description: 'AI plan generation failed. Applied templates instead.',
         variant: 'destructive',
       });
       scheduleSafariModelUnload(0);
     } finally {
       setAIDrafting(false);
     }
-  }, [mode, nowForm, futureForm, llm, today, templateDraftNow, templateDraftFuture, toast, storage.aiDraftMode, effectivePromptPack, llmSystemPrompt, scheduleSafariModelUnload, suggestQuery]);
+  }, [mode, nowForm, futureForm, llm, templateDraftNow, templateDraftFuture, toast, storage.aiDraftMode, scheduleSafariModelUnload, suggestQuery, handleSelectPlanAction]);
 
   const handleEditHistory = (item: HistoryItem) => {
     setMode(item.mode);
@@ -893,78 +877,39 @@ export function SmartActionTool() {
     toast({ title: 'Wizard complete', description: 'Form populated. Review and generate your action.' });
   }, [mode, toast]);
 
-  // Handle wizard AI draft - provides field-specific AI drafts within the wizard
+  // Handle wizard AI draft — uses SmartPlanner plan generation with template fallback
   const handleWizardAIDraft = useCallback(async (field: string, context: Record<string, string>): Promise<string> => {
     if (storage.aiDraftMode === 'ai' && !llm.isReady) {
       if (llm.canUseLocalAI) {
         setShowLLMPicker(true);
-        toast({
-          title: 'Load Local AI',
-          description: 'Pick a model to enable AI drafting.',
-          variant: 'default'
-        });
+        toast({ title: 'Load Local AI', description: 'Pick a model to enable AI drafting.' });
       } else {
-        toast({
-          title: 'Local AI not available',
-          description: 'Enable Local AI in Settings or use Smart Templates.',
-          variant: 'destructive'
-        });
+        toast({ title: 'Local AI not available', description: 'Enable Local AI in Settings or use Smart Templates.', variant: 'destructive' });
       }
       return '';
     }
 
-    // If LLM is ready, use it
+    // If AI is ready, use SmartPlanner
     if (llm.isReady) {
       try {
-        if (mode === 'now' && (field === 'action' || field === 'help')) {
-          const timescale = context.timescale || '2 weeks';
-          const targetISO = parseTimescaleToTargetISO(nowForm.date || today, timescale);
-          const targetDate = formatDDMMMYY(targetISO);
-          
-          if (field === 'action') {
-            const actionPrompt = buildDraftActionPrompt(effectivePromptPack, {
-              forename: context.forename || '',
-              barrier: context.barrier || '',
-              targetDate,
-              targetTime: nowForm.time || "",
-              responsible: context.responsible || 'Advisor',
-            });
-            const action = sanitizeActionPhrase(await llm.generate(actionPrompt, llmSystemPrompt, 'action'), context.forename || '');
-            if (!action) {
-              throw new Error('AI produced an unusable action phrase. Try again or use a different barrier.');
-            }
-            scheduleSafariModelUnload();
-            return action;
-          }
-          const helpSubject = getHelpSubject(context.forename || '', context.responsible || 'Advisor');
-          const helpPrompt = buildDraftHelpPrompt(effectivePromptPack, {
-            action: context.action || '',
-            subject: helpSubject,
-          });
-          const help = sanitizeOnePhrase(await llm.generate(helpPrompt, llmSystemPrompt, 'help'));
-          scheduleSafariModelUnload();
-          return help;
-        } else if (mode === 'future' && field === 'outcome') {
-          const outcomePrompt = buildDraftOutcomePrompt(effectivePromptPack, {
-            forename: context.forename || '',
-            task: context.task || '',
-          });
-          const outcome = sanitizeOneSentence(await llm.generate(outcomePrompt, llmSystemPrompt, 'outcome'));
-          if (!outcome) {
-            throw new Error('AI produced an unusable outcome. Try again or rephrase the task.');
-          }
-          scheduleSafariModelUnload();
-          return outcome;
+        const input: RawUserInput = {
+          goal: context.barrier || context.task || 'Employment support',
+          barriers: context.barrier,
+          timeframe: context.timescale || '2 weeks',
+          situation: `Helping ${context.forename || 'participant'}`,
+        };
+        const plan = await llm.generatePlan(input);
+        if (plan.actions.length > 0) {
+          const action = plan.actions[0];
+          if (field === 'action') return action.action;
+          if (field === 'help') return action.first_step || action.rationale;
+          if (field === 'outcome') return action.action;
         }
+        scheduleSafariModelUnload();
       } catch (err) {
-        console.warn('LLM wizard draft failed, falling back to templates:', err);
-        toast({
-          title: 'Using smart templates',
-          description: 'AI generation failed. Applied templates instead. Try reloading the model in Settings.',
-          variant: 'destructive',
-        });
+        console.warn('SmartPlanner wizard draft failed, falling back to templates:', err);
+        toast({ title: 'Using smart templates', description: 'AI generation failed. Applied templates instead.', variant: 'destructive' });
         scheduleSafariModelUnload(0);
-        // Fall through to template fallback
       }
     }
 
@@ -972,123 +917,14 @@ export function SmartActionTool() {
     if (mode === 'now') {
       const timescale = context.timescale || '2 weeks';
       if (field === 'action' || field === 'help') {
-        const { action, help } = aiDraftNow(
-          context.barrier || '', 
-          context.forename || '', 
-          context.responsible || 'Advisor',
-          timescale,
-          nowForm.date
-        );
+        const { action, help } = aiDraftNow(context.barrier || '', context.forename || '', context.responsible || 'Advisor', timescale, nowForm.date);
         return field === 'action' ? action : help;
       }
     } else {
-      if (field === 'outcome') {
-        return aiDraftFuture(context.task || '', context.forename || '');
-      }
+      if (field === 'outcome') return aiDraftFuture(context.task || '', context.forename || '');
     }
     return '';
-  }, [mode, nowForm.date, today, llm, effectivePromptPack, llmSystemPrompt, storage.aiDraftMode, toast, scheduleSafariModelUnload]);
-
-  // Handle AI improve apply
-  const handleApplyImprovement = useCallback((improvedAction: string) => {
-    if (mode === 'now') {
-      setNowForm(prev => ({ ...prev, action: improvedAction }));
-    } else {
-      setFutureForm(prev => ({ ...prev, outcome: improvedAction }));
-    }
-    toast({ title: 'Improvement applied', description: 'The improved text has been applied to your form.' });
-  }, [mode, toast]);
-
-  // Handle fix criterion from SMART checklist - uses AI to fix the specific criterion
-  const handleFixCriterion = useCallback(async (criterion: 'specific' | 'measurable' | 'achievable' | 'relevant' | 'timeBound', suggestion: string) => {
-    // Check if we have output to fix
-    if (!output.trim()) {
-      toast({ 
-        title: 'No action to fix', 
-        description: 'Generate an action first before using AI fix.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    // Safe option: require local AI to be ready
-    if (!llm.isReady || !llm.canUseLocalAI) {
-      toast({
-        title: 'Local AI not ready',
-        description: 'Download the AI Module in Settings to enable this feature.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-llm.clearError();
-    setLastFixAttempt({ criterion, suggestion });
-    setFixingCriterion(criterion);
-    
-    const criterionLabel = criterion.charAt(0).toUpperCase() + criterion.slice(1);
-    const forename = mode === 'now' ? nowForm.forename : futureForm.forename;
-    const barrier = mode === 'now' ? nowForm.barrier : futureForm.task;
-    
-    // Build the prompt
-    const prompt = FIX_CRITERION_PROMPT
-      .replace(/{criterion}/g, criterionLabel)
-      .replace('{action}', output)
-      .replace('{barrier}', barrier || 'Not specified')
-      .replace('{forename}', forename || 'Participant')
-      .replace('{criterionGuidance}', CRITERION_GUIDANCE[criterion] || '');
-
-    try {
-      let fullResponse = '';
-      for await (const chunk of llm.chat([{ role: 'user', content: prompt }])) {
-        fullResponse += chunk;
-      }
-
-      // Parse JSON response
-      const jsonMatch = fullResponse.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        const fixedAction = parsed.fixed || '';
-        const whatChanged = parsed.whatChanged || `Fixed ${criterionLabel} criterion`;
-        
-        if (fixedAction) {
-          // Mark output as coming from AI to prevent auto-regeneration
-          setOutputSource('ai');
-          
-          // Only update the output directly - don't update form fields
-          // because buildNowOutput/buildFutureOutput would reconstruct 
-          // the text differently. The fixed text IS the complete output.
-          setOutput(fixedAction);
-          
-          // Clear any existing translation as the text changed
-          setTranslatedOutput(null);
-          
-          toast({ 
-            title: `${criterionLabel} fixed!`, 
-            description: whatChanged,
-            duration: 4000
-          });
-        } else {
-          throw new Error('Empty response from AI');
-        }
-      } else {
-        throw new Error('Invalid response format');
-      }
-    } catch (err) {
-      console.error('Fix criterion error:', err);
-      toast({ 
-        title: 'Fix failed', 
-        description: err instanceof Error ? err.message : 'Failed to fix criterion. Try again.',
-        variant: 'destructive'
-      });
-    } finally {
-      setFixingCriterion(null);
-    }
-  }, [output, mode, nowForm, futureForm, llm, toast]);
-
-  const handleRetryFix = useCallback(() => {
-    if (!lastFixAttempt) return;
-    handleFixCriterion(lastFixAttempt.criterion, lastFixAttempt.suggestion);
-  }, [lastFixAttempt, handleFixCriterion]);
+  }, [mode, nowForm.date, llm, storage.aiDraftMode, toast, scheduleSafariModelUnload]);
 
   // Keyboard shortcuts configuration
   // Note: 'id' values must match the action IDs used in FloatingToolbar for shortcut hints to work
@@ -1998,16 +1834,7 @@ llm.clearError();
         groups={groupShortcuts(shortcuts)} 
       />
 
-      {/* AI Improve Dialog */}
-      <AIImproveDialog llm={llm}
-        open={improveDialogOpen}
-        onOpenChange={setImproveDialogOpen}
-        originalAction={output}
-        barrier={mode === 'now' ? nowForm.barrier : futureForm.task}
-        forename={mode === 'now' ? nowForm.forename : futureForm.forename}
-        smartCheck={smartCheck}
-        onApply={handleApplyImprovement}
-      />
+      {/* AI Improve replaced by SmartPlanner validation/repair loop */}
 
       <main className="relative max-w-7xl mx-auto px-4 py-8">
         <motion.div 
@@ -2455,17 +2282,7 @@ llm.clearError();
                 <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                   <Button variant="outline" onClick={handleClear}>Clear</Button>
                 </motion.div>
-                {output.trim() && smartCheck.overallScore < 5 && (
-                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setImproveDialogOpen(true)}
-                      className="border-primary/30 hover:bg-primary/10"
-                    >
-                      <Wand2 className="w-4 h-4 mr-1" /> Improve
-                    </Button>
-                  </motion.div>
-                )}
+                {/* Improve button removed — SmartPlanner handles quality via validation/repair */}
                 <div className="flex-1" />
                 <TemplateLibrary
                 templates={storage.templates}
@@ -2610,13 +2427,13 @@ llm.clearError();
                 variant="ai"
                 title={llm.classifiedError?.title || "AI took a nap"}
                 message={llm.error}
-                onRetry={lastFixAttempt ? handleRetryFix : undefined}
+                onRetry={undefined}
                 onDismiss={() => llm.clearError()}
               />
             )}
 
             {/* SMART Checklist */}
-            <SmartChecklist check={smartCheck} onFixCriterion={handleFixCriterion} fixingCriterion={fixingCriterion} />
+            <SmartChecklist check={smartCheck} />
 
             {/* History with Tabs */}
             <div className="space-y-4">
@@ -2766,6 +2583,52 @@ llm.clearError();
         open={privacySettingsOpen} 
         onOpenChange={setPrivacySettingsOpen} 
       />
+
+      {/* Plan Picker Dialog — shows generated SMART actions for user selection */}
+      <Dialog open={showPlanPicker} onOpenChange={setShowPlanPicker}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5" />
+              Choose a SMART Action
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              The AI generated {planResult?.actions.length || 0} SMART actions. Select one to use.
+            </p>
+            {planResult?.actions.map((action, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleSelectPlanAction(action)}
+                className="w-full p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm transition-all duration-200 text-left group space-y-2"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="font-medium text-sm leading-snug">{action.action}</span>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">{action.effort_estimate}</span>
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  <span>Metric: {action.metric}</span>
+                  <span>·</span>
+                  <span>By: {action.deadline}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">{action.first_step}</p>
+              </button>
+            ))}
+            {planResult?.metadata && (
+              <p className="text-xs text-muted-foreground pt-2 border-t">
+                Generated in {Math.round(planResult.metadata.generation_time_ms)}ms
+                {planResult.metadata.model_id === 'template-only' && ' (template fallback)'}
+              </p>
+            )}
+            <div className="flex justify-end pt-2">
+              <Button variant="ghost" size="sm" onClick={() => { setShowPlanPicker(false); setPlanResult(null); }}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* LLM Model Picker Dialog */}
       <Dialog open={showLLMPicker} onOpenChange={setShowLLMPicker}>

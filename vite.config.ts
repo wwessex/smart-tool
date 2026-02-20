@@ -65,6 +65,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
+        "@smart-tool/browser-native-llm": path.resolve(__dirname, "./browser-native-llm/src/index.ts"),
       },
     },
     build: {
@@ -76,8 +77,10 @@ export default defineConfig(({ mode }) => {
           manualChunks: (id) => {
             // Put ALL node_modules in one vendor chunk for maximum reliability
             if (id.includes('node_modules')) {
-              // Only separate out the massive LLM library
-              if (id.includes('node_modules/@mlc-ai')) {
+              // Separate out heavy LLM/AI libraries
+              if (id.includes('node_modules/@mlc-ai') ||
+                  id.includes('node_modules/@huggingface/transformers') ||
+                  id.includes('node_modules/onnxruntime-web')) {
                 return 'vendor-llm';
               }
               // Everything else in one reliable vendor chunk
@@ -114,7 +117,7 @@ export default defineConfig(({ mode }) => {
         '@tanstack/react-query',
       ],
       // Exclude heavy deps from pre-bundling if not needed immediately
-      exclude: ['@mlc-ai/web-llm'],
+      exclude: ['@mlc-ai/web-llm', 'onnxruntime-web'],
 
       // Some deps (e.g. transformers.js) contain BigInt literals (0n/1n) which require ES2020+.
       // Ensure the dependency pre-bundler doesn't downlevel to ES2019.
