@@ -71,6 +71,11 @@ self.addEventListener("activate", (event: ExtendableEvent) => {
 self.addEventListener("fetch", (event: FetchEvent) => {
   const url = new URL(event.request.url);
 
+  // Only handle same-origin requests to prevent SSRF
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
   // Only intercept model and retrieval pack requests
   if (
     !MODEL_PATH_PATTERN.test(url.pathname) &&
@@ -121,7 +126,6 @@ async function handleModelFetch(request: Request): Promise<Response> {
     return new Response(
       JSON.stringify({
         error: "Model file unavailable offline and not cached",
-        url: request.url,
       }),
       {
         status: 503,
@@ -137,7 +141,7 @@ async function handleModelFetch(request: Request): Promise<Response> {
 function getCacheNameForUrl(url: string): string {
   // Extract model ID and version from URL path if possible
   const match = url.match(/models\/([^/]+)-v([^/]+)\//);
-  if (match) {
+  if (match && match[1].length <= 100 && match[2].length <= 50) {
     return `${CACHE_NAME_PREFIX}${match[1]}@${match[2]}`;
   }
 
@@ -170,11 +174,17 @@ async function handlePrefetch(payload: {
   urls: string[];
   cacheName: string;
 }): Promise<void> {
+  if (!payload.cacheName || payload.cacheName.length > 200 || !payload.cacheName.startsWith(CACHE_NAME_PREFIX)) {
+    return;
+  }
   const cache = await caches.open(payload.cacheName);
 
   for (const url of payload.urls) {
     try {
-      const response = await fetch(url);
+      // Validate URL before fetching to prevent SSRF
+      const parsed = new URL(url, self.location.origin);
+      if (parsed.origin !== self.location.origin) continue;
+      const response = await fetch(parsed.href);
       if (response.ok) {
         await cache.put(url, response);
       }

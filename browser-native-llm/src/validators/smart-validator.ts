@@ -16,6 +16,7 @@ import type {
   SMARTCriteriaResult,
   CriterionResult,
 } from "../types.js";
+import { sanitizeForLog } from "../utils/sanitize.js";
 
 /**
  * Validate a single SMART action against criteria and user profile.
@@ -283,24 +284,27 @@ function checkTimeBound(
 ): CriterionResult {
   const deadlineText = action.deadline;
 
+  // Bound input length to prevent ReDoS on untrusted deadline strings
+  const bounded = deadlineText.slice(0, 200);
+
   // Check for ISO date format (YYYY-MM-DD)
-  const hasISODate = /\d{4}-\d{2}-\d{2}/.test(deadlineText);
+  const hasISODate = /\d{4}-\d{2}-\d{2}/.test(bounded);
 
   // Check for common date formats
   const hasDateFormat =
     /\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(
-      deadlineText
+      bounded
     ) ||
     /(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{1,2}/i.test(
-      deadlineText
+      bounded
     );
 
   // Check for relative timeframes
   const hasRelativeTime =
-    /(\d+)\s*(week|day|month)/i.test(deadlineText) ||
-    /end\s+of\s+(week|month)/i.test(deadlineText) ||
-    /within\s+\d+/i.test(deadlineText) ||
-    /by\s+(week|month|day)/i.test(deadlineText);
+    /(\d+)\s*(week|day|month)/i.test(bounded) ||
+    /end\s+of\s+(week|month)/i.test(bounded) ||
+    /within\s+\d+/i.test(bounded) ||
+    /by\s+(week|month|day)/i.test(bounded);
 
   // Validate deadline is within the user's timeframe
   let withinTimeframe = true;
@@ -338,15 +342,15 @@ function getSuggestion(
 ): string {
   switch (criterion) {
     case "specific":
-      return `Rephrase "${action.action.slice(0, 40)}..." to include a concrete verb (e.g., "write", "send", "complete") and specific artefact.`;
+      return `Rephrase "${sanitizeForLog(action.action, 40)}..." to include a concrete verb (e.g., "write", "send", "complete") and specific artefact.`;
     case "measurable":
-      return `Add a numeric target to the metric (e.g., "Submit 5 applications" instead of "${action.metric.slice(0, 30)}...")`;
+      return `Add a numeric target to the metric (e.g., "Submit 5 applications" instead of "${sanitizeForLog(action.metric, 30)}...")`;
     case "achievable":
       return "Review the effort estimate and ensure it fits within the available hours and constraints.";
     case "relevant":
       return "Add a rationale that explicitly connects this action to the stated job goal.";
     case "time_bound":
-      return `Replace "${action.deadline}" with a specific date (YYYY-MM-DD) or clear timeframe (e.g., "within 2 weeks").`;
+      return `Replace "${sanitizeForLog(action.deadline, 50)}" with a specific date (YYYY-MM-DD) or clear timeframe (e.g., "within 2 weeks").`;
   }
 }
 

@@ -7,6 +7,7 @@
  */
 
 import type { InferenceConfig, InferenceBackend } from "../types.js";
+import { validateUrl } from "../utils/sanitize.js";
 
 export interface GenerateOptions {
   /** The assembled prompt string. */
@@ -87,7 +88,7 @@ export class OnnxInferenceEngine extends InferenceEngine {
     const ort = await import("onnxruntime-web");
 
     const executionProvider = this.getExecutionProvider();
-    const modelUrl = `${this.config.model_base_url}model.onnx`;
+    const modelUrl = validateUrl(`${this.config.model_base_url}model.onnx`);
 
     // Fetch model with progress tracking
     const response = await fetch(modelUrl);

@@ -24,6 +24,7 @@ import { validateAction, validatePlan } from "../validators/smart-validator.js";
 import { repairAction, createFallbackActions } from "../validators/repair.js";
 import { SMART_ACTION_SCHEMA, parseJsonOutput } from "../validators/schema.js";
 import { DEFAULT_INFERENCE_CONFIG } from "../model/config.js";
+import { sanitizeForLog } from "../utils/sanitize.js";
 
 /** Configuration for the SMART planner. */
 export interface PlannerConfig {
@@ -326,7 +327,7 @@ export class SmartPlanner {
     for (const rawAction of parsed) {
       // Check schema compliance
       if (!SMART_ACTION_SCHEMA.validate(rawAction)) {
-        allIssues.push(`Schema validation failed for action: ${JSON.stringify(rawAction).slice(0, 100)}`);
+        allIssues.push(`Schema validation failed for action: ${sanitizeForLog(JSON.stringify(rawAction))}`);
         continue;
       }
 

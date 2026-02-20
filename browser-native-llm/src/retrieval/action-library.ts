@@ -9,6 +9,7 @@
  */
 
 import type { ActionTemplate, SkillEntry, RetrievalPack, JobSearchStage } from "../types.js";
+import { validateUrl } from "../utils/sanitize.js";
 
 /** In-memory action library loaded from a retrieval pack. */
 export class ActionLibrary {
@@ -46,9 +47,14 @@ export class ActionLibrary {
 
   /** Load a retrieval pack from a URL. */
   async loadFromUrl(url: string): Promise<void> {
-    const response = await fetch(url);
+    const validatedUrl = validateUrl(url);
+    const response = await fetch(validatedUrl);
     if (!response.ok) {
       throw new Error(`Failed to load retrieval pack from ${url}: ${response.status}`);
+    }
+    const contentType = response.headers.get("content-type") ?? "";
+    if (!contentType.includes("json")) {
+      throw new Error(`Unexpected content-type for retrieval pack: ${contentType}`);
     }
     const pack: RetrievalPack = await response.json();
     this.loadPack(pack);

@@ -23,7 +23,17 @@ export function repairAction(
   validationResult: ValidationResult,
   profile: UserProfile
 ): SMARTAction | null {
-  const repaired = { ...action };
+  const repaired: SMARTAction = {
+    action: action.action,
+    metric: action.metric,
+    baseline: action.baseline,
+    target: action.target,
+    deadline: action.deadline,
+    rationale: action.rationale,
+    effort_estimate: action.effort_estimate,
+    first_step: action.first_step,
+    template_id: action.template_id,
+  };
   let changed = false;
 
   // Fix specificity: add a verb if missing

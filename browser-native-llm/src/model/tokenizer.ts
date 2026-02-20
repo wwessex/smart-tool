@@ -6,6 +6,8 @@
  * JSON output generation.
  */
 
+import { validateUrl } from "../utils/sanitize.js";
+
 export interface TokenizerConfig {
   /** URL or path to the tokenizer.json file. */
   tokenizer_url: string;
@@ -48,11 +50,16 @@ export class SmartTokenizer {
 
   /** Load tokenizer from a JSON config (Hugging Face tokenizer.json format). */
   async load(url: string): Promise<void> {
-    const response = await fetch(url);
+    const validatedUrl = validateUrl(url);
+    const response = await fetch(validatedUrl);
     if (!response.ok) {
       throw new Error(`Failed to load tokenizer from ${url}: ${response.status}`);
     }
 
+    const contentType = response.headers.get("content-type") ?? "";
+    if (!contentType.includes("json")) {
+      throw new Error(`Unexpected content-type for tokenizer: ${contentType}`);
+    }
     const config = await response.json();
     this.parseTokenizerConfig(config);
     this.initialized = true;

@@ -7,6 +7,7 @@
  */
 
 import type { CacheEntry, ModelManifest, DownloadProgress } from "../types.js";
+import { validateUrl } from "../utils/sanitize.js";
 
 const CACHE_NAME_PREFIX = "smart-llm-";
 const METADATA_KEY = "__cache_metadata__";
@@ -302,7 +303,8 @@ export async function downloadWithCache(
       phase: "downloading",
     });
 
-    const response = await fetch(`${baseUrl}${file.filename}`);
+    const fileUrl = validateUrl(`${baseUrl}${file.filename}`);
+    const response = await fetch(fileUrl);
     if (!response.ok) {
       throw new Error(`Failed to download ${file.filename}: ${response.status}`);
     }

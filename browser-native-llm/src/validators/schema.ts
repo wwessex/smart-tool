@@ -193,9 +193,9 @@ function cleanJsonString(text: string): string {
   // Remove trailing commas before ] or }
   cleaned = cleaned.replace(/,\s*([}\]])/g, "$1");
 
-  // Fix unescaped newlines in strings (common model error)
-  // This is a heuristic and won't catch all cases
-  cleaned = cleaned.replace(/(?<=:\s*"[^"]*)\n(?=[^"]*")/g, "\\n");
+  // Fix unescaped newlines inside JSON strings (common model error)
+  // Uses character-by-character scan instead of regex lookbehind to avoid ReDoS
+  cleaned = fixNewlinesInStrings(cleaned);
 
   // Remove any trailing incomplete JSON (model ran out of tokens)
   // Find the last complete object in the array
@@ -208,4 +208,41 @@ function cleanJsonString(text: string): string {
   }
 
   return cleaned;
+}
+
+function fixNewlinesInStrings(text: string): string {
+  let result = "";
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+
+    if (escaped) {
+      result += char;
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      result += char;
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      result += char;
+      continue;
+    }
+
+    if (char === "\n" && inString) {
+      result += "\\n";
+      continue;
+    }
+
+    result += char;
+  }
+
+  return result;
 }

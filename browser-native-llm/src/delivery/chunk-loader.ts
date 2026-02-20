@@ -7,6 +7,7 @@
  */
 
 import type { ModelManifest, ModelFile, DownloadProgress } from "../types.js";
+import { validateUrl } from "../utils/sanitize.js";
 
 /** Options for loading a model. */
 export interface LoaderOptions {
@@ -28,7 +29,8 @@ export interface LoaderOptions {
 export async function loadManifest(
   baseUrl: string
 ): Promise<ModelManifest> {
-  const response = await fetch(`${baseUrl}manifest.json`);
+  const manifestUrl = validateUrl(`${baseUrl}manifest.json`);
+  const response = await fetch(manifestUrl);
   if (!response.ok) {
     throw new Error(`Failed to load model manifest: ${response.status}`);
   }
@@ -120,7 +122,8 @@ async function downloadFileByUrl(
     headers["Range"] = `bytes=${startByte}-`;
   }
 
-  const response = await fetch(url, {
+  const validatedUrl = validateUrl(url);
+  const response = await fetch(validatedUrl, {
     headers,
     signal: options.signal,
   });

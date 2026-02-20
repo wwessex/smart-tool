@@ -124,6 +124,9 @@ export function normalizeProfile(input: RawUserInput): UserProfile {
 function normalizeGoal(goal: string): string {
   let normalized = goal.trim();
 
+  // Bound input length to prevent ReDoS
+  normalized = normalized.slice(0, 2000);
+
   // Remove common prefixes like "I want to", "I'm looking for"
   const prefixes = [
     /^i\s+want\s+to\s+(find|get)\s+(a\s+)?/i,
@@ -157,7 +160,8 @@ function parseHoursPerWeek(
 
   // Try to extract from timeframe string
   if (timeframeStr) {
-    const hoursMatch = timeframeStr.match(/(\d+)\s*hours?\s*(?:per|\/|a)\s*week/i);
+    const bounded = timeframeStr.slice(0, 500);
+    const hoursMatch = bounded.match(/(\d+)\s*hours?\s*(?:per|\/|a)\s*week/i);
     if (hoursMatch) return parseInt(hoursMatch[1], 10);
   }
 
@@ -167,7 +171,7 @@ function parseHoursPerWeek(
 function parseTimeframeWeeks(timeframeStr?: string): number {
   if (!timeframeStr) return DEFAULTS.timeframe_weeks;
 
-  const str = timeframeStr.trim().toLowerCase();
+  const str = timeframeStr.trim().toLowerCase().slice(0, 500);
 
   // "X weeks"
   const weeksMatch = str.match(/(\d+)\s*weeks?/);
