@@ -1,0 +1,81 @@
+# Supervised Fine-Tuning (SFT) configuration for Stage 2.
+#
+# Goal: teach the model to reliably produce structured SMARTAction[]
+# JSON outputs following the instruction format.
+
+training:
+  stage: "sft"
+
+  # Data
+  data:
+    # Synthetic instruction-following dataset
+    sources:
+      - name: "single_objective"
+        weight: 0.6
+        description: "Single goal → 5 SMART actions"
+        example_count: 300000
+      - name: "weekly_plan"
+        weight: 0.2
+        description: "Weekly plan (7-14 day schedule)"
+        example_count: 100000
+      - name: "barrier_handling"
+        weight: 0.2
+        description: "Low confidence, disability, time poverty, limited experience"
+        example_count: 100000
+    total_examples: 500000
+
+  # Optimiser
+  optimizer:
+    type: "adamw"
+    lr: 1.0e-4              # Lower than pretraining
+    betas: [0.9, 0.95]
+    weight_decay: 0.1
+    eps: 1.0e-8
+
+  # Schedule
+  schedule:
+    warmup_steps: 500
+    total_steps: 30000
+    decay: "cosine"
+    min_lr: 1.0e-5
+
+  # Batch
+  batch:
+    micro_batch_size: 8
+    gradient_accumulation_steps: 4
+    effective_batch_tokens: 32768
+
+  # Precision
+  precision: "bf16"
+  gradient_clipping: 1.0
+
+  # Loss
+  loss:
+    type: "cross_entropy"
+    # Only compute loss on the output (assistant) portion
+    mask_input: true
+
+  # Instruction format
+  instruction_format:
+    system_prefix: "<|begin|>system\n"
+    system_suffix: "\n<|end|>"
+    user_prefix: "<|begin|>user\n"
+    user_suffix: "\n<|end|>"
+    assistant_prefix: "<|begin|>assistant\n<|json|>"
+    assistant_suffix: "<|/json|>\n<|end|>"
+
+  # Checkpointing
+  checkpoint:
+    save_every_steps: 2000
+    keep_last_n: 3
+    output_dir: "./checkpoints/sft"
+    load_from: "./checkpoints/pretrain/latest"
+
+  # Evaluation during training
+  eval:
+    eval_every_steps: 500
+    num_eval_examples: 200
+    metrics:
+      - "json_parse_rate"      # % of outputs that parse as valid JSON
+      - "schema_compliance"    # % of outputs with all required fields
+      - "smart_score"          # Average SMART criteria score

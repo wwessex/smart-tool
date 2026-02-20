@@ -1,0 +1,165 @@
+{
+  "version": "1.0.0",
+  "description": "Test prompts for evaluating SMART action plan generation quality",
+  "test_cases": [
+    {
+      "id": "test-01-entry-admin",
+      "description": "Entry-level admin with limited time and basic skills",
+      "input": {
+        "goal": "I'm looking for an entry-level admin role",
+        "hours_per_week": 6,
+        "timeframe": "8 weeks",
+        "skills": "basic Excel, customer service",
+        "barriers": "",
+        "confidence": "3"
+      },
+      "expectations": {
+        "min_actions": 5,
+        "max_actions": 7,
+        "required_stages": ["cv_preparation", "applications"],
+        "must_mention": ["CV", "admin"],
+        "all_deadlines_within_weeks": 8,
+        "min_actions_with_numeric_target": 3,
+        "must_include_excel_upskilling": true
+      }
+    },
+    {
+      "id": "test-02-career-change",
+      "description": "Career changer from retail to data analyst with anxiety",
+      "input": {
+        "goal": "I'm changing from retail management to junior data analyst",
+        "hours_per_week": 10,
+        "timeframe": "12 weeks",
+        "skills": "leadership, customer service, Excel, team management",
+        "barriers": "career change, interview anxiety",
+        "confidence": "2"
+      },
+      "expectations": {
+        "min_actions": 4,
+        "max_actions": 7,
+        "required_stages": ["cv_preparation", "upskilling", "applications"],
+        "must_mention": ["data", "portfolio"],
+        "all_deadlines_within_weeks": 12,
+        "min_actions_with_numeric_target": 3,
+        "must_include_confidence_steps": true
+      }
+    },
+    {
+      "id": "test-03-disability-remote",
+      "description": "Disability affecting stamina, remote-only, very limited time",
+      "input": {
+        "goal": "I need remote work",
+        "situation": "I'm unemployed, have a disability affecting stamina",
+        "hours_per_week": 4,
+        "timeframe": "10 weeks",
+        "skills": "writing, phone skills",
+        "barriers": "disability, health",
+        "confidence": "2",
+        "work_arrangement": "remote"
+      },
+      "expectations": {
+        "min_actions": 3,
+        "max_actions": 4,
+        "must_respect_4_hours_per_week": true,
+        "must_not_suggest_in_person": true,
+        "must_not_give_medical_advice": true,
+        "must_mention": ["remote", "reasonable adjustments"],
+        "must_include_small_first_steps": true
+      }
+    },
+    {
+      "id": "test-04-graduate-tech",
+      "description": "Recent graduate looking for first tech role",
+      "input": {
+        "goal": "Junior web developer",
+        "situation": "Recently graduated with a computer science degree",
+        "hours_per_week": 20,
+        "timeframe": "8 weeks",
+        "skills": "JavaScript, Python, HTML, CSS, Git",
+        "barriers": "lack of experience",
+        "confidence": "4",
+        "industry": "technology"
+      },
+      "expectations": {
+        "min_actions": 5,
+        "max_actions": 7,
+        "required_stages": ["cv_preparation", "applications", "networking", "upskilling"],
+        "must_mention": ["portfolio", "GitHub"],
+        "all_deadlines_within_weeks": 8,
+        "min_actions_with_numeric_target": 4
+      }
+    },
+    {
+      "id": "test-05-returning-parent",
+      "description": "Parent returning to work with childcare constraints",
+      "input": {
+        "goal": "Part-time teaching assistant role",
+        "situation": "Returning to work after 5 years caring for children",
+        "hours_per_week": 6,
+        "timeframe": "6 weeks",
+        "skills": "communication, organisation, first aid, working with children",
+        "barriers": "childcare, cv gaps, confidence",
+        "confidence": "2"
+      },
+      "expectations": {
+        "min_actions": 3,
+        "max_actions": 5,
+        "must_respect_time_constraints": true,
+        "must_acknowledge_career_gap_positively": true,
+        "must_not_assume_full_time_availability": true,
+        "must_include_confidence_steps": true
+      }
+    },
+    {
+      "id": "test-06-minimal-input",
+      "description": "Very minimal user input - system should handle gracefully",
+      "input": {
+        "goal": "Find a job"
+      },
+      "expectations": {
+        "min_actions": 3,
+        "should_use_defaults": true,
+        "must_not_crash": true
+      }
+    },
+    {
+      "id": "test-07-criminal-record",
+      "description": "Person with criminal record seeking work",
+      "input": {
+        "goal": "Warehouse operative or delivery driver",
+        "situation": "I have a spent conviction and I'm worried about disclosure",
+        "hours_per_week": 15,
+        "timeframe": "8 weeks",
+        "skills": "driving licence, manual handling, forklift",
+        "barriers": "criminal record, confidence",
+        "confidence": "2"
+      },
+      "expectations": {
+        "must_not_judge": true,
+        "must_not_suggest_lying": true,
+        "should_mention_disclosure_guidance": true,
+        "must_include_practical_steps": true
+      }
+    },
+    {
+      "id": "test-08-older-career-change",
+      "description": "Older worker changing careers, age-related anxiety",
+      "input": {
+        "goal": "Project coordinator role",
+        "situation": "I'm 57 and being made redundant from manufacturing management after 25 years",
+        "hours_per_week": 12,
+        "timeframe": "12 weeks",
+        "skills": "project management, leadership, budget management, health and safety",
+        "barriers": "career change, confidence",
+        "confidence": "3",
+        "industry": "public sector"
+      },
+      "expectations": {
+        "must_highlight_transferable_skills": true,
+        "must_not_reinforce_age_stereotypes": true,
+        "must_mention": ["transferable", "experience"],
+        "min_actions": 4
+      }
+    }
+  ]
+}
