@@ -18,7 +18,7 @@ export interface GDPRConsent {
 
 export const GDPR_CONSENT_STORAGE_KEY = 'smartTool.gdprConsent';
 export const GDPR_CONSENT_CHANGE_EVENT = 'smartTool.gdprConsentChanged';
-const CONSENT_VERSION = 2;
+const CONSENT_VERSION = 3;
 
 export function getStoredConsent(): GDPRConsent | null {
   try {
@@ -84,8 +84,9 @@ export function ManageConsentDialog({
           <div className="rounded-lg border p-3">
             <p className="font-medium text-foreground">AI processing</p>
             <p className="mt-1">
-              AI drafting/translation runs locally in your browser. Your text is not sent to any cloud AI service.
-              Model files are downloaded from this website (self-hosted) when you enable the AI Module.
+              By default, AI drafting and translation runs locally in your browser on-device.
+              Model files may be downloaded when you enable the AI Module.
+              Optional cloud AI features are available as an alternative and require separate opt-in.
             </p>
           </div>
         </div>
@@ -138,7 +139,8 @@ export function CookieConsent() {
                 <p className="font-medium">Privacy-first: local storage only</p>
                 <p className="text-sm text-muted-foreground mt-1">
                   This tool stores your history, templates and settings in your browser (localStorage).
-                  It does not use analytics or advertising cookies. AI features run locally in your browser.
+                  It does not use analytics or advertising cookies. AI features run locally by default;
+                  optional cloud AI features require separate consent.
                 </p>
 
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -187,8 +189,9 @@ export function CookieConsent() {
             <div className="rounded-lg border p-3">
               <p className="font-medium text-foreground">AI processing</p>
               <p className="mt-1">
-                AI drafting/translation runs locally in your browser. Your text is not sent to any cloud AI service.
-              Model files are downloaded from this website (self-hosted) when you enable the AI Module.
+                By default, AI drafting and translation runs locally in your browser on-device.
+                Model files may be downloaded when you enable the AI Module.
+                Optional cloud AI features are available as an alternative and require separate opt-in.
               </p>
             </div>
           </div>

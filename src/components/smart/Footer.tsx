@@ -38,7 +38,7 @@ export function Footer({ onOpenPrivacySettings, className }: FooterProps) {
               <span className="text-xs font-medium text-foreground">Privacy-First Design</span>
             </div>
 	            <p className="text-xs text-muted-foreground">
-	              This tool stores data locally, uses no third-party analytics, and runs AI features on-device (no cloud AI).{' '}
+	              This tool stores data locally, uses no third-party analytics, and runs AI features on-device by default.{' '}
               <a href="#/privacy" className="text-primary hover:underline">
                 See the Privacy Policy for details.
               </a>
