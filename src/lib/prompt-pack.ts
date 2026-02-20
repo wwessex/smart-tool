@@ -69,8 +69,8 @@ export const DEFAULT_PROMPT_PACK: PromptPack = {
     },
     {
       barrier: "Digital",
-      action: "Alex will upload an updated CV to Indeed and apply for 3 suitable roles by 25-Jan-26.",
-      help: "increase job applications",
+      action: "Alex will set up an email account and register on 2 job boards to enable online job searching by 25-Jan-26.",
+      help: "access online job vacancies",
     },
     {
       barrier: "CV",
@@ -84,7 +84,7 @@ export const DEFAULT_PROMPT_PACK: PromptPack = {
     },
     {
       barrier: "Job Search",
-      action: "Alex will set up job alerts on Indeed and CV Library and apply for 3 suitable vacancies by 25-Jan-26.",
+      action: "Alex will set up job alerts on 2 job boards and apply for 3 suitable vacancies by 25-Jan-26.",
       help: "increase chances of getting shortlisted",
     },
     {
@@ -96,6 +96,16 @@ export const DEFAULT_PROMPT_PACK: PromptPack = {
       barrier: "Motivation",
       action: "Alex will create a weekly job search routine with 3 specific daily tasks and review progress with advisor by 25-Jan-26.",
       help: "stay focused and build momentum",
+    },
+    {
+      barrier: "Finance",
+      action: "Alex will create a weekly budget listing income and essential outgoings using the provided template by 25-Jan-26.",
+      help: "understand finances and reduce money worries",
+    },
+    {
+      barrier: "Housing",
+      action: "Alex will contact the local council Housing Options team to discuss current housing situation by 25-Jan-26.",
+      help: "access housing support and reduce instability",
     },
   ],
 };
@@ -323,6 +333,103 @@ export function buildSystemPrompt(pack: PromptPack): string {
   return pack.systemPrompt;
 }
 
+/**
+ * Return barrier-specific RIGHT examples for the AI draft prompt.
+ * This prevents the model from generating generic job-application actions
+ * when the barrier is about something else (e.g. Finance, Housing, Transport).
+ */
+function getBarrierRightExamples(barrier: string): string {
+  const b = normalize(barrier);
+
+  // Finance / money barriers
+  if (b.includes("finance") || b.includes("money") || b.includes("debt") || b.includes("budget")) {
+    return "'create a weekly budget listing income and essential outgoings by [date]', 'use a benefits calculator to check entitlement by [date]', 'contact creditor to set up an affordable repayment plan by [date]'";
+  }
+  // Housing
+  if (b.includes("housing") || b.includes("homeless") || b.includes("accommodation")) {
+    return "'contact the local council Housing Options team by [date]', 'gather housing documents and bring to next appointment by [date]', 'search and shortlist 3 affordable properties on 2 approved sites by [date]'";
+  }
+  // Transport
+  if (b.includes("transport") || b.includes("travel") || b.includes("commut")) {
+    return "'plan and save a reliable route to appointments including costs and timings by [date]', 'complete the travel support application and submit evidence by [date]'";
+  }
+  // Confidence
+  if (b.includes("confidence") || b.includes("self-esteem") || b.includes("self esteem")) {
+    return "'identify 3 strengths with evidence examples and bring to next meeting by [date]', 'take one small agreed step such as making a phone call and note how it went by [date]'";
+  }
+  // Mental Wellbeing
+  if (b.includes("mental") || b.includes("wellbeing") || b.includes("anxiety") || b.includes("depression")) {
+    return "'contact the agreed wellbeing service to arrange an initial appointment by [date]', 'practise one self-care activity at least 3 times this week by [date]'";
+  }
+  // CV
+  if (b.includes("cv") || b.includes("resume")) {
+    return "'update CV for target role including a tailored profile and send to advisor by [date]', 'write 2 STAR examples for key skills by [date]'";
+  }
+  // Interviews
+  if (b.includes("interview")) {
+    return "'prepare answers to 5 common interview questions and practise twice by [date]', 'book and attend a mock interview session by [date]'";
+  }
+  // Digital Skills
+  if (b.includes("digital skill")) {
+    return "'complete the first module of the agreed online digital skills course by [date]', 'practise writing a professional email and send to advisor for feedback by [date]'";
+  }
+  // Digital Hardware & Connectivity
+  if (b.includes("digital") || b.includes("hardware") || b.includes("connectivity") || b.includes("computer") || b.includes("internet")) {
+    return "'register for free computer access at the local library by [date]', 'complete a basic digital skills assessment with advisor support by [date]'";
+  }
+  // Job Search
+  if (b.includes("job search")) {
+    return "'complete 2 job searches per week on agreed sites saving at least 3 suitable roles by [date]', 'set up job alerts for target role on 2 job boards by [date]'";
+  }
+  // Job Applications
+  if (b.includes("job application") || b.includes("application")) {
+    return "'submit 2 quality applications tailored to the job description by [date]', 'start an application tracker and update after every application by [date]'";
+  }
+  // Caring Responsibilities
+  if (b.includes("caring") || b.includes("childcare") || b.includes("children") || b.includes("carer")) {
+    return "'research and note 2 local childcare options including costs by [date]', 'contact local carers support service to discuss available support by [date]'";
+  }
+  // Motivation
+  if (b.includes("motivation")) {
+    return "'set one realistic weekly goal linked to job goal and report back by [date]', 'create a simple weekly routine including job search time and try it for one week by [date]'";
+  }
+  // Qualifications
+  if (b.includes("qualification") || b.includes("training") || b.includes("course")) {
+    return "'research and shortlist 2 relevant courses that support job goal by [date]', 'complete the application for the agreed course by [date]'";
+  }
+  // Health / Disability
+  if (b.includes("health") || b.includes("disability") || b.includes("disab")) {
+    return "'discuss work limitations or adjustments needed with advisor by [date]', 'explore Access to Work support and begin application if eligible by [date]'";
+  }
+  // Photo ID
+  if (b.includes("photo id") || b.includes("id")) {
+    return "'apply for a provisional driving licence online at gov.uk by [date]', 'apply for a PASS-approved ID card by [date]'";
+  }
+  // Literacy / Numeracy
+  if (b.includes("literacy") || b.includes("numeracy") || b.includes("reading") || b.includes("writing") || b.includes("maths")) {
+    return "'complete an initial literacy and numeracy assessment by [date]', 'enrol in a free functional skills course at a local provider by [date]'";
+  }
+  // Substance Misuse
+  if (b.includes("substance") || b.includes("alcohol") || b.includes("drug")) {
+    return "'contact the agreed local support service to arrange an initial appointment by [date]', 'attend the scheduled support appointment and note next steps by [date]'";
+  }
+  // Communication Skills
+  if (b.includes("communication") || b.includes("speaking") || b.includes("language")) {
+    return "'practise introducing yourself professionally in under one minute 3 times by [date]', 'book and attend the communication skills workshop by [date]'";
+  }
+  // ADHD / Autism / Learning Difficulties
+  if (b.includes("adhd") || b.includes("autism") || b.includes("learning difficult")) {
+    return "'create a structured daily routine for job search activities with advisor support by [date]', 'identify reasonable workplace adjustments and discuss with advisor by [date]'";
+  }
+  // Job Goal
+  if (b.includes("job goal") || b.includes("career")) {
+    return "'write down target job role including type of work hours and location preferences by [date]', 'research skills and qualifications needed for target role by [date]'";
+  }
+
+  // Generic fallback - barrier-neutral practical examples
+  return "'attend the agreed appointment and note next steps by [date]', 'gather key documents needed and bring to next appointment by [date]', 'complete the required form and save confirmation by [date]'";
+}
+
 export function buildDraftActionPrompt(pack: PromptPack, params: {
   forename: string;
   barrier: string;
@@ -350,6 +457,9 @@ export function buildDraftActionPrompt(pack: PromptPack, params: {
     ? `EXAMPLE (just the phrase):\n${examplePhrase}\n(benefit: ${ex!.help})\n`
     : "";
 
+  // Build barrier-relevant RIGHT examples so the model stays on-topic
+  const barrierRightExamples = getBarrierRightExamples(params.barrier);
+
   return [
     "TASK: Write ONE realistic employment action PHRASE (no name).",
     "FORMAT: a verb phrase that can follow '{forename} will ...'.",
@@ -357,12 +467,12 @@ export function buildDraftActionPrompt(pack: PromptPack, params: {
     "1) Do NOT include any person's name.",
     "2) Do NOT include the word 'will' (the app adds it).",
     "3) Must include a measurable element (number or clear deliverable).",
-    `4) Must be relevant to the barrier: '${params.barrier}'.`,
+    `4) CRITICAL: The action MUST directly address the barrier '${params.barrier}'. Do NOT suggest generic job applications unless the barrier is specifically about Job Search or Job Applications.`,
     `5) Must include the deadline '${params.targetDate}'${params.targetTime ? ` and time '${params.targetTime}'` : ''}.`,
     `6) Avoid: ${banned || "off-topic content"}`,
     "7) NEVER mention money, prizes, awards, payments, or rewards.",
     "8) NEVER promise job offers or guaranteed outcomes.",
-    "9) Only suggest practical steps: applying, researching, practising, attending, updating CV, making calls.",
+    "9) Only suggest practical steps that directly help overcome the stated barrier.",
     "CONTEXT:",
     `- Person: ${params.forename}`,
     `- Barrier: ${params.barrier}`,
@@ -372,7 +482,7 @@ export function buildDraftActionPrompt(pack: PromptPack, params: {
     guidanceLine,
     exampleBlock,
     "WRONG: 'be awarded £5000', 'receive a prize', 'get hired', 'win a scholarship'",
-    "RIGHT: 'apply for 3 roles on Indeed', 'attend the job fair and speak to 2 employers', 'update CV and send to advisor'",
+    `RIGHT for '${params.barrier}': ${barrierRightExamples}`,
     "OUTPUT: One short phrase only. No quotes. No bullet points.",
   ]
     .filter(Boolean)

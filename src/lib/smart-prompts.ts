@@ -55,7 +55,7 @@ export const CRITERION_GUIDANCE: Record<string, string> = {
 - WHO is doing the action (use the participant's name)
 - WHAT exactly they will do (concrete action verb)
 - WHERE it will happen (location, website, etc.)
-Example: "John will apply for 3 warehouse roles on Indeed.co.uk"`,
+Example: "John will update his CV and send it to the advisor for feedback"`,
   
   measurable: `To make it MEASURABLE, add:
 - A specific NUMBER (e.g., "2 applications", "3 employers")
@@ -114,27 +114,27 @@ CONTEXT:
 
 RULES:
 1. Start with "{forename} will"
-2. Include specific task related to "{barrier}"
+2. The action MUST directly address the "{barrier}" barrier. Do NOT suggest generic job applications unless the barrier is about Job Search or Job Applications.
 3. End with "by {targetDate}"
-4. Employment focus only - job search, skills, interviews, CV, etc.
+4. Employment focus only - practical steps that help overcome the stated barrier.
 5. NEVER mention money, prizes, awards, payments, or rewards.
 6. NEVER promise job offers or guaranteed outcomes.
 
 WRONG: "working on a project", "learning Python", "be awarded £5000", "receive a prize", "get hired"
-RIGHT: "{forename} will apply for 3 jobs on Indeed by {targetDate}."
+RIGHT: "{forename} will complete a weekly budget listing income and outgoings by {targetDate}."
 
 OUTPUT: One sentence only, no quotes.`;
 
 // Compact version for smaller models - even more direct
-export const DRAFT_ACTION_PROMPT_COMPACT = `Write ONE job search action for {forename}.
+export const DRAFT_ACTION_PROMPT_COMPACT = `Write ONE action to address the barrier "{barrier}" for {forename}.
 
 Barrier: {barrier}
 Deadline: {targetDate}
 
-Format: "{forename} will [job search action] by {targetDate}."
+Format: "{forename} will [action addressing the barrier] by {targetDate}."
 
+The action MUST directly help with the "{barrier}" barrier.
 NOT about: projects, coding, teams, AI, meetings, prizes, money, awards.
-ONLY about: jobs, CV, interviews, applications, skills.
 
 One sentence:`;
 
