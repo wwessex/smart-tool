@@ -1,0 +1,53 @@
+{
+  "name": "@smart-tool/browser-translation",
+  "version": "0.1.0",
+  "description": "Offline-first, privacy-preserving in-browser translation engine using OPUS-MT models via Transformers.js. Replaces cloud translation with local per-language-pair neural machine translation.",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./worker": {
+      "import": "./dist/runtime/worker.js",
+      "types": "./dist/runtime/worker.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.4.0",
+    "onnxruntime-web": "^1.21.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "keywords": [
+    "translation",
+    "browser",
+    "opus-mt",
+    "marian",
+    "webgpu",
+    "wasm",
+    "offline-first",
+    "privacy",
+    "nmt"
+  ]
+}
