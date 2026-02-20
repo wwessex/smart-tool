@@ -407,7 +407,7 @@ export function sanitizeActionPhrase(text: string, forename: string): string {
 
   // Prevent "Jim will action: Alex will ..." type leakage: replace any other-name-before-will.
   t = t.replace(/(^|[\n\r\t ,.])([A-Z][a-z]{2,20})(?=\s+will\b)/g, `$1${forename}`);
-  t = t.replace(new RegExp(`\\b${forename}\\s+will\\s+`, "gi"), "");
+  t = t.replace(new RegExp(`\\b${forename.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s+will\\s+`, "gi"), "");
 
   // Lowercase start (template adds the capitalised name).
   t = stripTrailingPunctuation(t.trim());
