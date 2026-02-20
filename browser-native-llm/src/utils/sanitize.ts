@@ -35,6 +35,7 @@ export function validateUrl(url: string): string {
  * Strips control characters and limits length to prevent log injection.
  */
 export function sanitizeForLog(input: string, maxLength = 200): string {
+  // eslint-disable-next-line no-control-regex -- Intentionally stripping control chars for log safety
   return input.replace(/[\x00-\x1F\x7F]/g, "").slice(0, maxLength);
 }
 

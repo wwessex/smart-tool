@@ -108,7 +108,7 @@ export function usePWA() {
 
       // Use requestIdleCallback if available, otherwise setTimeout
       if ('requestIdleCallback' in window) {
-        idleCallbackId = (window as any).requestIdleCallback(doRegister, { timeout: 5000 });
+        idleCallbackId = (window as unknown as { requestIdleCallback: (cb: () => void, opts: { timeout: number }) => number }).requestIdleCallback(doRegister, { timeout: 5000 });
       } else {
         timeoutId = window.setTimeout(doRegister, 3000);
       }
@@ -127,7 +127,7 @@ export function usePWA() {
         window.clearInterval(updateInterval);
       }
       if (idleCallbackId && 'cancelIdleCallback' in window) {
-        (window as any).cancelIdleCallback(idleCallbackId);
+        (window as unknown as { cancelIdleCallback: (id: number) => void }).cancelIdleCallback(idleCallbackId);
       }
       if (timeoutId) {
         window.clearTimeout(timeoutId);

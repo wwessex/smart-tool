@@ -726,7 +726,7 @@ export function SmartActionTool() {
     if (item.mode === 'now') {
       setNowForm({
         date: item.meta.date || today,
-        time: (item.meta as any).time || '',
+        time: (item.meta as Record<string, unknown>).time as string || '',
         forename: item.meta.forename || '',
         barrier: item.meta.barrier || '',
         action: item.meta.action || '',

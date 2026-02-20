@@ -54,7 +54,7 @@ const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 export class TranslationWorkerClient {
   private worker: Worker | null = null;
   private readonly workerUrl: string;
-  private readonly pending = new Map<string, PendingRequest<any>>();
+  private readonly pending = new Map<string, PendingRequest<unknown>>();
   private callbacks: WorkerClientCallbacks = {};
   private nextId = 0;
   private initPromise: Promise<InferenceBackend> | null = null;
