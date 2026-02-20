@@ -1444,7 +1444,7 @@ llm.clearError();
                       <h3 className="font-bold">AI Draft</h3>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      AI drafting runs locally in your browser with no cloud AI services. If local AI is unavailable, switch
+                      AI drafting runs locally in your browser by default. If local AI is unavailable, switch
                       to Smart Templates for instant built-in suggestions.
                     </p>
                     

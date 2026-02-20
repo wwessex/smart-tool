@@ -396,11 +396,41 @@ const exportAllData = useCallback(() => {
 
   // Delete all user data for GDPR right to erasure
   const deleteAllData = useCallback(() => {
-    // Clear all localStorage keys
+    // Clear all STORAGE keys from localStorage
     Object.values(STORAGE).forEach(key => {
       safeRemoveItem(key);
     });
-    
+
+    // Clear localSync keys (defined in useLocalSync, not in STORAGE)
+    safeRemoveItem('smartTool.localSync.folderName');
+    safeRemoveItem('smartTool.localSync.syncEnabled');
+    safeRemoveItem('smartTool.localSync.lastSync');
+
+    // Clear theme key
+    safeRemoveItem('theme');
+
+    // Clear sidebar cookie (dormant but present in codebase)
+    try {
+      document.cookie = 'sidebar:state=; path=/; max-age=0';
+    } catch { /* ignore */ }
+
+    // Clear sessionStorage
+    try {
+      sessionStorage.removeItem('smarttool:last_error');
+    } catch { /* ignore */ }
+
+    // Clear IndexedDB (smart-tool-sync database) - best effort async
+    try {
+      indexedDB.deleteDatabase('smart-tool-sync');
+    } catch { /* ignore */ }
+
+    // Clear CacheStorage (AI model cache) - best effort async
+    try {
+      if ('caches' in window) {
+        caches.delete('smart-tool-llm-cache-v1');
+      }
+    } catch { /* ignore */ }
+
     // Reset state to defaults
     setBarriers([...DEFAULT_BARRIERS]);
     setTimescales([...DEFAULT_TIMESCALES]);
