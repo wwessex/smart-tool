@@ -102,18 +102,27 @@ const initApp = () => {
     console.error("Failed to initialize app:", error);
     hideLoadingScreen();
     
-    // Show error message in root
+    // Show error message in root (DOM API to avoid innerHTML XSS sink)
     const root = document.getElementById("root");
     if (root) {
-      root.innerHTML = `
-        <div style="padding: 2rem; font-family: system-ui; text-align: center;">
-          <h1>Failed to load application</h1>
-          <p style="color: #666;">Please try refreshing the page or clearing your cache.</p>
-          <button onclick="location.reload()" style="margin-top: 1rem; padding: 0.5rem 1rem; cursor: pointer; background: #e89309; color: white; border: none; border-radius: 0.25rem;">
-            Reload
-          </button>
-        </div>
-      `;
+      const container = document.createElement("div");
+      container.style.cssText = "padding: 2rem; font-family: system-ui; text-align: center;";
+
+      const heading = document.createElement("h1");
+      heading.textContent = "Failed to load application";
+
+      const msg = document.createElement("p");
+      msg.style.color = "#666";
+      msg.textContent = "Please try refreshing the page or clearing your cache.";
+
+      const btn = document.createElement("button");
+      btn.textContent = "Reload";
+      btn.style.cssText = "margin-top: 1rem; padding: 0.5rem 1rem; cursor: pointer; background: #e89309; color: white; border: none; border-radius: 0.25rem;";
+      btn.addEventListener("click", () => location.reload());
+
+      container.append(heading, msg, btn);
+      root.textContent = "";
+      root.appendChild(container);
     }
   }
 };
