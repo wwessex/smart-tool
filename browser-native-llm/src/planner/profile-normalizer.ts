@@ -197,9 +197,8 @@ function parseTimeframeWeeks(timeframeStr?: string): number {
 function parseSkills(skillsStr?: string): string[] {
   if (!skillsStr) return [];
 
-  // Split on commas, semicolons, "and", or newlines
-  return skillsStr
-    .split(/[,;\n]|(?:\s+and\s+)/i)
+  // Split on commas, semicolons, "and", or newlines (manual split to avoid ReDoS)
+  return splitOnDelimiters(skillsStr)
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
 }
@@ -221,15 +220,14 @@ function parseBarriers(
 
   // Also include explicitly listed barriers
   if (barriersStr) {
-    const explicit = barriersStr
-      .split(/[,;\n]|(?:\s+and\s+)/i)
+    const explicit = splitOnDelimiters(barriersStr)
       .map((s) => s.trim().toLowerCase())
       .filter((s) => s.length > 0);
 
     for (const b of explicit) {
       // If it wasn't caught by keywords, add it as-is
       if (!Array.from(barriers).some((canonical) => b.includes(canonical))) {
-        barriers.add(b.replace(/\s+/g, "_"));
+        barriers.add(collapseWhitespace(b, "_"));
       }
     }
   }
@@ -274,6 +272,76 @@ function parseWorkArrangement(
   if (str.includes("on-site") || str.includes("onsite") || str.includes("office"))
     return "on-site";
   return "any";
+}
+
+/**
+ * Split text on commas, semicolons, newlines, and " and " (case-insensitive).
+ * Manual O(n) scan to avoid ReDoS from /[,;\n]|(?:\s+and\s+)/i.
+ */
+function splitOnDelimiters(text: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let i = 0;
+
+  while (i < text.length) {
+    const ch = text[i];
+
+    // Single-char delimiters
+    if (ch === "," || ch === ";" || ch === "\n") {
+      result.push(current);
+      current = "";
+      i++;
+      continue;
+    }
+
+    // Check for whitespace + "and" + whitespace
+    if (ch === " " || ch === "\t") {
+      let j = i;
+      while (j < text.length && (text[j] === " " || text[j] === "\t")) j++;
+      if (
+        j + 3 <= text.length &&
+        text.slice(j, j + 3).toLowerCase() === "and" &&
+        j + 3 < text.length &&
+        (text[j + 3] === " " || text[j + 3] === "\t")
+      ) {
+        result.push(current);
+        current = "";
+        i = j + 4;
+        while (i < text.length && (text[i] === " " || text[i] === "\t")) i++;
+        continue;
+      }
+    }
+
+    current += ch;
+    i++;
+  }
+
+  result.push(current);
+  return result;
+}
+
+/**
+ * Replace runs of whitespace with a replacement character.
+ * Manual O(n) scan to avoid ReDoS from /\s+/g.
+ */
+function collapseWhitespace(text: string, replacement: string): string {
+  let result = "";
+  let inWhitespace = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === " " || ch === "\t" || ch === "\n" || ch === "\r") {
+      if (!inWhitespace) {
+        result += replacement;
+        inWhitespace = true;
+      }
+    } else {
+      result += ch;
+      inWhitespace = false;
+    }
+  }
+
+  return result;
 }
 
 /**
