@@ -266,6 +266,9 @@ export class TranslationEngine {
     }
 
     const pipeline = await this.pipelineManager.getPipeline(pair);
+    if (typeof pipeline !== "function") {
+      throw new Error("Loaded translation pipeline is not callable");
+    }
     const chunks = chunkText(text, { maxChars: this.config.maxChunkChars });
 
     const translatedChunks = [];
