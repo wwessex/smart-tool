@@ -264,9 +264,17 @@ export class TransformersInferenceEngine extends InferenceEngine {
       repetition_penalty:
         options.repetition_penalty ?? this.config.repetition_penalty,
       do_sample: (options.temperature ?? this.config.temperature) > 0,
+      return_full_text: false,
     });
 
-    const text = results[0]?.generated_text ?? "";
+    let text = results[0]?.generated_text ?? "";
+
+    // Trim at the first occurrence of any stop sequence so downstream
+    // JSON parsing only sees the model's structured output.
+    if (options.stop_sequences && options.stop_sequences.length > 0) {
+      text = trimAtStopSequence(text, options.stop_sequences);
+    }
+
     const timeMs = performance.now() - startTime;
 
     // Approximate token count from output length
@@ -288,4 +296,19 @@ export class TransformersInferenceEngine extends InferenceEngine {
   get backend(): InferenceBackend {
     return this.activeBackend;
   }
+}
+
+/**
+ * Trim generated text at the first occurrence of any stop sequence.
+ * Returns the text up to (but not including) the stop sequence.
+ */
+function trimAtStopSequence(text: string, stopSequences: string[]): string {
+  let earliestIndex = text.length;
+  for (const seq of stopSequences) {
+    const idx = text.indexOf(seq);
+    if (idx !== -1 && idx < earliestIndex) {
+      earliestIndex = idx;
+    }
+  }
+  return earliestIndex < text.length ? text.slice(0, earliestIndex) : text;
 }
