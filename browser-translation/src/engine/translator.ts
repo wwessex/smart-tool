@@ -6,7 +6,7 @@
  *
  * @example
  * ```ts
- * import { TranslationEngine } from "@smart-tool/browser-translation";
+ * import { TranslationEngine } from "@smart-tool/lengua-materna";
  *
  * const engine = new TranslationEngine({
  *   modelBasePath: "/models/",

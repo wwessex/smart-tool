@@ -32,7 +32,7 @@ import type {
 
 /**
  * All languages supported by this translation engine.
- * Matches the current smart-tool language set (from useTranslation.ts)
+ * Matches the current Lengua Materna language set (from useTranslation.ts)
  * plus additional high-value pairs.
  */
 export const SUPPORTED_LANGUAGES: Record<LanguageCode, LanguageInfo> = {

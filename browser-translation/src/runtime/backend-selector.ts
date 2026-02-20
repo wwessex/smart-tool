@@ -5,7 +5,7 @@
  * to choose the optimal ONNX Runtime Web execution provider.
  *
  * This is adapted from browser-native-llm/src/runtime/backend-selector.ts
- * for the translation engine context.
+ * for the Lengua Materna Translation Engine.
  */
 
 import type { BrowserCapabilities, InferenceBackend } from "../types.js";

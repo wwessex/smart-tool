@@ -1,5 +1,5 @@
 /**
- * Core type definitions for the browser-translation engine.
+ * Core type definitions for the Lengua Materna Translation Engine.
  *
  * This module replaces the cloud/NLLB-based translation with lightweight,
  * per-language-pair OPUS-MT (Marian) models running locally via

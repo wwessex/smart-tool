@@ -1,7 +1,7 @@
 {
-  "name": "@smart-tool/browser-translation",
+  "name": "@smart-tool/lengua-materna",
   "version": "0.1.0",
-  "description": "Offline-first, privacy-preserving in-browser translation engine using OPUS-MT models via Transformers.js. Replaces cloud translation with local per-language-pair neural machine translation.",
+  "description": "Lengua Materna Translation Engine — offline-first, privacy-preserving in-browser translation using OPUS-MT models via Transformers.js. Replaces cloud translation with local per-language-pair neural machine translation.",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.js",

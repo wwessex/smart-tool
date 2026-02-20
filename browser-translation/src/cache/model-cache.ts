@@ -16,10 +16,10 @@
 import type { ModelCacheEntry, ModelDtype } from "../types.js";
 
 /** Cache name used for translation model files. */
-const CACHE_NAME = "smart-tool-translation-models";
+const CACHE_NAME = "lengua-materna-models";
 
 /** IndexedDB database name for cache metadata. */
-const DB_NAME = "smart-tool-translation-cache";
+const DB_NAME = "lengua-materna-cache";
 const DB_VERSION = 1;
 const STORE_NAME = "models";
 

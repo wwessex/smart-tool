@@ -1,5 +1,5 @@
 /**
- * @smart-tool/browser-translation
+ * Lengua Materna Translation Engine
  *
  * Offline-first, privacy-preserving in-browser translation engine.
  *
@@ -19,7 +19,7 @@
  *
  * @example
  * ```ts
- * import { TranslationEngine } from "@smart-tool/browser-translation";
+ * import { TranslationEngine } from "@smart-tool/lengua-materna";
  *
  * const engine = new TranslationEngine({
  *   modelBasePath: "/models/",

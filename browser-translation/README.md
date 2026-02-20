@@ -1,4 +1,4 @@
-# @smart-tool/browser-translation
+# Lengua Materna Translation Engine
 
 Offline-first, privacy-preserving in-browser translation engine for the SMART Action Tool. Replaces the previous cloud/NLLB-based translation with lightweight, per-language-pair **OPUS-MT (Marian)** models running locally via **Transformers.js + ONNX Runtime Web**.
 
@@ -69,7 +69,7 @@ The engine auto-detects WebGPU support and falls back to WASM SIMD or basic WASM
 
 ## Supported Languages
 
-All current smart-tool languages plus additional high-value pairs:
+All current Lengua Materna languages plus additional high-value pairs:
 
 | Language | Code | Direction | Direct Model | Notes |
 |----------|------|-----------|:---:|-------|
@@ -93,7 +93,7 @@ All current smart-tool languages plus additional high-value pairs:
 ## Usage (Future Integration)
 
 ```ts
-import { TranslationEngine } from "@smart-tool/browser-translation";
+import { TranslationEngine } from "@smart-tool/lengua-materna";
 
 const engine = new TranslationEngine({
   modelBasePath: "/models/",
@@ -121,7 +121,7 @@ console.log(`Took ${result.durationMs}ms, pivot: ${result.usedPivot}`);
 ### With Web Worker
 
 ```ts
-import { TranslationWorkerClient } from "@smart-tool/browser-translation";
+import { TranslationWorkerClient } from "@smart-tool/lengua-materna";
 
 const client = new TranslationWorkerClient("/worker.js");
 

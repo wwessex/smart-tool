@@ -18,7 +18,7 @@ Usage:
     # Convert multiple priority models
     python convert-model.py --batch --output ./models/
 
-Example models for the smart-tool translation engine:
+Example models for the Lengua Materna Translation Engine:
     Helsinki-NLP/opus-mt-en-de   (English → German)
     Helsinki-NLP/opus-mt-en-fr   (English → French)
     Helsinki-NLP/opus-mt-en-es   (English → Spanish)
@@ -34,7 +34,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-# Priority models matching the smart-tool supported languages
+# Priority models matching the Lengua Materna supported languages
 PRIORITY_MODELS = [
     "Helsinki-NLP/opus-mt-en-de",
     "Helsinki-NLP/opus-mt-en-fr",
