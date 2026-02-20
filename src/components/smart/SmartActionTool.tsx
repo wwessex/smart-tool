@@ -146,7 +146,7 @@ export function SmartActionTool() {
     allowMobileLLM: storage.allowMobileLLM,
     safariWebGPUEnabled: storage.safariWebGPUEnabled,
   });
-  const translation = useTranslation({ enabled: llm.canUseLocalAI });
+  const translation = useTranslation();
 
   const { pack: promptPack, source: promptPackSource } = usePromptPack();
   const today = todayISO();
@@ -449,8 +449,8 @@ export function SmartActionTool() {
     
     if (!translation.canTranslate) {
       toast({
-        title: 'Local AI not ready',
-        description: 'Download the AI Module in Settings to enable translation.',
+        title: 'Translation unavailable',
+        description: 'Translation is currently disabled.',
         variant: 'destructive',
       });
       return;

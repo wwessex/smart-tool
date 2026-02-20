@@ -70,6 +70,7 @@ export default defineConfig(({ mode }) => {
       alias: {
         "@": path.resolve(__dirname, "./src"),
         "@smart-tool/browser-native-llm": path.resolve(__dirname, "./browser-native-llm/src/index.ts"),
+        "@smart-tool/lengua-materna": path.resolve(__dirname, "./browser-translation/src/index.ts"),
       },
     },
     build: {
@@ -121,7 +122,7 @@ export default defineConfig(({ mode }) => {
         '@tanstack/react-query',
       ],
       // Exclude heavy deps from pre-bundling if not needed immediately
-      exclude: ['@mlc-ai/web-llm', 'onnxruntime-web'],
+      exclude: ['@mlc-ai/web-llm', 'onnxruntime-web', '@smart-tool/lengua-materna'],
 
       // Some deps (e.g. transformers.js) contain BigInt literals (0n/1n) which require ES2020+.
       // Ensure the dependency pre-bundler doesn't downlevel to ES2019.

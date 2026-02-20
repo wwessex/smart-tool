@@ -22,6 +22,7 @@
 | State Management | React hooks + TanStack Query |
 | Backend | Supabase (Edge Functions for AI) |
 | Local AI | @huggingface/transformers (WebGPU/WASM) |
+| Translation | @smart-tool/lengua-materna (OPUS-MT via Transformers.js) |
 | Testing | Vitest + Testing Library |
 | Linting | ESLint with TypeScript support |
 
@@ -52,6 +53,7 @@ smart-tool/
 │   └── functions/          # Supabase Edge Functions
 │       ├── smart-chat/     # Cloud AI chat endpoint
 │       └── smart-translate/ # Translation endpoint
+├── browser-translation/    # Lengua Materna translation engine (workspace: @smart-tool/lengua-materna)
 ├── public/                 # Static assets, PWA files, manifest
 ├── scripts/                # Build scripts (fetch-models.py)
 └── [config files]          # vite.config.ts, tailwind.config.cjs, etc.
@@ -201,6 +203,16 @@ const result = checkSmart(actionText, {
 Two modes of AI operation:
 1. **Cloud AI** (`useCloudAI`): Streams responses via Supabase Edge Function
 2. **Local AI** (`useTransformersLLM`): Browser-based LLM using WebGPU or WASM fallback
+
+### Translation (Lengua Materna Engine)
+Translation uses the `@smart-tool/lengua-materna` workspace package (`browser-translation/`), which runs per-language-pair OPUS-MT models locally via Transformers.js. Key features:
+- **15 target languages** (Welsh, Polish, Urdu, Bengali, Arabic, Punjabi, Pashto, Somali, Tigrinya, German, French, Spanish, Italian, Portuguese, Hindi)
+- **Per-pair models** (~105-130 MB each, CC-BY-4.0 licensed) instead of one large multilingual model
+- **LRU pipeline management** — max 3 models loaded simultaneously
+- **Pivot translation** through English for pairs without a direct model
+- **Segment caching** and placeholder preservation
+- **Independent from drafting LLM** — translation works even without the local AI module
+- Integration hook: `src/hooks/useTranslation.ts` (wraps the engine with React state)
 
 ### Data Portability (GDPR)
 - `exportAllData()`: Returns all user data as JSON (version 2 format)
