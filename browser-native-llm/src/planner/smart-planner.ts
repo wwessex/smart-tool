@@ -34,6 +34,8 @@ export interface PlannerConfig {
   retrieval_pack_url: string;
   /** URL for the inference worker script. */
   worker_url: string;
+  /** Pre-created Worker instance (takes precedence over worker_url). */
+  worker?: Worker;
   /** Maximum repair attempts before falling back to templates. */
   max_repair_attempts: number;
   /** Minimum acceptable overall validation score (0-100). */
@@ -103,11 +105,16 @@ export class SmartPlanner {
     await this.library.loadFromUrl(this.config.retrieval_pack_url);
     this.retriever = new LocalRetriever(this.library);
 
-    // Initialize inference worker
-    this.worker = new Worker(this.config.worker_url, { type: "module" });
+    // Initialize inference worker (use provided instance or create from URL)
+    this.worker = this.config.worker ?? new Worker(this.config.worker_url, { type: "module" });
 
     await new Promise<void>((resolve, reject) => {
       if (!this.worker) return reject(new Error("Worker not created"));
+
+      // Handle worker load failures (e.g. invalid URL, network error)
+      this.worker.onerror = (event: ErrorEvent) => {
+        reject(new Error(`Worker failed to load: ${event.message || "unknown error"}`));
+      };
 
       this.worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
         const msg = event.data;
