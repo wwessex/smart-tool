@@ -14,14 +14,7 @@ export interface TranslationState {
   result: TranslationResult | null;
 }
 
-export interface LocalLLMHandle {
-  isReady: boolean;
-  canUseLocalAI?: boolean;
-  generate: (userPrompt: string, systemPrompt: string, purpose?: string) => Promise<string>;
-}
-
 export interface UseTranslationOptions {
-  llm?: LocalLLMHandle | null;
   /** When false, translation is disabled. */
   enabled?: boolean;
 }
