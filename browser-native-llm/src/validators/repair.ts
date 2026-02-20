@@ -214,11 +214,13 @@ function adjustEffortEstimate(
   currentEstimate: string,
   hoursPerWeek: number
 ): string {
-  const hoursMatch = currentEstimate.match(/(\d+)\s*(?:-\s*(\d+))?\s*hours?/i);
+  const lower = currentEstimate.toLowerCase();
+  const hoursRange = parseHoursRangeRepair(lower);
 
-  if (hoursMatch) {
-    const maxHours = parseInt(hoursMatch[2] || hoursMatch[1], 10);
-    const isWeekly = /week|per\s+week|\/\s*w/i.test(currentEstimate);
+  if (hoursRange) {
+    const maxHours = hoursRange.max;
+    const isWeekly =
+      lower.includes("week") || lower.includes("/w") || lower.includes("per w");
 
     if (isWeekly && maxHours > hoursPerWeek) {
       // Cap at a reasonable fraction of available time
@@ -228,6 +230,41 @@ function adjustEffortEstimate(
   }
 
   return currentEstimate;
+}
+
+/**
+ * Parse a hours range like "2-4 hours" or "3 hours" from text.
+ * Manual string scanning to avoid ReDoS.
+ */
+function parseHoursRangeRepair(text: string): { min: number; max: number } | null {
+  const hourIdx = text.indexOf("hour");
+  if (hourIdx <= 0) return null;
+
+  // Scan backwards from "hour" to find the number(s)
+  let i = hourIdx - 1;
+  while (i >= 0 && text[i] === " ") i--;
+
+  // Collect digits for the last number
+  const maxEnd = i + 1;
+  while (i >= 0 && text[i] >= "0" && text[i] <= "9") i--;
+  if (i + 1 === maxEnd) return null;
+  const maxNum = parseInt(text.slice(i + 1, maxEnd), 10);
+
+  // Check for range separator "-"
+  let minNum = maxNum;
+  let j = i;
+  while (j >= 0 && text[j] === " ") j--;
+  if (j >= 0 && text[j] === "-") {
+    j--;
+    while (j >= 0 && text[j] === " ") j--;
+    const minEnd = j + 1;
+    while (j >= 0 && text[j] >= "0" && text[j] <= "9") j--;
+    if (j + 1 < minEnd) {
+      minNum = parseInt(text.slice(j + 1, minEnd), 10);
+    }
+  }
+
+  return isNaN(minNum) || isNaN(maxNum) ? null : { min: minNum, max: maxNum };
 }
 
 // ---------------------------------------------------------------------------
@@ -250,7 +287,7 @@ function scoreTemplate(
   }
 
   // Goal keyword match
-  const goalTerms = profile.job_goal.toLowerCase().split(/\s+/);
+  const goalTerms = splitOnWhitespace(profile.job_goal.toLowerCase());
   for (const term of goalTerms) {
     if (
       term.length > 2 &&
@@ -340,4 +377,25 @@ function inferFirstStep(
   };
 
   return firstSteps[stage] ?? "Spend 15 minutes planning how to start this action";
+}
+
+/**
+ * Split text on whitespace. Manual scan to avoid ReDoS from /\s+/.
+ */
+function splitOnWhitespace(text: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === " " || ch === "\t" || ch === "\n" || ch === "\r") {
+      if (current.length > 0) {
+        result.push(current);
+        current = "";
+      }
+    } else {
+      current += ch;
+    }
+  }
+  if (current.length > 0) result.push(current);
+  return result;
 }

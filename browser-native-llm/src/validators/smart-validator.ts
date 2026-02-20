@@ -16,7 +16,7 @@ import type {
   SMARTCriteriaResult,
   CriterionResult,
 } from "../types.js";
-import { sanitizeForLog } from "../utils/sanitize.js";
+import { sanitizeForLog, splitOnWhitespace } from "../utils/sanitize.js";
 
 /**
  * Validate a single SMART action against criteria and user profile.
@@ -234,9 +234,7 @@ function checkRelevant(
   profile: UserProfile
 ): CriterionResult {
   const actionText = `${action.action} ${action.rationale}`.toLowerCase();
-  const goalTerms = profile.job_goal
-    .toLowerCase()
-    .split(/\s+/)
+  const goalTerms = splitOnWhitespace(profile.job_goal.toLowerCase())
     .filter((t) => t.length > 2);
 
   // Check goal keyword overlap

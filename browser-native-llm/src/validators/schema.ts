@@ -203,8 +203,8 @@ function tryParseArray(text: string): unknown[] | null {
 function cleanJsonString(text: string): string {
   let cleaned = text;
 
-  // Remove trailing commas before ] or }
-  cleaned = cleaned.replace(/,\s*([}\]])/g, "$1");
+  // Remove trailing commas before ] or } (manual scan to avoid ReDoS)
+  cleaned = removeTrailingCommas(cleaned);
 
   // Fix unescaped newlines inside JSON strings (common model error)
   // Uses character-by-character scan instead of regex lookbehind to avoid ReDoS
@@ -221,6 +221,34 @@ function cleanJsonString(text: string): string {
   }
 
   return cleaned;
+}
+
+/**
+ * Remove trailing commas before ] or } in JSON text.
+ * Manual O(n) scan to avoid ReDoS from /,\s*([}\]])/g.
+ */
+function removeTrailingCommas(text: string): string {
+  let result = "";
+  let i = 0;
+
+  while (i < text.length) {
+    if (text[i] === ",") {
+      // Look ahead past whitespace for } or ]
+      let j = i + 1;
+      while (j < text.length && (text[j] === " " || text[j] === "\t" || text[j] === "\n" || text[j] === "\r")) {
+        j++;
+      }
+      if (j < text.length && (text[j] === "}" || text[j] === "]")) {
+        // Skip the comma, keep the whitespace and closing bracket
+        i++;
+        continue;
+      }
+    }
+    result += text[i];
+    i++;
+  }
+
+  return result;
 }
 
 function fixNewlinesInStrings(text: string): string {

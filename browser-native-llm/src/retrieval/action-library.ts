@@ -9,7 +9,7 @@
  */
 
 import type { ActionTemplate, SkillEntry, RetrievalPack, JobSearchStage } from "../types.js";
-import { validateUrl } from "../utils/sanitize.js";
+import { validateUrl, splitOnWhitespace } from "../utils/sanitize.js";
 
 /** In-memory action library loaded from a retrieval pack. */
 export class ActionLibrary {
@@ -103,9 +103,7 @@ export class ActionLibrary {
    * Uses simple keyword matching against action_template, tags, and stage.
    */
   search(query: string, maxResults: number = 10): ActionTemplate[] {
-    const queryTerms = query
-      .toLowerCase()
-      .split(/\s+/)
+    const queryTerms = splitOnWhitespace(query.toLowerCase())
       .filter((t) => t.length > 2);
 
     if (queryTerms.length === 0) return [];

@@ -140,9 +140,10 @@ async function handleModelFetch(request: Request): Promise<Response> {
  */
 function getCacheNameForUrl(url: string): string {
   // Extract model ID and version from URL path if possible
-  const match = url.match(/models\/([^/]+)-v([^/]+)\//);
-  if (match && match[1].length <= 100 && match[2].length <= 50) {
-    return `${CACHE_NAME_PREFIX}${match[1]}@${match[2]}`;
+  // Manual URL path parsing to avoid ReDoS from regex with [^/]+ patterns
+  const match = parseModelVersionFromUrl(url);
+  if (match && match.modelId.length <= 100 && match.version.length <= 50) {
+    return `${CACHE_NAME_PREFIX}${match.modelId}@${match.version}`;
   }
 
   // Default cache for unversioned resources
@@ -233,4 +234,33 @@ async function handleGetCacheStatus(
   }
 
   event.source?.postMessage({ type: "cache-status", status });
+}
+
+/**
+ * Parse model ID and version from a URL path like "models/modelname-vX.Y/file".
+ * Manual string scanning to avoid ReDoS from /models\/([^/]+)-v([^/]+)\//.
+ */
+function parseModelVersionFromUrl(
+  url: string
+): { modelId: string; version: string } | null {
+  const marker = "models/";
+  const idx = url.indexOf(marker);
+  if (idx === -1) return null;
+
+  const afterModels = idx + marker.length;
+
+  // Find the next "/" after "models/"
+  const nextSlash = url.indexOf("/", afterModels);
+  if (nextSlash === -1) return null;
+
+  const segment = url.slice(afterModels, nextSlash);
+
+  // Find the last "-v" in the segment to split model ID and version
+  const vIdx = segment.lastIndexOf("-v");
+  if (vIdx === -1 || vIdx === 0 || vIdx + 2 >= segment.length) return null;
+
+  return {
+    modelId: segment.slice(0, vIdx),
+    version: segment.slice(vIdx + 2),
+  };
 }

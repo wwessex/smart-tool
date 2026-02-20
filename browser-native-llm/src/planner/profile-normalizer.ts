@@ -128,18 +128,8 @@ function normalizeGoal(goal: string): string {
   normalized = normalized.slice(0, 2000);
 
   // Remove common prefixes like "I want to", "I'm looking for"
-  const prefixes = [
-    /^i\s+want\s+to\s+(find|get)\s+(a\s+)?/i,
-    /^i'?m\s+looking\s+for\s+(a\s+)?/i,
-    /^looking\s+for\s+(a\s+)?/i,
-    /^i\s+need\s+(a\s+)?/i,
-    /^find\s+(a\s+)?/i,
-    /^get\s+(a\s+)?/i,
-  ];
-
-  for (const prefix of prefixes) {
-    normalized = normalized.replace(prefix, "");
-  }
+  // Manual matching to avoid ReDoS from patterns like /\s+want\s+to\s+/
+  normalized = stripCommonPrefixes(normalized);
 
   // Remove trailing punctuation (manual loop to avoid ReDoS)
   let end = normalized.length;
@@ -272,6 +262,131 @@ function parseWorkArrangement(
   if (str.includes("on-site") || str.includes("onsite") || str.includes("office"))
     return "on-site";
   return "any";
+}
+
+/**
+ * Strip common freeform prefixes from a goal string.
+ * Manual matching to avoid ReDoS from regex patterns like /^i\s+want\s+to\s+/.
+ */
+function stripCommonPrefixes(text: string): string {
+  const lower = text.toLowerCase();
+  let i = 0;
+
+  // Helper: skip whitespace starting at position i, return new position
+  function skipWs(pos: number): number {
+    while (pos < lower.length && (lower[pos] === " " || lower[pos] === "\t")) pos++;
+    return pos;
+  }
+
+  // Helper: check if text at position starts with word, return position after word or -1
+  function matchWord(pos: number, word: string): number {
+    if (lower.startsWith(word, pos)) {
+      const end = pos + word.length;
+      if (end >= lower.length || lower[end] === " " || lower[end] === "\t") {
+        return end;
+      }
+    }
+    return -1;
+  }
+
+  // Try "i want to (find|get) (a )?"
+  let j = matchWord(i, "i");
+  if (j !== -1) {
+    j = skipWs(j);
+    const jWant = matchWord(j, "want");
+    if (jWant !== -1) {
+      let k = skipWs(jWant);
+      const kTo = matchWord(k, "to");
+      if (kTo !== -1) {
+        k = skipWs(kTo);
+        const kFind = matchWord(k, "find");
+        const kGet = matchWord(k, "get");
+        const kVerb = kFind !== -1 ? kFind : kGet;
+        if (kVerb !== -1) {
+          let m = skipWs(kVerb);
+          const mA = matchWord(m, "a");
+          if (mA !== -1) m = skipWs(mA);
+          return text.slice(m);
+        }
+      }
+    }
+
+    // Try "i'm looking for (a )?" or "im looking for (a )?"
+    const jmApostrophe = lower.startsWith("'m", j) ? j + 2 : lower.startsWith("m", j) && j === 1 ? j + 1 : -1;
+    if (jmApostrophe !== -1) {
+      let k = skipWs(jmApostrophe);
+      const kLooking = matchWord(k, "looking");
+      if (kLooking !== -1) {
+        k = skipWs(kLooking);
+        const kFor = matchWord(k, "for");
+        if (kFor !== -1) {
+          let m = skipWs(kFor);
+          const mA = matchWord(m, "a");
+          if (mA !== -1) m = skipWs(mA);
+          return text.slice(m);
+        }
+      }
+    }
+
+    // Try "i need (a )?"
+    const jNeed = matchWord(j, "need");
+    if (jNeed !== -1) {
+      let k = skipWs(jNeed);
+      const kA = matchWord(k, "a");
+      if (kA !== -1) k = skipWs(kA);
+      return text.slice(k);
+    }
+  }
+
+  // Try "i'm looking for (a )?"
+  j = matchWord(i, "i'm");
+  if (j !== -1) {
+    j = skipWs(j);
+    const jLooking = matchWord(j, "looking");
+    if (jLooking !== -1) {
+      let k = skipWs(jLooking);
+      const kFor = matchWord(k, "for");
+      if (kFor !== -1) {
+        let m = skipWs(kFor);
+        const mA = matchWord(m, "a");
+        if (mA !== -1) m = skipWs(mA);
+        return text.slice(m);
+      }
+    }
+  }
+
+  // Try "looking for (a )?"
+  j = matchWord(i, "looking");
+  if (j !== -1) {
+    j = skipWs(j);
+    const jFor = matchWord(j, "for");
+    if (jFor !== -1) {
+      let k = skipWs(jFor);
+      const kA = matchWord(k, "a");
+      if (kA !== -1) k = skipWs(kA);
+      return text.slice(k);
+    }
+  }
+
+  // Try "find (a )?"
+  j = matchWord(i, "find");
+  if (j !== -1) {
+    let k = skipWs(j);
+    const kA = matchWord(k, "a");
+    if (kA !== -1) k = skipWs(kA);
+    return text.slice(k);
+  }
+
+  // Try "get (a )?"
+  j = matchWord(i, "get");
+  if (j !== -1) {
+    let k = skipWs(j);
+    const kA = matchWord(k, "a");
+    if (kA !== -1) k = skipWs(kA);
+    return text.slice(k);
+  }
+
+  return text;
 }
 
 /**

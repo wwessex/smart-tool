@@ -37,3 +37,24 @@ export function validateUrl(url: string): string {
 export function sanitizeForLog(input: string, maxLength = 200): string {
   return input.replace(/[\x00-\x1F\x7F]/g, "").slice(0, maxLength);
 }
+
+/**
+ * Split text on whitespace. Manual O(n) scan to avoid ReDoS from /\s+/.
+ */
+export function splitOnWhitespace(text: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === " " || ch === "\t" || ch === "\n" || ch === "\r") {
+      if (current.length > 0) {
+        result.push(current);
+        current = "";
+      }
+    } else {
+      current += ch;
+    }
+  }
+  if (current.length > 0) result.push(current);
+  return result;
+}

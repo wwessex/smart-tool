@@ -9,6 +9,7 @@
 
 import type { UserProfile, ActionTemplate, SkillEntry, JobSearchStage } from "../types.js";
 import { ActionLibrary } from "./action-library.js";
+import { splitOnWhitespace } from "../utils/sanitize.js";
 
 /** Result of a retrieval query. */
 export interface RetrievalResult {
@@ -146,7 +147,7 @@ export class LocalRetriever {
     profile: UserProfile
   ): Array<{ template: ActionTemplate; score: number }> {
     const scored: Array<{ template: ActionTemplate; score: number }> = [];
-    const goalTerms = profile.job_goal.toLowerCase().split(/\s+/);
+    const goalTerms = splitOnWhitespace(profile.job_goal.toLowerCase());
     const barrierTerms = profile.barriers.map((b) => b.toLowerCase());
     const skillTerms = profile.skills.map((s) => s.toLowerCase());
 
