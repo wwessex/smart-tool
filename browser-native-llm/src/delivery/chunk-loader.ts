@@ -114,7 +114,7 @@ async function downloadFileByUrl(
   });
 
   // Check for cached partial download (for resume)
-  let startByte = 0;
+  const startByte = 0;
   const existingChunks: Uint8Array[] = [];
 
   const headers: Record<string, string> = {};

@@ -8,7 +8,7 @@
  *   const worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
  */
 
-import type { WorkerMessage, TranslationEngineConfig, TranslationRequest } from "../types.js";
+import type { WorkerMessage, TranslationEngineConfig, TranslationRequest, LanguagePairId, ModelDtype } from "../types.js";
 import { TranslationEngine } from "../engine/translator.js";
 
 let engine: TranslationEngine | null = null;
@@ -100,8 +100,8 @@ async function handlePreload(
 
   try {
     const [source, target] = pair.split("-");
-    await engine.preload(source, target, dtype as any);
-    post({ type: "preload_complete", pair: pair as any });
+    await engine.preload(source, target, dtype as ModelDtype | undefined);
+    post({ type: "preload_complete", pair: pair as LanguagePairId });
   } catch {
     // Preload failures are non-critical
   }
@@ -112,7 +112,7 @@ function handleEvict(pair: string): void {
 
   const [source, target] = pair.split("-");
   engine.evict(source, target);
-  post({ type: "evict_complete", pair: pair as any });
+  post({ type: "evict_complete", pair: pair as LanguagePairId });
 }
 
 function handleAbort(id: string): void {

@@ -270,7 +270,7 @@ function parseWorkArrangement(
  */
 function stripCommonPrefixes(text: string): string {
   const lower = text.toLowerCase();
-  let i = 0;
+  const i = 0;
 
   // Helper: skip whitespace starting at position i, return new position
   function skipWs(pos: number): number {
@@ -344,7 +344,7 @@ function stripCommonPrefixes(text: string): string {
     j = skipWs(j);
     const jLooking = matchWord(j, "looking");
     if (jLooking !== -1) {
-      let k = skipWs(jLooking);
+      const k = skipWs(jLooking);
       const kFor = matchWord(k, "for");
       if (kFor !== -1) {
         let m = skipWs(kFor);

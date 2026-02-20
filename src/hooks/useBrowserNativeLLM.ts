@@ -204,6 +204,12 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
         return false;
       }
 
+      // Dispose previous planner (and its worker) before re-initializing
+      if (plannerRef.current) {
+        plannerRef.current.dispose();
+        plannerRef.current = null;
+      }
+
       setState((prev) => ({
         ...prev,
         isLoading: true,

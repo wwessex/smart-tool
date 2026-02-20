@@ -300,11 +300,11 @@ export class TranslationEngine {
         pipelineOptions.src_lang = modelInfo.sourceLang;
       }
 
-      const result = await pipeline(cleaned, pipelineOptions as any);
+      const result = await pipeline(cleaned, pipelineOptions as Record<string, unknown>);
 
       const translatedText = Array.isArray(result)
-        ? (result[0] as any)?.translation_text
-        : (result as any)?.translation_text;
+        ? (result[0] as { translation_text?: string })?.translation_text
+        : (result as { translation_text?: string })?.translation_text;
 
       const restored = restore(String(translatedText ?? "").trim());
 

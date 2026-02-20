@@ -26,7 +26,6 @@ function prettyJson(obj: unknown): string {
 }
 
 function escapeRegExp(s: string): string {
-  // eslint-disable-next-line no-useless-escape
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
@@ -66,15 +65,16 @@ function normalizeTeacherExample(example: string, opts: { replaceName?: string; 
 
 function safeParse(text: string): { ok: true; value: PromptPack } | { ok: false; error: string } {
   try {
-    const parsed = JSON.parse(text);
+    const parsed: unknown = JSON.parse(text);
     // Light validation (full validation is enforced by setCachedPromptPack)
     if (!parsed || typeof parsed !== "object") throw new Error("JSON must be an object");
-    if (typeof (parsed as any).version !== "number") throw new Error("Missing/invalid: version (number)");
-    if (typeof (parsed as any).updatedAt !== "string") throw new Error("Missing/invalid: updatedAt (string)");
-    if (typeof (parsed as any).systemPrompt !== "string") throw new Error("Missing/invalid: systemPrompt (string)");
-    if (!Array.isArray((parsed as any).bannedTopics)) throw new Error("Missing/invalid: bannedTopics (array)");
-    if (typeof (parsed as any).barrierGuidance !== "object") throw new Error("Missing/invalid: barrierGuidance (object)");
-    if (!Array.isArray((parsed as any).fewShot)) throw new Error("Missing/invalid: fewShot (array)");
+    const obj = parsed as Record<string, unknown>;
+    if (typeof obj.version !== "number") throw new Error("Missing/invalid: version (number)");
+    if (typeof obj.updatedAt !== "string") throw new Error("Missing/invalid: updatedAt (string)");
+    if (typeof obj.systemPrompt !== "string") throw new Error("Missing/invalid: systemPrompt (string)");
+    if (!Array.isArray(obj.bannedTopics)) throw new Error("Missing/invalid: bannedTopics (array)");
+    if (typeof obj.barrierGuidance !== "object") throw new Error("Missing/invalid: barrierGuidance (object)");
+    if (!Array.isArray(obj.fewShot)) throw new Error("Missing/invalid: fewShot (array)");
     return { ok: true, value: parsed as PromptPack };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
@@ -301,7 +301,7 @@ export default function AdminPromptPack() {
     const sameBarrier = (x: { barrier: string }) => x.barrier.toLowerCase() === barrier.toLowerCase();
     const normalizeAction = (s: string) => (s || "").trim().replace(/\s+/g, " ").toLowerCase();
 
-    const exists = next.fewShot.some((x) => sameBarrier(x) && normalizeAction((x as any).action) === normalizeAction(entry.action));
+    const exists = next.fewShot.some((x) => sameBarrier(x) && normalizeAction(x.action) === normalizeAction(entry.action));
     if (!exists) {
       next.fewShot.unshift(entry);
     }

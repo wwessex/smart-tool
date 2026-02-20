@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { DEFAULT_BARRIERS, DEFAULT_TIMESCALES } from '@/lib/smart-data';
 
 const STORAGE = {
@@ -174,6 +174,25 @@ export function useSmartStorage() {
   const [safariWebGPUEnabled, setSafariWebGPUEnabled] = useState<boolean>(() => loadBoolean(STORAGE.safariWebGPUEnabled, false));
   const [keepSafariModelLoaded, setKeepSafariModelLoaded] = useState<boolean>(() => loadBoolean(STORAGE.keepSafariModelLoaded, false));
 
+  // Sync collection state to localStorage (skips the initial mount to avoid
+  // redundant writes since state was just loaded from localStorage).
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) return;
+    safeSetItem(STORAGE.history, JSON.stringify(history));
+  }, [history]);
+  useEffect(() => {
+    if (isInitialMount.current) return;
+    safeSetItem(STORAGE.recentNames, JSON.stringify(recentNames));
+  }, [recentNames]);
+  useEffect(() => {
+    if (isInitialMount.current) return;
+    saveList(STORAGE.templates, templates);
+  }, [templates]);
+  useEffect(() => {
+    // Mark initial mount complete after first render cycle
+    isInitialMount.current = false;
+  }, []);
 
   const updateBarriers = useCallback((newBarriers: string[]) => {
     setBarriers(newBarriers);
@@ -196,19 +215,11 @@ export function useSmartStorage() {
   }, []);
 
   const addToHistory = useCallback((item: HistoryItem) => {
-    setHistory(prev => {
-      const updated = [item, ...prev].slice(0, 100);
-      safeSetItem(STORAGE.history, JSON.stringify(updated));
-      return updated;
-    });
+    setHistory(prev => [item, ...prev].slice(0, 100));
   }, []);
 
   const deleteFromHistory = useCallback((id: string) => {
-    setHistory(prev => {
-      const updated = prev.filter(x => x.id !== id);
-      safeSetItem(STORAGE.history, JSON.stringify(updated));
-      return updated;
-    });
+    setHistory(prev => prev.filter(x => x.id !== id));
   }, []);
 
   const clearHistory = useCallback(() => {
@@ -220,10 +231,8 @@ export function useSmartStorage() {
     if (!name?.trim()) return;
     const trimmed = name.trim();
     setRecentNames(prev => {
-      let names = prev.filter(n => n.toLowerCase() !== trimmed.toLowerCase());
-      names = [trimmed, ...names].slice(0, 10);
-      safeSetItem(STORAGE.recentNames, JSON.stringify(names));
-      return names;
+      const names = prev.filter(n => n.toLowerCase() !== trimmed.toLowerCase());
+      return [trimmed, ...names].slice(0, 10);
     });
   }, []);
 
@@ -316,27 +325,15 @@ const importData = useCallback((data: {
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
     };
-    setTemplates(prev => {
-      const updated = [newTemplate, ...prev].slice(0, 50); // Max 50 templates
-      saveList(STORAGE.templates, updated);
-      return updated;
-    });
+    setTemplates(prev => [newTemplate, ...prev].slice(0, 50));
   }, []);
 
   const deleteTemplate = useCallback((id: string) => {
-    setTemplates(prev => {
-      const updated = prev.filter(t => t.id !== id);
-      saveList(STORAGE.templates, updated);
-      return updated;
-    });
+    setTemplates(prev => prev.filter(t => t.id !== id));
   }, []);
 
   const updateTemplate = useCallback((id: string, updates: Partial<ActionTemplate>) => {
-    setTemplates(prev => {
-      const updated = prev.map(t => t.id === id ? { ...t, ...updates } : t);
-      saveList(STORAGE.templates, updated);
-      return updated;
-    });
+    setTemplates(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
   }, []);
 
   const updateMinScoreEnabled = useCallback((enabled: boolean) => {

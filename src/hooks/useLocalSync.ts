@@ -6,7 +6,7 @@
  * folder on Windows, files will automatically sync to the cloud.
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { HistoryItem } from '@/hooks/useSmartStorage';
 import { SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
 
@@ -195,30 +195,34 @@ export function useLocalSync() {
 
   // Internal ref to the folder handle
   const [folderHandle, setFolderHandle] = useState<FSADirectoryHandle | null>(null);
+  const isMountedRef = useRef(true);
+
+  // Track mount status for async callbacks
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   // On mount, try to restore folder handle and verify permission
   useEffect(() => {
-    let isMounted = true;
-    
     async function restoreHandle() {
       if (!isFileSystemAccessSupported()) return;
-      
+
       try {
         const handle = await getFolderHandle();
-        if (!handle || !isMounted) return;
+        if (!handle || !isMountedRef.current) return;
 
         // Check if we still have permission
         const permission = await handle.queryPermission({ mode: 'readwrite' });
-        
+        if (!isMountedRef.current) return;
+
         if (permission === 'granted') {
           setFolderHandle(handle);
-          if (isMounted) {
-            setState(prev => ({
-              ...prev,
-              isConnected: true,
-              folderName: handle.name,
-            }));
-          }
+          setState(prev => ({
+            ...prev,
+            isConnected: true,
+            folderName: handle.name,
+          }));
         } else {
           // Permission expired, but we can try to re-request on user action
           // For now, just store the handle so we can request on next write
@@ -230,8 +234,6 @@ export function useLocalSync() {
     }
 
     restoreHandle();
-    
-    return () => { isMounted = false; };
   }, []);
 
   /**
@@ -331,14 +333,16 @@ export function useLocalSync() {
     try {
       // Check/request permission
       let permission = await folderHandle.queryPermission({ mode: 'readwrite' });
-      
+
       if (permission !== 'granted') {
         permission = await folderHandle.requestPermission({ mode: 'readwrite' });
         if (permission !== 'granted') {
-          setState(prev => ({ 
-            ...prev, 
-            error: 'Permission denied. Please reconnect the folder.' 
-          }));
+          if (isMountedRef.current) {
+            setState(prev => ({
+              ...prev,
+              error: 'Permission denied. Please reconnect the folder.'
+            }));
+          }
           return false;
         }
       }
@@ -355,15 +359,19 @@ export function useLocalSync() {
       // Update last sync time
       const now = new Date().toISOString();
       localStorage.setItem(STORAGE_KEYS.lastSync, now);
-      setState(prev => ({ ...prev, lastSync: now, error: null }));
+      if (isMountedRef.current) {
+        setState(prev => ({ ...prev, lastSync: now, error: null }));
+      }
 
       return true;
     } catch (err) {
       console.error('Write error:', err);
-      setState(prev => ({ 
-        ...prev, 
-        error: 'Failed to save file. Check folder permissions.' 
-      }));
+      if (isMountedRef.current) {
+        setState(prev => ({
+          ...prev,
+          error: 'Failed to save file. Check folder permissions.'
+        }));
+      }
       return false;
     }
   }, [folderHandle, state.syncEnabled]);
