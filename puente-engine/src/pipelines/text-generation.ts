@@ -33,6 +33,15 @@ export interface TextGenerationPipelineOptions {
     loaded?: number;
     total?: number;
   }) => void;
+  /**
+   * Separate base path for config.json and tokenizer.json.
+   * Useful when config files live in a different directory than ONNX models
+   * (e.g. HuggingFace repos with config at root and ONNX in onnx/).
+   * Defaults to modelPath if not set.
+   */
+  configPath?: string;
+  /** Override ONNX model filename (defaults to "model.onnx"). */
+  modelFileName?: string;
 }
 
 export class TextGenerationPipeline {
@@ -71,6 +80,14 @@ export class TextGenerationPipeline {
       ? modelPath
       : modelPath + "/";
 
+    // Config/tokenizer path may differ from ONNX model path
+    // (e.g. HuggingFace repos store config at root, ONNX in onnx/)
+    const configBase = options.configPath
+      ? (options.configPath.endsWith("/")
+          ? options.configPath
+          : options.configPath + "/")
+      : basePath;
+
     // Detect capabilities and select backend
     const capabilities = await detectCapabilities();
     const backend = selectBackend(
@@ -80,18 +97,19 @@ export class TextGenerationPipeline {
     configureBackend(backend);
 
     // Load model config
-    const modelConfig = await loadModelConfig(basePath + "config.json");
+    const modelConfig = await loadModelConfig(configBase + "config.json");
     // Load generation config (may not exist for all models)
     await loadGenerationConfig(
-      basePath + "generation_config.json"
+      configBase + "generation_config.json"
     ).catch(() => undefined);
 
     // Load tokenizer
     const tokenizer = new BPETokenizer();
-    await tokenizer.load(basePath + "tokenizer.json");
+    await tokenizer.load(configBase + "tokenizer.json");
 
     // Load model weights
-    const modelBuffer = await fetchModel(basePath + "model.onnx", {
+    const modelFileName = options.modelFileName ?? "model.onnx";
+    const modelBuffer = await fetchModel(basePath + modelFileName, {
       onProgress: (progress) => {
         options.progress_callback?.({
           loaded: progress.loaded_bytes,

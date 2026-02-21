@@ -37,6 +37,19 @@ export interface TranslationPipelineOptions {
     loaded?: number;
     total?: number;
   }) => void;
+  /**
+   * Separate base path for config.json and tokenizer.json.
+   * Useful when config files live in a different directory than ONNX models
+   * (e.g. HuggingFace repos with config at root and ONNX in onnx/).
+   * Defaults to modelPath if not set.
+   */
+  configPath?: string;
+  /** Override encoder ONNX filename (defaults to "encoder_model.onnx"). */
+  encoderFileName?: string;
+  /** Override decoder ONNX filename (defaults to "decoder_model_merged.onnx"). */
+  decoderFileName?: string;
+  /** Override combined model filename for fallback (defaults to "model.onnx"). */
+  combinedFileName?: string;
 }
 
 export class TranslationPipeline {
@@ -79,6 +92,14 @@ export class TranslationPipeline {
       ? modelPath
       : modelPath + "/";
 
+    // Config/tokenizer path may differ from ONNX model path
+    // (e.g. HuggingFace repos store config at root, ONNX in onnx/)
+    const configBase = options.configPath
+      ? (options.configPath.endsWith("/")
+          ? options.configPath
+          : options.configPath + "/")
+      : basePath;
+
     // Detect capabilities and select backend
     const capabilities = await detectCapabilities();
     const backend = selectBackend(
@@ -88,13 +109,18 @@ export class TranslationPipeline {
     configureBackend(backend);
 
     // Load model config
-    const modelConfig = await loadModelConfig(basePath + "config.json");
+    const modelConfig = await loadModelConfig(configBase + "config.json");
 
     // Load tokenizer
     const tokenizer = new BPETokenizer();
-    await tokenizer.load(basePath + "tokenizer.json");
+    await tokenizer.load(configBase + "tokenizer.json");
 
     const executionProvider = getExecutionProvider(backend);
+
+    // Resolve filenames (allow overrides for quantized variants)
+    const encoderFile = options.encoderFileName ?? "encoder_model.onnx";
+    const decoderFile = options.decoderFileName ?? "decoder_model_merged.onnx";
+    const combinedFile = options.combinedFileName ?? "model.onnx";
 
     // Try split model first (encoder + decoder), fall back to combined
     let encoderSession: ort.InferenceSession;
@@ -103,7 +129,7 @@ export class TranslationPipeline {
     try {
       // Load split models
       const [encoderBuffer, decoderBuffer] = await Promise.all([
-        fetchModel(basePath + "encoder_model.onnx", {
+        fetchModel(basePath + encoderFile, {
           onProgress: (progress) => {
             options.progress_callback?.({
               loaded: progress.loaded_bytes,
@@ -111,7 +137,7 @@ export class TranslationPipeline {
             });
           },
         }),
-        fetchModel(basePath + "decoder_model_merged.onnx", {
+        fetchModel(basePath + decoderFile, {
           onProgress: (progress) => {
             options.progress_callback?.({
               loaded: progress.loaded_bytes,
@@ -127,7 +153,7 @@ export class TranslationPipeline {
       ]);
     } catch {
       // Fall back to combined model
-      const modelBuffer = await fetchModel(basePath + "model.onnx", {
+      const modelBuffer = await fetchModel(basePath + combinedFile, {
         onProgress: (progress) => {
           options.progress_callback?.({
             loaded: progress.loaded_bytes,
