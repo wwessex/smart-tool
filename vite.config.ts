@@ -62,7 +62,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [react(), cacheBustPlugin(), mode === "development" && componentTagger()].filter(Boolean),
-    // Build workers as ES modules to support dynamic imports (e.g. @huggingface/transformers)
+    // Build workers as ES modules to support dynamic imports (e.g. @smart-tool/puente-engine)
     worker: {
       format: 'es',
     },
@@ -71,6 +71,7 @@ export default defineConfig(({ mode }) => {
         "@": path.resolve(__dirname, "./src"),
         "@smart-tool/browser-native-llm": path.resolve(__dirname, "./browser-native-llm/src/index.ts"),
         "@smart-tool/lengua-materna": path.resolve(__dirname, "./browser-translation/src/index.ts"),
+        "@smart-tool/puente-engine": path.resolve(__dirname, "./puente-engine/src/index.ts"),
       },
     },
     build: {
@@ -84,7 +85,6 @@ export default defineConfig(({ mode }) => {
             if (id.includes('node_modules')) {
               // Separate out heavy LLM/AI libraries
               if (id.includes('node_modules/@mlc-ai') ||
-                  id.includes('node_modules/@huggingface/transformers') ||
                   id.includes('node_modules/onnxruntime-web')) {
                 return 'vendor-llm';
               }
@@ -124,7 +124,7 @@ export default defineConfig(({ mode }) => {
       // Exclude heavy deps from pre-bundling if not needed immediately
       exclude: ['@mlc-ai/web-llm', 'onnxruntime-web', '@smart-tool/lengua-materna'],
 
-      // Some deps (e.g. transformers.js) contain BigInt literals (0n/1n) which require ES2020+.
+      // Some deps (e.g. onnxruntime-web) contain BigInt literals (0n/1n) which require ES2020+.
       // Ensure the dependency pre-bundler doesn't downlevel to ES2019.
       esbuildOptions: {
         target: 'es2020',
