@@ -9,7 +9,6 @@
 import type { WorkerMessage, InferenceConfig, InferenceBackend } from "../types.js";
 import { detectCapabilities, selectBackend } from "./backend-selector.js";
 import {
-  OnnxInferenceEngine,
   TransformersInferenceEngine,
   type InferenceEngine,
   type GenerateResult,
@@ -46,36 +45,22 @@ async function handleInit(config: InferenceConfig): Promise<void> {
       config.preferred_backend
     );
 
-    // Create the appropriate engine
-    // Prefer Transformers.js for its higher-level API; fall back to raw ONNX
-    try {
-      engine = new TransformersInferenceEngine(config, activeBackend);
-      await engine.load((loaded, total) => {
-        postMessage({
-          type: "progress",
-          progress: {
-            file: "model",
-            loaded_bytes: loaded,
-            total_bytes: total,
-            phase: "downloading",
-          },
-        } satisfies WorkerMessage);
-      });
-    } catch {
-      // Fall back to ONNX Runtime directly
-      engine = new OnnxInferenceEngine(config, activeBackend);
-      await engine.load((loaded, total) => {
-        postMessage({
-          type: "progress",
-          progress: {
-            file: "model",
-            loaded_bytes: loaded,
-            total_bytes: total,
-            phase: "downloading",
-          },
-        } satisfies WorkerMessage);
-      });
-    }
+    // Create Transformers.js engine (the only supported inference path).
+    // OnnxInferenceEngine is not used here because its generate() is not
+    // implemented — falling back to it would silently download a huge
+    // unquantized model and then fail at generation time.
+    engine = new TransformersInferenceEngine(config, activeBackend);
+    await engine.load((loaded, total) => {
+      postMessage({
+        type: "progress",
+        progress: {
+          file: "model",
+          loaded_bytes: loaded,
+          total_bytes: total,
+          phase: "downloading",
+        },
+      } satisfies WorkerMessage);
+    });
 
     postMessage({
       type: "init_complete",
