@@ -2,7 +2,7 @@
 Export trained SMART Planner model to ONNX format for browser deployment.
 
 Converts a PyTorch checkpoint to ONNX format compatible with
-ONNX Runtime Web / Transformers.js for in-browser inference.
+ONNX Runtime Web / Puente Engine for in-browser inference.
 
 Usage:
     python export_onnx.py --checkpoint ../checkpoints/dpo/final.pt --output ./export/onnx/

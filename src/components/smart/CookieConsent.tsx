@@ -84,9 +84,9 @@ export function ManageConsentDialog({
           <div className="rounded-lg border p-3">
             <p className="font-medium text-foreground">AI processing</p>
             <p className="mt-1">
-              By default, AI drafting and translation runs locally in your browser on-device.
-              Model files may be downloaded when you enable the AI Module.
-              Optional cloud AI features are available as an alternative and require separate opt-in.
+              All AI drafting and translation runs locally in your browser on-device
+              using the proprietary Amor inteligente and Lengua Materna engines.
+              Model files are downloaded when you enable the AI Module.
             </p>
           </div>
         </div>
@@ -139,8 +139,8 @@ export function CookieConsent() {
                 <p className="font-medium">Privacy-first: local storage only</p>
                 <p className="text-sm text-muted-foreground mt-1">
                   This tool stores your history, templates and settings in your browser (localStorage).
-                  It does not use analytics or advertising cookies. AI features run locally by default;
-                  optional cloud AI features require separate consent.
+                  It does not use analytics or advertising cookies. All AI features run locally
+                  on your device.
                 </p>
 
                 <div className="mt-3 flex flex-wrap gap-2">

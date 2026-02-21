@@ -5,7 +5,7 @@
  * Uses the Cache API (via caches.open) for persistent storage that
  * survives page reloads and can be used by Service Workers.
  *
- * Transformers.js handles most caching internally via env.useBrowserCache,
+ * The Puente Engine handles most caching internally,
  * but this module provides additional control for:
  * - Querying which models are cached
  * - Estimating cached storage usage
@@ -120,7 +120,7 @@ export class ModelCacheManager {
 
   /**
    * Remove a model from the cache (metadata only).
-   * Note: the actual Cache API entries are managed by Transformers.js.
+   * Note: the actual Cache API entries are managed by the Puente Engine.
    */
   async removeCacheEntry(modelId: string): Promise<void> {
     await this.open();

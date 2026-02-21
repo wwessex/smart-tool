@@ -60,7 +60,7 @@ const ERROR_PATTERNS: ErrorPattern[] = [
     message: "AI generation took too long. Try again or use Smart Templates instead.",
     retryable: true,
   },
-  // Unauthorized / forbidden (model access issues on HuggingFace)
+  // Unauthorized / forbidden (model access issues)
   {
     test: (m) => /unauthori[sz]ed|forbidden|401|403|not authorized/i.test(m),
     category: "model_load",

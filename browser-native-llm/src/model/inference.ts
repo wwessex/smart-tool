@@ -3,7 +3,7 @@
  *
  * Manages model loading, session creation, and token generation
  * using either WebGPU or WASM backends via ONNX Runtime Web
- * or Transformers.js.
+ * and the Puente Engine.
  */
 
 import type { InferenceConfig, InferenceBackend } from "../types.js";
@@ -136,11 +136,10 @@ export class OnnxInferenceEngine extends InferenceEngine {
 
     // The autoregressive generation loop requires tokenizer integration
     // (encode prompt → run session.run() per step → sample logits → decode).
-    // This is not yet implemented; TransformersInferenceEngine handles
-    // tokenization and generation via the Transformers.js pipeline API.
+    // This is not yet implemented; use PuenteInferenceEngine instead.
     throw new Error(
       "Direct ONNX Runtime inference is not yet implemented. " +
-      "The Transformers.js engine is the supported inference path."
+      "Use PuenteInferenceEngine for the full inference pipeline."
     );
   }
 
@@ -169,39 +168,9 @@ export class OnnxInferenceEngine extends InferenceEngine {
 }
 
 /**
- * @deprecated Use PuenteInferenceEngine instead. This class required
- * @huggingface/transformers which has been replaced by @smart-tool/puente-engine.
- */
-export class TransformersInferenceEngine extends InferenceEngine {
-  constructor(config: InferenceConfig, _preferredBackend?: InferenceBackend) {
-    super(config);
-  }
-
-  async load(): Promise<void> {
-    throw new Error(
-      "TransformersInferenceEngine is deprecated. Use PuenteInferenceEngine instead."
-    );
-  }
-
-  async generate(_options: GenerateOptions): Promise<GenerateResult> {
-    throw new Error(
-      "TransformersInferenceEngine is deprecated. Use PuenteInferenceEngine instead."
-    );
-  }
-
-  dispose(): void {
-    /* no-op */
-  }
-
-  get backend(): InferenceBackend {
-    return "wasm-basic";
-  }
-}
-
-/**
  * Puente Engine-based inference engine.
  * Custom ONNX Runtime inference with full tokenization, KV cache,
- * and generation loop — replaces Transformers.js as the primary backend.
+ * and generation loop — the primary inference backend.
  */
 export class PuenteInferenceEngine extends InferenceEngine {
   private pipeline: unknown = null;
@@ -223,7 +192,7 @@ export class PuenteInferenceEngine extends InferenceEngine {
 
     const device = this.activeBackend === "webgpu" ? "webgpu" : undefined;
 
-    // HuggingFace layout: config.json/tokenizer.json at root, ONNX in onnx/
+    // Model layout: config.json/tokenizer.json at root, ONNX in onnx/
     const baseUrl = this.config.model_base_url.endsWith("/")
       ? this.config.model_base_url
       : this.config.model_base_url + "/";

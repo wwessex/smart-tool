@@ -3,7 +3,7 @@
 Convert OPUS-MT (Marian) translation models to ONNX format for browser inference.
 
 Uses Hugging Face Optimum to export encoder-decoder models to ONNX,
-producing separate encoder/decoder files that Transformers.js can load.
+producing separate encoder/decoder files for the Puente Engine.
 
 Prerequisites:
     pip install optimum[onnxruntime] transformers sentencepiece

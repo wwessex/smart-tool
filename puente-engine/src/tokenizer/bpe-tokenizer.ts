@@ -1,7 +1,7 @@
 /**
  * Full BPE tokenizer implementation for Puente Engine.
  *
- * Loads HuggingFace tokenizer.json format and provides encode/decode
+ * Loads tokenizer.json format and provides encode/decode
  * with proper BPE merge algorithm, pre-tokenization, normalisation,
  * and special token handling.
  *

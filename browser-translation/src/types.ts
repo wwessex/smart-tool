@@ -1,9 +1,8 @@
 /**
  * Core type definitions for the Lengua Materna Translation Engine.
  *
- * This module replaces the cloud/NLLB-based translation with lightweight,
- * per-language-pair OPUS-MT (Marian) models running locally via
- * Transformers.js + ONNX Runtime Web.
+ * This module provides lightweight, per-language-pair OPUS-MT (Marian) models
+ * running locally in the browser via the Puente Engine (ONNX Runtime Web).
  */
 
 // ---------------------------------------------------------------------------
@@ -40,7 +39,7 @@ export type ModelDtype = "fp32" | "fp16" | "int8" | "uint8" | "q4";
 
 /** Information about an OPUS-MT model for a specific language pair. */
 export interface ModelInfo {
-  /** Hugging Face model ID (e.g., "Xenova/opus-mt-en-de"). */
+  /** Model ID (e.g., "opus-mt-en-de"). */
   modelId: string;
   /** Source language code. */
   sourceLang: LanguageCode;

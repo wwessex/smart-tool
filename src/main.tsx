@@ -6,9 +6,9 @@ import { installGlobalErrorHandlers } from "./lib/error-handling";
 
 // Install global unhandled-rejection listener early so no async error is lost.
 installGlobalErrorHandlers();
-// NOTE: @huggingface/transformers is imported lazily (dynamic import) inside
-// useBrowserNativeLLM and localTranslator to avoid crashing iOS Safari at startup.
-// Do NOT add a static import of transformersEnv here.
+// NOTE: The proprietary AI engines (Amor inteligente, Lengua Materna, Puente Engine)
+// are imported lazily (dynamic import) inside useBrowserNativeLLM and useTranslation
+// to avoid crashing iOS Safari at startup.
 
 // CRITICAL FIX: Hide loading screen function - ALWAYS runs in finally block
 const hideLoadingScreen = () => {

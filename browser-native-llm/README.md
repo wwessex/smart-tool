@@ -28,7 +28,7 @@ browser-native-llm/
 │   ├── model/                    # Model config, tokenizer, inference engines
 │   │   ├── config.ts             # Architecture configs (35M, 150M, 350M)
 │   │   ├── tokenizer.ts          # Tokenizer wrapper
-│   │   └── inference.ts          # ONNX and Transformers.js engines
+│   │   └── inference.ts          # ONNX and Puente Engine inference
 │   ├── runtime/                  # Browser capability detection
 │   │   ├── backend-selector.ts   # WebGPU / WASM detection and selection
 │   │   └── worker.ts             # Web Worker for off-thread inference
@@ -145,7 +145,7 @@ python preference_pairs.py --dataset ./scored_dataset.jsonl
 
 ```bash
 cd training/export
-# ONNX (for Transformers.js / ONNX Runtime Web)
+# ONNX (for Puente Engine / ONNX Runtime Web)
 python export_onnx.py --checkpoint ../checkpoints/dpo/final.pt
 
 # GGUF (for wllama / llama.cpp WASM)

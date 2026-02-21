@@ -3,8 +3,8 @@
  *
  * Orchestrates model loading, tokenizer initialization, and
  * autoregressive generation into a single easy-to-use API.
- * Designed to be a drop-in replacement for the Transformers.js
- * pipeline("text-generation", ...) call.
+ * Provides a high-level API for decoder-only LLM inference
+ * in the browser.
  */
 
 import type {
@@ -36,7 +36,7 @@ export interface TextGenerationPipelineOptions {
   /**
    * Separate base path for config.json and tokenizer.json.
    * Useful when config files live in a different directory than ONNX models
-   * (e.g. HuggingFace repos with config at root and ONNX in onnx/).
+   * (e.g. repos with config at root and ONNX in onnx/).
    * Defaults to modelPath if not set.
    */
   configPath?: string;
@@ -81,7 +81,7 @@ export class TextGenerationPipeline {
       : modelPath + "/";
 
     // Config/tokenizer path may differ from ONNX model path
-    // (e.g. HuggingFace repos store config at root, ONNX in onnx/)
+    // (e.g. repos store config at root, ONNX in onnx/)
     const configBase = options.configPath
       ? (options.configPath.endsWith("/")
           ? options.configPath

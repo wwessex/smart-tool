@@ -1,18 +1,16 @@
 /**
  * Language pair → OPUS-MT model registry.
  *
- * Maps each supported directional language pair to a specific Xenova ONNX
- * model on Hugging Face. These are pre-converted, quantized OPUS-MT (Marian)
- * models ready for in-browser inference via Transformers.js.
+ * Maps each supported directional language pair to a self-hosted, quantized
+ * OPUS-MT (Marian) ONNX model for in-browser inference via Puente Engine.
  *
  * Design decisions:
  * - One-to-one directional models (en→de ≠ de→en) for best quality per pair.
  * - English is the pivot language for pairs without a direct model.
  * - Models are listed with their available dtypes and approximate sizes.
- * - Sizes are based on the Xenova ONNX repository file listings.
  *
  * To add a new language pair:
- * 1. Find or convert the OPUS-MT model to ONNX (see scripts/convert-model.py).
+ * 1. Convert the OPUS-MT model to ONNX (see scripts/convert-model.py).
  * 2. Add the entry to MODEL_REGISTRY below.
  * 3. Add the language to SUPPORTED_LANGUAGES if not already present.
  */
@@ -163,7 +161,7 @@ export const SUPPORTED_LANGUAGES: Record<LanguageCode, LanguageInfo> = {
 /**
  * Registry of OPUS-MT models available for in-browser translation.
  *
- * Each entry maps a directional language pair to a specific Xenova ONNX model.
+ * Each entry maps a directional language pair to a self-hosted ONNX model.
  * Sizes are approximate and based on quantized (uint8) variants.
  *
  * Note: Not all language pairs have direct OPUS-MT models available.
@@ -173,7 +171,7 @@ export const SUPPORTED_LANGUAGES: Record<LanguageCode, LanguageInfo> = {
 export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
   // ---- English → Target ----
   "en-de": {
-    modelId: "Xenova/opus-mt-en-de",
+    modelId: "opus-mt-en-de",
     sourceLang: "en",
     targetLang: "de",
     availableDtypes: ["fp32", "fp16", "int8", "q4"],
@@ -183,7 +181,7 @@ export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
     attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data.",
   },
   "en-fr": {
-    modelId: "Xenova/opus-mt-en-fr",
+    modelId: "opus-mt-en-fr",
     sourceLang: "en",
     targetLang: "fr",
     availableDtypes: ["fp32", "fp16", "int8", "q4"],
@@ -193,7 +191,7 @@ export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
     attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data.",
   },
   "en-es": {
-    modelId: "Xenova/opus-mt-en-es",
+    modelId: "opus-mt-en-es",
     sourceLang: "en",
     targetLang: "es",
     availableDtypes: ["fp32", "fp16", "int8", "q4"],
@@ -203,7 +201,7 @@ export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
     attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data.",
   },
   "en-it": {
-    modelId: "Xenova/opus-mt-en-it",
+    modelId: "opus-mt-en-it",
     sourceLang: "en",
     targetLang: "it",
     availableDtypes: ["fp32", "fp16", "int8", "q4"],
@@ -213,7 +211,7 @@ export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
     attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data.",
   },
   "en-pt": {
-    modelId: "Xenova/opus-mt-en-mul",
+    modelId: "opus-mt-en-mul",
     sourceLang: "en",
     targetLang: "pt",
     availableDtypes: ["fp32", "fp16", "int8"],
@@ -223,7 +221,7 @@ export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
     attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data. Multilingual target model.",
   },
   "en-pl": {
-    modelId: "Xenova/opus-mt-en-mul",
+    modelId: "opus-mt-en-mul",
     sourceLang: "en",
     targetLang: "pl",
     availableDtypes: ["fp32", "fp16", "int8"],
@@ -233,7 +231,7 @@ export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
     attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data. Multilingual target model.",
   },
   "en-ar": {
-    modelId: "Xenova/opus-mt-en-ar",
+    modelId: "opus-mt-en-ar",
     sourceLang: "en",
     targetLang: "ar",
     availableDtypes: ["fp32", "fp16", "int8", "q4"],
@@ -243,7 +241,7 @@ export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
     attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data.",
   },
   "en-hi": {
-    modelId: "Xenova/opus-mt-en-hi",
+    modelId: "opus-mt-en-hi",
     sourceLang: "en",
     targetLang: "hi",
     availableDtypes: ["fp32", "fp16", "int8", "q4"],
@@ -253,7 +251,7 @@ export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
     attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data.",
   },
   "en-ur": {
-    modelId: "Xenova/opus-mt-en-mul",
+    modelId: "opus-mt-en-mul",
     sourceLang: "en",
     targetLang: "ur",
     availableDtypes: ["fp32", "fp16", "int8"],
@@ -267,7 +265,7 @@ export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
   // Some OPUS-MT models cover multiple target languages in one model.
   // These use a target language prefix token (e.g., ">>cy<<").
   "en-cy": {
-    modelId: "Xenova/opus-mt-en-mul",
+    modelId: "opus-mt-en-mul",
     sourceLang: "en",
     targetLang: "cy",
     availableDtypes: ["fp32", "fp16", "int8"],
@@ -277,7 +275,7 @@ export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
     attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data. Multilingual target model.",
   },
   "en-bn": {
-    modelId: "Xenova/opus-mt-en-mul",
+    modelId: "opus-mt-en-mul",
     sourceLang: "en",
     targetLang: "bn",
     availableDtypes: ["fp32", "fp16", "int8"],
@@ -287,7 +285,7 @@ export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
     attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data. Multilingual target model.",
   },
   "en-pa": {
-    modelId: "Xenova/opus-mt-en-mul",
+    modelId: "opus-mt-en-mul",
     sourceLang: "en",
     targetLang: "pa",
     availableDtypes: ["fp32", "fp16", "int8"],
@@ -297,7 +295,7 @@ export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
     attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data. Multilingual target model.",
   },
   "en-so": {
-    modelId: "Xenova/opus-mt-en-mul",
+    modelId: "opus-mt-en-mul",
     sourceLang: "en",
     targetLang: "so",
     availableDtypes: ["fp32", "fp16", "int8"],
@@ -307,7 +305,7 @@ export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
     attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data. Multilingual target model.",
   },
   "en-ti": {
-    modelId: "Xenova/opus-mt-en-mul",
+    modelId: "opus-mt-en-mul",
     sourceLang: "en",
     targetLang: "ti",
     availableDtypes: ["fp32", "fp16", "int8"],
@@ -317,7 +315,7 @@ export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
     attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data. Multilingual target model.",
   },
   "en-ps": {
-    modelId: "Xenova/opus-mt-en-mul",
+    modelId: "opus-mt-en-mul",
     sourceLang: "en",
     targetLang: "ps",
     availableDtypes: ["fp32", "fp16", "int8"],
@@ -329,7 +327,7 @@ export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
 
   // ---- Target → English (reverse pairs for bidirectional support) ----
   "de-en": {
-    modelId: "Xenova/opus-mt-de-en",
+    modelId: "opus-mt-de-en",
     sourceLang: "de",
     targetLang: "en",
     availableDtypes: ["fp32", "fp16", "int8", "q4"],
@@ -339,7 +337,7 @@ export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
     attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data.",
   },
   "fr-en": {
-    modelId: "Xenova/opus-mt-fr-en",
+    modelId: "opus-mt-fr-en",
     sourceLang: "fr",
     targetLang: "en",
     availableDtypes: ["fp32", "fp16", "int8", "q4"],
@@ -349,7 +347,7 @@ export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
     attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data.",
   },
   "es-en": {
-    modelId: "Xenova/opus-mt-es-en",
+    modelId: "opus-mt-es-en",
     sourceLang: "es",
     targetLang: "en",
     availableDtypes: ["fp32", "fp16", "int8", "q4"],
@@ -359,7 +357,7 @@ export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
     attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data.",
   },
   "ar-en": {
-    modelId: "Xenova/opus-mt-ar-en",
+    modelId: "opus-mt-ar-en",
     sourceLang: "ar",
     targetLang: "en",
     availableDtypes: ["fp32", "fp16", "int8", "q4"],
@@ -369,7 +367,7 @@ export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
     attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data.",
   },
   "pl-en": {
-    modelId: "Xenova/opus-mt-pl-en",
+    modelId: "opus-mt-pl-en",
     sourceLang: "pl",
     targetLang: "en",
     availableDtypes: ["fp32", "fp16", "int8", "q4"],

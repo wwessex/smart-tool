@@ -146,7 +146,7 @@ export interface GenerationConfig {
 // Tokenizer
 // ---------------------------------------------------------------------------
 
-/** Structure of a HuggingFace tokenizer.json file. */
+/** Structure of a tokenizer.json file. */
 export interface TokenizerJSON {
   version?: string;
   truncation?: unknown;

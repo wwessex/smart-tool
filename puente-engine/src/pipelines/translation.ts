@@ -3,8 +3,8 @@
  *
  * Orchestrates encoder/decoder model loading, tokenizer initialization,
  * and seq2seq generation into a single easy-to-use API.
- * Designed to be a drop-in replacement for the Transformers.js
- * pipeline("translation", ...) call.
+ * Provides a high-level API for encoder-decoder translation
+ * in the browser.
  *
  * Supports both:
  * - Split models (encoder_model.onnx + decoder_model_merged.onnx)
@@ -40,7 +40,7 @@ export interface TranslationPipelineOptions {
   /**
    * Separate base path for config.json and tokenizer.json.
    * Useful when config files live in a different directory than ONNX models
-   * (e.g. HuggingFace repos with config at root and ONNX in onnx/).
+   * (e.g. repos with config at root and ONNX in onnx/).
    * Defaults to modelPath if not set.
    */
   configPath?: string;
@@ -93,7 +93,7 @@ export class TranslationPipeline {
       : modelPath + "/";
 
     // Config/tokenizer path may differ from ONNX model path
-    // (e.g. HuggingFace repos store config at root, ONNX in onnx/)
+    // (e.g. repos store config at root, ONNX in onnx/)
     const configBase = options.configPath
       ? (options.configPath.endsWith("/")
           ? options.configPath

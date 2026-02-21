@@ -1,7 +1,7 @@
 /**
  * Pre-tokenization: splitting text into words before BPE.
  *
- * Supports the pre-tokenizer configs found in HuggingFace tokenizer.json:
+ * Supports the pre-tokenizer configs found in tokenizer.json:
  * - ByteLevel: GPT-2/LLaMA style byte-level BPE
  * - Whitespace: simple whitespace splitting (Marian/OPUS-MT)
  * - Sequence: chain multiple pre-tokenizers

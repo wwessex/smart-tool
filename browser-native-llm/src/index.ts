@@ -73,7 +73,7 @@ export type { ModelArchitectureConfig } from "./model/config.js";
 export { detectCapabilities, selectBackend, canUseThreads, describeBackend } from "./runtime/backend-selector.js";
 
 // ---- Inference engines ----
-export { OnnxInferenceEngine, TransformersInferenceEngine, PuenteInferenceEngine } from "./model/inference.js";
+export { OnnxInferenceEngine, PuenteInferenceEngine } from "./model/inference.js";
 export type { InferenceEngine, GenerateOptions, GenerateResult } from "./model/inference.js";
 
 // ---- Tokenizer ----
