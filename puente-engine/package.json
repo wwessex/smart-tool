@@ -1,0 +1,49 @@
+{
+  "name": "@smart-tool/puente-engine",
+  "version": "0.1.0",
+  "description": "Puente Engine — custom neural network inference engine for browser-native LLM and translation, built from scratch on ONNX Runtime Web.",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "onnxruntime-web": "^1.21.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "keywords": [
+    "inference",
+    "neural-network",
+    "onnx",
+    "browser",
+    "webgpu",
+    "wasm",
+    "llm",
+    "translation",
+    "bpe",
+    "tokenizer"
+  ]
+}
