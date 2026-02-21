@@ -425,7 +425,7 @@ export function SmartActionTool() {
 
   const handleClear = useCallback(() => {
     if (mode === 'now') {
-      setNowForm({ date: today, forename: '', barrier: '', action: '', responsible: '', help: '', timescale: '' });
+      setNowForm({ date: today, time: '', forename: '', barrier: '', action: '', responsible: '', help: '', timescale: '' });
     } else {
       setFutureForm({ date: today, forename: '', task: '', responsible: '', outcome: '', timescale: '' });
     }

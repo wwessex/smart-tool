@@ -226,9 +226,7 @@ const App = () => {
   useEffect(() => {
     (async () => {
       try {
-        // @ts-expect-error -- navigator.storage.persist() not in all TS libs
         if (typeof navigator !== 'undefined' && navigator.storage?.persist) {
-          // @ts-expect-error -- navigator.storage.persist() not in all TS libs
           await navigator.storage.persist();
         }
       } catch {

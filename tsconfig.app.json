@@ -24,7 +24,10 @@
 
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@smart-tool/browser-native-llm": ["./browser-native-llm/src/index.ts"],
+      "@smart-tool/lengua-materna": ["./browser-translation/src/index.ts"],
+      "@smart-tool/puente-engine": ["./puente-engine/src/index.ts"]
     }
   },
   "include": ["src"]

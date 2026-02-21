@@ -40,7 +40,8 @@ const DEFAULT_SPECIAL_TOKENS: SpecialTokens = {
 export class SmartTokenizer {
   private vocab: Map<string, number> = new Map();
   private reverseVocab: Map<number, string> = new Map();
-  private merges: Array<[string, string]> = [];
+  /** BPE merge pairs (reserved for full tokenizer implementation). */
+  private _merges: Array<[string, string]> = [];
   private specialTokens: SpecialTokens;
   private initialized = false;
 
@@ -82,7 +83,7 @@ export class SmartTokenizer {
 
     const merges = model.merges as string[] | undefined;
     if (merges) {
-      this.merges = merges.map((m) => {
+      this._merges = merges.map((m) => {
         const parts = m.split(" ");
         return [parts[0], parts[1]];
       });
