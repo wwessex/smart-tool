@@ -95,7 +95,7 @@ async function detectWebGPU(): Promise<boolean> {
   if (!("gpu" in navigator)) return false;
 
   try {
-    const gpu = navigator.gpu as GPU;
+    const gpu = (navigator as Navigator & { gpu: { requestAdapter(): Promise<{ requestDevice(): Promise<{ destroy(): void }> } | null> } }).gpu;
     const adapter = await gpu.requestAdapter();
     if (!adapter) return false;
 

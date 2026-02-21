@@ -63,7 +63,9 @@ function normalizeTeacherExample(example: string, opts: { replaceName?: string; 
 }
 
 
-function safeParse(text: string): { ok: true; value: PromptPack } | { ok: false; error: string } {
+type ParseResult = { ok: true; value: PromptPack; error?: undefined } | { ok: false; error: string; value?: undefined };
+
+function safeParse(text: string): ParseResult {
   try {
     const parsed: unknown = JSON.parse(text);
     // Light validation (full validation is enforced by setCachedPromptPack)

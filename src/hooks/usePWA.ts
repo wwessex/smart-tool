@@ -110,7 +110,7 @@ export function usePWA() {
       if ('requestIdleCallback' in window) {
         idleCallbackId = (window as unknown as { requestIdleCallback: (cb: () => void, opts: { timeout: number }) => number }).requestIdleCallback(doRegister, { timeout: 5000 });
       } else {
-        timeoutId = window.setTimeout(doRegister, 3000);
+        timeoutId = setTimeout(doRegister, 3000) as unknown as number;
       }
     };
 

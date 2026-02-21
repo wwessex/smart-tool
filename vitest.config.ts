@@ -15,6 +15,7 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
       "@smart-tool/browser-native-llm": path.resolve(__dirname, "./browser-native-llm/src/index.ts"),
       "@smart-tool/lengua-materna": path.resolve(__dirname, "./browser-translation/src/index.ts"),
+      "@smart-tool/puente-engine": path.resolve(__dirname, "./puente-engine/src/index.ts"),
     },
   },
 });
