@@ -148,11 +148,12 @@ export class TranslationEngine {
 
     const durationMs = performance.now() - startTime;
 
-    // Validate output differs from input
+    // Check if output is identical to input (may be expected for proper nouns,
+    // numbers, URLs, or technical terms — warn instead of throwing)
     const normalise = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
-    if (currentText && normalise(currentText) === normalise(text)) {
-      throw new Error("Translation failed: model returned unchanged text.");
-    }
+    const warning = (currentText && normalise(currentText) === normalise(text))
+      ? "Translation returned text identical to the original. This may be expected for proper nouns, numbers, or technical terms."
+      : undefined;
 
     return this.buildResult(
       text,
@@ -162,7 +163,8 @@ export class TranslationEngine {
       durationMs,
       modelsUsed,
       totalChunks,
-      route.isPivot ? "en" : undefined
+      route.isPivot ? "en" : undefined,
+      warning
     );
   }
 
@@ -328,9 +330,10 @@ export class TranslationEngine {
     durationMs: number,
     modelsUsed: string[],
     chunksTranslated = 0,
-    pivotLang?: LanguageCode
+    pivotLang?: LanguageCode,
+    warning?: string
   ): TranslationResult {
-    return {
+    const result: TranslationResult = {
       original,
       translated,
       sourceLang: request.sourceLang,
@@ -341,5 +344,9 @@ export class TranslationEngine {
       chunksTranslated,
       modelsUsed,
     };
+    if (warning) {
+      result.warning = warning;
+    }
+    return result;
   }
 }

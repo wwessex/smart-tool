@@ -96,6 +96,8 @@ export interface TranslationResult {
   chunksTranslated: number;
   /** Model ID(s) used for translation. */
   modelsUsed: string[];
+  /** Optional warning if the translation may need review (e.g. identical to original). */
+  warning?: string;
 }
 
 // ---------------------------------------------------------------------------
