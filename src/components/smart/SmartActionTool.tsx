@@ -701,6 +701,9 @@ export function SmartActionTool() {
         const outcome = aiDraftFuture(futureForm.task, futureForm.forename);
         setFutureForm(prev => ({ ...prev, outcome }));
       }
+      // Clear persisted error state so the UI doesn't keep showing the AI
+      // error after templates have been successfully applied.
+      llm.clearError();
       toast({
         title: 'Using smart templates',
         description: 'AI plan generation failed. Applied templates instead.',

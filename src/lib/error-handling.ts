@@ -52,9 +52,25 @@ const ERROR_PATTERNS: ErrorPattern[] = [
     message: "Not enough memory to run the AI model. Close other tabs or try a smaller model.",
     retryable: false,
   },
+  // Timeout (before general network — "timed out" is not a network issue here)
+  {
+    test: (m) => /timed?\s*out/i.test(m),
+    category: "generation",
+    title: "AI took too long",
+    message: "AI generation took too long. Try again or use Smart Templates instead.",
+    retryable: true,
+  },
+  // Unauthorized / forbidden (model access issues on HuggingFace)
+  {
+    test: (m) => /unauthori[sz]ed|forbidden|401|403|not authorized/i.test(m),
+    category: "model_load",
+    title: "Model access denied",
+    message: "The AI model is temporarily unavailable. Try reloading the page or switching models.",
+    retryable: true,
+  },
   // Network
   {
-    test: (m) => /network|fetch|Failed to fetch|net::ERR|ECONNREFUSED|ETIMEDOUT|timeout|offline/i.test(m),
+    test: (m) => /network|fetch|Failed to fetch|net::ERR|ECONNREFUSED|ETIMEDOUT|offline/i.test(m),
     category: "network",
     title: "Network error",
     message: "Could not reach the model server. Check your internet connection and try again.",
@@ -75,6 +91,14 @@ const ERROR_PATTERNS: ErrorPattern[] = [
     message: "Your browser is missing required features. Chrome or Edge provide the best compatibility.",
     retryable: false,
   },
+  // Not implemented / not supported (e.g. ONNX engine fallback)
+  {
+    test: (m) => /not yet implemented|not supported|not available/i.test(m),
+    category: "device",
+    title: "Feature not available",
+    message: "This AI feature is not available in your browser. Try Chrome or Edge for best compatibility.",
+    retryable: false,
+  },
   // Model loading
   {
     test: (m) => /warmup failed|Model loaded but|Failed to load model|load model/i.test(m),
@@ -91,9 +115,9 @@ const ERROR_PATTERNS: ErrorPattern[] = [
     message: "The AI returned an unreadable response. Try generating again — results may vary.",
     retryable: true,
   },
-  // Generation
+  // Generation / inference / worker errors
   {
-    test: (m) => /Generation failed|generate|Generate/i.test(m),
+    test: (m) => /Generation failed|generate|Generate|inference|Worker error/i.test(m),
     category: "generation",
     title: "AI generation failed",
     message: "Something went wrong during text generation. Please try again.",

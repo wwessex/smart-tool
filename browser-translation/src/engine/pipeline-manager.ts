@@ -210,9 +210,17 @@ export class PipelineManager {
       this.emitProgress(modelId, "ready", 0, 0);
       return translationPipeline;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const rawMessage = error instanceof Error ? error.message : String(error);
+
+      // Provide a clearer message for HTTP 401/403 errors (model repo
+      // has been made private or removed from HuggingFace).
+      const isAccessError = /unauthori[sz]ed|forbidden|401|403/i.test(rawMessage);
+      const message = isAccessError
+        ? `Translation model "${modelId}" is unavailable — the model may have been moved or made private on HuggingFace.`
+        : rawMessage;
+
       this.emitProgress(modelId, "error", 0, 0, message);
-      throw error;
+      throw new Error(message);
     }
   }
 
