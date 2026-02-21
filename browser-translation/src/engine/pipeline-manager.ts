@@ -184,6 +184,13 @@ export class PipelineManager {
         pipelineOptions.device = "webgpu";
       }
 
+      // Report model download progress to the UI
+      pipelineOptions.progress_callback = (progress: { loaded?: number; total?: number }) => {
+        if (progress.loaded !== undefined && progress.total !== undefined && progress.total > 0) {
+          this.emitProgress(modelId, "downloading", progress.loaded, progress.total);
+        }
+      };
+
       const translationPipeline = await pipeline(
         "translation",
         modelId,

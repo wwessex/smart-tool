@@ -129,53 +129,19 @@ export class OnnxInferenceEngine extends InferenceEngine {
     this.loaded = true;
   }
 
-  async generate(options: GenerateOptions): Promise<GenerateResult> {
+  async generate(_options: GenerateOptions): Promise<GenerateResult> {
     if (!this.session) {
       throw new Error("Model not loaded. Call load() first.");
     }
 
-    const startTime = performance.now();
-    let tokensGenerated = 0;
-    const outputParts: string[] = [];
-
-    // Autoregressive generation loop
-    // In a full implementation, this tokenizes the prompt, runs forward
-    // passes, samples from logits, and decodes tokens.
-    // This is the structural shell; actual tensor operations depend on
-    // the specific ONNX model's input/output signature.
-
-    const maxTokens = options.max_new_tokens ?? this.config.max_new_tokens;
-    const temperature = options.temperature ?? this.config.temperature;
-
-    // Generation loop placeholder - actual implementation requires
-    // tokenizer integration and ONNX session feed/fetch
-    for (let i = 0; i < maxTokens; i++) {
-      if (options.signal?.aborted) {
-        break;
-      }
-
-      // In production: run session.run() with input_ids + attention_mask + past_key_values,
-      // sample from logits (greedy if temperature=0, nucleus otherwise),
-      // check for stop sequences and EOS token.
-
-      // Check stop sequences
-      const currentText = outputParts.join("");
-      if (options.stop_sequences?.some((s) => currentText.endsWith(s))) {
-        break;
-      }
-
-      tokensGenerated++;
-    }
-
-    const text = outputParts.join("");
-    const timeMs = performance.now() - startTime;
-
-    return {
-      text,
-      tokens_generated: tokensGenerated,
-      time_ms: timeMs,
-      backend: this.activeBackend,
-    };
+    // The autoregressive generation loop requires tokenizer integration
+    // (encode prompt → run session.run() per step → sample logits → decode).
+    // This is not yet implemented; TransformersInferenceEngine handles
+    // tokenization and generation via the Transformers.js pipeline API.
+    throw new Error(
+      "Direct ONNX Runtime inference is not yet implemented. " +
+      "The Transformers.js engine is the supported inference path."
+    );
   }
 
   dispose(): void {

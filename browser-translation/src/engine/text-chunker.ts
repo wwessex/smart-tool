@@ -121,13 +121,30 @@ export function chunkText(
 
 /**
  * Reassemble translated chunks back into a complete text.
- * Separators are preserved in their original positions.
+ * Separators provide their own whitespace; consecutive content chunks
+ * (from a single paragraph split by length) are joined with a space.
  */
 export function reassembleChunks(chunks: TextChunk[]): string {
-  return chunks
-    .sort((a, b) => a.index - b.index)
-    .map((c) => c.text)
-    .join("\n\n");
+  const sorted = chunks.sort((a, b) => a.index - b.index);
+  const parts: string[] = [];
+
+  for (let i = 0; i < sorted.length; i++) {
+    const chunk = sorted[i];
+    if (chunk.isSeparator) {
+      // Separator chunks carry their own whitespace (e.g. "\n\n")
+      parts.push(chunk.text);
+    } else {
+      // If previous chunk was also a content chunk, join with a space
+      const prev = i > 0 ? sorted[i - 1] : null;
+      if (prev && !prev.isSeparator) {
+        parts.push(" " + chunk.text);
+      } else {
+        parts.push(chunk.text);
+      }
+    }
+  }
+
+  return parts.join("");
 }
 
 /**
