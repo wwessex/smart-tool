@@ -5,7 +5,8 @@
   "type": "module",
   "workspaces": [
     "browser-native-llm",
-    "browser-translation"
+    "browser-translation",
+    "puente-engine"
   ],
   "scripts": {
     "dev": "vite",
