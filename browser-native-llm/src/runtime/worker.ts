@@ -60,6 +60,10 @@ async function handleInit(config: InferenceConfig): Promise<void> {
       } satisfies WorkerMessage);
     });
 
+    // Read actual backend from the engine (may differ from initial
+    // selection if WebGPU failed and the pipeline fell back to WASM)
+    activeBackend = engine.backend;
+
     postMessage({
       type: "init_complete",
       backend: activeBackend,

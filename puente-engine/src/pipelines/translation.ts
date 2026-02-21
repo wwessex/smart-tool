@@ -102,7 +102,7 @@ export class TranslationPipeline {
 
     // Detect capabilities and select backend
     const capabilities = await detectCapabilities();
-    const backend = selectBackend(
+    let backend = selectBackend(
       capabilities,
       options.device as InferenceBackend | undefined
     );
@@ -115,58 +115,77 @@ export class TranslationPipeline {
     const tokenizer = new BPETokenizer();
     await tokenizer.load(configBase + "tokenizer.json");
 
-    const executionProvider = getExecutionProvider(backend);
-
     // Resolve filenames (allow overrides for quantized variants)
     const encoderFile = options.encoderFileName ?? "encoder_model.onnx";
     const decoderFile = options.decoderFileName ?? "decoder_model_merged.onnx";
     const combinedFile = options.combinedFileName ?? "model.onnx";
 
-    // Try split model first (encoder + decoder), fall back to combined
+    // Helper: create sessions for split or combined models with the current backend
+    const createSessions = async (): Promise<
+      [ort.InferenceSession, ort.InferenceSession]
+    > => {
+      const ep = getExecutionProvider(backend);
+      try {
+        // Try split model first (encoder + decoder)
+        const [encoderBuffer, decoderBuffer] = await Promise.all([
+          fetchModel(basePath + encoderFile, {
+            onProgress: (progress) => {
+              options.progress_callback?.({
+                loaded: progress.loaded_bytes,
+                total: progress.total_bytes,
+              });
+            },
+          }),
+          fetchModel(basePath + decoderFile, {
+            onProgress: (progress) => {
+              options.progress_callback?.({
+                loaded: progress.loaded_bytes,
+                total: progress.total_bytes,
+              });
+            },
+          }),
+        ]);
+
+        const [enc, dec] = await Promise.all([
+          createSession(encoderBuffer, { executionProvider: ep }),
+          createSession(decoderBuffer, { executionProvider: ep }),
+        ]);
+        return [enc, dec];
+      } catch {
+        // Fall back to combined model
+        const modelBuffer = await fetchModel(basePath + combinedFile, {
+          onProgress: (progress) => {
+            options.progress_callback?.({
+              loaded: progress.loaded_bytes,
+              total: progress.total_bytes,
+            });
+          },
+        });
+        const session = await createSession(modelBuffer, {
+          executionProvider: ep,
+        });
+        return [session, session];
+      }
+    };
+
+    // Create sessions — fall back to WASM if WebGPU provider fails
     let encoderSession: ort.InferenceSession;
     let decoderSession: ort.InferenceSession;
 
     try {
-      // Load split models
-      const [encoderBuffer, decoderBuffer] = await Promise.all([
-        fetchModel(basePath + encoderFile, {
-          onProgress: (progress) => {
-            options.progress_callback?.({
-              loaded: progress.loaded_bytes,
-              total: progress.total_bytes,
-            });
-          },
-        }),
-        fetchModel(basePath + decoderFile, {
-          onProgress: (progress) => {
-            options.progress_callback?.({
-              loaded: progress.loaded_bytes,
-              total: progress.total_bytes,
-            });
-          },
-        }),
-      ]);
-
-      [encoderSession, decoderSession] = await Promise.all([
-        createSession(encoderBuffer, { executionProvider }),
-        createSession(decoderBuffer, { executionProvider }),
-      ]);
-    } catch {
-      // Fall back to combined model
-      const modelBuffer = await fetchModel(basePath + combinedFile, {
-        onProgress: (progress) => {
-          options.progress_callback?.({
-            loaded: progress.loaded_bytes,
-            total: progress.total_bytes,
-          });
-        },
-      });
-
-      const session = await createSession(modelBuffer, {
-        executionProvider,
-      });
-      encoderSession = session;
-      decoderSession = session;
+      [encoderSession, decoderSession] = await createSessions();
+    } catch (err) {
+      if (backend === "webgpu") {
+        console.warn(
+          "[puente-engine] WebGPU session creation failed, falling back to WASM:",
+          err instanceof Error ? err.message : err,
+        );
+        backend = capabilities.wasmSimd ? "wasm-simd" : "wasm-basic";
+        configureBackend(backend);
+        [encoderSession, decoderSession] = await createSessions();
+      } else {
+        throw err;
+      }
     }
 
     // Create generator
