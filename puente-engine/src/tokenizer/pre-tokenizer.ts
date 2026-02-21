@@ -109,9 +109,12 @@ export function textToByteTokens(text: string): string {
 export class ByteLevelPreTokenizer implements PreTokenizer {
   private addPrefixSpace: boolean;
 
-  // GPT-2 tokenization regex: split on contractions, letters, numbers, punctuation
+  // GPT-2 tokenization regex: split on contractions, letters, numbers, punctuation.
+  // Note: the original GPT-2 pattern uses `\s+(?!\S)|\s+` for the whitespace
+  // alternation, but that causes polynomial backtracking (ReDoS) on long
+  // whitespace runs. A single `\s+` is equivalent for tokenization purposes.
   private readonly SPLIT_PATTERN =
-    /'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+/gu;
+    /'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+/gu;
 
   constructor(addPrefixSpace: boolean = false) {
     this.addPrefixSpace = addPrefixSpace;
