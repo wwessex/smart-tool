@@ -13,7 +13,7 @@
  * - Pre-caching model files during idle time
  */
 
-import type { ModelCacheEntry, ModelDtype } from "../types.js";
+import type { ModelCacheEntry } from "../types.js";
 
 /** Cache name used for translation model files. */
 const CACHE_NAME = "lengua-materna-models";

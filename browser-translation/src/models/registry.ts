@@ -22,7 +22,6 @@ import type {
   LanguagePairId,
   LanguageInfo,
   ModelInfo,
-  ModelDtype,
   ScriptDirection,
 } from "../types.js";
 
