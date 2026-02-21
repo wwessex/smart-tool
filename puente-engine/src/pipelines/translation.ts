@@ -120,13 +120,24 @@ export class TranslationPipeline {
     const decoderFile = options.decoderFileName ?? "decoder_model_merged.onnx";
     const combinedFile = options.combinedFileName ?? "model.onnx";
 
-    // Helper: create sessions for split or combined models with the current backend
+    // Helper: create sessions for split or combined models with the current backend.
+    //
+    // When explicit encoder/decoder filenames are provided the caller
+    // already knows the model is split, so a fallback to a combined
+    // `model.onnx` (which won't exist) would only mask the real error
+    // (e.g. WASM init failure).  We only try the combined fallback when
+    // the default filenames are in use and the split files were not found.
+    const hasSplitOverrides =
+      options.encoderFileName !== undefined ||
+      options.decoderFileName !== undefined;
+
     const createSessions = async (): Promise<
       [ort.InferenceSession, ort.InferenceSession]
     > => {
       const ep = getExecutionProvider(backend);
+
+      // --- Try split model first (encoder + decoder) ---
       try {
-        // Try split model first (encoder + decoder)
         const [encoderBuffer, decoderBuffer] = await Promise.all([
           fetchModel(basePath + encoderFile, {
             onProgress: (progress) => {
@@ -151,8 +162,14 @@ export class TranslationPipeline {
           createSession(decoderBuffer, { executionProvider: ep }),
         ]);
         return [enc, dec];
-      } catch {
-        // Fall back to combined model
+      } catch (splitError) {
+        // If the caller specified explicit encoder/decoder filenames,
+        // don't mask the error with a combined-model fallback.
+        if (hasSplitOverrides) {
+          throw splitError;
+        }
+
+        // Fall back to combined model (only for default filenames)
         const modelBuffer = await fetchModel(basePath + combinedFile, {
           onProgress: (progress) => {
             options.progress_callback?.({
