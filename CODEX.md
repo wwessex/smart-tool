@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**SMART Action Tool** is a React/TypeScript web application that helps employment advisors create SMART (Specific, Measurable, Achievable, Relevant, Time-bound) action plans for job seekers. The app features real-time SMART criteria analysis, AI-powered draft suggestions (both local and cloud-based), translation support, and GDPR-compliant data handling.
+**SMART Action Tool** is a React/TypeScript web application that helps employment advisors create SMART (Specific, Measurable, Achievable, Relevant, Time-bound) action plans for job seekers. The app features real-time SMART criteria analysis, AI-powered draft suggestions (local, on-device), translation support, and GDPR-compliant data handling.
 
 ### Key Domain Concepts
 - **SMART Actions**: Goal-setting framework where each action must be Specific, Measurable, Achievable, Relevant, and Time-bound
@@ -20,8 +20,8 @@
 | UI Components | shadcn/ui + Radix UI primitives |
 | Styling | Tailwind CSS with CSS variables |
 | State Management | React hooks + TanStack Query |
-| Backend | Supabase (Edge Functions for AI) |
-| Local AI | @huggingface/transformers (WebGPU/WASM) |
+| Backend | Supabase (authentication) |
+| Local AI | @smart-tool/browser-native-llm (Amor inteligente via Puente Engine) |
 | Testing | Vitest + Testing Library |
 | Linting | ESLint with TypeScript support |
 

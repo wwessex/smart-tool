@@ -1,7 +1,7 @@
 /**
  * Model configuration loader.
  *
- * Parses config.json and generation_config.json from HuggingFace model
+ * Parses config.json and generation_config.json from model
  * repositories into normalised ModelConfig and GenerationConfig types.
  * Handles differences between decoder-only (GPT-2, LLaMA) and
  * encoder-decoder (Marian/OPUS-MT) architectures.

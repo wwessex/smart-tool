@@ -3,9 +3,8 @@
  *
  * Offline-first, privacy-preserving in-browser translation engine.
  *
- * Replaces cloud-based and large multilingual model translation with
- * lightweight, per-language-pair OPUS-MT (Marian) models running locally
- * via Transformers.js + ONNX Runtime Web. Supports WebGPU acceleration
+ * Uses lightweight, per-language-pair OPUS-MT (Marian) models running locally
+ * via the Puente Engine (ONNX Runtime Web). Supports WebGPU acceleration
  * with WASM fallback.
  *
  * Key improvements over the previous NLLB-200 approach:

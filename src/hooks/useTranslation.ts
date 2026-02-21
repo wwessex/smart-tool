@@ -60,7 +60,8 @@ let initPromise: Promise<void> | null = null;
 function getEngine(): TranslationEngine {
   if (!engineInstance) {
     engineInstance = new TranslationEngine({
-      allowRemoteModels: true,
+      allowRemoteModels: false,
+      modelBasePath: "./models/",
       useBrowserCache: true,
       maxLoadedPipelines: 3,
       maxChunkChars: 900,

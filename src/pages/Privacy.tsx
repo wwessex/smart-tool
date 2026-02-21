@@ -103,11 +103,6 @@ export default function Privacy() {
                     <td className="py-2 pr-4">Providing AI-powered draft suggestions in your browser</td>
                     <td className="py-2">Consent &ndash; Art&nbsp;6(1)(a)</td>
                   </tr>
-                  <tr className="border-b">
-                    <td className="py-2 pr-4">Cloud AI processing (where available)</td>
-                    <td className="py-2 pr-4">Optional AI chat and translation via cloud services</td>
-                    <td className="py-2">Explicit consent &ndash; Art&nbsp;6(1)(a)</td>
-                  </tr>
                   <tr>
                     <td className="py-2 pr-4">Automatic data retention cleanup</td>
                     <td className="py-2 pr-4">Limiting how long personal data is stored</td>
@@ -118,59 +113,28 @@ export default function Privacy() {
             </div>
           </section>
 
-          {/* Third-Party Requests and Cloud AI */}
+          {/* Data Processing and Privacy */}
           <section className="p-6 rounded-xl border bg-card">
             <h2 className="flex items-center gap-2 text-xl font-semibold mb-4">
               <Server className="w-5 h-5 text-primary" />
-              Third-Party Services and Data Sharing
+              Data Processing and Privacy
             </h2>
 
             <div className="space-y-4">
               <div className="p-4 rounded-lg bg-muted/30">
-                <p className="font-medium">Local AI (default)</p>
+                <p className="font-medium">Local AI processing</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  By default, all AI drafting and translation runs locally in your browser using on-device models.
-                  No action text, participant details, or translations are sent to any external server
-                  when using local AI mode.
+                  All AI drafting and translation runs locally in your browser using on-device models
+                  powered by the proprietary Amor inteligente and Lengua Materna engines.
+                  No action text, participant details, or translations are sent to any external server.
                 </p>
-              </div>
-
-              <div className="p-4 rounded-lg bg-muted/30">
-                <p className="font-medium">Cloud AI features (where available)</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  The tool includes optional cloud AI features for chat-based drafting and translation.
-                  These features are consent-gated and only activated if you explicitly opt in.
-                  When active, your action text or chat messages are sent through the following processing chain:
-                </p>
-                <ul className="list-disc pl-6 text-sm text-muted-foreground mt-2 space-y-1">
-                  <li>Your browser sends text to a Supabase Edge Function (hosted by Supabase Inc.)</li>
-                  <li>The Edge Function forwards the request to Lovable's AI gateway</li>
-                  <li>Lovable's gateway routes the request to Google Gemini for AI processing</li>
-                </ul>
-                <p className="text-sm text-muted-foreground mt-2">
-                  For rate limiting, a hash of your IP address is held in memory for up to 60 seconds,
-                  then automatically deleted. Raw IP addresses are not stored or logged.
-                  Only the number of messages processed is logged, never the content.
-                </p>
-              </div>
-
-              <div className="p-4 rounded-lg bg-muted/30">
-                <p className="font-medium">Data processors (cloud AI)</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  When cloud AI features are used, the following third parties act as data processors:
-                </p>
-                <ul className="list-disc pl-6 text-sm text-muted-foreground mt-2 space-y-1">
-                  <li><strong>Supabase Inc.</strong> &ndash; Edge Function hosting (processes the request)</li>
-                  <li><strong>Lovable</strong> &ndash; AI gateway proxy</li>
-                  <li><strong>Google</strong> &ndash; Gemini model provider (generates AI responses)</li>
-                </ul>
               </div>
 
               <div className="p-4 rounded-lg bg-muted/30">
                 <p className="font-medium">Model downloads</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  If you enable the Local AI Module, your browser may download model files from this website
-                  (self-hosted) or from Hugging Face Hub. These downloads are standard HTTP requests that include
+                  If you enable the Local AI Module, your browser downloads model files from this website
+                  (self-hosted). These downloads are standard HTTP requests that include
                   browser metadata such as your IP address. No action text is transmitted as part of these requests.
                   Downloaded models are cached locally for offline reuse.
                 </p>
@@ -186,6 +150,7 @@ export default function Privacy() {
 
             <p className="text-muted-foreground mt-4">
               We do not use analytics services, advertising networks, or social media tracking.
+              No third-party AI services are used — all processing happens on your device.
             </p>
           </section>
 
@@ -193,12 +158,13 @@ export default function Privacy() {
           <section className="p-6 rounded-xl border bg-card">
             <h2 className="text-xl font-semibold mb-4">Local AI Module</h2>
             <p className="text-muted-foreground mb-4">
-              When you enable the Local AI Module, drafting and translation run locally in your browser.
+              When you enable the Local AI Module, drafting and translation run locally in your browser
+              using the proprietary Amor inteligente and Lengua Materna engines.
               Your text is processed on-device and is not sent to any server for AI processing.
             </p>
             <p className="text-sm text-muted-foreground">
-              Your browser may download AI model files from this website (self-hosted) or Hugging Face Hub
-              when you enable the local AI module. These downloads do not include your action text.
+              Your browser downloads self-hosted AI model files when you enable the local AI module.
+              These downloads do not include your action text.
               Model files are cached in browser CacheStorage for offline reuse and can be cleared
               via Settings.
             </p>
@@ -211,29 +177,13 @@ export default function Privacy() {
               International Data Transfers
             </h2>
             <p className="text-muted-foreground mb-4">
-              When using the tool in local-only mode (the default), no personal data leaves your device
-              or browser. No international transfer occurs.
+              All AI processing runs locally in your browser. No personal data leaves your device
+              for AI processing, and no international data transfer occurs for AI features.
             </p>
             <p className="text-muted-foreground mb-4">
-              When optional cloud AI features are active, data may be transferred to servers outside
-              the United Kingdom. Supabase infrastructure may be located in the EU or US. Lovable's
-              AI gateway and Google's Gemini service may process data in the US or other jurisdictions.
+              Supabase is used for authentication only. Supabase infrastructure may be located in the
+              EU or US.
             </p>
-            <p className="text-muted-foreground mb-4">
-              Safeguards for these transfers include:
-            </p>
-            <ul className="list-disc pl-6 text-muted-foreground space-y-2">
-              <li>The UK has an adequacy decision for the EU/EEA, permitting data flows without additional safeguards</li>
-              <li>For US and other transfers, services rely on Standard Contractual Clauses (SCCs) and/or the EU-US Data Privacy Framework</li>
-              <li>Data processing agreements are in place with cloud service providers</li>
-            </ul>
-            <div className="mt-4 p-4 rounded-lg bg-muted/30">
-              <p className="text-sm text-muted-foreground">
-                If you are using this tool in a UK public sector or regulated context, check with your
-                Data Protection Officer that these transfer mechanisms are acceptable for your use case
-                before enabling cloud AI features.
-              </p>
-            </div>
           </section>
 
           {/* Data Retention */}
@@ -256,12 +206,6 @@ export default function Privacy() {
               <li>
                 <strong>Other stored data:</strong> Templates, barriers, timescales, and preferences
                 are retained until you manually delete them or use the "Delete All Data" option in Settings.
-              </li>
-              <li>
-                <strong>Cloud AI processing:</strong> Text sent to cloud AI functions is processed in
-                real-time and is not stored by the edge functions. IP hashes used for rate limiting
-                are held in memory for up to 60 seconds. The AI gateway and model providers may have
-                their own retention policies; refer to their respective privacy policies for details.
               </li>
               <li>
                 <strong>Manual deletion:</strong> You can delete all stored data at any time via
@@ -480,8 +424,7 @@ export default function Privacy() {
               <li>
                 <strong>Right to object (Article 21):</strong> As processing is based on legitimate
                 interests, you have the right to object. You can stop using the tool and delete your
-                data at any time. For cloud AI features, you can withdraw consent by not opting in
-                or by disabling the feature.
+                data at any time.
               </li>
               <li>
                 <strong>Automated decision-making (Article 22):</strong> The SMART score and AI
@@ -509,7 +452,7 @@ export default function Privacy() {
               <li>Local data remains on your device only</li>
               <li>No accounts or passwords to protect</li>
               <li>No server-side storage of personal data when using local-only mode</li>
-              <li>Cloud AI edge functions do not log or persist user content</li>
+              <li>All AI processing runs locally on your device</li>
               <li>Regular security reviews of the codebase</li>
             </ul>
           </section>

@@ -3,7 +3,7 @@
  *
  * Applies Unicode normalisation and other text transformations
  * before pre-tokenization. Supports the normaliser configs found
- * in HuggingFace tokenizer.json files.
+ * in tokenizer.json files.
  */
 
 import type { NormalizerConfig } from "../core/types.js";

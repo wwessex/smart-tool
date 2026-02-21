@@ -8,7 +8,7 @@
  * Pipelines are loaded lazily on first use and cached for reuse.
  * The manager handles:
  * - Lazy model loading via dynamic import
- * - Local-only model paths (when allowRemoteModels is false)
+ * - Self-hosted model paths
  * - dtype selection for quantized variants
  * - LRU eviction when max loaded pipelines is exceeded
  * - Proper resource cleanup via dispose()
@@ -166,20 +166,12 @@ export class PipelineManager {
       this.emitProgress(modelId, "initializing", 0, 0);
 
       // Build model paths.
-      // HuggingFace repos store config.json/tokenizer.json at root and
-      // ONNX files in an onnx/ subdirectory. Puente Engine's configPath
-      // option lets us resolve each from the correct location.
-      let configPath: string;
-      let modelPath: string;
-
-      if (this.config.allowRemoteModels) {
-        configPath = `https://huggingface.co/${modelId}/resolve/main/`;
-        modelPath = `https://huggingface.co/${modelId}/resolve/main/onnx/`;
-      } else {
-        const basePath = this.config.modelBasePath ?? "./models/";
-        configPath = `${basePath}${modelId}/`;
-        modelPath = `${basePath}${modelId}/onnx/`;
-      }
+      // Models store config.json/tokenizer.json at root and ONNX files
+      // in an onnx/ subdirectory. Puente Engine's configPath option lets
+      // us resolve each from the correct location.
+      const basePath = this.config.modelBasePath ?? "./models/";
+      const configPath = `${basePath}${modelId}/`;
+      const modelPath = `${basePath}${modelId}/onnx/`;
 
       // Resolve quantized encoder/decoder filenames
       const fileSuffix = getOnnxFileSuffix(dtype);
@@ -216,11 +208,11 @@ export class PipelineManager {
     } catch (error) {
       const rawMessage = error instanceof Error ? error.message : String(error);
 
-      // Provide a clearer message for HTTP 401/403 errors (model repo
-      // has been made private or removed from HuggingFace).
+      // Provide a clearer message for HTTP 401/403 errors (model files
+      // may be missing or inaccessible).
       const isAccessError = /unauthori[sz]ed|forbidden|401|403/i.test(rawMessage);
       const message = isAccessError
-        ? `Translation model "${modelId}" is unavailable — the model may have been moved or made private on HuggingFace.`
+        ? `Translation model "${modelId}" is unavailable — the model files may be missing or inaccessible.`
         : rawMessage;
 
       this.emitProgress(modelId, "error", 0, 0, message);
@@ -265,7 +257,7 @@ export class PipelineManager {
 }
 
 /**
- * Map a ModelDtype to the ONNX filename suffix used by Xenova/OPUS-MT models.
+ * Map a ModelDtype to the ONNX filename suffix used by OPUS-MT models.
  * - "fp32" → "" (no suffix, full precision)
  * - "fp16" → "" (same as fp32 for ONNX models that use fp16 in the base file)
  * - "int8" / "uint8" → "_quantized"

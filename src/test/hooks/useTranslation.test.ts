@@ -37,7 +37,7 @@ describe('useTranslation', () => {
       usedPivot: false,
       durationMs: 100,
       chunksTranslated: 1,
-      modelsUsed: ['Xenova/opus-mt-en-ar'],
+      modelsUsed: ['opus-mt-en-ar'],
     });
 
     const { result } = renderHook(() => useTranslation({ enabled: true }));

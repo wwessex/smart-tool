@@ -1,6 +1,6 @@
 /**
  * AI Prompts for SMART Action Tool
- * Optimized for both small local LLMs (135M-500M) and cloud AI
+ * Optimized for the Amor inteligente local LLM (135M-500M)
  */
 
 export const IMPROVE_PROMPT = `You are a SMART action improvement specialist for employment advisors. Your job is to enhance employment-related actions to be more Specific, Measurable, Achievable, Relevant, and Time-bound.

@@ -73,8 +73,8 @@ export default function Terms() {
             <ul className="list-disc pl-6 text-muted-foreground space-y-1 mt-2">
               <li>Action creation and editing tools</li>
               <li>SMART quality checking and validation</li>
-              <li>Local AI-powered suggestions and improvements (runs in your browser)</li>
-              <li>Optional cloud AI chat and translation (where available, requires consent)</li>
+              <li>AI-powered suggestions and improvements (runs locally in your browser)</li>
+              <li>Local translation via the Lengua Materna engine</li>
               <li>Local storage of action history and templates</li>
               <li>Data export and management features</li>
             </ul>
@@ -148,9 +148,8 @@ export default function Terms() {
             <h2 className="text-xl font-semibold mb-4">Local AI Features</h2>
             <p className="text-muted-foreground mb-4">
               The Tool includes an optional Local AI Module that runs entirely in your browser.
-              By default, no action text, participant details, or other content is sent to any external
-              server for AI processing. Optional cloud AI features, where available, require separate
-              consent. By using these features, you acknowledge that:
+              No action text, participant details, or other content is sent to any external
+              server for AI processing. By using these features, you acknowledge that:
             </p>
             <ul className="list-disc pl-6 text-muted-foreground space-y-2">
               <li>
@@ -175,8 +174,7 @@ export default function Terms() {
             <div className="mt-4 p-4 rounded-lg bg-muted/50">
               <p className="text-sm text-muted-foreground">
                 <strong>Note:</strong> The Local AI Module is optional and can be enabled or disabled
-                in your preferences. Cloud AI features, where available, are consent-gated and
-                operate separately from the local AI module.
+                in your preferences. All AI processing runs locally in your browser.
               </p>
             </div>
           </section>

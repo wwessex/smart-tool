@@ -1,7 +1,7 @@
 /**
  * React hook wrapping the Amor inteligente AI Engine (browser-native-llm).
  *
- * Replaces useTransformersLLM with the full SmartPlanner pipeline:
+ * Provides the full SmartPlanner pipeline:
  * profile normalisation → retrieval → prompt assembly → inference →
  * JSON schema validation → repair loop → template fallback.
  */
@@ -31,7 +31,7 @@ export interface ModelInfo {
 
 export const RECOMMENDED_MODELS: ModelInfo[] = [
   {
-    id: "HuggingFaceTB/SmolLM2-360M-Instruct",
+    id: "SmolLM2-360M-Instruct",
     name: "AI Module",
     size: "~500MB",
     description: "Offline AI drafting module",
@@ -40,7 +40,7 @@ export const RECOMMENDED_MODELS: ModelInfo[] = [
 
 const MOBILE_RECOMMENDED_MODELS: ModelInfo[] = [
   {
-    id: "HuggingFaceTB/SmolLM2-135M-Instruct",
+    id: "SmolLM2-135M-Instruct",
     name: "AI Module (Mobile)",
     size: "~220MB",
     description: "Smaller offline AI module for mobile Safari",
@@ -58,7 +58,7 @@ export interface UseBrowserNativeLLMOptions {
 export type { SMARTAction, SMARTPlan, RawUserInput, PlannerCallbacks };
 
 // ---------------------------------------------------------------------------
-// Browser / device detection (carried over from useTransformersLLM)
+// Browser / device detection
 // ---------------------------------------------------------------------------
 
 interface BrowserInfo {
@@ -253,7 +253,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
         const planner = new SmartPlanner({
           inference: {
             model_id: effectiveModelId,
-            model_base_url: `https://huggingface.co/${effectiveModelId}/resolve/main/`,
+            model_base_url: `./models/${effectiveModelId}/`,
             preferred_backend: backend,
             max_seq_length: 1024,
             max_new_tokens: 512,

@@ -34,7 +34,7 @@ const DEFAULT_SPECIAL_TOKENS: SpecialTokens = {
 };
 
 /**
- * Lightweight tokenizer that delegates to Transformers.js AutoTokenizer
+ * Lightweight tokenizer that delegates to the Puente Engine BPE tokenizer
  * or a custom BPE implementation for minimal-dependency scenarios.
  */
 export class SmartTokenizer {
@@ -103,7 +103,7 @@ export class SmartTokenizer {
   encode(text: string): number[] {
     this.ensureInitialized();
     // Simplified BPE encoding - in production, this delegates to
-    // the full Transformers.js AutoTokenizer or a compiled WASM tokenizer.
+    // the Puente Engine's BPE tokenizer.
     const tokens: number[] = [];
 
     // Check for special tokens first

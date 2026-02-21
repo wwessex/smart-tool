@@ -1,6 +1,6 @@
 # Lengua Materna Translation Engine
 
-Offline-first, privacy-preserving in-browser translation engine for the SMART Action Tool. Replaces the previous cloud/NLLB-based translation with lightweight, per-language-pair **OPUS-MT (Marian)** models running locally via **Transformers.js + ONNX Runtime Web**.
+Offline-first, privacy-preserving in-browser translation engine for the SMART Action Tool. Uses lightweight, per-language-pair **OPUS-MT (Marian)** models running locally via **Puente Engine (ONNX Runtime Web)**.
 
 ## Status: Not Yet Integrated
 
@@ -43,7 +43,7 @@ browser-translation/
 │   ├── golden-set.json             # Reference translations for quality testing
 │   └── evaluate.ts                 # chrF scoring + placeholder checks
 ├── scripts/
-│   ├── convert-model.py            # ONNX export from HuggingFace
+│   ├── convert-model.py            # ONNX export for model conversion
 │   └── quantize-model.py           # Post-export int8/fp16 quantization
 ├── package.json
 ├── tsconfig.json
@@ -142,9 +142,9 @@ const result = await client.translate({
 
 ## Model Preparation
 
-### Option A: Use Pre-Built Xenova Models (Fastest)
+### Option A: Use Pre-Built Models (Fastest)
 
-Many OPUS-MT models are already converted to ONNX with quantized variants in the `Xenova/*` namespace on Hugging Face. The `MODEL_REGISTRY` in `src/models/registry.ts` references these.
+Self-hosted OPUS-MT models are referenced in the `MODEL_REGISTRY` in `src/models/registry.ts`.
 
 ### Option B: Convert Your Own
 
@@ -187,5 +187,5 @@ When ready to integrate into the main app:
 - **Engine code**: MIT (this repository)
 - **OPUS-MT models**: CC-BY-4.0 (requires attribution — see `getAttributions()`)
 - **Marian NMT framework**: MIT
-- **Transformers.js**: Apache-2.0
+- **Puente Engine**: MIT
 - **ONNX Runtime Web**: MIT

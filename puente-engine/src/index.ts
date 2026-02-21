@@ -2,13 +2,13 @@
  * Puente Engine — Custom Neural Network Inference Engine
  *
  * A from-scratch inference engine for running ONNX neural network models
- * in the browser via ONNX Runtime Web. Designed to replace @huggingface/transformers
- * as the inference backend for browser-native LLM and translation features.
+ * in the browser via ONNX Runtime Web. Serves as the primary inference backend
+ * for the Amor inteligente LLM and Lengua Materna translation engines.
  *
  * Supports:
  * - Decoder-only transformer models (text generation / LLM)
  * - Encoder-decoder models (sequence-to-sequence translation)
- * - Full BPE tokenization (HuggingFace tokenizer.json format)
+ * - Full BPE tokenization (tokenizer.json format)
  * - WebGPU and WASM backends
  * - KV cache for efficient autoregressive generation
  * - Greedy and nucleus (top-p) sampling

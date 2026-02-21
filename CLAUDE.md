@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**SMART Action Tool** is a React/TypeScript web application that helps employment advisors create SMART (Specific, Measurable, Achievable, Relevant, Time-bound) action plans for job seekers. The app features real-time SMART criteria analysis, AI-powered draft suggestions (both local and cloud-based), translation support, and GDPR-compliant data handling.
+**SMART Action Tool** is a React/TypeScript web application that helps employment advisors create SMART (Specific, Measurable, Achievable, Relevant, Time-bound) action plans for job seekers. The app features real-time SMART criteria analysis, AI-powered draft suggestions (local, on-device), translation support, and GDPR-compliant data handling.
 
 ### Key Domain Concepts
 - **SMART Actions**: Goal-setting framework where each action must be Specific, Measurable, Achievable, Relevant, and Time-bound
@@ -20,9 +20,9 @@
 | UI Components | shadcn/ui + Radix UI primitives |
 | Styling | Tailwind CSS with CSS variables |
 | State Management | React hooks + TanStack Query |
-| Backend | Supabase (Edge Functions for AI) |
-| Local AI | @huggingface/transformers (WebGPU/WASM) |
-| Translation | @smart-tool/lengua-materna (OPUS-MT via Transformers.js) |
+| Backend | Supabase (authentication) |
+| Local AI | @smart-tool/browser-native-llm (Amor inteligente via Puente Engine) |
+| Translation | @smart-tool/lengua-materna (Lengua Materna via Puente Engine) |
 | Testing | Vitest + Testing Library |
 | Linting | ESLint with TypeScript support |
 
@@ -32,13 +32,12 @@
 smart-tool/
 ├── src/
 │   ├── components/
-│   │   ├── smart/          # Domain-specific components (SmartActionTool, LLMChat, etc.)
+│   │   ├── smart/          # Domain-specific components (SmartActionTool, etc.)
 │   │   └── ui/             # shadcn/ui components (DO NOT edit directly - use shadcn CLI)
 │   ├── hooks/              # Custom React hooks
-│   │   ├── useCloudAI.ts       # Cloud AI via Supabase
-│   │   ├── useTransformersLLM.ts # Local browser-based AI
+│   │   ├── useBrowserNativeLLM.ts # Local AI via Amor inteligente / Puente Engine
 │   │   ├── useSmartStorage.ts  # localStorage management
-│   │   └── useTranslation.ts   # Translation support
+│   │   └── useTranslation.ts   # Translation via Lengua Materna / Puente Engine
 │   ├── lib/                # Utility functions and domain logic
 │   │   ├── smart-checker.ts    # SMART criteria analysis engine
 │   │   ├── smart-data.ts       # Default barriers/timescales
@@ -49,11 +48,9 @@ smart-tool/
 │   ├── pages/              # Page components (Index, Privacy, Terms, Admin)
 │   ├── test/               # Test files and setup
 │   └── main.tsx            # Application entry point
-├── supabase/
-│   └── functions/          # Supabase Edge Functions
-│       ├── smart-chat/     # Cloud AI chat endpoint
-│       └── smart-translate/ # Translation endpoint
-├── browser-translation/    # Lengua Materna translation engine (workspace: @smart-tool/lengua-materna)
+├── puente-engine/          # Puente Engine — custom ONNX inference engine (workspace: @smart-tool/puente-engine)
+├── browser-native-llm/     # Amor inteligente — browser-native LLM engine (workspace: @smart-tool/browser-native-llm)
+├── browser-translation/    # Lengua Materna — translation engine (workspace: @smart-tool/lengua-materna)
 ├── public/                 # Static assets, PWA files, manifest
 ├── scripts/                # Build scripts (fetch-models.py)
 └── [config files]          # vite.config.ts, tailwind.config.cjs, etc.
@@ -142,14 +139,13 @@ VITE_BASE_PATH=./  # Relative paths for portable builds
 | File | Purpose |
 |------|---------|
 | `src/hooks/useSmartStorage.ts` | localStorage CRUD for history, templates, settings |
-| `src/hooks/useCloudAI.ts` | Streaming chat via Supabase Edge Functions |
-| `src/hooks/useTransformersLLM.ts` | Local LLM with WebGPU/WASM fallback |
+| `src/hooks/useBrowserNativeLLM.ts` | Local LLM via Amor inteligente / Puente Engine |
+| `src/hooks/useTranslation.ts` | Translation via Lengua Materna / Puente Engine |
 
 ### Main UI
 | File | Purpose |
 |------|---------|
 | `src/components/smart/SmartActionTool.tsx` | Main application component (~1000 lines) |
-| `src/components/smart/LLMChat.tsx` | AI chat interface |
 | `src/App.tsx` | Router setup, providers, error boundaries |
 
 ## Testing
@@ -200,12 +196,12 @@ const result = checkSmart(actionText, {
 ```
 
 ### AI Integration
-Two modes of AI operation:
-1. **Cloud AI** (`useCloudAI`): Streams responses via Supabase Edge Function
-2. **Local AI** (`useTransformersLLM`): Browser-based LLM using WebGPU or WASM fallback
+All AI runs locally in the browser via proprietary engines:
+- **Amor inteligente** (`useBrowserNativeLLM`): Browser-native LLM for SMART action planning via Puente Engine
+- **Lengua Materna** (`useTranslation`): Browser-native translation via OPUS-MT models and Puente Engine
 
 ### Translation (Lengua Materna Engine)
-Translation uses the `@smart-tool/lengua-materna` workspace package (`browser-translation/`), which runs per-language-pair OPUS-MT models locally via Transformers.js. Key features:
+Translation uses the `@smart-tool/lengua-materna` workspace package (`browser-translation/`), which runs per-language-pair OPUS-MT models locally via the Puente Engine. Key features:
 - **15 target languages** (Welsh, Polish, Urdu, Bengali, Arabic, Punjabi, Pashto, Somali, Tigrinya, German, French, Spanish, Italian, Portuguese, Hindi)
 - **Per-pair models** (~105-130 MB each, CC-BY-4.0 licensed) instead of one large multilingual model
 - **LRU pipeline management** — max 3 models loaded simultaneously
