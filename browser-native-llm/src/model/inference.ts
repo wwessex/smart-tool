@@ -169,10 +169,41 @@ export class OnnxInferenceEngine extends InferenceEngine {
 }
 
 /**
- * Transformers.js-based inference engine.
- * Higher-level API with built-in tokenization and generation utilities.
+ * @deprecated Use PuenteInferenceEngine instead. This class required
+ * @huggingface/transformers which has been replaced by @smart-tool/puente-engine.
  */
 export class TransformersInferenceEngine extends InferenceEngine {
+  constructor(config: InferenceConfig, _preferredBackend?: InferenceBackend) {
+    super(config);
+  }
+
+  async load(): Promise<void> {
+    throw new Error(
+      "TransformersInferenceEngine is deprecated. Use PuenteInferenceEngine instead."
+    );
+  }
+
+  async generate(_options: GenerateOptions): Promise<GenerateResult> {
+    throw new Error(
+      "TransformersInferenceEngine is deprecated. Use PuenteInferenceEngine instead."
+    );
+  }
+
+  dispose(): void {
+    /* no-op */
+  }
+
+  get backend(): InferenceBackend {
+    return "wasm-basic";
+  }
+}
+
+/**
+ * Puente Engine-based inference engine.
+ * Custom ONNX Runtime inference with full tokenization, KV cache,
+ * and generation loop — replaces Transformers.js as the primary backend.
+ */
+export class PuenteInferenceEngine extends InferenceEngine {
   private pipeline: unknown = null;
   private activeBackend: InferenceBackend = "wasm-basic";
 
@@ -186,23 +217,31 @@ export class TransformersInferenceEngine extends InferenceEngine {
   async load(
     onProgress?: (loaded: number, total: number) => void
   ): Promise<void> {
-    const { pipeline, env } = await import("@huggingface/transformers");
+    const { TextGenerationPipeline } = await import(
+      "@smart-tool/puente-engine"
+    );
 
-    // Configure backend
-    if (this.activeBackend === "webgpu") {
-      env.backends.onnx.wasm!.proxy = false;
-    }
+    const device = this.activeBackend === "webgpu" ? "webgpu" : undefined;
 
-    const device = this.activeBackend === "webgpu" ? "webgpu" : "wasm";
+    // HuggingFace layout: config.json/tokenizer.json at root, ONNX in onnx/
+    const baseUrl = this.config.model_base_url.endsWith("/")
+      ? this.config.model_base_url
+      : this.config.model_base_url + "/";
+    const onnxPath = baseUrl + "onnx/";
 
-    // Quantisation dtype selection
-    const dtype = "q4"; // 4-bit quantisation
-
-    this.pipeline = await pipeline("text-generation", this.config.model_id, {
+    this.pipeline = await TextGenerationPipeline.create(onnxPath, {
+      configPath: baseUrl,
       device,
-      dtype,
-      progress_callback: (progress: { loaded?: number; total?: number }) => {
-        if (progress.loaded !== undefined && progress.total !== undefined) {
+      dtype: "q4",
+      modelFileName: "model_q4.onnx",
+      progress_callback: (progress: {
+        loaded?: number;
+        total?: number;
+      }) => {
+        if (
+          progress.loaded !== undefined &&
+          progress.total !== undefined
+        ) {
           onProgress?.(progress.loaded, progress.total);
         }
       },
@@ -216,45 +255,48 @@ export class TransformersInferenceEngine extends InferenceEngine {
       throw new Error("Model not loaded. Call load() first.");
     }
 
-    const startTime = performance.now();
+    type PuenteResult = {
+      text: string;
+      tokens_generated: number;
+      time_ms: number;
+      backend: string;
+    };
+    const p = this.pipeline as {
+      generate(
+        prompt: string,
+        opts: Record<string, unknown>
+      ): Promise<PuenteResult>;
+    };
 
-    const generateFn = this.pipeline as (
-      text: string,
-      options: Record<string, unknown>
-    ) => Promise<Array<{ generated_text: string }>>;
-
-    const results = await generateFn(options.prompt, {
-      max_new_tokens: options.max_new_tokens ?? this.config.max_new_tokens,
+    const result = await p.generate(options.prompt, {
+      max_new_tokens:
+        options.max_new_tokens ?? this.config.max_new_tokens,
       temperature: options.temperature ?? this.config.temperature,
       top_p: options.top_p ?? this.config.top_p,
       repetition_penalty:
         options.repetition_penalty ?? this.config.repetition_penalty,
-      do_sample: (options.temperature ?? this.config.temperature) > 0,
-      return_full_text: false,
+      stop_sequences: options.stop_sequences,
+      on_token: options.on_token,
+      signal: options.signal,
     });
 
-    let text = results[0]?.generated_text ?? "";
-
-    // Trim at the first occurrence of any stop sequence so downstream
-    // JSON parsing only sees the model's structured output.
+    let text = result.text;
     if (options.stop_sequences && options.stop_sequences.length > 0) {
       text = trimAtStopSequence(text, options.stop_sequences);
     }
 
-    const timeMs = performance.now() - startTime;
-
-    // Approximate token count from output length
-    const tokensGenerated = Math.ceil(text.length / 4);
-
     return {
       text,
-      tokens_generated: tokensGenerated,
-      time_ms: timeMs,
+      tokens_generated: result.tokens_generated,
+      time_ms: result.time_ms,
       backend: this.activeBackend,
     };
   }
 
   dispose(): void {
+    if (this.pipeline) {
+      (this.pipeline as { dispose(): void }).dispose();
+    }
     this.pipeline = null;
     this.loaded = false;
   }

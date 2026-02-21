@@ -268,9 +268,6 @@ export class TranslationEngine {
     }
 
     const pipeline = await this.pipelineManager.getPipeline(pair);
-    if (typeof pipeline !== "function") {
-      throw new Error("Loaded translation pipeline is not callable");
-    }
     const chunks = chunkText(text, { maxChars: this.config.maxChunkChars });
 
     const translatedChunks = [];
@@ -290,24 +287,15 @@ export class TranslationEngine {
       // Protect placeholders from translation
       const { cleaned, restore } = protectPlaceholders(chunk.text);
 
-      // Build pipeline options — for multilingual models that need a
-      // target language prefix token (e.g., ">>cy<<"), pass tgt_lang
-      const pipelineOptions: Record<string, unknown> = {
+      // Translate via Puente Engine — pass source/target lang for
+      // multilingual models that need a target language prefix token
+      const result = await pipeline.translate(cleaned, {
         max_new_tokens: maxNewTokens,
-      };
+        src_lang: modelInfo.sourceLang,
+        tgt_lang: modelInfo.targetLang,
+      });
 
-      // Some OPUS-MT multilingual models require src_lang/tgt_lang
-      if (modelInfo.modelId.includes("-mul") || modelInfo.modelId.includes("-cel")) {
-        pipelineOptions.tgt_lang = modelInfo.targetLang;
-        pipelineOptions.src_lang = modelInfo.sourceLang;
-      }
-
-      const result = await pipeline(cleaned, pipelineOptions as Record<string, unknown>);
-
-      const translatedText = Array.isArray(result)
-        ? (result[0] as { translation_text?: string })?.translation_text
-        : (result as { translation_text?: string })?.translation_text;
-
+      const translatedText = result.translation_text;
       const restored = restore(String(translatedText ?? "").trim());
 
       // Cache the translation

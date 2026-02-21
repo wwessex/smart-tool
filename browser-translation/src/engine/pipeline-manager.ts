@@ -1,24 +1,24 @@
 /**
  * Translation pipeline manager.
  *
- * Manages the lifecycle of Transformers.js translation pipelines,
+ * Manages the lifecycle of translation pipelines (powered by Puente Engine),
  * one per language-pair model. Implements an LRU eviction strategy
  * to limit memory usage (default: max 3 pipelines loaded at once).
  *
  * Pipelines are loaded lazily on first use and cached for reuse.
  * The manager handles:
- * - Lazy model loading via dynamic import (avoids iOS Safari crash)
- * - Local-only model paths (env.allowRemoteModels = false)
+ * - Lazy model loading via dynamic import
+ * - Local-only model paths (when allowRemoteModels is false)
  * - dtype selection for quantized variants
  * - LRU eviction when max loaded pipelines is exceeded
+ * - Proper resource cleanup via dispose()
  */
 
-import type { TranslationPipeline } from "@huggingface/transformers";
+import type { TranslationPipeline } from "@smart-tool/puente-engine";
 import type {
   LanguagePairId,
   ModelDtype,
   ModelLoadProgress,
-  InferenceBackend,
   TranslationEngineConfig,
 } from "../types.js";
 import { getModelForPair } from "../models/registry.js";
@@ -39,7 +39,7 @@ interface LoadedPipeline {
  * @example
  * const manager = new PipelineManager(config);
  * const pipeline = await manager.getPipeline("en-de");
- * const result = await pipeline("Hello world!");
+ * const result = await pipeline.translate("Hello world!");
  */
 export class PipelineManager {
   private readonly pipelines = new Map<string, LoadedPipeline>();
@@ -103,7 +103,7 @@ export class PipelineManager {
     await this.getPipeline(pair, dtype);
   }
 
-  /** Evict a specific pipeline from the cache. */
+  /** Evict a specific pipeline from the cache, releasing ONNX session resources. */
   evict(pair: LanguagePairId): boolean {
     const modelInfo = getModelForPair(pair);
     if (!modelInfo) return false;
@@ -111,6 +111,7 @@ export class PipelineManager {
     // Find and remove any cached pipeline for this pair's model
     for (const [key, entry] of this.pipelines) {
       if (entry.pair === pair) {
+        entry.pipeline.dispose();
         this.pipelines.delete(key);
         return true;
       }
@@ -118,8 +119,11 @@ export class PipelineManager {
     return false;
   }
 
-  /** Evict all loaded pipelines. */
+  /** Evict all loaded pipelines, releasing all ONNX session resources. */
   evictAll(): void {
+    for (const entry of this.pipelines.values()) {
+      entry.pipeline.dispose();
+    }
     this.pipelines.clear();
   }
 
@@ -154,48 +158,48 @@ export class PipelineManager {
     await this.ensureCapacity();
 
     try {
-      // Dynamic import to avoid iOS Safari crash at page load
-      const { pipeline, env } = await import("@huggingface/transformers");
-
-      // Configure local-only model loading
-      env.allowRemoteModels = this.config.allowRemoteModels;
-      env.allowLocalModels = true;
-
-      if (this.config.modelBasePath) {
-        env.localModelPath = this.config.modelBasePath;
-      }
-
-      if (this.config.useBrowserCache) {
-        env.useBrowserCache = true;
-      }
+      // Dynamic import to avoid loading ONNX Runtime until needed
+      const { TranslationPipeline: PuenteTranslationPipeline } = await import(
+        "@smart-tool/puente-engine"
+      );
 
       this.emitProgress(modelId, "initializing", 0, 0);
 
-      // Build pipeline options
-      const pipelineOptions: Record<string, unknown> = {};
+      // Build model paths.
+      // HuggingFace repos store config.json/tokenizer.json at root and
+      // ONNX files in an onnx/ subdirectory. Puente Engine's configPath
+      // option lets us resolve each from the correct location.
+      let configPath: string;
+      let modelPath: string;
 
-      // Map our dtype to Transformers.js dtype format
-      if (dtype && dtype !== "fp32") {
-        pipelineOptions.dtype = dtype;
+      if (this.config.allowRemoteModels) {
+        configPath = `https://huggingface.co/${modelId}/resolve/main/`;
+        modelPath = `https://huggingface.co/${modelId}/resolve/main/onnx/`;
+      } else {
+        const basePath = this.config.modelBasePath ?? "./models/";
+        configPath = `${basePath}${modelId}/`;
+        modelPath = `${basePath}${modelId}/onnx/`;
       }
 
-      // Set device based on preferred backend
-      if (this.config.preferredBackend === "webgpu") {
-        pipelineOptions.device = "webgpu";
-      }
+      // Resolve quantized encoder/decoder filenames
+      const fileSuffix = getOnnxFileSuffix(dtype);
+      const encoderFileName = `encoder_model${fileSuffix}.onnx`;
+      const decoderFileName = `decoder_model_merged${fileSuffix}.onnx`;
 
-      // Report model download progress to the UI
-      pipelineOptions.progress_callback = (progress: { loaded?: number; total?: number }) => {
-        if (progress.loaded !== undefined && progress.total !== undefined && progress.total > 0) {
-          this.emitProgress(modelId, "downloading", progress.loaded, progress.total);
-        }
-      };
+      const device = this.config.preferredBackend === "webgpu" ? "webgpu" : undefined;
 
-      const translationPipeline = await pipeline(
-        "translation",
-        modelId,
-        pipelineOptions
-      ) as TranslationPipeline;
+      const translationPipeline = await PuenteTranslationPipeline.create(modelPath, {
+        configPath,
+        device,
+        dtype: dtype !== "fp32" ? dtype : undefined,
+        encoderFileName,
+        decoderFileName,
+        progress_callback: (progress: { loaded?: number; total?: number }) => {
+          if (progress.loaded !== undefined && progress.total !== undefined && progress.total > 0) {
+            this.emitProgress(modelId, "downloading", progress.loaded, progress.total);
+          }
+        },
+      });
 
       const now = Date.now();
       this.pipelines.set(cacheKey, {
@@ -238,6 +242,10 @@ export class PipelineManager {
       }
 
       if (oldestKey) {
+        const entry = this.pipelines.get(oldestKey);
+        if (entry) {
+          entry.pipeline.dispose();
+        }
         this.pipelines.delete(oldestKey);
       } else {
         break;
@@ -253,5 +261,23 @@ export class PipelineManager {
     error?: string
   ): void {
     this.onProgress?.({ modelId, phase, loadedBytes, totalBytes, error });
+  }
+}
+
+/**
+ * Map a ModelDtype to the ONNX filename suffix used by Xenova/OPUS-MT models.
+ * - "fp32" → "" (no suffix, full precision)
+ * - "fp16" → "" (same as fp32 for ONNX models that use fp16 in the base file)
+ * - "int8" / "uint8" → "_quantized"
+ * - "q4" → "_quantized" (4-bit quantized variants use the same suffix)
+ */
+function getOnnxFileSuffix(dtype: ModelDtype): string {
+  switch (dtype) {
+    case "int8":
+    case "uint8":
+    case "q4":
+      return "_quantized";
+    default:
+      return "";
   }
 }

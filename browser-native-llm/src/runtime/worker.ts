@@ -9,7 +9,7 @@
 import type { WorkerMessage, InferenceConfig, InferenceBackend } from "../types.js";
 import { detectCapabilities, selectBackend } from "./backend-selector.js";
 import {
-  TransformersInferenceEngine,
+  PuenteInferenceEngine,
   type InferenceEngine,
   type GenerateResult,
 } from "../model/inference.js";
@@ -45,11 +45,9 @@ async function handleInit(config: InferenceConfig): Promise<void> {
       config.preferred_backend
     );
 
-    // Create Transformers.js engine (the only supported inference path).
-    // OnnxInferenceEngine is not used here because its generate() is not
-    // implemented — falling back to it would silently download a huge
-    // unquantized model and then fail at generation time.
-    engine = new TransformersInferenceEngine(config, activeBackend);
+    // Create Puente Engine inference (custom ONNX Runtime backend with
+    // full tokenization, KV cache, and generation loop).
+    engine = new PuenteInferenceEngine(config, activeBackend);
     await engine.load((loaded, total) => {
       postMessage({
         type: "progress",

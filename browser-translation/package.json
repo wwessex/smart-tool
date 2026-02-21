@@ -28,7 +28,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@huggingface/transformers": "^3.4.0",
+    "@smart-tool/puente-engine": "workspace:*",
     "onnxruntime-web": "^1.21.0"
   },
   "devDependencies": {
