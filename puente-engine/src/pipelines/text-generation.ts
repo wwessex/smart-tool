@@ -90,7 +90,7 @@ export class TextGenerationPipeline {
 
     // Detect capabilities and select backend
     const capabilities = await detectCapabilities();
-    const backend = selectBackend(
+    let backend = selectBackend(
       capabilities,
       options.device as InferenceBackend | undefined
     );
@@ -118,11 +118,26 @@ export class TextGenerationPipeline {
       },
     });
 
-    // Create ONNX session
-    const executionProvider = getExecutionProvider(backend);
-    const session = await createSession(modelBuffer, {
-      executionProvider,
-    });
+    // Create ONNX session — fall back to WASM if WebGPU provider fails
+    let session: ort.InferenceSession;
+    try {
+      const executionProvider = getExecutionProvider(backend);
+      session = await createSession(modelBuffer, { executionProvider });
+    } catch (err) {
+      if (backend === "webgpu") {
+        console.warn(
+          "[puente-engine] WebGPU session creation failed, falling back to WASM:",
+          err instanceof Error ? err.message : err,
+        );
+        backend = capabilities.wasmSimd ? "wasm-simd" : "wasm-basic";
+        configureBackend(backend);
+        session = await createSession(modelBuffer, {
+          executionProvider: getExecutionProvider(backend),
+        });
+      } else {
+        throw err;
+      }
+    }
 
     // Create generator
     const generator = new CausalGenerator(

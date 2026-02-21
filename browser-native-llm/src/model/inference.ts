@@ -247,6 +247,15 @@ export class PuenteInferenceEngine extends InferenceEngine {
       },
     });
 
+    // Update activeBackend to reflect actual backend used by the pipeline
+    // (may differ from preferred if WebGPU fell back to WASM)
+    const actualBackend = (
+      this.pipeline as { getBackend(): InferenceBackend }
+    ).getBackend();
+    if (actualBackend) {
+      this.activeBackend = actualBackend;
+    }
+
     this.loaded = true;
   }
 
