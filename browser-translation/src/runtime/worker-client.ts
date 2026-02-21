@@ -82,7 +82,7 @@ export class TranslationWorkerClient {
     this.initPromise = new Promise<InferenceBackend>((resolve, reject) => {
       const id = "__init__";
       this.pending.set(id, {
-        resolve,
+        resolve: (value) => resolve(value as InferenceBackend),
         reject,
         timeout: setTimeout(() => {
           this.pending.delete(id);
@@ -109,7 +109,7 @@ export class TranslationWorkerClient {
 
     return new Promise<TranslationResult>((resolve, reject) => {
       this.pending.set(id, {
-        resolve,
+        resolve: (value) => resolve(value as TranslationResult),
         reject,
         timeout: setTimeout(() => {
           this.pending.delete(id);
@@ -132,7 +132,7 @@ export class TranslationWorkerClient {
 
     return new Promise<void>((resolve, reject) => {
       this.pending.set(id, {
-        resolve,
+        resolve: () => resolve(),
         reject,
         timeout: setTimeout(() => {
           this.pending.delete(id);
@@ -172,7 +172,7 @@ export class TranslationWorkerClient {
    * Terminate the worker and clean up.
    */
   dispose(): void {
-    for (const [id, pending] of this.pending) {
+    for (const pending of this.pending.values()) {
       clearTimeout(pending.timeout);
       pending.reject(new Error("Worker disposed"));
     }
@@ -252,7 +252,7 @@ export class TranslationWorkerClient {
 
   private handleError(event: ErrorEvent): void {
     // Reject all pending requests
-    for (const [id, pending] of this.pending) {
+    for (const pending of this.pending.values()) {
       clearTimeout(pending.timeout);
       pending.reject(new Error(`Worker error: ${event.message}`));
     }
