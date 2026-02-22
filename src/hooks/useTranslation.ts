@@ -57,11 +57,18 @@ export const SUPPORTED_LANGUAGES: Record<
 let engineInstance: TranslationEngine | null = null;
 let initPromise: Promise<void> | null = null;
 
+/** Resolve modelBasePath from Vite's BASE_URL so subfolder/portable deployments work. */
+function resolveModelBasePath(): string {
+  const base = (import.meta as unknown as { env?: Record<string, string> }).env?.BASE_URL || "/";
+  const normalizedBase = base.endsWith("/") ? base : `${base}/`;
+  return `${normalizedBase}models/`;
+}
+
 function getEngine(): TranslationEngine {
   if (!engineInstance) {
     engineInstance = new TranslationEngine({
       allowRemoteModels: false,
-      modelBasePath: "/models/",
+      modelBasePath: resolveModelBasePath(),
       useBrowserCache: true,
       maxLoadedPipelines: 3,
       maxChunkChars: 900,
