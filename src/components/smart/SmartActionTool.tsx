@@ -239,6 +239,9 @@ export function SmartActionTool() {
   const [translatedOutput, setTranslatedOutput] = useState<string | null>(null);
   const translatedForOutputRef = useRef<string>(''); // Track which English text was translated
   const translationLanguageRef = useRef<string>(''); // Track which language was translated to
+  // Use translation hook result as primary source, local state as fallback (for history restore)
+  const displayTranslation = translation.result?.translated || translatedOutput || null;
+  const displayTranslationLang = translation.result?.language || translationLanguageRef.current || (storage.participantLanguage !== 'none' ? storage.participantLanguage : '');
   const hasOutput = output.trim().length > 0;
   const [showValidation, setShowValidation] = useState(false);
   const [suggestQuery, setSuggestQuery] = useState('');
@@ -404,10 +407,12 @@ export function SmartActionTool() {
 
   // Clear stale translation when the English output changes
   useEffect(() => {
-    if (translatedOutput && output !== translatedForOutputRef.current) {
+    if (displayTranslation && output !== translatedForOutputRef.current) {
       setTranslatedOutput(null);
+      translation.clearTranslation();
     }
-  }, [output, translatedOutput]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [output, displayTranslation]);
 
   const handleCopy = useCallback(async () => {
     if (!output.trim()) {
@@ -417,18 +422,18 @@ export function SmartActionTool() {
     try {
       // Build combined text with translation if available
       let textToCopy = output;
-      if (translatedOutput && storage.participantLanguage !== 'none') {
-        const langInfo = SUPPORTED_LANGUAGES[storage.participantLanguage];
-        textToCopy = `=== ENGLISH ===\n${output}\n\n=== ${langInfo?.nativeName?.toUpperCase() || storage.participantLanguage.toUpperCase()} ===\n${translatedOutput}`;
+      if (displayTranslation && displayTranslationLang) {
+        const langInfo = SUPPORTED_LANGUAGES[displayTranslationLang];
+        textToCopy = `=== ENGLISH ===\n${output}\n\n=== ${langInfo?.nativeName?.toUpperCase() || displayTranslationLang.toUpperCase()} ===\n${displayTranslation}`;
       }
       await navigator.clipboard.writeText(textToCopy);
       setCopied(true);
       setTimeout(() => setCopied(false), 400);
-      toast({ title: 'Copied!', description: translatedOutput ? 'Both versions copied to clipboard.' : 'Action copied to clipboard.' });
+      toast({ title: 'Copied!', description: displayTranslation ? 'Both versions copied to clipboard.' : 'Action copied to clipboard.' });
     } catch {
       toast({ title: 'Copy failed', description: 'Please copy manually.', variant: 'destructive' });
     }
-  }, [output, translatedOutput, storage.participantLanguage, toast]);
+  }, [output, displayTranslation, displayTranslationLang, toast]);
 
   const handleDownload = useCallback(() => {
     if (!output.trim()) {
@@ -437,9 +442,9 @@ export function SmartActionTool() {
     }
     // Build combined text with translation if available
     let textToDownload = output;
-    if (translatedOutput && storage.participantLanguage !== 'none') {
-      const langInfo = SUPPORTED_LANGUAGES[storage.participantLanguage];
-      textToDownload = `=== ENGLISH ===\n${output}\n\n=== ${langInfo?.nativeName?.toUpperCase() || storage.participantLanguage.toUpperCase()} ===\n${translatedOutput}`;
+    if (displayTranslation && displayTranslationLang) {
+      const langInfo = SUPPORTED_LANGUAGES[displayTranslationLang];
+      textToDownload = `=== ENGLISH ===\n${output}\n\n=== ${langInfo?.nativeName?.toUpperCase() || displayTranslationLang.toUpperCase()} ===\n${displayTranslation}`;
     }
     const blob = new Blob([textToDownload], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -450,7 +455,7 @@ export function SmartActionTool() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-  }, [output, translatedOutput, storage.participantLanguage, mode, toast]);
+  }, [output, displayTranslation, displayTranslationLang, mode, toast]);
 
   const handleClear = useCallback(() => {
     if (mode === 'now') {
@@ -569,9 +574,9 @@ export function SmartActionTool() {
       text: output,
       meta: {
         ...baseMeta,
-        ...(translatedOutput && storage.participantLanguage !== 'none' ? {
-          translatedText: translatedOutput,
-          translationLanguage: storage.participantLanguage
+        ...(displayTranslation && displayTranslationLang ? {
+          translatedText: displayTranslation,
+          translationLanguage: displayTranslationLang
         } : {})
       }
     };
@@ -585,8 +590,8 @@ export function SmartActionTool() {
         if (success) {
           toast({ 
             title: 'Saved & Synced!', 
-            description: translatedOutput 
-              ? 'Action with translation saved and synced to folder.' 
+            description: displayTranslation
+              ? 'Action with translation saved and synced to folder.'
               : 'Action saved and synced to folder.' 
           });
         } else {
@@ -605,9 +610,9 @@ export function SmartActionTool() {
         });
       }
     } else {
-      toast({ title: 'Saved!', description: translatedOutput ? 'Action with translation saved to history.' : 'Action saved to history.' });
+      toast({ title: 'Saved!', description: displayTranslation ? 'Action with translation saved to history.' : 'Action saved to history.' });
     }
-  }, [output, storage, smartCheck.overallScore, mode, nowForm, futureForm, translatedOutput, toast, localSync]);
+  }, [output, storage, smartCheck.overallScore, mode, nowForm, futureForm, displayTranslation, displayTranslationLang, toast, localSync]);
 
   // Template-based fallback for AI Draft
   const templateDraftNow = useCallback(() => {
@@ -2458,7 +2463,7 @@ export function SmartActionTool() {
               >
                 {/* English output */}
                 <div>
-                  {translatedOutput && (
+                  {displayTranslation && (
                     <p id="output-label-en" className="text-xs font-medium text-muted-foreground mb-2">
                       <span className="inline-flex items-center justify-center rounded-sm border px-1 text-[10px] font-semibold leading-4 text-foreground/80 mr-1">GB</span>
                       ENGLISH
@@ -2467,10 +2472,10 @@ export function SmartActionTool() {
                   <Textarea
                     id="action-output"
                     value={output}
-                    onChange={e => { setOutput(e.target.value); setOutputSource('manual'); setTranslatedOutput(null); }}
+                    onChange={e => { setOutput(e.target.value); setOutputSource('manual'); setTranslatedOutput(null); translation.clearTranslation(); }}
                     placeholder="Generated action will appear here… You can also edit the text directly."
                     aria-label="Generated SMART action text"
-                    aria-describedby={translatedOutput ? "output-label-en" : undefined}
+                    aria-describedby={displayTranslation ? "output-label-en" : undefined}
                     className={cn(
                       "min-h-[120px] p-5 rounded-xl border-2 border-dashed border-border bg-muted/30 leading-relaxed resize-y",
                       copied && "border-accent bg-accent/10 shadow-glow",
@@ -2479,10 +2484,10 @@ export function SmartActionTool() {
                   />
                 </div>
 
-                {/* Translated output — use plain div, not motion.div, to guarantee visibility */}
-                {translatedOutput && <TranslatedOutputBox
-                  text={translatedOutput}
-                  langCode={storage.participantLanguage !== 'none' ? storage.participantLanguage : translationLanguageRef.current}
+                {/* Translated output — use plain div to guarantee visibility */}
+                {displayTranslation && <TranslatedOutputBox
+                  text={displayTranslation}
+                  langCode={displayTranslationLang}
                 />}
               </motion.div>
             </AnimatePresence>
