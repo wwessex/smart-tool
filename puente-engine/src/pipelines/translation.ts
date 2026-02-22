@@ -50,6 +50,13 @@ export interface TranslationPipelineOptions {
   decoderFileName?: string;
   /** Override combined model filename for fallback (defaults to "model.onnx"). */
   combinedFileName?: string;
+  /**
+   * Optional HTTP headers to include in all fetch requests made during
+   * pipeline creation (config, tokenizer, and model downloads).
+   * Useful for authenticated access to gated or private model repositories
+   * (e.g. `{ Authorization: "Bearer hf_..." }` for HuggingFace).
+   */
+  requestHeaders?: Record<string, string>;
 }
 
 export class TranslationPipeline {
@@ -109,11 +116,11 @@ export class TranslationPipeline {
     configureBackend(backend);
 
     // Load model config
-    const modelConfig = await loadModelConfig(configBase + "config.json");
+    const modelConfig = await loadModelConfig(configBase + "config.json", options.requestHeaders);
 
     // Load tokenizer
     const tokenizer = new BPETokenizer();
-    await tokenizer.load(configBase + "tokenizer.json");
+    await tokenizer.load(configBase + "tokenizer.json", options.requestHeaders);
 
     // Resolve filenames (allow overrides for quantized variants)
     const encoderFile = options.encoderFileName ?? "encoder_model.onnx";
@@ -140,6 +147,7 @@ export class TranslationPipeline {
       try {
         const [encoderBuffer, decoderBuffer] = await Promise.all([
           fetchModel(basePath + encoderFile, {
+            headers: options.requestHeaders,
             onProgress: (progress) => {
               options.progress_callback?.({
                 loaded: progress.loaded_bytes,
@@ -148,6 +156,7 @@ export class TranslationPipeline {
             },
           }),
           fetchModel(basePath + decoderFile, {
+            headers: options.requestHeaders,
             onProgress: (progress) => {
               options.progress_callback?.({
                 loaded: progress.loaded_bytes,
@@ -171,6 +180,7 @@ export class TranslationPipeline {
 
         // Fall back to combined model (only for default filenames)
         const modelBuffer = await fetchModel(basePath + combinedFile, {
+          headers: options.requestHeaders,
           onProgress: (progress) => {
             options.progress_callback?.({
               loaded: progress.loaded_bytes,

@@ -70,12 +70,15 @@ export class BPETokenizer {
   /**
    * Load tokenizer from a tokenizer.json source.
    * Accepts a URL string, an ArrayBuffer, or a pre-parsed object.
+   *
+   * @param source - URL, ArrayBuffer, or pre-parsed TokenizerJSON.
+   * @param headers - Optional HTTP headers to include when fetching from a URL.
    */
-  async load(source: string | ArrayBuffer | TokenizerJSON): Promise<void> {
+  async load(source: string | ArrayBuffer | TokenizerJSON, headers?: Record<string, string>): Promise<void> {
     let config: TokenizerJSON;
 
     if (typeof source === "string") {
-      const response = await fetch(source);
+      const response = await fetch(source, headers ? { headers } : undefined);
       if (!response.ok) {
         throw new Error(
           `Failed to load tokenizer from ${source}: ${response.status}`

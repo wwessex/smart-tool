@@ -176,7 +176,7 @@ export class PipelineManager {
       if (this.config.allowRemoteModels && PipelineManager.is404Error(localError)) {
         try {
           const remotePaths = this.buildModelPaths(modelId, /* remote */ true);
-          return await this.createPuentePipeline(pair, modelId, dtype, cacheKey, remotePaths);
+          return await this.createPuentePipeline(pair, modelId, dtype, cacheKey, remotePaths, this.config.remoteModelRequestHeaders);
         } catch (remoteError) {
           const rawMessage = remoteError instanceof Error ? remoteError.message : String(remoteError);
           this.emitProgress(modelId, "error", 0, 0, rawMessage);
@@ -242,7 +242,8 @@ export class PipelineManager {
     modelId: string,
     dtype: ModelDtype,
     cacheKey: string,
-    paths: { configPath: string; modelPath: string }
+    paths: { configPath: string; modelPath: string },
+    requestHeaders?: Record<string, string>
   ): Promise<TranslationPipeline> {
     // Dynamic import to avoid loading ONNX Runtime until needed
     const { TranslationPipeline: PuenteTranslationPipeline } = await import(
@@ -264,6 +265,7 @@ export class PipelineManager {
       dtype: dtype !== "fp32" ? dtype : undefined,
       encoderFileName,
       decoderFileName,
+      requestHeaders,
       progress_callback: (progress: { loaded?: number; total?: number }) => {
         if (progress.loaded !== undefined && progress.total !== undefined && progress.total > 0) {
           this.emitProgress(modelId, "downloading", progress.loaded, progress.total);
