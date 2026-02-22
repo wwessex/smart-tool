@@ -40,10 +40,10 @@ export const RECOMMENDED_MODELS: ModelInfo[] = [
 
 const MOBILE_RECOMMENDED_MODELS: ModelInfo[] = [
   {
-    id: "smart-planner-35m-q4",
+    id: "smart-planner-150m-q4",
     name: "AI Module (Mobile)",
-    size: "~20MB",
-    description: "Smaller offline AI module for mobile Safari",
+    size: "~80MB",
+    description: "Offline AI drafting module for mobile Safari",
   },
 ];
 
@@ -309,6 +309,19 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
 
         return true;
       } catch (err) {
+        // If the model wasn't found (404), fall back to the default model once.
+        const fallbackId = "smart-planner-150m-q4";
+        const errMsg = err instanceof Error ? err.message : String(err);
+        const isModelNotFound = /404|not found|model.*config/i.test(errMsg);
+
+        if (isModelNotFound && effectiveModelId !== fallbackId) {
+          console.warn(
+            `[useBrowserNativeLLM] Model "${effectiveModelId}" not found, falling back to "${fallbackId}".`
+          );
+          plannerRef.current = null;
+          return initialize(fallbackId);
+        }
+
         plannerRef.current = null;
         setError(err);
         return false;
