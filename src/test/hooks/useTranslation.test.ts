@@ -91,6 +91,47 @@ describe('useTranslation', () => {
     });
   });
 
+
+  it('supports plain string responses from translation wrappers', async () => {
+    mockTranslate.mockResolvedValue('  مرحبا بكم  ');
+
+    const { result } = renderHook(() => useTranslation({ enabled: true }));
+
+    let translated = null;
+    await act(async () => {
+      translated = await result.current.translate('Hello', 'ar');
+    });
+
+    expect(translated).toEqual({
+      original: 'Hello',
+      translated: 'مرحبا بكم',
+      language: 'ar',
+      languageName: 'Arabic',
+    });
+  });
+
+  it('supports nested result payload responses', async () => {
+    mockTranslate.mockResolvedValue({
+      result: {
+        translated: 'أهلاً',
+      },
+    });
+
+    const { result } = renderHook(() => useTranslation({ enabled: true }));
+
+    let translated = null;
+    await act(async () => {
+      translated = await result.current.translate('Hello', 'ar');
+    });
+
+    expect(translated).toEqual({
+      original: 'Hello',
+      translated: 'أهلاً',
+      language: 'ar',
+      languageName: 'Arabic',
+    });
+  });
+
   it('returns null and sets error on translation failure', async () => {
     mockTranslate.mockRejectedValue(new Error('model load failed'));
 
