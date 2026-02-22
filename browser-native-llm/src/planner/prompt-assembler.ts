@@ -6,7 +6,7 @@
  * and includes SMART criteria rules as system instructions.
  */
 
-import type { UserProfile, ActionTemplate, SkillEntry } from "../types.js";
+import type { UserProfile, ActionTemplate, SkillEntry, ResolvedBarrier } from "../types.js";
 import type { RetrievalResult } from "../retrieval/retriever.js";
 
 /** Assembled prompt ready for the inference engine. */
@@ -67,6 +67,11 @@ export function assemblePrompt(
   // Relevant skills context
   if (retrieval.skills.length > 0) {
     parts.push(buildSkillsSection(retrieval.skills));
+  }
+
+  // Barrier-specific guidance (from resolved barrier catalog)
+  if (profile.resolved_barrier) {
+    parts.push(buildBarrierGuidanceSection(profile.resolved_barrier));
   }
 
   // Output instruction
@@ -198,6 +203,25 @@ function buildOutputInstruction(profile: UserProfile): string {
 <|end|>
 <|begin|>assistant
 <|json|>`;
+}
+
+function buildBarrierGuidanceSection(barrier: ResolvedBarrier): string {
+  const lines = [`BARRIER GUIDANCE (${barrier.label}):`];
+
+  if (barrier.prompt_hints.length > 0) {
+    for (const hint of barrier.prompt_hints) {
+      lines.push(`- ${hint}`);
+    }
+  }
+
+  if (barrier.do_not_assume.length > 0) {
+    lines.push("DO NOT ASSUME:");
+    for (const assumption of barrier.do_not_assume) {
+      lines.push(`- ${assumption}`);
+    }
+  }
+
+  return lines.join("\n");
 }
 
 function getActionCount(profile: UserProfile): string {

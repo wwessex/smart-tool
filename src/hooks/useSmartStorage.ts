@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { DEFAULT_BARRIERS, DEFAULT_TIMESCALES } from '@/lib/smart-data';
+import { exportDraftAnalytics, clearDraftAnalytics } from '@/lib/draft-analytics';
 
 const STORAGE = {
   barriers: "smartTool.barriers",
@@ -371,6 +372,7 @@ const exportAllData = useCallback(() => {
         safariWebGPUEnabled,
         keepSafariModelLoaded,
       },
+      draftAnalytics: exportDraftAnalytics(),
     };
     return exportData;
   }, [
@@ -415,6 +417,9 @@ const exportAllData = useCallback(() => {
     try {
       sessionStorage.removeItem('smarttool:last_error');
     } catch { /* ignore */ }
+
+    // Clear draft analytics
+    clearDraftAnalytics();
 
     // Clear IndexedDB (smart-tool-sync database) - best effort async
     try {

@@ -7,7 +7,8 @@
  * structured fields.
  */
 
-import type { RawUserInput, UserProfile } from "../types.js";
+import type { RawUserInput, UserProfile, ResolvedBarrier } from "../types.js";
+import { lookupBarrier } from "../retrieval/barrier-catalog.js";
 
 /** Default values for optional profile fields. */
 const DEFAULTS = {
@@ -179,19 +180,87 @@ const CONFIDENCE_KEYWORDS: Record<string, number> = {
  * Normalise raw user input into a structured profile.
  */
 export function normalizeProfile(input: RawUserInput): UserProfile {
+  // Resolve structured barrier metadata from the catalog if a barrier ID or label is provided
+  const resolvedBarrier = resolveBarrierFromInput(input);
+
+  // If we have a resolved barrier, use its canonical ID in the barriers array
+  const barriers = resolvedBarrier
+    ? mergeResolvedBarriers(resolvedBarrier, parseBarriers(input.barriers, input.situation))
+    : parseBarriers(input.barriers, input.situation);
+
   return {
     job_goal: normalizeGoal(input.goal),
     current_situation: input.situation ?? "",
     hours_per_week: parseHoursPerWeek(input.hours_per_week, input.timeframe),
     timeframe_weeks: parseTimeframeWeeks(input.timeframe),
     skills: parseSkills(input.skills),
-    barriers: parseBarriers(input.barriers, input.situation),
+    barriers,
     confidence_level: parseConfidence(input.confidence),
     industry: input.industry?.trim() || undefined,
     work_arrangement: parseWorkArrangement(input.work_arrangement),
     participant_name: input.participant_name?.trim() || "",
     supporter: input.supporter?.trim() || "",
+    resolved_barrier: resolvedBarrier ?? undefined,
   };
+}
+
+/**
+ * Resolve a BarrierEntry from the catalog using explicit ID, label, or barriers text.
+ */
+function resolveBarrierFromInput(input: RawUserInput): ResolvedBarrier | null {
+  // Try explicit barrier ID first (most deterministic)
+  if (input.selected_barrier_id) {
+    const entry = lookupBarrier(input.selected_barrier_id);
+    if (entry) return barrierEntryToResolved(entry);
+  }
+
+  // Try explicit barrier label (from dropdown)
+  if (input.selected_barrier_label) {
+    const entry = lookupBarrier(input.selected_barrier_label);
+    if (entry) return barrierEntryToResolved(entry);
+  }
+
+  // Try the barriers text (freeform input from the UI)
+  if (input.barriers) {
+    const entry = lookupBarrier(input.barriers);
+    if (entry) return barrierEntryToResolved(entry);
+  }
+
+  return null;
+}
+
+function barrierEntryToResolved(entry: {
+  id: string;
+  label: string;
+  category: string;
+  retrieval_tags: string[];
+  prompt_hints: string[];
+  do_not_assume: string[];
+  contraindicated_stages: string[];
+}): ResolvedBarrier {
+  return {
+    id: entry.id,
+    label: entry.label,
+    category: entry.category,
+    retrieval_tags: entry.retrieval_tags,
+    prompt_hints: entry.prompt_hints,
+    do_not_assume: entry.do_not_assume,
+    contraindicated_stages: entry.contraindicated_stages,
+  };
+}
+
+/**
+ * Merge a resolved barrier's canonical ID into the parsed barriers list,
+ * ensuring the resolved barrier ID is first and not duplicated.
+ */
+function mergeResolvedBarriers(resolved: ResolvedBarrier, parsed: string[]): string[] {
+  const merged = [resolved.id];
+  for (const b of parsed) {
+    if (b !== resolved.id) {
+      merged.push(b);
+    }
+  }
+  return merged;
 }
 
 function normalizeGoal(goal: string): string {
