@@ -63,6 +63,34 @@ describe('useTranslation', () => {
     expect(result.current.isTranslating).toBe(false);
   });
 
+
+  it('falls back to legacy translation_text responses', async () => {
+    mockTranslate.mockResolvedValue({
+      original: 'Hello',
+      translation_text: 'مرحبا',
+      sourceLang: 'en',
+      targetLang: 'ar',
+      usedPivot: false,
+      durationMs: 120,
+      chunksTranslated: 1,
+      modelsUsed: ['opus-mt-en-ar'],
+    });
+
+    const { result } = renderHook(() => useTranslation({ enabled: true }));
+
+    let translated = null;
+    await act(async () => {
+      translated = await result.current.translate('Hello', 'ar');
+    });
+
+    expect(translated).toEqual({
+      original: 'Hello',
+      translated: 'مرحبا',
+      language: 'ar',
+      languageName: 'Arabic',
+    });
+  });
+
   it('returns null and sets error on translation failure', async () => {
     mockTranslate.mockRejectedValue(new Error('model load failed'));
 

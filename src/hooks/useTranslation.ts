@@ -12,6 +12,12 @@ export interface TranslationResult {
   languageName: string;
 }
 
+type EngineTranslationResult = {
+  original?: string;
+  translated?: string;
+  translation_text?: string;
+};
+
 export interface TranslationState {
   isTranslating: boolean;
   error: string | null;
@@ -168,11 +174,18 @@ export function useTranslation(options: UseTranslationOptions = {}) {
           text,
           sourceLang: 'en',
           targetLang: language,
-        });
+        }) as EngineTranslationResult;
+
+        // Support both current (`translated`) and legacy (`translation_text`)
+        // response shapes so translated text is not dropped in the UI.
+        const translatedText = (engineResult.translated ?? engineResult.translation_text ?? '').trim();
+        if (!translatedText) {
+          throw new Error('Translation completed but returned no text.');
+        }
 
         const result: TranslationResult = {
           original: text,
-          translated: engineResult.translated,
+          translated: translatedText,
           language,
           languageName: langMeta.name,
         };
