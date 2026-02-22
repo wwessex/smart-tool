@@ -142,9 +142,37 @@ const result = await client.translate({
 
 ## Model Preparation
 
-### Option A: Use Pre-Built Models (Fastest)
+### Provision shipped models (recommended)
 
-Self-hosted OPUS-MT models are referenced in the `MODEL_REGISTRY` in `src/models/registry.ts`.
+From the repository root, run:
+
+```bash
+npm run fetch-models
+```
+
+This provisions every `modelId` in `MODEL_REGISTRY` into `public/models/<modelId>/` with the exact files required for local/offline inference:
+
+```
+public/models/<modelId>/
+├── config.json
+├── generation_config.json
+├── tokenizer.json
+├── tokenizer_config.json
+├── special_tokens_map.json
+└── onnx/
+    ├── encoder_model_quantized.onnx
+    └── decoder_model_merged_quantized.onnx
+```
+
+The fetch script also writes `public/models/translation-models.manifest.json` so deployers can audit which pairs are shipped.
+
+> Validation script location: `scripts/validate-local-translation-models.py` (repository root).
+
+To enforce offline/local-only packaging, run:
+
+```bash
+LOCAL_ONLY_MODELS=1 npm run validate:translation-models:offline
+```
 
 ### Option B: Convert Your Own
 

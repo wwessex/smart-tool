@@ -17,9 +17,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "fetch-models": "python scripts/fetch-models.py",
-    "fetch-translation-models": "python scripts/fetch-translation-models.py",
-    "fetch-translation-models:priority": "python scripts/fetch-translation-models.py --priority",
-    "fetch-all-models": "python scripts/fetch-models.py && python scripts/fetch-translation-models.py"
+    "validate:translation-models": "python scripts/validate-local-translation-models.py",
+    "validate:translation-models:offline": "LOCAL_ONLY_MODELS=1 python scripts/validate-local-translation-models.py --offline-only"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.0.2",
