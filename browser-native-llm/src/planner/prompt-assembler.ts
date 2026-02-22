@@ -122,8 +122,16 @@ function buildProfileSection(profile: UserProfile): string {
     `- Goal: ${profile.job_goal}`,
   ];
 
+  if (profile.participant_name) {
+    lines.push(`- Participant name: ${profile.participant_name}`);
+  }
+
   if (profile.current_situation) {
     lines.push(`- Current situation: ${profile.current_situation}`);
+  }
+
+  if (profile.supporter) {
+    lines.push(`- Supported by: ${profile.supporter}`);
   }
 
   lines.push(`- Available time: ${profile.hours_per_week} hours/week`);
@@ -134,7 +142,7 @@ function buildProfileSection(profile: UserProfile): string {
   }
 
   if (profile.barriers.length > 0) {
-    lines.push(`- Constraints: ${profile.barriers.map(b => b.replace(/_/g, " ")).join(", ")}`);
+    lines.push(`- Key barrier(s): ${profile.barriers.map(b => b.replace(/_/g, " ")).join(", ")}`);
   }
 
   lines.push(`- Confidence level: ${profile.confidence_level}/5`);
@@ -179,7 +187,14 @@ function buildOutputInstruction(profile: UserProfile): string {
   const deadlineDate = new Date(today);
   deadlineDate.setDate(today.getDate() + profile.timeframe_weeks * 7);
 
-  return `Generate ${getActionCount(profile)} SMART actions for this person. All deadlines must be between ${formatDate(today)} and ${formatDate(deadlineDate)}.
+  const nameContext = profile.participant_name
+    ? ` for ${profile.participant_name}`
+    : " for this person";
+  const barrierContext = profile.barriers.length > 0
+    ? ` that specifically address their ${profile.barriers.map(b => b.replace(/_/g, " ")).join(" and ")} barrier(s)`
+    : "";
+
+  return `Generate ${getActionCount(profile)} SMART actions${nameContext}${barrierContext}. All deadlines must be between ${formatDate(today)} and ${formatDate(deadlineDate)}.
 <|end|>
 <|begin|>assistant
 <|json|>`;
@@ -198,7 +213,8 @@ function substitutePlaceholders(template: string, profile: UserProfile): string 
     .replace(/\{industry\}/g, profile.industry ?? "your target sector")
     .replace(/\{skill\}/g, profile.skills[0] ?? "relevant")
     .replace(/\{count\}/g, "3")
-    .replace(/\{barrier\}/g, profile.barriers[0]?.replace(/_/g, " ") ?? "");
+    .replace(/\{barrier\}/g, profile.barriers[0]?.replace(/_/g, " ") ?? "")
+    .replace(/\{name\}/g, profile.participant_name || "the participant");
 }
 
 function formatDate(date: Date): string {

@@ -72,6 +72,10 @@ export interface UserProfile {
   industry?: string;
   /** Preferred work arrangement. */
   work_arrangement?: "any" | "remote" | "hybrid" | "on-site";
+  /** Participant's first name (for personalising actions). */
+  participant_name: string;
+  /** Who supports the action (e.g. "Advisor", participant name). */
+  supporter: string;
 }
 
 /** Raw user input before normalisation. */
@@ -85,6 +89,10 @@ export interface RawUserInput {
   confidence?: string;
   industry?: string;
   work_arrangement?: string;
+  /** Participant's first name. */
+  participant_name?: string;
+  /** Who supports the action (e.g. "Advisor", participant name). */
+  supporter?: string;
 }
 
 // ---------------------------------------------------------------------------

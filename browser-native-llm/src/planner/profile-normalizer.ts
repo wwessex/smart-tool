@@ -30,6 +30,7 @@ const BARRIER_KEYWORDS: Record<string, string> = {
   childcare: "childcare",
   children: "childcare",
   "school run": "childcare",
+  "caring responsibilities": "caring_responsibilities",
   caring: "caring_responsibilities",
   carer: "caring_responsibilities",
 
@@ -50,14 +51,19 @@ const BARRIER_KEYWORDS: Record<string, string> = {
   "employment gap": "cv_gaps",
 
   // Health/disability
+  "health condition": "health",
   disability: "disability",
   disabled: "disability",
   health: "health",
   stamina: "health",
+  "mental wellbeing": "mental_health",
   "mental health": "mental_health",
+  wellbeing: "mental_health",
   depression: "mental_health",
 
   // Digital
+  "digital hardware": "digital_access",
+  connectivity: "digital_access",
   "digital skills": "digital_skills",
   computer: "digital_skills",
   technology: "digital_skills",
@@ -86,6 +92,71 @@ const BARRIER_KEYWORDS: Record<string, string> = {
   housing: "housing",
   homeless: "housing",
   "temporary accommodation": "housing",
+
+  // Finance
+  finance: "finance",
+  debt: "finance",
+  money: "finance",
+  "financial difficulties": "finance",
+
+  // Social / Support Networks
+  "social & support networks": "social_isolation",
+  "support network": "social_isolation",
+  social: "social_isolation",
+  isolation: "social_isolation",
+
+  // Communication
+  "communication skills": "communication",
+  communication: "communication",
+
+  // Literacy/Numeracy
+  "literacy and/or numeracy": "literacy_numeracy",
+  literacy: "literacy_numeracy",
+  numeracy: "literacy_numeracy",
+
+  // Qualifications
+  qualifications: "qualifications",
+  "no qualifications": "qualifications",
+
+  // Transferable Skills
+  "transferable skills": "transferable_skills",
+  transferable: "transferable_skills",
+
+  // Learning Capability
+  "learning capability": "learning_capability",
+
+  // Previous Work History
+  "previous work history": "work_history",
+  "work history": "work_history",
+
+  // Job Search
+  "job search": "job_search",
+
+  // Job Applications
+  "job applications": "applications",
+  applications: "applications",
+
+  // Interviews
+  interviews: "interviewing",
+  interview: "interviewing",
+
+  // Job Goal
+  "job goal": "job_goal",
+
+  // Photo ID / Documents
+  "photo id": "id_documents",
+  "id documents": "id_documents",
+
+  // Substance Misuse
+  "substance misuse": "substance_misuse",
+  substance: "substance_misuse",
+
+  // Neurodiversity
+  autism: "neurodiversity",
+  adhd: "neurodiversity",
+
+  // Learning Difficulties
+  "learning difficulties": "learning_difficulties",
 };
 
 /** Confidence level keywords. */
@@ -118,6 +189,8 @@ export function normalizeProfile(input: RawUserInput): UserProfile {
     confidence_level: parseConfidence(input.confidence),
     industry: input.industry?.trim() || undefined,
     work_arrangement: parseWorkArrangement(input.work_arrangement),
+    participant_name: input.participant_name?.trim() || "",
+    supporter: input.supporter?.trim() || "",
   };
 }
 

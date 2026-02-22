@@ -666,11 +666,15 @@ export function SmartActionTool() {
             barriers: nowForm.barrier,
             timeframe: nowForm.timescale || '2 weeks',
             situation: `Employment advisor helping ${nowForm.forename} with ${nowForm.barrier}`,
+            participant_name: nowForm.forename,
+            supporter: nowForm.responsible,
           }
         : {
             goal: futureForm.task,
             timeframe: futureForm.timescale || '4 weeks',
             situation: `Employment advisor helping ${futureForm.forename} plan ahead`,
+            participant_name: futureForm.forename,
+            supporter: futureForm.responsible,
           };
 
       const plan = await llm.generatePlan(input);
@@ -914,6 +918,8 @@ export function SmartActionTool() {
           barriers: context.barrier,
           timeframe: context.timescale || '2 weeks',
           situation: `Helping ${context.forename || 'participant'}`,
+          participant_name: context.forename,
+          supporter: context.responsible,
         };
         const plan = await llm.generatePlan(input);
         if (plan.actions.length > 0) {
