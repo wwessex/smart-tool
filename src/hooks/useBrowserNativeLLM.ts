@@ -31,21 +31,24 @@ export interface ModelInfo {
 
 export const RECOMMENDED_MODELS: ModelInfo[] = [
   {
-    id: "smart-planner-150m-q4",
-    name: "AI Module",
-    size: "~80MB",
-    description: "Offline AI drafting module",
+    id: "amor-inteligente-built-in",
+    name: "Amor inteligente (Built-in)",
+    size: "Included",
+    description: "Built-in offline AI planner (no external model download required)",
   },
 ];
 
 const MOBILE_RECOMMENDED_MODELS: ModelInfo[] = [
   {
-    id: "smart-planner-150m-q4",
-    name: "AI Module (Mobile)",
-    size: "~80MB",
-    description: "Offline AI drafting module for mobile Safari",
+    id: "amor-inteligente-built-in",
+    name: "Amor inteligente (Built-in Mobile)",
+    size: "Included",
+    description: "Built-in offline AI planner for mobile Safari",
   },
 ];
+
+const LEGACY_MODEL_ID = "smart-planner-150m-q4";
+const BUILTIN_MODEL_ID = "amor-inteligente-built-in";
 
 export interface UseBrowserNativeLLMOptions {
   /** Allow local LLM on iPhone/iPad (experimental). Android remains blocked. */
@@ -204,7 +207,9 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
         return false;
       }
 
-      const effectiveModelId = modelId || supportedModels[0]?.id;
+      const requestedModelId = modelId || supportedModels[0]?.id;
+      const effectiveModelId =
+        requestedModelId === LEGACY_MODEL_ID ? BUILTIN_MODEL_ID : requestedModelId;
       if (!effectiveModelId) {
         setError("No model available for this device.");
         return false;
@@ -258,8 +263,8 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
 
         const planner = new SmartPlanner({
           inference: {
-            model_id: effectiveModelId,
-            model_base_url: `${modelBaseRoot}${effectiveModelId}/`,
+            model_id: BUILTIN_MODEL_ID,
+            model_base_url: `${modelBaseRoot}${LEGACY_MODEL_ID}/`,
             preferred_backend: backend,
             max_seq_length: 1024,
             max_new_tokens: 512,
@@ -270,6 +275,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
           retrieval_pack_url: retrievalPackUrl,
           worker_url: "",
           worker,
+          template_only: effectiveModelId === BUILTIN_MODEL_ID,
           max_repair_attempts: 2,
           min_validation_score: 60,
         });
@@ -278,7 +284,10 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
         setState((prev) => ({
           ...prev,
           loadingProgress: 10,
-          loadingStatus: "Downloading AI model…",
+          loadingStatus:
+            effectiveModelId === BUILTIN_MODEL_ID
+              ? "Loading built-in AI planner…"
+              : "Downloading AI model…",
         }));
 
         await planner.initialize({
@@ -316,7 +325,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
         return true;
       } catch (err) {
         // If the model wasn't found (404), fall back to the default model once.
-        const fallbackId = "smart-planner-150m-q4";
+        const fallbackId = BUILTIN_MODEL_ID;
         const errMsg = err instanceof Error ? err.message : String(err);
         const isModelNotFound = /404|not found|model.*config/i.test(errMsg);
 
