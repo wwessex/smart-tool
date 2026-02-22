@@ -61,6 +61,14 @@ let initPromise: Promise<void> | null = null;
 function resolveModelBasePath(): string {
   const base = (import.meta as unknown as { env?: Record<string, string> }).env?.BASE_URL || "/";
   const normalizedBase = base.endsWith("/") ? base : `${base}/`;
+  // In some packaged deployments (e.g. desktop wrappers), absolute `/models/`
+  // can point to the host root instead of the app bundle. Use a relative
+  // models path for root deployments and keep absolute base-prefixed paths
+  // for subfolder deployments.
+  if (normalizedBase === "/") {
+    return "models/";
+  }
+
   return `${normalizedBase}models/`;
 }
 
