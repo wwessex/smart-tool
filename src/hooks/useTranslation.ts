@@ -120,7 +120,7 @@ function resolveModelBasePath(): string {
 function getEngine(): TranslationEngine {
   if (!engineInstance) {
     engineInstance = new TranslationEngine({
-      allowRemoteModels: true,
+      allowRemoteModels: false,
       modelBasePath: resolveModelBasePath(),
       useBrowserCache: true,
       maxLoadedPipelines: 3,

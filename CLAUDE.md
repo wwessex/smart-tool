@@ -52,7 +52,7 @@ smart-tool/
 ├── browser-native-llm/     # Amor inteligente — browser-native LLM engine (workspace: @smart-tool/browser-native-llm)
 ├── browser-translation/    # Lengua Materna — translation engine (workspace: @smart-tool/lengua-materna)
 ├── public/                 # Static assets, PWA files, manifest
-├── scripts/                # Build scripts (fetch-models.py)
+├── scripts/                # Build scripts (fetch-models.py, fetch-translation-models.py)
 └── [config files]          # vite.config.ts, tailwind.config.cjs, etc.
 ```
 
@@ -84,6 +84,13 @@ bun run lint
 
 # Fetch AI models for local hosting (requires Python)
 bun run fetch-models
+
+# Fetch translation models for offline Lengua Materna (requires Python + huggingface_hub)
+bun run fetch-translation-models          # All 30 models (~3.15 GB)
+bun run fetch-translation-models:priority # 12 priority models (~1.26 GB)
+
+# Fetch both AI and translation models
+bun run fetch-all-models
 ```
 
 ## Code Conventions

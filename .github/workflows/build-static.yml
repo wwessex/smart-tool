@@ -81,7 +81,24 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache translation models
+        uses: actions/cache@v4
+        with:
+          path: public/models/opus-mt-*
+          key: translation-models-priority-v1
+
+      - name: Fetch translation models (priority)
+        run: |
+          pip install huggingface_hub
+          python scripts/fetch-translation-models.py --priority
+        env:
+          HF_HUB_CACHE: /tmp/hf-cache
+
       - name: Build static site
         run: bun run build
         env:
