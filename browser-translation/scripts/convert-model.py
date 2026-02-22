@@ -51,6 +51,16 @@ PRIORITY_MODELS = [
     "Helsinki-NLP/opus-mt-es-en",
     "Helsinki-NLP/opus-mt-ar-en",
     "Helsinki-NLP/opus-mt-pl-en",
+    "Helsinki-NLP/opus-mt-cy-en",
+    "Helsinki-NLP/opus-mt-ur-en",
+    "Helsinki-NLP/opus-mt-bn-en",
+    "Helsinki-NLP/opus-mt-pa-en",
+    "Helsinki-NLP/opus-mt-ps-en",
+    "Helsinki-NLP/opus-mt-so-en",
+    "Helsinki-NLP/opus-mt-ti-en",
+    "Helsinki-NLP/opus-mt-it-en",
+    "Helsinki-NLP/opus-mt-pt-en",
+    "Helsinki-NLP/opus-mt-hi-en",
 ]
 
 
