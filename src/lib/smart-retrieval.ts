@@ -4,9 +4,15 @@
  * This implements a lightweight "RAG-style" flow:
  *   1. Classify the barrier to a category
  *   2. Search the curated EXEMPLAR_LIBRARY for matching barrier/category
- *   3. Search user-accepted feedback exemplars for additional matches
+ *   3. Search user-accepted feedback exemplars, ranked by success quality
  *   4. Rank by relevance (exact barrier > same category > keyword match)
+ *      with quality weighting: accepted+rated > edited+rated > accepted > edited
  *   5. Return top N examples to inject into the prompt
+ *
+ * Phase 2 enhancements:
+ *   - Feedback records are scored by quality tier (accepted+relevant > edited > unrated)
+ *   - Recency bonus gives fresher feedback a slight edge
+ *   - Acceptance-rate data per barrier category influences retrieval weighting
  */
 
 import {
@@ -23,6 +29,121 @@ export interface RetrievedExample {
   source: 'library' | 'feedback';
   score: number;       // relevance score (higher = better)
 }
+
+// ---- Phase 2: Acceptance rate tracking per barrier category ----
+
+export interface CategoryAcceptanceRate {
+  category: string;
+  total: number;
+  accepted: number;        // rated 'relevant' OR acceptedAsIs
+  edited: number;          // has editedAction
+  rejected: number;        // rated 'not-relevant'
+  acceptanceRate: number;  // 0-1
+  editRate: number;        // 0-1
+}
+
+/**
+ * Compute acceptance rates per barrier category from the feedback store.
+ * Used to prioritise exemplars from high-performing categories and to
+ * surface metrics for tracking improvement.
+ */
+export function computeAcceptanceRates(
+  feedbackStore: ActionFeedback[],
+): CategoryAcceptanceRate[] {
+  const buckets = new Map<string, { total: number; accepted: number; edited: number; rejected: number }>();
+
+  for (const fb of feedbackStore) {
+    const cat = fb.category || 'unknown';
+    if (!buckets.has(cat)) {
+      buckets.set(cat, { total: 0, accepted: 0, edited: 0, rejected: 0 });
+    }
+    const b = buckets.get(cat)!;
+    b.total++;
+    if (fb.rating === 'not-relevant') {
+      b.rejected++;
+    } else if (fb.rating === 'relevant' || fb.acceptedAsIs) {
+      b.accepted++;
+    }
+    if (fb.editedAction) {
+      b.edited++;
+    }
+  }
+
+  const rates: CategoryAcceptanceRate[] = [];
+  for (const [category, b] of buckets) {
+    rates.push({
+      category,
+      total: b.total,
+      accepted: b.accepted,
+      edited: b.edited,
+      rejected: b.rejected,
+      acceptanceRate: b.total > 0 ? b.accepted / b.total : 0,
+      editRate: b.total > 0 ? b.edited / b.total : 0,
+    });
+  }
+
+  return rates.sort((a, b) => b.total - a.total);
+}
+
+/**
+ * Get acceptance rate for a specific barrier category.
+ * Returns null if no data for this category.
+ */
+export function getCategoryAcceptanceRate(
+  feedbackStore: ActionFeedback[],
+  category: string,
+): CategoryAcceptanceRate | null {
+  const rates = computeAcceptanceRates(feedbackStore);
+  return rates.find(r => r.category === category) ?? null;
+}
+
+// ---- Phase 2: Quality-weighted feedback scoring ----
+
+/**
+ * Compute a quality score for a single feedback record.
+ *
+ * Scoring tiers:
+ *   - Rated 'relevant' + accepted as-is:  1.0  (gold exemplar)
+ *   - Rated 'relevant' + edited:          0.9  (advisor refined + confirmed)
+ *   - Accepted as-is, no rating:          0.6  (implicit acceptance)
+ *   - Edited, no rating:                  0.4  (advisor changed it, may be good)
+ *   - No rating, not accepted:            0.0  (excluded from retrieval)
+ *   - Rated 'not-relevant':              -1.0  (excluded)
+ */
+export function computeFeedbackQuality(fb: ActionFeedback): number {
+  if (fb.rating === 'not-relevant') return -1;
+
+  let quality = 0;
+
+  if (fb.rating === 'relevant' && fb.acceptedAsIs) {
+    quality = 1.0;
+  } else if (fb.rating === 'relevant' && fb.editedAction) {
+    quality = 0.9;
+  } else if (fb.rating === 'relevant') {
+    quality = 0.8;
+  } else if (fb.acceptedAsIs) {
+    quality = 0.6;
+  } else if (fb.editedAction) {
+    quality = 0.4;
+  }
+
+  return quality;
+}
+
+/**
+ * Compute a recency bonus (0-1) based on how recent the feedback is.
+ * Feedback from the last 7 days gets full bonus; decays over 90 days.
+ */
+function recencyBonus(createdAt: string): number {
+  const ageMs = Date.now() - new Date(createdAt).getTime();
+  const ageDays = ageMs / (1000 * 60 * 60 * 24);
+  if (ageDays <= 7) return 1.0;
+  if (ageDays >= 90) return 0.0;
+  // Linear decay from 1.0 at 7 days to 0.0 at 90 days
+  return Math.max(0, 1 - (ageDays - 7) / 83);
+}
+
+// ---- Core retrieval ----
 
 /**
  * Tokenise a string into lowercase words for keyword matching.
@@ -51,6 +172,11 @@ function overlapScore(a: Set<string>, b: Set<string>): number {
 /**
  * Retrieve the most relevant exemplars for a given barrier/context.
  *
+ * Phase 2 enhancements:
+ *   - Feedback scored by quality tier (accepted+relevant > edited > unrated)
+ *   - Recency bonus for fresher feedback
+ *   - Category acceptance rate boosts exemplars from well-performing categories
+ *
  * @param barrier       The barrier label (e.g. "CV", "Confidence", or free text)
  * @param feedbackStore Accepted feedback records from the user's localStorage
  * @param maxResults    Maximum number of examples to return (default 5)
@@ -66,6 +192,13 @@ export function retrieveExemplars(
   const category = classifyBarrier(barrier);
   const barrierLower = barrier.toLowerCase();
   const barrierTokens = tokenise(barrier);
+
+  // Pre-compute category acceptance rates for weighting
+  const categoryRate = getCategoryAcceptanceRate(feedbackStore, category);
+  // Boost exemplars from categories with high acceptance (max +2)
+  const categoryBoost = categoryRate && categoryRate.total >= 3
+    ? categoryRate.acceptanceRate * 2
+    : 0;
 
   const scored: RetrievedExample[] = [];
 
@@ -101,31 +234,39 @@ export function retrieveExemplars(
     }
   }
 
-  // --- Score user feedback exemplars ---
-  // Only use accepted/positively-rated feedback
-  const acceptedFeedback = feedbackStore.filter(f => {
-    if (f.rating === 'not-relevant') return false;
-    return f.rating === 'relevant' || f.acceptedAsIs;
-  });
+  // --- Score user feedback exemplars (Phase 2: quality-weighted) ---
+  // Filter to usable feedback (quality > 0)
+  const usableFeedback = feedbackStore.filter(f => computeFeedbackQuality(f) > 0);
 
-  for (const fb of acceptedFeedback) {
-    let score = 0;
+  for (const fb of usableFeedback) {
+    const quality = computeFeedbackQuality(fb);
+    const recency = recencyBonus(fb.createdAt);
 
     // Use the edited action if available (advisor-improved version)
     const actionText = fb.editedAction || fb.generatedAction;
 
-    // Exact barrier match: +12 (slightly higher than library — real usage trumps)
+    let score = 0;
+
+    // Exact barrier match: base +12, scaled by quality
     if (fb.barrier.toLowerCase() === barrierLower) {
-      score += 12;
+      score += 12 * quality;
     }
-    // Same category: +6
+    // Same category: base +6, scaled by quality
     else if (fb.category === category && category !== 'unknown') {
-      score += 6;
+      score += 6 * quality;
     }
 
     // Keyword overlap with action
     const actionTokens = tokenise(actionText);
     score += overlapScore(barrierTokens, actionTokens) * 0.5;
+
+    // Recency bonus: up to +2 for very recent feedback
+    score += recency * 2;
+
+    // Category acceptance rate boost (high-performing categories get a lift)
+    if (fb.category === category) {
+      score += categoryBoost;
+    }
 
     if (score > 0) {
       scored.push({
