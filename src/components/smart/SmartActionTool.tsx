@@ -60,6 +60,7 @@ import { logDraftAnalytics } from '@/lib/draft-analytics';
 import { ActionFeedback, type FeedbackRating } from './ActionFeedback';
 import { classifyBarrier } from '@/lib/smart-data';
 import { retrieveExemplars, formatExemplarsForPrompt } from '@/lib/smart-retrieval';
+import { rankActionsByRelevance } from '@/lib/relevance-checker';
 
 /**
  * Safely remove from localStorage, catching any errors.
@@ -785,12 +786,21 @@ export function SmartActionTool() {
         source: "ai",
       });
 
-      if (plan.actions.length === 1) {
+      // Phase 2: Rank actions by relevance before presenting to user
+      const rankedActions = rankActionsByRelevance(
+        plan.actions,
+        barrier,
+        mode === 'now' ? nowForm.forename : futureForm.forename,
+        timescale,
+      );
+      const rankedPlan = { ...plan, actions: rankedActions };
+
+      if (rankedPlan.actions.length === 1) {
         // Single action — apply directly
-        handleSelectPlanAction(plan.actions[0]);
-      } else if (plan.actions.length > 1) {
-        // Multiple actions — show picker
-        setPlanResult(plan);
+        handleSelectPlanAction(rankedPlan.actions[0]);
+      } else if (rankedPlan.actions.length > 1) {
+        // Multiple actions — show picker (best action is first)
+        setPlanResult(rankedPlan);
         setShowPlanPicker(true);
       } else {
         throw new Error('Plan generation returned no actions.');
