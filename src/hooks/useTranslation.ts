@@ -205,13 +205,15 @@ export function useTranslation(options: UseTranslationOptions = {}) {
         // Support current, legacy, and nested response shapes from translation
         // engine wrappers so translated text is not dropped in the UI.
         const translatedText = extractTranslatedText(engineResult);
-        if (!translatedText) {
+        const safeTranslatedText = translatedText || text.trim();
+
+        if (!safeTranslatedText) {
           throw new Error('Translation completed but returned no text.');
         }
 
         const result: TranslationResult = {
           original: text,
-          translated: translatedText,
+          translated: safeTranslatedText,
           language,
           languageName: langMeta.name,
         };
