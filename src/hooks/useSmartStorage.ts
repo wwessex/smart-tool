@@ -20,7 +20,8 @@ const STORAGE = {
   preferredLLMModel: "smartTool.preferredLLMModel",
   allowMobileLLM: "smartTool.allowMobileLLM",
   safariWebGPUEnabled: "smartTool.safariWebGPUEnabled",
-  keepSafariModelLoaded: "smartTool.keepSafariModelLoaded"
+  keepSafariModelLoaded: "smartTool.keepSafariModelLoaded",
+  actionFeedback: "smartTool.actionFeedback"
 };
 
 // Default retention period in days
@@ -57,6 +58,21 @@ export interface HistoryItem {
     translatedText?: string;
     translationLanguage?: string;
   };
+}
+
+// Feedback record for AI-generated actions (Phase 1 relevance improvement)
+export interface ActionFeedback {
+  id: string;
+  createdAt: string;
+  barrier: string;
+  category: string;          // barrier taxonomy category
+  generatedAction: string;   // original AI-generated action
+  editedAction?: string;     // advisor-edited version (if changed)
+  rating: 'relevant' | 'not-relevant' | null;
+  acceptedAsIs: boolean;     // true if saved without editing
+  source: 'ai' | 'template';
+  forename: string;
+  timescale: string;
 }
 
 export type AIDraftMode = 'ai' | 'template';
@@ -174,6 +190,7 @@ export function useSmartStorage() {
   const [allowMobileLLM, setAllowMobileLLM] = useState<boolean>(() => loadBoolean(STORAGE.allowMobileLLM, false));
   const [safariWebGPUEnabled, setSafariWebGPUEnabled] = useState<boolean>(() => loadBoolean(STORAGE.safariWebGPUEnabled, false));
   const [keepSafariModelLoaded, setKeepSafariModelLoaded] = useState<boolean>(() => loadBoolean(STORAGE.keepSafariModelLoaded, false));
+  const [actionFeedback, setActionFeedback] = useState<ActionFeedback[]>(() => loadList(STORAGE.actionFeedback, []));
 
   // Sync collection state to localStorage (skips the initial mount to avoid
   // redundant writes since state was just loaded from localStorage).
@@ -190,6 +207,10 @@ export function useSmartStorage() {
     if (isInitialMount.current) return;
     saveList(STORAGE.templates, templates);
   }, [templates]);
+  useEffect(() => {
+    if (isInitialMount.current) return;
+    safeSetItem(STORAGE.actionFeedback, JSON.stringify(actionFeedback));
+  }, [actionFeedback]);
   useEffect(() => {
     // Mark initial mount complete after first render cycle
     isInitialMount.current = false;
@@ -337,6 +358,34 @@ const importData = useCallback((data: {
     setTemplates(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
   }, []);
 
+  // ---- Action Feedback (Phase 1 relevance improvement) ----
+  const addFeedback = useCallback((feedback: Omit<ActionFeedback, 'id' | 'createdAt'>) => {
+    const record: ActionFeedback = {
+      ...feedback,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+    };
+    setActionFeedback(prev => [record, ...prev].slice(0, 500));
+    return record;
+  }, []);
+
+  const updateFeedback = useCallback((id: string, updates: Partial<ActionFeedback>) => {
+    setActionFeedback(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));
+  }, []);
+
+  // Get accepted exemplars for a given barrier/category (for retrieval)
+  const getAcceptedExemplars = useCallback((barrier?: string, category?: string): ActionFeedback[] => {
+    return actionFeedback.filter(f => {
+      if (f.rating === 'not-relevant') return false;
+      // Must be either rated positively or accepted without edits
+      if (f.rating !== 'relevant' && !f.acceptedAsIs) return false;
+      // Match by barrier or category
+      if (barrier && f.barrier.toLowerCase() === barrier.toLowerCase()) return true;
+      if (category && f.category === category) return true;
+      return false;
+    });
+  }, [actionFeedback]);
+
   const updateMinScoreEnabled = useCallback((enabled: boolean) => {
     setMinScoreEnabled(enabled);
     safeSetItem(STORAGE.minScoreEnabled, String(enabled));
@@ -373,6 +422,7 @@ const exportAllData = useCallback(() => {
         keepSafariModelLoaded,
       },
       draftAnalytics: exportDraftAnalytics(),
+      actionFeedback,
     };
     return exportData;
   }, [
@@ -391,6 +441,7 @@ const exportAllData = useCallback(() => {
     allowMobileLLM,
     safariWebGPUEnabled,
     keepSafariModelLoaded,
+    actionFeedback,
   ]);
 
   // Delete all user data for GDPR right to erasure
@@ -449,6 +500,7 @@ const exportAllData = useCallback(() => {
     setAllowMobileLLM(false);
     setSafariWebGPUEnabled(false);
     setKeepSafariModelLoaded(false);
+    setActionFeedback([]);
   }, []);
 
   // Update retention settings
@@ -586,6 +638,10 @@ const exportAllData = useCallback(() => {
     cleanupOldHistory,
     shouldRunCleanup,
     exportAllData,
-    deleteAllData
+    deleteAllData,
+    actionFeedback,
+    addFeedback,
+    updateFeedback,
+    getAcceptedExemplars
   };
 }
