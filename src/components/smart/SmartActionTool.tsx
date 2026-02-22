@@ -2458,6 +2458,7 @@ export function SmartActionTool() {
                       id="action-output-translated"
                       value={translatedOutput}
                       readOnly
+                      lang={storage.participantLanguage}
                       aria-label={`Translated SMART action text in ${SUPPORTED_LANGUAGES[storage.participantLanguage]?.nativeName || storage.participantLanguage}`}
                       dir={translation.isRTL(storage.participantLanguage) ? 'rtl' : 'ltr'}
                       className="min-h-[120px] p-5 rounded-xl border-2 border-primary/30 bg-primary/5 leading-relaxed whitespace-pre-wrap text-sm resize-y"
