@@ -16,7 +16,18 @@ export function createInt64Tensor(
   data: number[],
   dims: number[]
 ): ort.Tensor {
-  const bigIntData = BigInt64Array.from(data.map((v) => BigInt(v)));
+  const bigIntData = BigInt64Array.from(data.map((v) => {
+    // Coerce to a safe integer before BigInt conversion.
+    // Vocab IDs from JSON may arrive as strings or floats when
+    // tokenizer/config files use non-standard formatting.
+    const n = typeof v === "number" ? v : Number(v);
+    if (!Number.isFinite(n)) {
+      throw new Error(
+        `Invalid token ID: expected a finite number, got ${typeof v} (${v})`
+      );
+    }
+    return BigInt(Math.trunc(n));
+  }));
   return new ort.Tensor("int64", bigIntData, dims);
 }
 
