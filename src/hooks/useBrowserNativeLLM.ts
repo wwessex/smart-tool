@@ -166,6 +166,10 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
   const isMobileBlocked = deviceInfo.isAndroid || (deviceInfo.isIOS && !allowMobileLLM);
   const canUseLocalAI = !isMobileBlocked;
 
+  // Use root-relative asset paths so static builds work reliably on deep routes.
+  const modelBaseRoot = "/models/";
+  const retrievalPackUrl = "/retrieval-packs/job-search-actions.json";
+
   const supportedModels = useMemo(() => {
     if (deviceInfo.isIOS || deviceInfo.isAndroid) return MOBILE_RECOMMENDED_MODELS;
     return RECOMMENDED_MODELS;
@@ -253,7 +257,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
         const planner = new SmartPlanner({
           inference: {
             model_id: effectiveModelId,
-            model_base_url: `./models/${effectiveModelId}/`,
+            model_base_url: `${modelBaseRoot}${effectiveModelId}/`,
             preferred_backend: backend,
             max_seq_length: 1024,
             max_new_tokens: 512,
@@ -261,7 +265,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
             top_p: 1.0,
             repetition_penalty: 1.1,
           },
-          retrieval_pack_url: "./retrieval-packs/job-search-actions.json",
+          retrieval_pack_url: retrievalPackUrl,
           worker_url: "",
           worker,
           max_repair_attempts: 2,
