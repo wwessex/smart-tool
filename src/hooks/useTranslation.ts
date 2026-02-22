@@ -122,12 +122,15 @@ function getEngine(): TranslationEngine {
     const env = (import.meta as unknown as { env?: Record<string, string> }).env;
     const allowRemoteModels = env?.VITE_ALLOW_REMOTE_TRANSLATION_MODELS !== 'false';
 
+    const hfToken = env?.VITE_HF_TOKEN;
+
     engineInstance = new TranslationEngine({
       allowRemoteModels,
       modelBasePath: resolveModelBasePath(),
       useBrowserCache: true,
       maxLoadedPipelines: 3,
       maxChunkChars: 900,
+      ...(hfToken ? { remoteModelRequestHeaders: { Authorization: `Bearer ${hfToken}` } } : {}),
     });
   }
   return engineInstance;
