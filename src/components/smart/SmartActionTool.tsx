@@ -487,6 +487,12 @@ export function SmartActionTool() {
         title: 'Translated!',
         description: `Action translated to ${result.languageName}.`
       });
+    } else {
+      toast({
+        title: 'Translation failed',
+        description: 'Could not translate this text. The translation model may still be loading — please try again.',
+        variant: 'destructive',
+      });
     }
   }, [output, storage.participantLanguage, translation, toast]);
 
