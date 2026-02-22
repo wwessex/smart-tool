@@ -21,6 +21,11 @@ export async function loadModelConfig(
   if (typeof source === "string") {
     const response = await fetch(source);
     if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error(
+          `Failed to load model config from ${source}: 404 — model files not found. Ensure models have been downloaded.`
+        );
+      }
       throw new Error(
         `Failed to load model config from ${source}: ${response.status}`
       );

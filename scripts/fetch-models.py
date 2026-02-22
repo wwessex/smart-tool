@@ -16,7 +16,7 @@ import shutil
 # Model repos to download — stored locally under public/models/<model-name>
 MODELS = {
   # LLM model for Amor inteligente (browser-native-llm)
-  "HuggingFaceTB/SmolLM2-360M-Instruct": "SmolLM2-360M-Instruct",
+  "HuggingFaceTB/SmolLM2-360M-Instruct": "smart-planner-150m-q4",
   # Translation models for Lengua Materna are fetched separately
   # via browser-translation/scripts/convert-model.py
 }

@@ -99,6 +99,14 @@ const ERROR_PATTERNS: ErrorPattern[] = [
     message: "This AI feature is not available in your browser. Try Chrome or Edge for best compatibility.",
     retryable: false,
   },
+  // Model not found (404 — files not downloaded or missing from deployment)
+  {
+    test: (m) => /model.*not found|404.*model|model.*404/i.test(m),
+    category: "model_load",
+    title: "Model not found",
+    message: "The AI model files are not available. The model may not have been downloaded or included in this deployment.",
+    retryable: false,
+  },
   // Model loading
   {
     test: (m) => /warmup failed|Model loaded but|Failed to load model|load model/i.test(m),
