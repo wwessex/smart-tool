@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useTranslation } from '@/hooks/useTranslation';
+import { TranslationEngine } from '@smart-tool/lengua-materna';
 
 // Mock the Lengua Materna engine module
 const mockTranslate = vi.fn();
@@ -116,5 +117,15 @@ describe('useTranslation', () => {
     expect(result.current.isRTL('ps')).toBe(true);
     expect(result.current.isRTL('pl')).toBe(false);
     expect(result.current.isRTL('cy')).toBe(false);
+  });
+
+  it('keeps remote model fallback disabled by default', () => {
+    renderHook(() => useTranslation({ enabled: true }));
+
+    expect(TranslationEngine).toHaveBeenCalledWith(
+      expect.objectContaining({
+        allowRemoteModels: false,
+      }),
+    );
   });
 });

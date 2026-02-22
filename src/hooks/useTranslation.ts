@@ -75,7 +75,8 @@ function resolveModelBasePath(): string {
 function getEngine(): TranslationEngine {
   if (!engineInstance) {
     engineInstance = new TranslationEngine({
-      allowRemoteModels: true,
+      // Keep remote model downloads opt-in to preserve privacy guarantees.
+      allowRemoteModels: false,
       modelBasePath: resolveModelBasePath(),
       useBrowserCache: true,
       maxLoadedPipelines: 3,
