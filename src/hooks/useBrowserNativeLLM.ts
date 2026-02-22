@@ -54,6 +54,16 @@ export interface UseBrowserNativeLLMOptions {
   safariWebGPUEnabled?: boolean;
 }
 
+export function buildAbsoluteAppAssetUrl(
+  appBaseUrl: string,
+  assetPath: string,
+  appOrigin?: string,
+): string {
+  const resolvedOrigin = appOrigin && appOrigin !== "null" ? appOrigin : "http://localhost";
+  const appBaseRoot = new URL(appBaseUrl, `${resolvedOrigin}/`);
+  return new URL(assetPath, appBaseRoot).toString();
+}
+
 // Re-export types for consumers
 export type { SMARTAction, SMARTPlan, RawUserInput, PlannerCallbacks };
 
@@ -168,8 +178,13 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
 
   // Resolve model/retrieval assets from Vite's configured app base.
   const appBaseUrl = import.meta.env.BASE_URL;
-  const modelBaseRoot = `${appBaseUrl}models/`;
-  const retrievalPackUrl = `${appBaseUrl}retrieval-packs/job-search-actions.json`;
+  const appOrigin = typeof window !== "undefined" ? window.location.origin : undefined;
+  const modelBaseRoot = buildAbsoluteAppAssetUrl(appBaseUrl, "models/", appOrigin);
+  const retrievalPackUrl = buildAbsoluteAppAssetUrl(
+    appBaseUrl,
+    "retrieval-packs/job-search-actions.json",
+    appOrigin,
+  );
 
   const supportedModels = useMemo(() => {
     if (deviceInfo.isIOS || deviceInfo.isAndroid) return MOBILE_RECOMMENDED_MODELS;
