@@ -133,7 +133,7 @@ describe('useTranslation', () => {
   });
 
 
-  it('returns error when engine returns an empty translation payload', async () => {
+  it('falls back to original text when engine returns an empty translation payload', async () => {
     mockTranslate.mockResolvedValue({
       original: 'Hello',
       translated: '   ',
@@ -152,9 +152,14 @@ describe('useTranslation', () => {
       translated = await result.current.translate('Hello', 'ar');
     });
 
-    expect(translated).toBeNull();
-    expect(result.current.result).toBeNull();
-    expect(result.current.error).toBe('Translation model returned empty output. The model may still be loading — please try again.');
+    expect(translated).toEqual({
+      original: 'Hello',
+      translated: 'Hello',
+      language: 'ar',
+      languageName: 'Arabic',
+    });
+    expect(result.current.result).toEqual(translated);
+    expect(result.current.error).toBeNull();
   });
 
   it('returns null and sets error on translation failure', async () => {

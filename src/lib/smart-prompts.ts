@@ -104,37 +104,45 @@ export const WIZARD_PROMPTS = {
 // Keep prompts concise, direct, and context-specific
 // CRITICAL: Include negative instructions to prevent off-topic generation
 
-export const DRAFT_ACTION_PROMPT = `TASK: Write ONE realistic employment action sentence.
+export const DRAFT_ACTION_PROMPT = `TASK: Write ONE realistic SMART employment action that DIRECTLY addresses the stated barrier.
 
 CONTEXT:
 - Person: {forename}
 - Barrier: {barrier}
+- Barrier category: {barrierCategory}
 - Deadline: {targetDate}
 - Supporter: {responsible}
 
-RULES:
-1. Start with "{forename} will"
-2. Include specific task related to "{barrier}"
-3. End with "by {targetDate}"
-4. Employment focus only - job search, skills, interviews, CV, etc.
-5. NEVER mention money, prizes, awards, payments, or rewards.
-6. NEVER promise job offers or guaranteed outcomes.
+{exemplars}
 
-WRONG: "working on a project", "learning Python", "be awarded £5000", "receive a prize", "get hired"
-RIGHT: "{forename} will apply for 3 jobs on Indeed by {targetDate}."
+RELEVANCE RULES (critical):
+- The action MUST directly address "{barrier}" — not a generic job-search action.
+- It must be specific to this barrier, achievable within the timeframe, and measurable.
+- Include WHO ({forename}), WHAT (concrete task), and WHEN (by {targetDate}).
+- Use commitment language: "has agreed to", "will", "commits to".
+
+FORMAT:
+- Start with "{forename} will" or "{forename} has agreed to"
+- Include a specific, countable task related to "{barrier}"
+- End with "by {targetDate}"
+
+WRONG: generic actions, "working on a project", money/prizes/awards, guaranteed outcomes.
+RIGHT: "{forename} will apply for 3 warehouse roles on Indeed by {targetDate}."
 
 OUTPUT: One sentence only, no quotes.`;
 
 // Compact version for smaller models - even more direct
-export const DRAFT_ACTION_PROMPT_COMPACT = `Write ONE job search action for {forename}.
+export const DRAFT_ACTION_PROMPT_COMPACT = `Write ONE action for {forename} that DIRECTLY addresses their "{barrier}" barrier.
 
-Barrier: {barrier}
+Barrier category: {barrierCategory}
 Deadline: {targetDate}
 
-Format: "{forename} will [job search action] by {targetDate}."
+{exemplars}
 
+Format: "{forename} will [action addressing {barrier}] by {targetDate}."
+
+MUST address "{barrier}" specifically. NOT generic job advice.
 NOT about: projects, coding, teams, AI, meetings, prizes, money, awards.
-ONLY about: jobs, CV, interviews, applications, skills.
 
 One sentence:`;
 

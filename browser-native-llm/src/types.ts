@@ -52,6 +52,24 @@ export interface PlanMetadata {
 // User profile (input to the planner)
 // ---------------------------------------------------------------------------
 
+/** Structured barrier metadata resolved from the barrier catalog. */
+export interface ResolvedBarrier {
+  /** Canonical barrier ID. */
+  id: string;
+  /** Human-readable label. */
+  label: string;
+  /** Broad barrier category for routing. */
+  category: string;
+  /** Tags to boost retrieval matching. */
+  retrieval_tags: string[];
+  /** Guidance hints to inject into the prompt. */
+  prompt_hints: string[];
+  /** Assumptions the model must NOT make. */
+  do_not_assume: string[];
+  /** Job-search stages to deprioritise. */
+  contraindicated_stages: string[];
+}
+
 /** Normalised user profile used by the prompt assembler. */
 export interface UserProfile {
   /** The user's target job or career goal. */
@@ -76,6 +94,8 @@ export interface UserProfile {
   participant_name: string;
   /** Who supports the action (e.g. "Advisor", participant name). */
   supporter: string;
+  /** Structured barrier metadata resolved from the barrier catalog (if available). */
+  resolved_barrier?: ResolvedBarrier;
 }
 
 /** Raw user input before normalisation. */
@@ -93,6 +113,10 @@ export interface RawUserInput {
   participant_name?: string;
   /** Who supports the action (e.g. "Advisor", participant name). */
   supporter?: string;
+  /** Canonical barrier ID from the barrier catalog (deterministic, bypasses keyword parsing). */
+  selected_barrier_id?: string;
+  /** Human-readable barrier label as shown in the UI dropdown. */
+  selected_barrier_label?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -114,6 +138,12 @@ export interface ActionTemplate {
   tags: string[];
   /** Barrier types this template is especially relevant for. */
   relevant_barriers: string[];
+  /** Barriers where this template should be avoided. */
+  contraindicated_barriers?: string[];
+  /** Preconditions that should be resolved before this action is attempted. */
+  required_prerequisites?: string[];
+  /** Guidance intensity for delivery style. */
+  support_level?: "low" | "medium" | "high";
   /** Minimum confidence level where this template is appropriate (1-5). */
   min_confidence: number;
   /** Source attribution (e.g. "National Careers Service, OGL v3.0"). */

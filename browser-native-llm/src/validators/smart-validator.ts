@@ -15,6 +15,7 @@ import type {
   ValidationResult,
   SMARTCriteriaResult,
   CriterionResult,
+  ResolvedBarrier,
 } from "../types.js";
 import { sanitizeForLog, splitOnWhitespace } from "../utils/sanitize.js";
 
@@ -100,7 +101,45 @@ export function validatePlan(
     score -= 10;
   }
 
+  // Barrier-fit check: at least the first action should address the selected barrier
+  if (profile.resolved_barrier && actions.length > 0) {
+    const barrierFit = checkBarrierFit(actions, profile.resolved_barrier);
+    if (!barrierFit.atLeastOneAddresses) {
+      issues.push(`No actions directly address the "${profile.resolved_barrier.label}" barrier`);
+      score -= 15;
+    }
+    if (!barrierFit.firstActionRelevant) {
+      issues.push(`First action should address the "${profile.resolved_barrier.label}" barrier`);
+      score -= 5;
+    }
+  }
+
   return { score: Math.max(0, score), issues };
+}
+
+/**
+ * Check whether a plan's actions actually address the selected barrier.
+ */
+function checkBarrierFit(
+  actions: SMARTAction[],
+  barrier: ResolvedBarrier,
+): { atLeastOneAddresses: boolean; firstActionRelevant: boolean } {
+  // Build keyword list from barrier ID, label, aliases → retrieval_tags
+  const barrierTerms = [
+    barrier.id.replace(/_/g, " "),
+    barrier.label.toLowerCase(),
+    ...barrier.retrieval_tags.map((t) => t.replace(/_/g, " ")),
+  ];
+
+  function isActionBarrierRelevant(action: SMARTAction): boolean {
+    const text = `${action.action} ${action.rationale} ${action.first_step}`.toLowerCase();
+    return barrierTerms.some((term) => text.includes(term));
+  }
+
+  const atLeastOneAddresses = actions.some(isActionBarrierRelevant);
+  const firstActionRelevant = actions.length > 0 && isActionBarrierRelevant(actions[0]);
+
+  return { atLeastOneAddresses, firstActionRelevant };
 }
 
 // ---------------------------------------------------------------------------

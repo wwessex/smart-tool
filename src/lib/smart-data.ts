@@ -1,3 +1,79 @@
+// Barrier taxonomy — maps each barrier to a high-level category.
+// Used to improve AI relevance by classifying free-text input and
+// retrieving category-matched exemplars before generation.
+export const BARRIER_CATEGORIES: Record<string, string> = {
+  "Housing": "practical",
+  "Finance": "practical",
+  "Photo ID": "practical",
+  "Transport": "practical",
+  "Digital Hardware & Connectivity": "practical",
+  "Caring Responsibilities": "practical",
+  "Confidence": "confidence",
+  "Motivation": "confidence",
+  "Mental Wellbeing": "wellbeing",
+  "Substance Misuse": "wellbeing",
+  "Health Condition": "wellbeing",
+  "Disability": "wellbeing",
+  "Communication Skills": "skills",
+  "Digital Skills": "skills",
+  "Literacy and/or Numeracy": "skills",
+  "Qualifications": "skills",
+  "Transferable Skills": "skills",
+  "Learning Capability": "skills",
+  "English Language (ESOL)": "skills",
+  "Previous Work History": "experience",
+  "Social & Support Networks": "experience",
+  "Job Search": "job-search",
+  "Job Applications": "job-search",
+  "CV": "job-search",
+  "Interviews": "job-search",
+  "Job Goal": "job-search",
+  "Autism": "neurodiversity",
+  "Learning Difficulties": "neurodiversity",
+  "ADHD": "neurodiversity",
+};
+
+// Reverse lookup: category -> barriers in that category
+export function getBarriersByCategory(category: string): string[] {
+  return Object.entries(BARRIER_CATEGORIES)
+    .filter(([, cat]) => cat === category)
+    .map(([barrier]) => barrier);
+}
+
+// Classify a barrier string to its category (fuzzy)
+export function classifyBarrier(barrier: string): string {
+  const b = (barrier || "").trim();
+  if (!b) return "unknown";
+
+  // Exact match
+  if (BARRIER_CATEGORIES[b]) return BARRIER_CATEGORIES[b];
+
+  // Case-insensitive match
+  const lower = b.toLowerCase();
+  for (const [key, cat] of Object.entries(BARRIER_CATEGORIES)) {
+    if (key.toLowerCase() === lower) return cat;
+  }
+
+  // Partial/fuzzy match
+  const categoryKeywords: Record<string, string[]> = {
+    "practical": ["housing", "finance", "money", "debt", "transport", "bus", "train", "driving", "childcare", "children", "carer", "photo id", "passport", "licence", "computer", "laptop", "internet", "wifi"],
+    "confidence": ["confidence", "self-esteem", "shy", "nervous", "motivation", "motivated", "direction", "purpose"],
+    "wellbeing": ["mental", "health", "wellbeing", "anxiety", "depression", "stress", "substance", "alcohol", "drug", "disability", "disabled", "physical"],
+    "skills": ["digital", "computer skills", "literacy", "numeracy", "reading", "writing", "maths", "english", "esol", "communication", "qualifications", "training", "learning", "transferable"],
+    "experience": ["work history", "employment gap", "never worked", "volunteering", "social", "support network", "references"],
+    "job-search": ["job search", "application", "cv", "resume", "interview", "job goal", "career"],
+    "neurodiversity": ["autism", "autistic", "adhd", "attention", "learning difficult", "dyslexia", "asperger"],
+  };
+
+  for (const [cat, keywords] of Object.entries(categoryKeywords)) {
+    for (const kw of keywords) {
+      if (lower.includes(kw)) return cat;
+    }
+  }
+
+  return "unknown";
+}
+
 // Default data lifted from the spreadsheet's DATA sheet (Restart SMART Action Tool v1)
 export const DEFAULT_TIMESCALES = [
   "1 week",
@@ -581,3 +657,251 @@ export const TASK_SUGGESTIONS: Record<string, Array<{title: string; outcome: str
     {"title": "Support session", "outcome": "[Name] will receive support and develop a clearer plan for moving forward."}
   ]
 };
+
+// ============= Exemplar Library =============
+// Curated high-quality barrier→action examples used for RAG-style retrieval
+// before AI generation. Each exemplar represents an "accepted" action — the
+// kind of output an advisor would keep without editing.
+//
+// Fields:
+//   barrier       – the barrier label (matches DEFAULT_BARRIERS keys)
+//   category      – barrier taxonomy category
+//   action        – the final SMART action text (with {forename}/{targetDate} placeholders)
+//   help          – how it helps with employment
+//   tags          – keywords for retrieval matching
+//   rating        – quality score 1-5 (all exemplars here are 5)
+export interface ActionExemplar {
+  barrier: string;
+  category: string;
+  action: string;
+  help: string;
+  tags: string[];
+  rating: number;
+}
+
+export const EXEMPLAR_LIBRARY: ActionExemplar[] = [
+  // ---- confidence ----
+  {
+    barrier: "Confidence",
+    category: "confidence",
+    action: "{forename} has agreed to identify three personal strengths, write them down with real examples, and bring them to our next meeting by {targetDate}.",
+    help: "build self-awareness and communicate strengths clearly to employers.",
+    tags: ["confidence", "strengths", "self-esteem", "interview", "short-term"],
+    rating: 5,
+  },
+  {
+    barrier: "Confidence",
+    category: "confidence",
+    action: "{forename} will complete two mock interviews with advisor support, recording answers for self-review, by {targetDate}.",
+    help: "reduce interview anxiety through repeated practice and feedback.",
+    tags: ["confidence", "interview", "practice", "mock", "feedback"],
+    rating: 5,
+  },
+  {
+    barrier: "Confidence",
+    category: "confidence",
+    action: "{forename} has agreed to attend a confidence-building workshop and note two takeaways to apply in job search by {targetDate}.",
+    help: "gain practical techniques for managing nerves in professional settings.",
+    tags: ["confidence", "workshop", "anxiety", "nerves", "professional"],
+    rating: 5,
+  },
+  // ---- motivation ----
+  {
+    barrier: "Motivation",
+    category: "confidence",
+    action: "{forename} will set one realistic weekly job search goal, track progress in a journal, and review it at our next meeting by {targetDate}.",
+    help: "maintain momentum through achievable milestones and accountability.",
+    tags: ["motivation", "goal", "routine", "accountability", "weekly"],
+    rating: 5,
+  },
+  {
+    barrier: "Motivation",
+    category: "confidence",
+    action: "{forename} has agreed to create a simple weekly routine that includes dedicated job search time and one wellbeing activity, and try it for one week by {targetDate}.",
+    help: "build structure and consistency to support sustained job search effort.",
+    tags: ["motivation", "routine", "structure", "wellbeing", "consistency"],
+    rating: 5,
+  },
+  // ---- CV ----
+  {
+    barrier: "CV",
+    category: "job-search",
+    action: "{forename} will rewrite their personal statement and tailor their CV to warehouse roles, sending the updated version to advisor by {targetDate}.",
+    help: "present relevant skills clearly and increase chances of being shortlisted.",
+    tags: ["cv", "personal statement", "tailored", "warehouse", "update"],
+    rating: 5,
+  },
+  {
+    barrier: "CV",
+    category: "job-search",
+    action: "{forename} has agreed to add two STAR examples demonstrating teamwork and reliability to their CV and share the draft by {targetDate}.",
+    help: "strengthen applications with evidence-based examples employers look for.",
+    tags: ["cv", "star", "examples", "teamwork", "reliability"],
+    rating: 5,
+  },
+  // ---- Interviews ----
+  {
+    barrier: "Interviews",
+    category: "job-search",
+    action: "{forename} will prepare answers to five common interview questions for retail roles and practise them aloud twice before {targetDate}.",
+    help: "improve interview performance and reduce anxiety through preparation.",
+    tags: ["interview", "practice", "questions", "retail", "preparation"],
+    rating: 5,
+  },
+  {
+    barrier: "Interviews",
+    category: "job-search",
+    action: "{forename} has agreed to book and attend a mock interview session, bringing the job description and CV, by {targetDate}.",
+    help: "identify areas for improvement before real interviews.",
+    tags: ["interview", "mock", "feedback", "job description", "cv"],
+    rating: 5,
+  },
+  // ---- Transport ----
+  {
+    barrier: "Transport",
+    category: "practical",
+    action: "{forename} will research and save a reliable bus route to the industrial estate, including costs and timings, and confirm attendance by {targetDate}.",
+    help: "remove transport uncertainty as a barrier to attending work or interviews.",
+    tags: ["transport", "bus", "route", "commute", "costs", "timings"],
+    rating: 5,
+  },
+  {
+    barrier: "Transport",
+    category: "practical",
+    action: "{forename} has agreed to complete the travel support application with required evidence and submit it by {targetDate}.",
+    help: "access financial support for travel costs during job search.",
+    tags: ["transport", "travel support", "application", "funding", "evidence"],
+    rating: 5,
+  },
+  // ---- Job Search ----
+  {
+    barrier: "Job Search",
+    category: "job-search",
+    action: "{forename} will complete two job searches per week using Indeed and council jobs, saving at least three suitable roles each time, by {targetDate}.",
+    help: "build momentum and increase chances of finding suitable vacancies.",
+    tags: ["job search", "indeed", "vacancies", "weekly", "routine"],
+    rating: 5,
+  },
+  {
+    barrier: "Job Search",
+    category: "job-search",
+    action: "{forename} has agreed to set up job alerts for care assistant roles within 5 miles on two job boards by {targetDate}.",
+    help: "see suitable vacancies quickly without manual searching every day.",
+    tags: ["job search", "alerts", "care assistant", "local", "automated"],
+    rating: 5,
+  },
+  // ---- Job Applications ----
+  {
+    barrier: "Job Applications",
+    category: "job-search",
+    action: "{forename} will submit three quality applications for suitable roles, each tailored to the job description, by {targetDate}.",
+    help: "increase chances of securing interviews through targeted applications.",
+    tags: ["applications", "tailored", "job description", "quality", "submit"],
+    rating: 5,
+  },
+  // ---- Digital Skills ----
+  {
+    barrier: "Digital Skills",
+    category: "skills",
+    action: "{forename} has agreed to complete the first module of the agreed online digital skills course and save the certificate by {targetDate}.",
+    help: "develop essential digital skills needed for job searching and employment.",
+    tags: ["digital", "course", "module", "certificate", "online"],
+    rating: 5,
+  },
+  {
+    barrier: "Digital Skills",
+    category: "skills",
+    action: "{forename} will practise writing a professional email enquiry about a job vacancy and send it to advisor for feedback by {targetDate}.",
+    help: "build confidence in professional digital communication.",
+    tags: ["digital", "email", "professional", "communication", "practice"],
+    rating: 5,
+  },
+  // ---- Housing ----
+  {
+    barrier: "Housing",
+    category: "practical",
+    action: "{forename} has agreed to contact the local council Housing Options team to discuss their current situation and next steps by {targetDate}.",
+    help: "access appropriate housing support and reduce risk of homelessness.",
+    tags: ["housing", "council", "support", "options", "referral"],
+    rating: 5,
+  },
+  // ---- Finance ----
+  {
+    barrier: "Finance",
+    category: "practical",
+    action: "{forename} will create a weekly budget listing income and essential outgoings using the provided template and bring it completed by {targetDate}.",
+    help: "understand spending patterns and identify areas to reduce financial pressure.",
+    tags: ["finance", "budget", "income", "outgoings", "template"],
+    rating: 5,
+  },
+  {
+    barrier: "Finance",
+    category: "practical",
+    action: "{forename} has agreed to use an online benefits calculator to check entitlement and note any actions needed by {targetDate}.",
+    help: "maximise income and reduce financial barriers to employment.",
+    tags: ["finance", "benefits", "entitlement", "calculator", "income"],
+    rating: 5,
+  },
+  // ---- Mental Wellbeing ----
+  {
+    barrier: "Mental Wellbeing",
+    category: "wellbeing",
+    action: "{forename} has agreed to contact the agreed wellbeing service to arrange an initial appointment by {targetDate}.",
+    help: "access professional support to improve mental wellbeing and work readiness.",
+    tags: ["mental health", "wellbeing", "appointment", "support", "referral"],
+    rating: 5,
+  },
+  {
+    barrier: "Mental Wellbeing",
+    category: "wellbeing",
+    action: "{forename} will practise one agreed self-care activity (walking 20 minutes daily) at least three times this week and note how it went by {targetDate}.",
+    help: "build healthy routines that support overall wellbeing and employment readiness.",
+    tags: ["mental health", "self-care", "walking", "routine", "wellbeing"],
+    rating: 5,
+  },
+  // ---- Autism ----
+  {
+    barrier: "Autism",
+    category: "neurodiversity",
+    action: "{forename} will identify three reasonable workplace adjustments they may need (e.g., quiet space, written instructions) and discuss them with advisor by {targetDate}.",
+    help: "prepare for communicating support needs to future employers.",
+    tags: ["autism", "adjustments", "workplace", "communication", "support"],
+    rating: 5,
+  },
+  // ---- ADHD ----
+  {
+    barrier: "ADHD",
+    category: "neurodiversity",
+    action: "{forename} has agreed to set up phone reminders for all appointments and deadlines, and break job applications into 15-minute focused sessions with breaks, by {targetDate}.",
+    help: "stay organised and make tasks more manageable through structured approaches.",
+    tags: ["adhd", "reminders", "focus", "structure", "breaks", "organisation"],
+    rating: 5,
+  },
+  // ---- Qualifications ----
+  {
+    barrier: "Qualifications",
+    category: "skills",
+    action: "{forename} has agreed to research and shortlist two relevant courses that support their job goal and share findings with advisor by {targetDate}.",
+    help: "identify training opportunities to improve employability.",
+    tags: ["qualifications", "courses", "training", "research", "employability"],
+    rating: 5,
+  },
+  // ---- Caring Responsibilities ----
+  {
+    barrier: "Caring Responsibilities",
+    category: "practical",
+    action: "{forename} will research and note down two local childcare options including costs and availability by {targetDate}.",
+    help: "identify solutions to balance caring commitments with work.",
+    tags: ["childcare", "caring", "costs", "availability", "work-life balance"],
+    rating: 5,
+  },
+  // ---- Photo ID ----
+  {
+    barrier: "Photo ID",
+    category: "practical",
+    action: "{forename} has agreed to apply for a provisional driving licence online at gov.uk by {targetDate} to provide valid photo ID for employment.",
+    help: "obtain official photo ID required by most employers.",
+    tags: ["photo id", "provisional licence", "gov.uk", "identity", "document"],
+    rating: 5,
+  },
+];

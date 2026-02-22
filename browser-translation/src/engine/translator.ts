@@ -298,10 +298,14 @@ export class TranslationEngine {
       const translatedText = result.translation_text;
       const restored = restore(String(translatedText ?? "").trim());
 
-      // Cache the translation
-      this.translationCache.set(chunk.text, pair, restored);
+      // When the model produces no output for a chunk, fall back to the
+      // original text so the caller always receives a non-empty result.
+      // Do not cache the fallback — a future attempt may succeed.
+      if (restored) {
+        this.translationCache.set(chunk.text, pair, restored);
+      }
 
-      translatedChunks.push({ ...chunk, text: restored });
+      translatedChunks.push({ ...chunk, text: restored || chunk.text });
     }
 
     const translated = reassembleChunks(translatedChunks);

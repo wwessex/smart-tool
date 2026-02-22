@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0",
-  "updated_at": "2026-02-20",
+  "version": "1.1.0",
+  "updated_at": "2026-02-22",
   "templates": [
     {
       "id": "cv-tailor-01",
@@ -8,10 +8,22 @@
       "action_template": "Tailor CV to highlight {skill} experience relevant to {goal} roles",
       "metric_template": "Number of role-specific bullet points added",
       "effort_hint": "2-3 hours one-off",
-      "tags": ["cv", "resume", "tailoring", "application"],
-      "relevant_barriers": ["cv_gaps", "lack_of_experience", "career_change"],
+      "tags": [
+        "cv",
+        "resume",
+        "tailoring",
+        "application"
+      ],
+      "relevant_barriers": [
+        "cv_gaps",
+        "lack_of_experience",
+        "career_change"
+      ],
       "min_confidence": 1,
-      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0"
+      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0",
+      "contraindicated_barriers": [],
+      "required_prerequisites": [],
+      "support_level": "medium"
     },
     {
       "id": "cv-proofread-01",
@@ -19,10 +31,21 @@
       "action_template": "Proofread and format CV, checking for spelling errors, consistent formatting, and clear contact details",
       "metric_template": "Number of errors corrected",
       "effort_hint": "1 hour one-off",
-      "tags": ["cv", "resume", "proofreading", "formatting"],
-      "relevant_barriers": ["confidence", "literacy"],
+      "tags": [
+        "cv",
+        "resume",
+        "proofreading",
+        "formatting"
+      ],
+      "relevant_barriers": [
+        "confidence",
+        "literacy"
+      ],
       "min_confidence": 1,
-      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0"
+      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0",
+      "contraindicated_barriers": [],
+      "required_prerequisites": [],
+      "support_level": "medium"
     },
     {
       "id": "cv-achieve-01",
@@ -30,10 +53,21 @@
       "action_template": "Rewrite {count} CV bullet points to include measurable achievements (numbers, percentages, outcomes)",
       "metric_template": "Number of achievement-based bullet points",
       "effort_hint": "1-2 hours one-off",
-      "tags": ["cv", "resume", "achievements", "quantify"],
-      "relevant_barriers": ["cv_gaps", "confidence"],
+      "tags": [
+        "cv",
+        "resume",
+        "achievements",
+        "quantify"
+      ],
+      "relevant_barriers": [
+        "cv_gaps",
+        "confidence"
+      ],
       "min_confidence": 2,
-      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0"
+      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0",
+      "contraindicated_barriers": [],
+      "required_prerequisites": [],
+      "support_level": "medium"
     },
     {
       "id": "linkedin-profile-01",
@@ -41,10 +75,21 @@
       "action_template": "Update LinkedIn profile headline and summary to target {goal} roles",
       "metric_template": "Profile sections completed and updated",
       "effort_hint": "1-2 hours one-off",
-      "tags": ["linkedin", "online_presence", "professional_profile", "networking"],
-      "relevant_barriers": ["digital_skills", "confidence"],
+      "tags": [
+        "linkedin",
+        "online_presence",
+        "professional_profile",
+        "networking"
+      ],
+      "relevant_barriers": [
+        "digital_skills",
+        "confidence"
+      ],
       "min_confidence": 2,
-      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0"
+      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0",
+      "contraindicated_barriers": [],
+      "required_prerequisites": [],
+      "support_level": "medium"
     },
     {
       "id": "linkedin-connect-01",
@@ -52,10 +97,21 @@
       "action_template": "Send {count} personalised connection requests to professionals in {industry} per week",
       "metric_template": "Connection requests sent per week",
       "effort_hint": "30 minutes/week",
-      "tags": ["linkedin", "networking", "connections", "outreach"],
-      "relevant_barriers": ["confidence", "networking_anxiety"],
+      "tags": [
+        "linkedin",
+        "networking",
+        "connections",
+        "outreach"
+      ],
+      "relevant_barriers": [
+        "confidence",
+        "networking_anxiety"
+      ],
       "min_confidence": 2,
-      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0"
+      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0",
+      "contraindicated_barriers": [],
+      "required_prerequisites": [],
+      "support_level": "medium"
     },
     {
       "id": "job-search-01",
@@ -63,10 +119,28 @@
       "action_template": "Search and apply to {count} {goal} roles per week on job boards and company websites",
       "metric_template": "Applications submitted per week",
       "effort_hint": "2-4 hours/week",
-      "tags": ["applications", "job_search", "job_boards"],
-      "relevant_barriers": ["time_management", "motivation", "transport"],
+      "tags": [
+        "applications",
+        "job_search",
+        "job_boards"
+      ],
+      "relevant_barriers": [
+        "time_management",
+        "motivation",
+        "transport"
+      ],
       "min_confidence": 1,
-      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0"
+      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0",
+      "contraindicated_barriers": [
+        "transport",
+        "confidence",
+        "digital_access"
+      ],
+      "required_prerequisites": [
+        "basic access to vacancies",
+        "barrier-first plan in place"
+      ],
+      "support_level": "low"
     },
     {
       "id": "cover-letter-01",
@@ -74,10 +148,21 @@
       "action_template": "Write a tailored cover letter template for {goal} applications, customising the opening paragraph for each role",
       "metric_template": "Cover letter template created and customised applications sent",
       "effort_hint": "2 hours initial + 20 min per application",
-      "tags": ["cover_letter", "applications", "writing"],
-      "relevant_barriers": ["literacy", "confidence", "cv_gaps"],
+      "tags": [
+        "cover_letter",
+        "applications",
+        "writing"
+      ],
+      "relevant_barriers": [
+        "literacy",
+        "confidence",
+        "cv_gaps"
+      ],
       "min_confidence": 2,
-      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0"
+      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0",
+      "contraindicated_barriers": [],
+      "required_prerequisites": [],
+      "support_level": "medium"
     },
     {
       "id": "interview-prep-01",
@@ -85,10 +170,22 @@
       "action_template": "Prepare STAR-format answers for {count} common interview questions relevant to {goal}",
       "metric_template": "STAR answers prepared and practised",
       "effort_hint": "2-3 hours one-off",
-      "tags": ["interview", "preparation", "star_method", "practice"],
-      "relevant_barriers": ["confidence", "interview_anxiety", "lack_of_experience"],
+      "tags": [
+        "interview",
+        "preparation",
+        "star_method",
+        "practice"
+      ],
+      "relevant_barriers": [
+        "confidence",
+        "interview_anxiety",
+        "lack_of_experience"
+      ],
       "min_confidence": 1,
-      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0"
+      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0",
+      "contraindicated_barriers": [],
+      "required_prerequisites": [],
+      "support_level": "medium"
     },
     {
       "id": "interview-practice-01",
@@ -96,10 +193,21 @@
       "action_template": "Complete {count} mock interviews with a friend, family member, or career adviser",
       "metric_template": "Mock interviews completed",
       "effort_hint": "1 hour per mock interview",
-      "tags": ["interview", "mock_interview", "practice", "confidence"],
-      "relevant_barriers": ["confidence", "interview_anxiety"],
+      "tags": [
+        "interview",
+        "mock_interview",
+        "practice",
+        "confidence"
+      ],
+      "relevant_barriers": [
+        "confidence",
+        "interview_anxiety"
+      ],
       "min_confidence": 1,
-      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0"
+      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0",
+      "contraindicated_barriers": [],
+      "required_prerequisites": [],
+      "support_level": "medium"
     },
     {
       "id": "upskill-course-01",
@@ -107,10 +215,22 @@
       "action_template": "Complete a free online course in {skill} to strengthen qualifications for {goal} roles",
       "metric_template": "Course modules completed and certificate obtained",
       "effort_hint": "2-4 hours/week",
-      "tags": ["upskilling", "training", "online_learning", "certification"],
-      "relevant_barriers": ["skills_gap", "lack_of_qualifications", "career_change"],
+      "tags": [
+        "upskilling",
+        "training",
+        "online_learning",
+        "certification"
+      ],
+      "relevant_barriers": [
+        "skills_gap",
+        "lack_of_qualifications",
+        "career_change"
+      ],
       "min_confidence": 2,
-      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0"
+      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0",
+      "contraindicated_barriers": [],
+      "required_prerequisites": [],
+      "support_level": "medium"
     },
     {
       "id": "upskill-practice-01",
@@ -118,10 +238,22 @@
       "action_template": "Build a small portfolio project demonstrating {skill} ability relevant to {goal}",
       "metric_template": "Portfolio project completed and shared",
       "effort_hint": "3-5 hours/week",
-      "tags": ["portfolio", "project", "practice", "demonstration"],
-      "relevant_barriers": ["lack_of_experience", "career_change", "skills_gap"],
+      "tags": [
+        "portfolio",
+        "project",
+        "practice",
+        "demonstration"
+      ],
+      "relevant_barriers": [
+        "lack_of_experience",
+        "career_change",
+        "skills_gap"
+      ],
       "min_confidence": 3,
-      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0"
+      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0",
+      "contraindicated_barriers": [],
+      "required_prerequisites": [],
+      "support_level": "low"
     },
     {
       "id": "network-event-01",
@@ -129,10 +261,22 @@
       "action_template": "Attend {count} industry networking events or webinars in {industry} this month",
       "metric_template": "Events attended and contacts made",
       "effort_hint": "2-3 hours per event",
-      "tags": ["networking", "events", "industry", "contacts"],
-      "relevant_barriers": ["confidence", "networking_anxiety", "transport"],
+      "tags": [
+        "networking",
+        "events",
+        "industry",
+        "contacts"
+      ],
+      "relevant_barriers": [
+        "confidence",
+        "networking_anxiety",
+        "transport"
+      ],
       "min_confidence": 3,
-      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0"
+      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0",
+      "contraindicated_barriers": [],
+      "required_prerequisites": [],
+      "support_level": "low"
     },
     {
       "id": "network-informational-01",
@@ -140,10 +284,22 @@
       "action_template": "Request {count} informational interviews with professionals working in {goal} roles",
       "metric_template": "Informational interviews requested and completed",
       "effort_hint": "1 hour per interview + 30 min prep",
-      "tags": ["networking", "informational_interview", "research", "contacts"],
-      "relevant_barriers": ["confidence", "networking_anxiety", "lack_of_experience"],
+      "tags": [
+        "networking",
+        "informational_interview",
+        "research",
+        "contacts"
+      ],
+      "relevant_barriers": [
+        "confidence",
+        "networking_anxiety",
+        "lack_of_experience"
+      ],
       "min_confidence": 2,
-      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0"
+      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0",
+      "contraindicated_barriers": [],
+      "required_prerequisites": [],
+      "support_level": "medium"
     },
     {
       "id": "discovery-research-01",
@@ -151,10 +307,22 @@
       "action_template": "Research {count} companies hiring for {goal} roles, noting their values, culture, and requirements",
       "metric_template": "Companies researched with notes saved",
       "effort_hint": "1-2 hours/week",
-      "tags": ["research", "company_research", "job_search", "discovery"],
-      "relevant_barriers": ["direction", "career_change", "motivation"],
+      "tags": [
+        "research",
+        "company_research",
+        "job_search",
+        "discovery"
+      ],
+      "relevant_barriers": [
+        "direction",
+        "career_change",
+        "motivation"
+      ],
       "min_confidence": 1,
-      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0"
+      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0",
+      "contraindicated_barriers": [],
+      "required_prerequisites": [],
+      "support_level": "medium"
     },
     {
       "id": "discovery-skills-audit-01",
@@ -162,10 +330,23 @@
       "action_template": "Complete a skills audit to identify transferable skills from previous experience relevant to {goal}",
       "metric_template": "Skills audit document completed with transferable skills listed",
       "effort_hint": "1-2 hours one-off",
-      "tags": ["skills_audit", "transferable_skills", "self_assessment", "discovery"],
-      "relevant_barriers": ["career_change", "confidence", "direction", "lack_of_experience"],
+      "tags": [
+        "skills_audit",
+        "transferable_skills",
+        "self_assessment",
+        "discovery"
+      ],
+      "relevant_barriers": [
+        "career_change",
+        "confidence",
+        "direction",
+        "lack_of_experience"
+      ],
       "min_confidence": 1,
-      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0"
+      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0",
+      "contraindicated_barriers": [],
+      "required_prerequisites": [],
+      "support_level": "medium"
     },
     {
       "id": "followup-01",
@@ -173,10 +354,21 @@
       "action_template": "Send a thank-you email within 24 hours of each interview, referencing specific discussion points",
       "metric_template": "Thank-you emails sent within 24 hours",
       "effort_hint": "15 minutes per email",
-      "tags": ["follow_up", "thank_you", "interview", "email"],
-      "relevant_barriers": ["confidence", "digital_skills"],
+      "tags": [
+        "follow_up",
+        "thank_you",
+        "interview",
+        "email"
+      ],
+      "relevant_barriers": [
+        "confidence",
+        "digital_skills"
+      ],
       "min_confidence": 2,
-      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0"
+      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0",
+      "contraindicated_barriers": [],
+      "required_prerequisites": [],
+      "support_level": "medium"
     },
     {
       "id": "followup-track-01",
@@ -184,10 +376,22 @@
       "action_template": "Maintain a job application tracker recording company, role, date applied, status, and follow-up dates",
       "metric_template": "Tracker updated after every application and follow-up",
       "effort_hint": "10 minutes/day",
-      "tags": ["tracking", "organisation", "applications", "follow_up"],
-      "relevant_barriers": ["time_management", "organisation", "motivation"],
+      "tags": [
+        "tracking",
+        "organisation",
+        "applications",
+        "follow_up"
+      ],
+      "relevant_barriers": [
+        "time_management",
+        "organisation",
+        "motivation"
+      ],
       "min_confidence": 1,
-      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0"
+      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0",
+      "contraindicated_barriers": [],
+      "required_prerequisites": [],
+      "support_level": "medium"
     },
     {
       "id": "remote-search-01",
@@ -195,10 +399,26 @@
       "action_template": "Set up alerts on {count} remote-friendly job boards filtered for {goal} roles",
       "metric_template": "Job alerts configured and reviewed weekly",
       "effort_hint": "1 hour setup + 30 min/week review",
-      "tags": ["remote_work", "job_alerts", "job_boards", "applications"],
-      "relevant_barriers": ["disability", "health", "transport", "childcare", "remote_only"],
+      "tags": [
+        "remote_work",
+        "job_alerts",
+        "job_boards",
+        "applications"
+      ],
+      "relevant_barriers": [
+        "disability",
+        "health",
+        "transport",
+        "childcare",
+        "remote_only"
+      ],
       "min_confidence": 1,
-      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0"
+      "source_attribution": "Adapted from National Careers Service guidance, OGL v3.0",
+      "contraindicated_barriers": [],
+      "required_prerequisites": [
+        "confirm remote-friendly roles in local labour market"
+      ],
+      "support_level": "medium"
     },
     {
       "id": "confidence-small-01",
@@ -206,10 +426,25 @@
       "action_template": "Complete one small, low-friction job-search task each day (e.g., save a job listing, read one article about {industry})",
       "metric_template": "Daily tasks completed this week",
       "effort_hint": "15-30 minutes/day",
-      "tags": ["confidence", "small_steps", "daily_habit", "motivation"],
-      "relevant_barriers": ["confidence", "anxiety", "mental_health", "motivation"],
+      "tags": [
+        "confidence",
+        "small_steps",
+        "daily_habit",
+        "motivation"
+      ],
+      "relevant_barriers": [
+        "confidence",
+        "anxiety",
+        "mental_health",
+        "motivation"
+      ],
       "min_confidence": 1,
-      "source_attribution": "Adapted from general career guidance principles"
+      "source_attribution": "Adapted from general career guidance principles",
+      "contraindicated_barriers": [],
+      "required_prerequisites": [
+        "agree one daily check-in routine"
+      ],
+      "support_level": "high"
     },
     {
       "id": "reasonable-adj-01",
@@ -217,10 +452,121 @@
       "action_template": "Research reasonable adjustments available for {barrier} and prepare a brief statement for applications/interviews",
       "metric_template": "Adjustments statement prepared",
       "effort_hint": "1-2 hours one-off",
-      "tags": ["reasonable_adjustments", "disability", "accessibility", "applications"],
-      "relevant_barriers": ["disability", "health", "neurodiversity"],
+      "tags": [
+        "reasonable_adjustments",
+        "disability",
+        "accessibility",
+        "applications"
+      ],
+      "relevant_barriers": [
+        "disability",
+        "health",
+        "neurodiversity"
+      ],
       "min_confidence": 1,
-      "source_attribution": "Adapted from Equality Act 2010 guidance and National Careers Service, OGL v3.0"
+      "source_attribution": "Adapted from Equality Act 2010 guidance and National Careers Service, OGL v3.0",
+      "contraindicated_barriers": [],
+      "required_prerequisites": [],
+      "support_level": "medium"
+    },
+    {
+      "id": "transport-route-plan-01",
+      "stage": "discovery",
+      "action_template": "Use a journey planner to map public transport routes to {count} target employers and record travel time/cost options",
+      "metric_template": "Number of realistic commute options logged",
+      "effort_hint": "60-90 minutes one-off",
+      "tags": [
+        "transport",
+        "journey_planning",
+        "practical_access",
+        "barrier_first"
+      ],
+      "relevant_barriers": [
+        "transport",
+        "finance"
+      ],
+      "min_confidence": 1,
+      "contraindicated_barriers": [],
+      "required_prerequisites": [
+        "identify target employer locations"
+      ],
+      "support_level": "high",
+      "source_attribution": "Adapted from employability travel-planning practice guidance"
+    },
+    {
+      "id": "digital-access-setup-01",
+      "stage": "discovery",
+      "action_template": "Secure weekly digital access by registering for library/community hub computer use and testing login for job search accounts",
+      "metric_template": "Number of confirmed digital access sessions booked this week",
+      "effort_hint": "45-60 minutes one-off + 30 min/week",
+      "tags": [
+        "digital_access",
+        "library",
+        "connectivity",
+        "barrier_first"
+      ],
+      "relevant_barriers": [
+        "digital_access",
+        "digital_skills"
+      ],
+      "min_confidence": 1,
+      "contraindicated_barriers": [],
+      "required_prerequisites": [
+        "bring photo ID if required by venue"
+      ],
+      "support_level": "high",
+      "source_attribution": "Adapted from UK digital inclusion support guidance"
+    },
+    {
+      "id": "confidence-exposure-01",
+      "stage": "discovery",
+      "action_template": "Complete a graded confidence ladder with {count} small employment tasks, starting with the easiest and reviewing progress each week",
+      "metric_template": "Confidence ladder steps completed",
+      "effort_hint": "20-30 minutes/day",
+      "tags": [
+        "confidence",
+        "small_steps",
+        "graded_exposure",
+        "barrier_first"
+      ],
+      "relevant_barriers": [
+        "confidence",
+        "anxiety",
+        "mental_health"
+      ],
+      "min_confidence": 1,
+      "contraindicated_barriers": [
+        "crisis_mental_health"
+      ],
+      "required_prerequisites": [
+        "agree safe support person or adviser check-in"
+      ],
+      "support_level": "high",
+      "source_attribution": "Adapted from confidence-building and employability coaching practice"
+    },
+    {
+      "id": "childcare-availability-plan-01",
+      "stage": "discovery",
+      "action_template": "Create a childcare availability map for the next 4 weeks and shortlist {count} roles matching those time windows",
+      "metric_template": "Number of role options aligned to caring schedule",
+      "effort_hint": "60-90 minutes one-off + 20 min/week updates",
+      "tags": [
+        "childcare",
+        "caring",
+        "flexible_working",
+        "barrier_first"
+      ],
+      "relevant_barriers": [
+        "caring_responsibilities",
+        "childcare"
+      ],
+      "min_confidence": 1,
+      "contraindicated_barriers": [],
+      "required_prerequisites": [
+        "capture fixed caring commitments in calendar"
+      ],
+      "support_level": "high",
+      "source_attribution": "Adapted from return-to-work support programme practice"
     }
   ],
   "skills": [
@@ -228,84 +574,133 @@
       "id": "skill-comm-01",
       "label": "Communication",
       "category": "Interpersonal",
-      "occupations": ["Administration", "Customer Service", "Sales", "Management"],
+      "occupations": [
+        "Administration",
+        "Customer Service",
+        "Sales",
+        "Management"
+      ],
       "source": "onet"
     },
     {
       "id": "skill-teamwork-01",
       "label": "Teamwork",
       "category": "Interpersonal",
-      "occupations": ["All sectors"],
+      "occupations": [
+        "All sectors"
+      ],
       "source": "esco"
     },
     {
       "id": "skill-digital-basic-01",
       "label": "Basic Digital Skills",
       "category": "Digital",
-      "occupations": ["Administration", "Customer Service", "Retail", "Data Entry"],
+      "occupations": [
+        "Administration",
+        "Customer Service",
+        "Retail",
+        "Data Entry"
+      ],
       "source": "ncs"
     },
     {
       "id": "skill-excel-01",
       "label": "Spreadsheet Software (Excel/Sheets)",
       "category": "Digital",
-      "occupations": ["Administration", "Finance", "Data Analysis", "Accounting"],
+      "occupations": [
+        "Administration",
+        "Finance",
+        "Data Analysis",
+        "Accounting"
+      ],
       "source": "onet"
     },
     {
       "id": "skill-custserv-01",
       "label": "Customer Service",
       "category": "Interpersonal",
-      "occupations": ["Retail", "Hospitality", "Contact Centre", "Administration"],
+      "occupations": [
+        "Retail",
+        "Hospitality",
+        "Contact Centre",
+        "Administration"
+      ],
       "source": "onet"
     },
     {
       "id": "skill-problemsolve-01",
       "label": "Problem Solving",
       "category": "Cognitive",
-      "occupations": ["All sectors"],
+      "occupations": [
+        "All sectors"
+      ],
       "source": "esco"
     },
     {
       "id": "skill-timemanage-01",
       "label": "Time Management",
       "category": "Self-Management",
-      "occupations": ["All sectors"],
+      "occupations": [
+        "All sectors"
+      ],
       "source": "esco"
     },
     {
       "id": "skill-writing-01",
       "label": "Written Communication",
       "category": "Communication",
-      "occupations": ["Administration", "Marketing", "Content", "Legal"],
+      "occupations": [
+        "Administration",
+        "Marketing",
+        "Content",
+        "Legal"
+      ],
       "source": "onet"
     },
     {
       "id": "skill-data-analysis-01",
       "label": "Data Analysis",
       "category": "Analytical",
-      "occupations": ["Data Analyst", "Business Analyst", "Finance", "Marketing"],
+      "occupations": [
+        "Data Analyst",
+        "Business Analyst",
+        "Finance",
+        "Marketing"
+      ],
       "source": "onet"
     },
     {
       "id": "skill-leadership-01",
       "label": "Leadership",
       "category": "Management",
-      "occupations": ["Management", "Team Lead", "Supervisory roles"],
+      "occupations": [
+        "Management",
+        "Team Lead",
+        "Supervisory roles"
+      ],
       "source": "esco"
     },
     {
       "id": "skill-project-mgmt-01",
       "label": "Project Management",
       "category": "Management",
-      "occupations": ["Project Manager", "Programme Manager", "Operations"],
+      "occupations": [
+        "Project Manager",
+        "Programme Manager",
+        "Operations"
+      ],
       "source": "onet"
     },
     {
       "id": "skill-coding-01",
       "label": "Programming/Coding",
       "category": "Technical",
-      "occupations": ["Software Developer", "Web Developer", "Data Engineer", "IT"],
+      "occupations": [
+        "Software Developer",
+        "Web Developer",
+        "Data Engineer",
+        "IT"
+      ],
       "source": "onet"
     }
   ]

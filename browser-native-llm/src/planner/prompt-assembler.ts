@@ -6,7 +6,7 @@
  * and includes SMART criteria rules as system instructions.
  */
 
-import type { UserProfile, ActionTemplate, SkillEntry } from "../types.js";
+import type { UserProfile, ActionTemplate, SkillEntry, ResolvedBarrier } from "../types.js";
 import type { RetrievalResult } from "../retrieval/retriever.js";
 
 /** Assembled prompt ready for the inference engine. */
@@ -69,6 +69,11 @@ export function assemblePrompt(
     parts.push(buildSkillsSection(retrieval.skills));
   }
 
+  // Barrier-specific guidance (from resolved barrier catalog)
+  if (profile.resolved_barrier) {
+    parts.push(buildBarrierGuidanceSection(profile.resolved_barrier));
+  }
+
   // Output instruction
   parts.push(buildOutputInstruction(profile));
 
@@ -112,6 +117,8 @@ RULES:
 10. For low-confidence users, start with small, low-friction first steps.
 11. NEVER provide medical, legal, or financial advice.
 12. NEVER request or assume protected characteristics beyond what the user shares.
+13. If a barrier is provided, prioritise barrier-reduction actions before generic job applications.
+14. For confidence <=2, ensure the first action is low-friction and completable in under 30 minutes.
 <|end|>`;
 }
 
@@ -168,7 +175,12 @@ function buildTemplateSection(
     // Substitute placeholders in template
     const action = substitutePlaceholders(template.action_template, profile);
     const metric = substitutePlaceholders(template.metric_template, profile);
-    lines.push(`- [${template.id}] ${action} (measure: ${metric}, effort: ${template.effort_hint})`);
+    const prerequisites = (template.required_prerequisites ?? []).join("; ");
+    const contraindications = (template.contraindicated_barriers ?? []).join(", ");
+    const supportLevel = template.support_level ? `, support: ${template.support_level}` : "";
+    const prereqNote = prerequisites ? `, prerequisites: ${prerequisites}` : "";
+    const avoidNote = contraindications ? `, avoid_for: ${contraindications}` : "";
+    lines.push(`- [${template.id}] ${action} (measure: ${metric}, effort: ${template.effort_hint}${supportLevel}${prereqNote}${avoidNote})`);
   }
 
   return lines.join("\n");
@@ -198,6 +210,32 @@ function buildOutputInstruction(profile: UserProfile): string {
 <|end|>
 <|begin|>assistant
 <|json|>`;
+}
+
+function buildBarrierGuidanceSection(barrier: ResolvedBarrier): string {
+  const lines = [`BARRIER GUIDANCE (${barrier.label}):`];
+
+  if (barrier.prompt_hints.length > 0) {
+    for (const hint of barrier.prompt_hints) {
+      lines.push(`- ${hint}`);
+    }
+  }
+
+  if (barrier.do_not_assume.length > 0) {
+    lines.push("DO NOT ASSUME:");
+    for (const assumption of barrier.do_not_assume) {
+      lines.push(`- ${assumption}`);
+    }
+  }
+
+  if (barrier.starter_actions.length > 0) {
+    lines.push("BARRIER-FIRST STARTER ACTIONS (prefer these early):");
+    for (const starter of barrier.starter_actions) {
+      lines.push(`- ${starter}`);
+    }
+  }
+
+  return lines.join("\n");
 }
 
 function getActionCount(profile: UserProfile): string {

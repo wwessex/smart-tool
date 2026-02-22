@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect, memo, lazy, Suspense, useRef
 import { useDebounce } from '@/hooks/useDebounce';
 import { motion, AnimatePresence } from 'framer-motion';
 import { z } from 'zod';
-import { useSmartStorage, HistoryItem, ActionTemplate } from '@/hooks/useSmartStorage';
+import { useSmartStorage, HistoryItem, ActionTemplate, ActionFeedback as ActionFeedbackRecord } from '@/hooks/useSmartStorage';
 import { useTranslation, SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
 import { parseSmartToolImportFile } from '@/lib/smart-portability';
 import { 
@@ -56,6 +56,11 @@ import { useBrowserNativeLLM } from '@/hooks/useBrowserNativeLLM';
 import type { SMARTAction, SMARTPlan, RawUserInput } from '@/hooks/useBrowserNativeLLM';
 import { usePromptPack } from '@/hooks/usePromptPack';
 import { buildSystemPrompt, DEFAULT_PROMPT_PACK } from '@/lib/prompt-pack';
+import { logDraftAnalytics } from '@/lib/draft-analytics';
+import { ActionFeedback, type FeedbackRating } from './ActionFeedback';
+import { classifyBarrier } from '@/lib/smart-data';
+import { retrieveExemplars, formatExemplarsForPrompt } from '@/lib/smart-retrieval';
+import { rankActionsByRelevance } from '@/lib/relevance-checker';
 
 /**
  * Safely remove from localStorage, catching any errors.
@@ -238,6 +243,14 @@ export function SmartActionTool() {
   // SmartPlanner plan picker state
   const [planResult, setPlanResult] = useState<SMARTPlan | null>(null);
   const [showPlanPicker, setShowPlanPicker] = useState(false);
+
+  // Feedback state for AI-generated actions
+  const [feedbackRating, setFeedbackRating] = useState<FeedbackRating>(null);
+  const [currentFeedbackId, setCurrentFeedbackId] = useState<string | null>(null);
+  // Track the AI-generated action text before any edits (for feedback comparison)
+  const aiGeneratedActionRef = useRef<string>('');
+  // Whether current output was produced by AI (show feedback UI)
+  const [showFeedbackUI, setShowFeedbackUI] = useState(false);
 
   // Detect landscape orientation
   useEffect(() => {
@@ -446,7 +459,8 @@ export function SmartActionTool() {
     storage.updateParticipantLanguage('none');
     setShowValidation(false);
     setSuggestQuery('');
-  }, [mode, today, translation, storage.updateParticipantLanguage]);
+    resetFeedbackState();
+  }, [mode, today, translation, storage.updateParticipantLanguage, resetFeedbackState]);
 
   // Handle translation
   const handleTranslate = useCallback(async () => {
@@ -556,6 +570,17 @@ export function SmartActionTool() {
 
     storage.addToHistory(item);
 
+    // Update feedback record if this was an AI-generated action
+    if (currentFeedbackId && showFeedbackUI) {
+      const currentAction = mode === 'now' ? nowForm.action : futureForm.outcome;
+      const wasEdited = aiGeneratedActionRef.current && currentAction !== aiGeneratedActionRef.current;
+      storage.updateFeedback(currentFeedbackId, {
+        acceptedAsIs: !wasEdited,
+        ...(wasEdited ? { editedAction: currentAction } : {}),
+      });
+      resetFeedbackState();
+    }
+
     // Local folder sync if enabled
     if (localSync.isConnected && localSync.syncEnabled) {
       try {
@@ -585,7 +610,7 @@ export function SmartActionTool() {
     } else {
       toast({ title: 'Saved!', description: hasTranslation ? 'Action with translation saved to history.' : 'Action saved to history.' });
     }
-  }, [output, storage, smartCheck.overallScore, mode, nowForm, futureForm, translatedOutput, hasTranslation, toast, localSync]);
+  }, [output, storage, smartCheck.overallScore, mode, nowForm, futureForm, translatedOutput, hasTranslation, toast, localSync, currentFeedbackId, showFeedbackUI, resetFeedbackState]);
 
   // Template-based fallback for AI Draft
   const templateDraftNow = useCallback(() => {
@@ -612,8 +637,24 @@ export function SmartActionTool() {
     toast({ title: 'Draft inserted', description: 'Template draft added. Edit as needed.' });
   }, [futureForm, toast]);
 
+  // Handle feedback rating from the ActionFeedback component
+  const handleFeedbackRate = useCallback((rating: FeedbackRating) => {
+    setFeedbackRating(rating);
+    if (currentFeedbackId && rating) {
+      storage.updateFeedback(currentFeedbackId, { rating });
+    }
+  }, [currentFeedbackId, storage]);
+
+  // Reset feedback UI when form is cleared or mode changes
+  const resetFeedbackState = useCallback(() => {
+    setShowFeedbackUI(false);
+    setFeedbackRating(null);
+    setCurrentFeedbackId(null);
+    aiGeneratedActionRef.current = '';
+  }, []);
+
   // Map a selected SMARTAction from the plan picker to form fields
-  const handleSelectPlanAction = useCallback((action: SMARTAction) => {
+  const handleSelectPlanAction = useCallback((action: SMARTAction, selectedIndex?: number) => {
     if (mode === 'now') {
       setNowForm(prev => ({
         ...prev,
@@ -627,10 +668,41 @@ export function SmartActionTool() {
         outcome: action.action,
       }));
     }
+
+    // Track AI-generated text for feedback
+    aiGeneratedActionRef.current = action.action;
+    setFeedbackRating(null);
+    setCurrentFeedbackId(null);
+    setShowFeedbackUI(true);
+
+    // Create a pending feedback record
+    const barrier = mode === 'now' ? nowForm.barrier : (futureForm.task || '');
+    const feedbackRecord = storage.addFeedback({
+      barrier,
+      category: classifyBarrier(barrier),
+      generatedAction: action.action,
+      rating: null,
+      acceptedAsIs: false,
+      source: 'ai',
+      forename: mode === 'now' ? nowForm.forename : futureForm.forename,
+      timescale: mode === 'now' ? (nowForm.timescale || '2 weeks') : (futureForm.timescale || '4 weeks'),
+    });
+    setCurrentFeedbackId(feedbackRecord.id);
+
+    // Log analytics: action selected from plan
+    logDraftAnalytics({
+      timestamp: new Date().toISOString(),
+      signal: "selected",
+      barrier: mode === 'now' ? nowForm.barrier : undefined,
+      selected_index: selectedIndex,
+      generated_text: action.action,
+      source: "ai",
+    });
+
     setShowPlanPicker(false);
     setPlanResult(null);
     toast({ title: 'Action applied', description: 'SMART action added to form. Edit as needed.' });
-  }, [mode, toast]);
+  }, [mode, nowForm.barrier, nowForm.forename, nowForm.timescale, futureForm.task, futureForm.forename, futureForm.timescale, storage, toast]);
 
   const handleAIDraft = useCallback(async () => {
     if (mode === 'now') {
@@ -673,32 +745,68 @@ export function SmartActionTool() {
     // Use SmartPlanner for plan generation
     setAIDrafting(true);
     try {
-      // Build RawUserInput from current form fields
+      // Retrieve similar exemplars for context (RAG-style)
+      const barrier = mode === 'now' ? nowForm.barrier : (futureForm.task || '');
+      const barrierCategory = classifyBarrier(barrier);
+      const exemplars = retrieveExemplars(barrier, storage.actionFeedback, 3);
+      const timescale = mode === 'now' ? (nowForm.timescale || '2 weeks') : (futureForm.timescale || '4 weeks');
+      const targetDate = formatDDMMMYY(parseTimescaleToTargetISO(
+        mode === 'now' ? nowForm.date : futureForm.date,
+        timescale,
+      ));
+      const exemplarContext = formatExemplarsForPrompt(
+        exemplars,
+        mode === 'now' ? nowForm.forename : futureForm.forename,
+        targetDate,
+      );
+
+      // Build RawUserInput with enriched context
       const input: RawUserInput = mode === 'now'
         ? {
-            goal: `Address ${nowForm.barrier} barrier for ${nowForm.forename}`,
+            goal: `Address ${nowForm.barrier} barrier (category: ${barrierCategory}) for ${nowForm.forename}`,
             barriers: nowForm.barrier,
-            timeframe: nowForm.timescale || '2 weeks',
-            situation: `Employment advisor helping ${nowForm.forename} with ${nowForm.barrier}`,
+            timeframe: timescale,
+            situation: `Employment advisor helping ${nowForm.forename} with ${nowForm.barrier}.${exemplarContext ? '\n\n' + exemplarContext : ''}`,
             participant_name: nowForm.forename,
             supporter: nowForm.responsible,
+            selected_barrier_id: nowForm.barrier,
+            selected_barrier_label: nowForm.barrier,
           }
         : {
             goal: futureForm.task,
-            timeframe: futureForm.timescale || '4 weeks',
-            situation: `Employment advisor helping ${futureForm.forename} plan ahead`,
+            timeframe: timescale,
+            situation: `Employment advisor helping ${futureForm.forename} plan ahead.${exemplarContext ? '\n\n' + exemplarContext : ''}`,
             participant_name: futureForm.forename,
             supporter: futureForm.responsible,
           };
 
       const plan = await llm.generatePlan(input);
 
-      if (plan.actions.length === 1) {
+      // Log analytics: plan generated
+      logDraftAnalytics({
+        timestamp: new Date().toISOString(),
+        signal: "generated",
+        barrier: mode === 'now' ? nowForm.barrier : undefined,
+        barrier_id: input.selected_barrier_id,
+        actions_count: plan.actions.length,
+        source: "ai",
+      });
+
+      // Phase 2: Rank actions by relevance before presenting to user
+      const rankedActions = rankActionsByRelevance(
+        plan.actions,
+        barrier,
+        mode === 'now' ? nowForm.forename : futureForm.forename,
+        timescale,
+      );
+      const rankedPlan = { ...plan, actions: rankedActions };
+
+      if (rankedPlan.actions.length === 1) {
         // Single action — apply directly
-        handleSelectPlanAction(plan.actions[0]);
-      } else if (plan.actions.length > 1) {
-        // Multiple actions — show picker
-        setPlanResult(plan);
+        handleSelectPlanAction(rankedPlan.actions[0]);
+      } else if (rankedPlan.actions.length > 1) {
+        // Multiple actions — show picker (best action is first)
+        setPlanResult(rankedPlan);
         setShowPlanPicker(true);
       } else {
         throw new Error('Plan generation returned no actions.');
@@ -731,7 +839,7 @@ export function SmartActionTool() {
     } finally {
       setAIDrafting(false);
     }
-  }, [mode, nowForm, futureForm, llm, templateDraftNow, templateDraftFuture, toast, storage.aiDraftMode, scheduleSafariModelUnload, suggestQuery, handleSelectPlanAction]);
+  }, [mode, nowForm, futureForm, llm, templateDraftNow, templateDraftFuture, toast, storage.aiDraftMode, storage.actionFeedback, scheduleSafariModelUnload, suggestQuery, handleSelectPlanAction]);
 
   // Auto-trigger AI draft after model finishes loading (when user originally
   // clicked "AI Draft" which opened the model picker).
@@ -944,6 +1052,8 @@ export function SmartActionTool() {
           situation: `Helping ${context.forename || 'participant'}`,
           participant_name: context.forename,
           supporter: context.responsible,
+          selected_barrier_id: context.barrier,
+          selected_barrier_label: context.barrier,
         };
         const plan = await llm.generatePlan(input);
         if (plan.actions.length > 0) {
@@ -2485,6 +2595,15 @@ export function SmartActionTool() {
               />
             )}
 
+            {/* Action Feedback (shown after AI draft) */}
+            <ActionFeedback
+              visible={showFeedbackUI && hasOutput}
+              rating={feedbackRating}
+              onRate={handleFeedbackRate}
+              onRegenerate={handleAIDraft}
+              isRegenerating={aiDrafting || llm.isGenerating}
+            />
+
             {/* SMART Checklist */}
             <SmartChecklist check={smartCheck} />
 
@@ -2670,7 +2789,7 @@ export function SmartActionTool() {
             {planResult?.actions.map((action, idx) => (
               <button
                 key={idx}
-                onClick={() => handleSelectPlanAction(action)}
+                onClick={() => handleSelectPlanAction(action, idx)}
                 className="w-full p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm transition-all duration-200 text-left group space-y-2"
               >
                 <div className="flex items-start justify-between gap-2">
@@ -2692,7 +2811,17 @@ export function SmartActionTool() {
               </p>
             )}
             <div className="flex justify-end pt-2">
-              <Button variant="ghost" size="sm" onClick={() => { setShowPlanPicker(false); setPlanResult(null); }}>
+              <Button variant="ghost" size="sm" onClick={() => {
+                logDraftAnalytics({
+                  timestamp: new Date().toISOString(),
+                  signal: "rejected",
+                  barrier: mode === 'now' ? nowForm.barrier : undefined,
+                  actions_count: planResult?.actions.length,
+                  source: "ai",
+                });
+                setShowPlanPicker(false);
+                setPlanResult(null);
+              }}>
                 Cancel
               </Button>
             </div>

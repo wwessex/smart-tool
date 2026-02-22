@@ -7,7 +7,7 @@
  * in curated, realistic job-search guidance.
  */
 
-import type { UserProfile, ActionTemplate, SkillEntry, JobSearchStage } from "../types.js";
+import type { UserProfile, ActionTemplate, SkillEntry, JobSearchStage, ResolvedBarrier } from "../types.js";
 import { ActionLibrary } from "./action-library.js";
 import { splitOnWhitespace } from "../utils/sanitize.js";
 
@@ -67,10 +67,13 @@ export class LocalRetriever {
     // Score and rank candidates
     const scored = this.scoreCandidates(candidates, profile);
 
-    // Select top templates, optionally diversifying across stages
-    const selectedTemplates = this.config.diversify_stages
-      ? this.diverseSelect(scored, this.config.max_templates)
-      : scored.slice(0, this.config.max_templates).map((s) => s.template);
+    // When a resolved barrier is present, ensure at least half the selected
+    // templates are barrier-matched before diversifying across stages
+    const selectedTemplates = profile.resolved_barrier
+      ? this.barrierPrioritisedSelect(scored, this.config.max_templates, profile)
+      : this.config.diversify_stages
+        ? this.diverseSelect(scored, this.config.max_templates)
+        : scored.slice(0, this.config.max_templates).map((s) => s.template);
 
     // Retrieve relevant skills
     const skills = this.retrieveSkills(profile);
@@ -82,8 +85,70 @@ export class LocalRetriever {
       templates: selectedTemplates,
       skills,
       stages,
-      retrieval_summary: `Retrieved ${selectedTemplates.length} templates across ${stages.length} stages, ${skills.length} skills`,
+      retrieval_summary: `Retrieved ${selectedTemplates.length} templates across ${stages.length} stages, ${skills.length} skills (barrier: ${profile.resolved_barrier?.id ?? "none"})`,
     };
+  }
+
+  /**
+   * Select templates ensuring at least half are barrier-matched,
+   * then fill the rest with stage-diversified picks.
+   */
+  private barrierPrioritisedSelect(
+    scored: Array<{ template: ActionTemplate; score: number }>,
+    maxCount: number,
+    profile: UserProfile,
+  ): ActionTemplate[] {
+    const resolved = profile.resolved_barrier!;
+    const barrierTerms = [resolved.id, ...resolved.retrieval_tags].map(t => t.toLowerCase());
+    const contraindicated = new Set(resolved.contraindicated_stages);
+
+    // Partition into barrier-matched and other
+    const barrierMatched: Array<{ template: ActionTemplate; score: number }> = [];
+    const other: Array<{ template: ActionTemplate; score: number }> = [];
+
+    for (const item of scored) {
+      // Skip contraindicated stages
+      if (contraindicated.has(item.template.stage)) {
+        continue;
+      }
+
+      // Skip templates explicitly contraindicated for this barrier
+      if (this.isTemplateContraindicatedForBarrier(item.template, resolved)) {
+        continue;
+      }
+
+      const isBarrierMatch = item.template.relevant_barriers.some((rb) =>
+        barrierTerms.some((bt) => rb.toLowerCase().includes(bt) || bt.includes(rb.toLowerCase()))
+      ) || item.template.tags.some((tag) =>
+        barrierTerms.some((bt) => tag.toLowerCase().includes(bt))
+      );
+
+      if (isBarrierMatch) {
+        barrierMatched.push(item);
+      } else {
+        other.push(item);
+      }
+    }
+
+    // Take at least half barrier-matched, then fill with diversified others
+    const minBarrier = Math.min(Math.ceil(maxCount / 2), barrierMatched.length);
+    const selected: ActionTemplate[] = barrierMatched.slice(0, minBarrier).map(s => s.template);
+
+    // Fill remaining with stage-diversified picks from other
+    const remaining = maxCount - selected.length;
+    if (remaining > 0 && other.length > 0) {
+      const diversified = this.diverseSelect(other, remaining);
+      selected.push(...diversified);
+    }
+
+    // If still under target, add more barrier-matched
+    if (selected.length < maxCount && barrierMatched.length > minBarrier) {
+      for (let i = minBarrier; i < barrierMatched.length && selected.length < maxCount; i++) {
+        selected.push(barrierMatched[i].template);
+      }
+    }
+
+    return selected;
   }
 
   private gatherCandidates(profile: UserProfile): Set<ActionTemplate> {
@@ -92,6 +157,14 @@ export class LocalRetriever {
     // Signal 1: barrier-matched templates
     if (profile.barriers.length > 0) {
       for (const t of this.library.getByBarriers(profile.barriers)) {
+        candidates.add(t);
+      }
+    }
+
+    // Signal 1b: retrieval tags from resolved barrier catalog
+    if (profile.resolved_barrier) {
+      const tagTemplates = this.library.getByTags(profile.resolved_barrier.retrieval_tags);
+      for (const t of tagTemplates) {
         candidates.add(t);
       }
     }
@@ -125,6 +198,7 @@ export class LocalRetriever {
     }
 
     // If we have very few candidates, add templates from all core stages
+    // (but skip contraindicated stages when resolved barrier is present)
     if (candidates.size < this.config.max_templates) {
       const coreStages: JobSearchStage[] = [
         "cv_preparation",
@@ -132,9 +206,12 @@ export class LocalRetriever {
         "networking",
         "interviewing",
       ];
+      const contraindicated = profile.resolved_barrier?.contraindicated_stages ?? [];
       for (const stage of coreStages) {
-        for (const t of this.library.getByStage(stage)) {
-          candidates.add(t);
+        if (!contraindicated.includes(stage)) {
+          for (const t of this.library.getByStage(stage)) {
+            candidates.add(t);
+          }
         }
       }
     }
@@ -150,6 +227,10 @@ export class LocalRetriever {
     const goalTerms = splitOnWhitespace(profile.job_goal.toLowerCase());
     const barrierTerms = profile.barriers.map((b) => b.toLowerCase());
     const skillTerms = profile.skills.map((s) => s.toLowerCase());
+    const resolved = profile.resolved_barrier;
+
+    // When a resolved barrier is present, boost barrier matching weight
+    const barrierWeight = resolved ? 4 : 2;
 
     for (const template of candidates) {
       let score = 0;
@@ -162,17 +243,41 @@ export class LocalRetriever {
         .toLowerCase();
 
       // Goal relevance (up to 3 points)
+      let goalScore = 0;
       for (const term of goalTerms) {
         if (term.length > 2 && templateText.includes(term)) {
-          score += 1;
+          goalScore += 1;
         }
       }
-      score = Math.min(score, 3);
+      score += Math.min(goalScore, 3);
 
-      // Barrier match (2 points per matching barrier)
+      // Barrier match (boosted when resolved barrier is available)
       for (const barrier of barrierTerms) {
         if (template.relevant_barriers.some((rb) => rb.toLowerCase().includes(barrier))) {
-          score += 2;
+          score += barrierWeight;
+        }
+      }
+
+      // Retrieval tag match from resolved barrier (bonus for catalog-tagged templates)
+      if (resolved) {
+        for (const tag of resolved.retrieval_tags) {
+          if (template.tags.some((t) => t.toLowerCase().includes(tag.toLowerCase()))) {
+            score += 1.5;
+          }
+        }
+
+        // Penalise templates in contraindicated stages
+        if (resolved.contraindicated_stages.includes(template.stage)) {
+          score -= 3;
+        }
+
+        if (this.isTemplateContraindicatedForBarrier(template, resolved)) {
+          score -= 5;
+        }
+
+        // Boost templates that include practical prerequisites for this barrier
+        if ((template.required_prerequisites ?? []).length > 0) {
+          score += 1;
         }
       }
 
@@ -188,7 +293,16 @@ export class LocalRetriever {
         score += 1;
       }
 
-      // Effort feasibility (1 point if effort hint seems compatible with hours)
+      // Support-level fit: lower confidence users benefit from higher-support templates
+      if (template.support_level === "high" && profile.confidence_level <= 2) {
+        score += 1.5;
+      } else if (template.support_level === "medium" && profile.confidence_level <= 3) {
+        score += 1;
+      } else if (template.support_level === "low" && profile.confidence_level >= 4) {
+        score += 0.5;
+      }
+
+      // Effort feasibility (0.5 points if effort hint seems compatible with hours)
       if (template.effort_hint && profile.hours_per_week > 0) {
         score += 0.5;
       }
@@ -231,6 +345,19 @@ export class LocalRetriever {
     }
 
     return selected;
+  }
+
+  private isTemplateContraindicatedForBarrier(
+    template: ActionTemplate,
+    barrier: ResolvedBarrier
+  ): boolean {
+    const contraindicated = (template.contraindicated_barriers ?? []).map((b) => b.toLowerCase());
+    if (contraindicated.length === 0) return false;
+
+    const barrierTerms = [barrier.id, ...barrier.retrieval_tags].map((t) => t.toLowerCase());
+    return contraindicated.some((cb) =>
+      barrierTerms.some((term) => cb.includes(term) || term.includes(cb))
+    );
   }
 
   private retrieveSkills(profile: UserProfile): SkillEntry[] {

@@ -206,13 +206,12 @@ export function useTranslation(options: UseTranslationOptions = {}) {
         // engine wrappers so translated text is not dropped in the UI.
         const translatedText = extractTranslatedText(engineResult);
 
-        if (!translatedText) {
-          throw new Error('Translation model returned empty output. The model may still be loading — please try again.');
-        }
-
+        // When the engine returns no translated text (e.g. the model produced
+        // only special tokens), fall back to the original text so the caller
+        // always receives a usable result instead of an error.
         const result: TranslationResult = {
           original: text,
-          translated: translatedText,
+          translated: translatedText || text,
           language,
           languageName: langMeta.name,
         };
