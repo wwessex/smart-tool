@@ -40,6 +40,8 @@ export interface PlannerConfig {
   max_repair_attempts: number;
   /** Minimum acceptable overall validation score (0-100). */
   min_validation_score: number;
+  /** Skip model worker init and run in retrieval/template-only mode. */
+  template_only?: boolean;
 }
 
 const DEFAULT_PLANNER_CONFIG: PlannerConfig = {
@@ -48,6 +50,7 @@ const DEFAULT_PLANNER_CONFIG: PlannerConfig = {
   worker_url: "./worker.js",
   max_repair_attempts: 2,
   min_validation_score: 60,
+  template_only: false,
 };
 
 /** Events emitted by the planner during plan generation. */
@@ -104,6 +107,13 @@ export class SmartPlanner {
     // Load retrieval pack
     await this.library.loadFromUrl(this.config.retrieval_pack_url);
     this.retriever = new LocalRetriever(this.library);
+
+    if (this.config.template_only) {
+      this.activeBackend = "wasm-basic";
+      this.initialized = true;
+      callbacks?.onBackendSelected?.(this.activeBackend);
+      return;
+    }
 
     // Initialize inference worker (use provided instance or create from URL)
     this.worker = this.config.worker ?? new Worker(this.config.worker_url, { type: "module" });
@@ -192,8 +202,12 @@ export class SmartPlanner {
     input: RawUserInput,
     callbacks?: PlannerCallbacks
   ): Promise<SMARTPlan> {
-    if (!this.initialized || !this.retriever || !this.worker) {
+    if (!this.initialized || !this.retriever) {
       throw new Error("Planner not initialized. Call initialize() first.");
+    }
+
+    if (!this.worker) {
+      return this.generateTemplatePlan(input);
     }
 
     const startTime = performance.now();
