@@ -2454,9 +2454,14 @@ export function SmartActionTool() {
                     <p className="text-xs font-medium text-muted-foreground mb-2">
                       {SUPPORTED_LANGUAGES[storage.participantLanguage]?.flag} {SUPPORTED_LANGUAGES[storage.participantLanguage]?.nativeName?.toUpperCase()}
                     </p>
-                    <div className="p-5 rounded-xl border-2 border-primary/30 bg-primary/5 leading-relaxed whitespace-pre-wrap text-sm">
-                      {translatedOutput}
-                    </div>
+                    <Textarea
+                      id="action-output-translated"
+                      value={translatedOutput}
+                      readOnly
+                      aria-label={`Translated SMART action text in ${SUPPORTED_LANGUAGES[storage.participantLanguage]?.nativeName || storage.participantLanguage}`}
+                      dir={translation.isRTL(storage.participantLanguage) ? 'rtl' : 'ltr'}
+                      className="min-h-[120px] p-5 rounded-xl border-2 border-primary/30 bg-primary/5 leading-relaxed whitespace-pre-wrap text-sm resize-y"
+                    />
                   </motion.div>
                 )}
               </motion.div>
