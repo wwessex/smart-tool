@@ -1,0 +1,71 @@
+{
+  "version": "1.0.0",
+  "description": "Barrier-focused evaluation set for SMART barrier-first planning",
+  "test_cases": [
+    {
+      "id": "barrier-transport-01",
+      "description": "Transport barrier should prioritise commute feasibility before applications",
+      "input": {
+        "goal": "Retail assistant role",
+        "barriers": "transport",
+        "confidence": "2",
+        "hours_per_week": 6,
+        "timeframe": "6 weeks"
+      },
+      "expectations": {
+        "min_actions": 4,
+        "must_mention": ["route", "travel"],
+        "barrier_keywords": ["transport", "commute", "journey", "travel"],
+        "low_friction_first_step": true
+      }
+    },
+    {
+      "id": "barrier-confidence-01",
+      "description": "Confidence barrier should start with small steps",
+      "input": {
+        "goal": "Office administrator",
+        "barriers": "confidence",
+        "confidence": "1",
+        "hours_per_week": 5,
+        "timeframe": "8 weeks"
+      },
+      "expectations": {
+        "min_actions": 3,
+        "barrier_keywords": ["confidence", "small", "practice", "step"],
+        "low_friction_first_step": true
+      }
+    },
+    {
+      "id": "barrier-digital-01",
+      "description": "Digital access barrier should not assume device ownership",
+      "input": {
+        "goal": "Customer service adviser",
+        "barriers": "digital hardware & connectivity",
+        "confidence": "2",
+        "hours_per_week": 7,
+        "timeframe": "8 weeks"
+      },
+      "expectations": {
+        "min_actions": 4,
+        "barrier_keywords": ["library", "computer", "internet", "digital"],
+        "must_not_assume_device": true
+      }
+    },
+    {
+      "id": "barrier-caring-01",
+      "description": "Caring barrier should include flexible scheduling",
+      "input": {
+        "goal": "Teaching assistant",
+        "barriers": "caring responsibilities",
+        "confidence": "2",
+        "hours_per_week": 6,
+        "timeframe": "6 weeks"
+      },
+      "expectations": {
+        "min_actions": 4,
+        "barrier_keywords": ["flexible", "schedule", "childcare", "part-time"],
+        "must_not_assume_full_time_availability": true
+      }
+    }
+  ]
+}

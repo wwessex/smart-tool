@@ -112,6 +112,11 @@ export class LocalRetriever {
         continue;
       }
 
+      // Skip templates explicitly contraindicated for this barrier
+      if (this.isTemplateContraindicatedForBarrier(item.template, resolved)) {
+        continue;
+      }
+
       const isBarrierMatch = item.template.relevant_barriers.some((rb) =>
         barrierTerms.some((bt) => rb.toLowerCase().includes(bt) || bt.includes(rb.toLowerCase()))
       ) || item.template.tags.some((tag) =>
@@ -265,6 +270,15 @@ export class LocalRetriever {
         if (resolved.contraindicated_stages.includes(template.stage)) {
           score -= 3;
         }
+
+        if (this.isTemplateContraindicatedForBarrier(template, resolved)) {
+          score -= 5;
+        }
+
+        // Boost templates that include practical prerequisites for this barrier
+        if ((template.required_prerequisites ?? []).length > 0) {
+          score += 1;
+        }
       }
 
       // Skill match (1 point per matching skill)
@@ -277,6 +291,15 @@ export class LocalRetriever {
       // Confidence appropriateness (1 point if within range)
       if (template.min_confidence <= profile.confidence_level) {
         score += 1;
+      }
+
+      // Support-level fit: lower confidence users benefit from higher-support templates
+      if (template.support_level === "high" && profile.confidence_level <= 2) {
+        score += 1.5;
+      } else if (template.support_level === "medium" && profile.confidence_level <= 3) {
+        score += 1;
+      } else if (template.support_level === "low" && profile.confidence_level >= 4) {
+        score += 0.5;
       }
 
       // Effort feasibility (0.5 points if effort hint seems compatible with hours)
@@ -322,6 +345,19 @@ export class LocalRetriever {
     }
 
     return selected;
+  }
+
+  private isTemplateContraindicatedForBarrier(
+    template: ActionTemplate,
+    barrier: ResolvedBarrier
+  ): boolean {
+    const contraindicated = (template.contraindicated_barriers ?? []).map((b) => b.toLowerCase());
+    if (contraindicated.length === 0) return false;
+
+    const barrierTerms = [barrier.id, ...barrier.retrieval_tags].map((t) => t.toLowerCase());
+    return contraindicated.some((cb) =>
+      barrierTerms.some((term) => cb.includes(term) || term.includes(cb))
+    );
   }
 
   private retrieveSkills(profile: UserProfile): SkillEntry[] {

@@ -141,6 +141,31 @@ def evaluate_plan(
         if has_medical:
             issues.append("Contains medical advice")
 
+
+    # Barrier-keyword relevance
+    barrier_keywords = expectations.get("barrier_keywords", [])
+    if barrier_keywords:
+        hits = sum(1 for kw in barrier_keywords if kw.lower() in all_text)
+        expectation_results["barrier_relevance"] = hits >= max(1, len(barrier_keywords) // 2)
+        if not expectation_results["barrier_relevance"]:
+            issues.append("Actions are not sufficiently barrier-specific")
+
+    # Low-friction first-step check (for low confidence barrier scenarios)
+    if expectations.get("low_friction_first_step") and actions:
+        first_step = actions[0].get("first_step", "")
+        concise = len(first_step) <= 120
+        has_small_term = any(term in first_step.lower() for term in ["first", "start", "one", "small", "10", "15", "20", "30"])
+        expectation_results["low_friction_first_step"] = concise and has_small_term
+        if not expectation_results["low_friction_first_step"]:
+            issues.append("First action is not low-friction enough")
+
+    if expectations.get("must_not_assume_device"):
+        problematic_terms = ["on your laptop", "using your home wifi", "from your computer at home"]
+        assumes_device = any(term in all_text for term in problematic_terms)
+        expectation_results["no_device_assumption"] = not assumes_device
+        if assumes_device:
+            issues.append("Plan assumes personal digital device/connectivity")
+
     # Must not crash (for minimal input)
     expectation_results["no_crash"] = True  # If we got here, it didn't crash
 

@@ -138,6 +138,12 @@ export interface ActionTemplate {
   tags: string[];
   /** Barrier types this template is especially relevant for. */
   relevant_barriers: string[];
+  /** Barriers where this template should be avoided. */
+  contraindicated_barriers?: string[];
+  /** Preconditions that should be resolved before this action is attempted. */
+  required_prerequisites?: string[];
+  /** Guidance intensity for delivery style. */
+  support_level?: "low" | "medium" | "high";
   /** Minimum confidence level where this template is appropriate (1-5). */
   min_confidence: number;
   /** Source attribution (e.g. "National Careers Service, OGL v3.0"). */
