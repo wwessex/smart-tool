@@ -61,7 +61,7 @@ function getEngine(): TranslationEngine {
   if (!engineInstance) {
     engineInstance = new TranslationEngine({
       allowRemoteModels: false,
-      modelBasePath: "/models/",
+      modelBasePath: `${import.meta.env.BASE_URL}models/`,
       useBrowserCache: true,
       maxLoadedPipelines: 3,
       maxChunkChars: 900,
