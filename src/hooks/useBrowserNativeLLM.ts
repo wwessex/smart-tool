@@ -166,9 +166,11 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
   const isMobileBlocked = deviceInfo.isAndroid || (deviceInfo.isIOS && !allowMobileLLM);
   const canUseLocalAI = !isMobileBlocked;
 
-  // Use root-relative asset paths so static builds work reliably on deep routes.
-  const modelBaseRoot = "/models/";
-  const retrievalPackUrl = "/retrieval-packs/job-search-actions.json";
+  // Resolve static assets from Vite BASE_URL so subfolder deployments work.
+  const base = (import.meta as unknown as { env?: Record<string, string> }).env?.BASE_URL || "/";
+  const normalizedBase = base.endsWith("/") ? base : `${base}/`;
+  const modelBaseRoot = `${normalizedBase}models/`;
+  const retrievalPackUrl = `${normalizedBase}retrieval-packs/job-search-actions.json`;
 
   const supportedModels = useMemo(() => {
     if (deviceInfo.isIOS || deviceInfo.isAndroid) return MOBILE_RECOMMENDED_MODELS;
