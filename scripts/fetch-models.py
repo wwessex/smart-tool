@@ -17,8 +17,7 @@ import shutil
 MODELS = {
   # LLM model for Amor inteligente (browser-native-llm)
   "HuggingFaceTB/SmolLM2-360M-Instruct": "smart-planner-150m-q4",
-  # Translation models for Lengua Materna are fetched separately
-  # via browser-translation/scripts/convert-model.py
+  # Translation models for Lengua Materna — run: python scripts/fetch-translation-models.py
 }
 
 # Put HF cache somewhere we can delete after (CI can set HF_HUB_CACHE=/tmp/hf-cache)

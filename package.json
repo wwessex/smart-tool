@@ -16,7 +16,10 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "fetch-models": "python scripts/fetch-models.py"
+    "fetch-models": "python scripts/fetch-models.py",
+    "fetch-translation-models": "python scripts/fetch-translation-models.py",
+    "fetch-translation-models:priority": "python scripts/fetch-translation-models.py --priority",
+    "fetch-all-models": "python scripts/fetch-models.py && python scripts/fetch-translation-models.py"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.0.2",
