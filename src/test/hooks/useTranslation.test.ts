@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation, __resetTranslationEngineForTests } from '@/hooks/useTranslation';
+import { TranslationEngine } from '@smart-tool/lengua-materna';
 
 // Mock the Lengua Materna engine module
 const mockTranslate = vi.fn();
@@ -25,6 +26,10 @@ vi.mock('@smart-tool/lengua-materna', () => ({
 describe('useTranslation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    __resetTranslationEngineForTests();
+    vi.unstubAllEnvs();
+    vi.stubEnv('PROD', false);
+    vi.stubEnv('MODE', 'test');
     mockInitialize.mockResolvedValue(undefined);
   });
 
@@ -215,5 +220,99 @@ describe('useTranslation', () => {
     expect(result.current.isRTL('ps')).toBe(true);
     expect(result.current.isRTL('pl')).toBe(false);
     expect(result.current.isRTL('cy')).toBe(false);
+  });
+
+  it('passes auth headers when VITE_HF_TOKEN is provided', async () => {
+    vi.stubEnv('VITE_HF_TOKEN', 'hf_abc123');
+
+    const { result } = renderHook(() => useTranslation({ enabled: true }));
+
+    await act(async () => {
+      await result.current.translate('Hello', 'ar');
+    });
+
+    const EngineCtor = vi.mocked(TranslationEngine);
+    expect(EngineCtor).toHaveBeenCalledTimes(1);
+    expect(EngineCtor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        remoteModelRequestHeaders: {
+          Authorization: 'Bearer hf_abc123',
+        },
+      }),
+    );
+  });
+
+  it('omits auth headers when VITE_HF_TOKEN is absent', async () => {
+    vi.unstubAllEnvs();
+    vi.stubEnv('PROD', false);
+    vi.stubEnv('MODE', 'test');
+
+    const { result } = renderHook(() => useTranslation({ enabled: true }));
+    await act(async () => {
+      await result.current.translate('Hello', 'ar');
+    });
+
+    const EngineCtor = vi.mocked(TranslationEngine);
+    expect(EngineCtor).toHaveBeenCalledTimes(1);
+    expect(EngineCtor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        remoteModelRequestHeaders: undefined,
+      }),
+    );
+  });
+
+  it('sets allowRemoteModels to false when explicitly disabled', async () => {
+    vi.unstubAllEnvs();
+    vi.stubEnv('VITE_ALLOW_REMOTE_TRANSLATION_MODELS', 'false');
+
+    const { result } = renderHook(() => useTranslation({ enabled: true }));
+    await act(async () => {
+      await result.current.translate('Hello', 'ar');
+    });
+
+    const EngineCtor = vi.mocked(TranslationEngine);
+    expect(EngineCtor).toHaveBeenCalledTimes(1);
+    expect(EngineCtor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        allowRemoteModels: false,
+      }),
+    );
+  });
+
+  it('allows explicit env override to enable remote models in production', async () => {
+    vi.unstubAllEnvs();
+    vi.stubEnv('MODE', 'production');
+    vi.stubEnv('PROD', true);
+    vi.stubEnv('VITE_ALLOW_REMOTE_TRANSLATION_MODELS', 'true');
+
+    const { result } = renderHook(() => useTranslation({ enabled: true }));
+    await act(async () => {
+      await result.current.translate('Hello', 'ar');
+    });
+
+    const EngineCtor = vi.mocked(TranslationEngine);
+    expect(EngineCtor).toHaveBeenCalledTimes(1);
+    expect(EngineCtor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        allowRemoteModels: true,
+      }),
+    );
+  });
+
+  it('passes remoteModelBasePath when configured', async () => {
+    vi.stubEnv('VITE_REMOTE_MODEL_BASE_PATH', 'https://cdn.example.com/models');
+
+    const { result } = renderHook(() => useTranslation({ enabled: true }));
+    await act(async () => {
+      await result.current.translate('Hello', 'ar');
+    });
+
+    const EngineCtor = vi.mocked(TranslationEngine);
+    expect(EngineCtor).toHaveBeenCalledTimes(1);
+    expect(EngineCtor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        remoteModelBasePath: 'https://cdn.example.com/models',
+      }),
+    );
   });
 });

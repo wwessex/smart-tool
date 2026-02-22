@@ -89,6 +89,35 @@ export const SUPPORTED_LANGUAGES: Record<
 let engineInstance: TranslationEngine | null = null;
 let initPromise: Promise<void> | null = null;
 
+type ViteEnv = {
+  BASE_URL?: string;
+  DEV?: boolean | string;
+  MODE?: string;
+  PROD?: boolean | string;
+  VITE_ALLOW_REMOTE_TRANSLATION_MODELS?: string;
+  VITE_HF_TOKEN?: string;
+  VITE_REMOTE_MODEL_BASE_PATH?: string;
+};
+
+function getEnv(): ViteEnv {
+  const viteEnv = ((import.meta as unknown as { env?: ViteEnv }).env ?? {}) as ViteEnv;
+  const processEnv = typeof process !== 'undefined' ? process.env : undefined;
+
+  return {
+    ...viteEnv,
+    VITE_ALLOW_REMOTE_TRANSLATION_MODELS:
+      viteEnv.VITE_ALLOW_REMOTE_TRANSLATION_MODELS ?? processEnv?.VITE_ALLOW_REMOTE_TRANSLATION_MODELS,
+    VITE_HF_TOKEN: viteEnv.VITE_HF_TOKEN ?? processEnv?.VITE_HF_TOKEN,
+    VITE_REMOTE_MODEL_BASE_PATH: viteEnv.VITE_REMOTE_MODEL_BASE_PATH ?? processEnv?.VITE_REMOTE_MODEL_BASE_PATH,
+    MODE: viteEnv.MODE ?? processEnv?.MODE,
+    PROD: viteEnv.PROD ?? processEnv?.PROD,
+  };
+}
+
+function isTruthy(value: boolean | string | undefined): boolean {
+  return value === true || value === 'true';
+}
+
 /** Resolve modelBasePath from Vite's BASE_URL so subfolder/portable deployments work. */
 function resolveModelBasePath(): string {
   const base = (import.meta as unknown as { env?: Record<string, string> }).env?.BASE_URL || "/";
@@ -119,18 +148,31 @@ function resolveModelBasePath(): string {
 
 function getEngine(): TranslationEngine {
   if (!engineInstance) {
-    const env = (import.meta as unknown as { env?: Record<string, string> }).env;
-    const allowRemoteModels = env?.VITE_ALLOW_REMOTE_TRANSLATION_MODELS !== 'false';
+    const env = getEnv();
+    const remoteModelsOverride = env.VITE_ALLOW_REMOTE_TRANSLATION_MODELS;
+    const allowRemoteModels =
+      remoteModelsOverride == null
+        ? !isTruthy(env.PROD) && env.MODE !== 'production'
+        : remoteModelsOverride === 'true';
+    const token = env.VITE_HF_TOKEN?.trim();
+    const remoteModelBasePath = env.VITE_REMOTE_MODEL_BASE_PATH?.trim() || undefined;
 
     engineInstance = new TranslationEngine({
       allowRemoteModels,
       modelBasePath: resolveModelBasePath(),
+      remoteModelBasePath,
+      remoteModelRequestHeaders: token ? { Authorization: `Bearer ${token}` } : undefined,
       useBrowserCache: true,
       maxLoadedPipelines: 3,
       maxChunkChars: 900,
     });
   }
   return engineInstance;
+}
+
+export function __resetTranslationEngineForTests(): void {
+  engineInstance = null;
+  initPromise = null;
 }
 
 async function ensureInitialized(): Promise<void> {

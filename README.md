@@ -59,6 +59,29 @@ LOCAL_ONLY_MODELS=1 npm run validate:translation-models:offline
 
 Required per-model file layout is documented in `browser-translation/README.md`.
 
+### Translation environment variables
+
+The translation hook (`src/hooks/useTranslation.ts`) supports these Vite env vars:
+
+- `VITE_ALLOW_REMOTE_TRANSLATION_MODELS`
+  - `"true"` enables remote model fallback.
+  - `"false"` disables remote model fallback.
+  - If unset, remote model fallback defaults to disabled in production builds and enabled in non-production/test contexts.
+- `VITE_HF_TOKEN` (optional)
+  - If set, requests for remote translation models include `Authorization: Bearer <token>`.
+- `VITE_REMOTE_MODEL_BASE_PATH` (optional)
+  - Overrides the remote model host/base path used by the translation engine.
+
+Example:
+
+```bash
+VITE_ALLOW_REMOTE_TRANSLATION_MODELS=true
+VITE_HF_TOKEN=hf_xxx
+VITE_REMOTE_MODEL_BASE_PATH=https://huggingface.co
+```
+
+> Security note: Vite `VITE_*` variables are exposed to browser clients. Do not use sensitive long-lived/private tokens unless you explicitly accept the risk of browser exposure.
+
 ## Quick start / Usage
 
 Example (importing from TypeScript):
