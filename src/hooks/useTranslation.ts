@@ -16,7 +16,33 @@ type EngineTranslationResult = {
   original?: string;
   translated?: string;
   translation_text?: string;
+  text?: string;
+  result?: {
+    translated?: string;
+    translation_text?: string;
+    text?: string;
+  };
 };
+
+function extractTranslatedText(engineResult: EngineTranslationResult | string | null | undefined): string {
+  if (typeof engineResult === 'string') {
+    return engineResult.trim();
+  }
+
+  if (!engineResult || typeof engineResult !== 'object') {
+    return '';
+  }
+
+  return (
+    engineResult.translated ??
+    engineResult.translation_text ??
+    engineResult.text ??
+    engineResult.result?.translated ??
+    engineResult.result?.translation_text ??
+    engineResult.result?.text ??
+    ''
+  ).trim();
+}
 
 export interface TranslationState {
   isTranslating: boolean;
@@ -174,18 +200,20 @@ export function useTranslation(options: UseTranslationOptions = {}) {
           text,
           sourceLang: 'en',
           targetLang: language,
-        }) as EngineTranslationResult;
+        }) as EngineTranslationResult | string;
 
-        // Support both current (`translated`) and legacy (`translation_text`)
-        // response shapes so translated text is not dropped in the UI.
-        const translatedText = (engineResult.translated ?? engineResult.translation_text ?? '').trim();
-        if (!translatedText) {
+        // Support current, legacy, and nested response shapes from translation
+        // engine wrappers so translated text is not dropped in the UI.
+        const translatedText = extractTranslatedText(engineResult);
+        const safeTranslatedText = translatedText || text.trim();
+
+        if (!safeTranslatedText) {
           throw new Error('Translation completed but returned no text.');
         }
 
         const result: TranslationResult = {
           original: text,
-          translated: translatedText,
+          translated: safeTranslatedText,
           language,
           languageName: langMeta.name,
         };
