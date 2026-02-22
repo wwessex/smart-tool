@@ -340,7 +340,8 @@ function substituteTemplateVars(text: string, profile: UserProfile): string {
     .replace(/\{industry\}/g, profile.industry ?? "your target sector")
     .replace(/\{skill\}/g, profile.skills[0] ?? "relevant skill")
     .replace(/\{count\}/g, getReasonableCount(profile))
-    .replace(/\{barrier\}/g, profile.barriers[0]?.replace(/_/g, " ") ?? "challenge");
+    .replace(/\{barrier\}/g, profile.barriers[0]?.replace(/_/g, " ") ?? "challenge")
+    .replace(/\{name\}/g, profile.participant_name || "the participant");
 }
 
 function getReasonableCount(profile: UserProfile): string {
