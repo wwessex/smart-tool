@@ -23,6 +23,14 @@ import type {
 } from "../types.js";
 import { getModelForPair } from "../models/registry.js";
 
+/**
+ * Default HuggingFace CDN base for ONNX models.
+ * Xenova maintains pre-exported ONNX versions of OPUS-MT models
+ * with quantized variants that match the file naming convention
+ * used by the Puente Engine (encoder_model_quantized.onnx, etc.).
+ */
+const HF_ONNX_CDN_BASE = "https://huggingface.co/Xenova/";
+
 /** A loaded pipeline with metadata for LRU tracking. */
 interface LoadedPipeline {
   pipeline: TranslationPipeline;
@@ -165,14 +173,6 @@ export class PipelineManager {
 
       this.emitProgress(modelId, "initializing", 0, 0);
 
-      // Build model paths.
-      // Models store config.json/tokenizer.json at root and ONNX files
-      // in an onnx/ subdirectory. Puente Engine's configPath option lets
-      // us resolve each from the correct location.
-      const basePath = this.config.modelBasePath ?? "./models/";
-      const configPath = `${basePath}${modelId}/`;
-      const modelPath = `${basePath}${modelId}/onnx/`;
-
       // Resolve quantized encoder/decoder filenames
       const fileSuffix = getOnnxFileSuffix(dtype);
       const encoderFileName = `encoder_model${fileSuffix}.onnx`;
@@ -180,18 +180,58 @@ export class PipelineManager {
 
       const device = this.config.preferredBackend === "webgpu" ? "webgpu" : undefined;
 
-      const translationPipeline = await PuenteTranslationPipeline.create(modelPath, {
-        configPath,
-        device,
-        dtype: dtype !== "fp32" ? dtype : undefined,
-        encoderFileName,
-        decoderFileName,
-        progress_callback: (progress: { loaded?: number; total?: number }) => {
-          if (progress.loaded !== undefined && progress.total !== undefined && progress.total > 0) {
-            this.emitProgress(modelId, "downloading", progress.loaded, progress.total);
-          }
-        },
-      });
+      // Helper to create a pipeline from a given config + model path pair.
+      const createFromPaths = (configPath: string, modelPath: string) =>
+        PuenteTranslationPipeline.create(modelPath, {
+          configPath,
+          device,
+          dtype: dtype !== "fp32" ? dtype : undefined,
+          encoderFileName,
+          decoderFileName,
+          progress_callback: (progress: { loaded?: number; total?: number }) => {
+            if (progress.loaded !== undefined && progress.total !== undefined && progress.total > 0) {
+              this.emitProgress(modelId, "downloading", progress.loaded, progress.total);
+            }
+          },
+        });
+
+      // Build local model paths.
+      // Models store config.json/tokenizer.json at root and ONNX files
+      // in an onnx/ subdirectory. Puente Engine's configPath option lets
+      // us resolve each from the correct location.
+      const basePath = this.config.modelBasePath ?? "./models/";
+      const localConfigPath = `${basePath}${modelId}/`;
+      const localModelPath = `${basePath}${modelId}/onnx/`;
+
+      let translationPipeline: TranslationPipeline;
+
+      try {
+        translationPipeline = await createFromPaths(localConfigPath, localModelPath);
+      } catch (localError) {
+        // If remote models are disabled, propagate the error immediately.
+        if (!this.config.allowRemoteModels) {
+          throw localError;
+        }
+
+        // Only fall back to remote for 404 / "not found" errors (network or
+        // server-side issues should still propagate).
+        const localMsg = localError instanceof Error ? localError.message : String(localError);
+        const isNotFound = /404|not found/i.test(localMsg);
+        if (!isNotFound) {
+          throw localError;
+        }
+
+        // Fall back to HuggingFace CDN for ONNX models.
+        const remoteBase = this.config.remoteModelBasePath ?? HF_ONNX_CDN_BASE;
+        const remoteConfigPath = `${remoteBase}${modelId}/resolve/main/`;
+        const remoteModelPath = `${remoteBase}${modelId}/resolve/main/onnx/`;
+
+        console.info(
+          `[lengua-materna] Local model "${modelId}" not found, loading from remote CDN…`
+        );
+
+        translationPipeline = await createFromPaths(remoteConfigPath, remoteModelPath);
+      }
 
       const now = Date.now();
       this.pipelines.set(cacheKey, {
