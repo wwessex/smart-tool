@@ -252,6 +252,14 @@ export function SmartActionTool() {
   // Whether current output was produced by AI (show feedback UI)
   const [showFeedbackUI, setShowFeedbackUI] = useState(false);
 
+  // Reset feedback UI when form is cleared or mode changes
+  const resetFeedbackState = useCallback(() => {
+    setShowFeedbackUI(false);
+    setFeedbackRating(null);
+    setCurrentFeedbackId(null);
+    aiGeneratedActionRef.current = '';
+  }, []);
+
   // Detect landscape orientation
   useEffect(() => {
     const checkOrientation = () => {
@@ -638,14 +646,6 @@ export function SmartActionTool() {
       storage.updateFeedback(currentFeedbackId, { rating });
     }
   }, [currentFeedbackId, storage]);
-
-  // Reset feedback UI when form is cleared or mode changes
-  const resetFeedbackState = useCallback(() => {
-    setShowFeedbackUI(false);
-    setFeedbackRating(null);
-    setCurrentFeedbackId(null);
-    aiGeneratedActionRef.current = '';
-  }, []);
 
   // Map a selected SMARTAction from the plan picker to form fields
   const handleSelectPlanAction = useCallback((action: SMARTAction, selectedIndex?: number) => {
