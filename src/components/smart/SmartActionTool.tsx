@@ -217,6 +217,7 @@ export function SmartActionTool() {
   const [output, setOutput] = useState('');
   const [outputSource, setOutputSource] = useState<'form' | 'ai' | 'manual'>('form');
   const [translatedOutput, setTranslatedOutput] = useState<string | null>(null);
+  const translatedForOutputRef = useRef<string>(''); // Track which English text was translated
   const hasOutput = output.trim().length > 0;
   const [showValidation, setShowValidation] = useState(false);
   const [suggestQuery, setSuggestQuery] = useState('');
@@ -380,6 +381,13 @@ export function SmartActionTool() {
     generateOutput(false);
   }, [nowForm, futureForm, mode, outputSource, generateOutput]);
 
+  // Clear stale translation when the English output changes
+  useEffect(() => {
+    if (translatedOutput && output !== translatedForOutputRef.current) {
+      setTranslatedOutput(null);
+    }
+  }, [output, translatedOutput]);
+
   const handleCopy = useCallback(async () => {
     if (!output.trim()) {
       toast({ title: 'Nothing to copy', description: 'Generate an action first.', variant: 'destructive' });
@@ -458,21 +466,20 @@ export function SmartActionTool() {
 
     const result = await translation.translate(output, storage.participantLanguage);
     if (result) {
+      translatedForOutputRef.current = output; // Track the source text
       setTranslatedOutput(result.translated);
-      toast({ 
-        title: 'Translated!', 
-        description: `Action translated to ${result.languageName}.` 
+      toast({
+        title: 'Translated!',
+        description: `Action translated to ${result.languageName}.`
       });
     }
   }, [output, storage.participantLanguage, translation, toast]);
 
-  // Handle language change
+  // Handle language change — always clear stale translation since it was for a different language
   const handleLanguageChange = useCallback((language: string) => {
     storage.updateParticipantLanguage(language);
-    if (language === 'none') {
-      setTranslatedOutput(null);
-      translation.clearTranslation();
-    }
+    setTranslatedOutput(null);
+    translation.clearTranslation();
   }, [storage, translation]);
 
   // Debounce output for SMART checking to avoid running on every keystroke
@@ -752,6 +759,16 @@ export function SmartActionTool() {
       });
     }
     setOutput(item.text || '');
+    setOutputSource('manual'); // Prevent auto-regeneration from overwriting loaded output
+    // Restore translation if the history item had one
+    if (item.meta.translatedText && item.meta.translationLanguage) {
+      translatedForOutputRef.current = item.text || '';
+      setTranslatedOutput(item.meta.translatedText);
+      storage.updateParticipantLanguage(item.meta.translationLanguage);
+    } else {
+      translatedForOutputRef.current = '';
+      setTranslatedOutput(null);
+    }
     setShowValidation(false);
     toast({ title: 'Loaded', description: 'Edit and regenerate as needed.' });
   };
@@ -2549,13 +2566,30 @@ export function SmartActionTool() {
                               )}
                             </div>
                             <p className="text-sm whitespace-pre-wrap leading-relaxed">{h.text}</p>
+                            {h.meta.translatedText && h.meta.translationLanguage && (
+                              <div className="mt-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
+                                <p className="text-xs font-medium text-muted-foreground mb-1">
+                                  {SUPPORTED_LANGUAGES[h.meta.translationLanguage]?.flag && (
+                                    <span className="inline-flex items-center justify-center rounded-sm border px-1 text-[10px] font-semibold leading-4 text-foreground/80 mr-1">
+                                      {SUPPORTED_LANGUAGES[h.meta.translationLanguage].flag}
+                                    </span>
+                                  )}
+                                  {SUPPORTED_LANGUAGES[h.meta.translationLanguage]?.nativeName?.toUpperCase() || h.meta.translationLanguage.toUpperCase()}
+                                </p>
+                                <p className="text-sm whitespace-pre-wrap leading-relaxed">{h.meta.translatedText}</p>
+                              </div>
+                            )}
                             <div className="flex gap-2" role="group" aria-label="Action buttons">
                               <Button size="sm" variant="outline" onClick={() => handleEditHistory(h)} aria-label={`Edit action for ${h.meta.forename || 'participant'}`}>
                                 <Edit className="w-3 h-3 mr-1" aria-hidden="true" /> Edit
                               </Button>
                               <Button size="sm" variant="ghost" onClick={() => {
-                                navigator.clipboard.writeText(h.text);
-                                toast({ title: 'Copied!' });
+                                const langInfo = h.meta.translationLanguage ? SUPPORTED_LANGUAGES[h.meta.translationLanguage] : null;
+                                const copyText = h.meta.translatedText && langInfo
+                                  ? `=== ENGLISH ===\n${h.text}\n\n=== ${langInfo.nativeName?.toUpperCase() || h.meta.translationLanguage!.toUpperCase()} ===\n${h.meta.translatedText}`
+                                  : h.text;
+                                navigator.clipboard.writeText(copyText);
+                                toast({ title: 'Copied!', description: h.meta.translatedText ? 'Both versions copied.' : undefined });
                               }} aria-label="Copy action text">
                                 <Copy className="w-3 h-3" aria-hidden="true" />
                                 <span className="sr-only">Copy</span>
