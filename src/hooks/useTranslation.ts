@@ -61,15 +61,28 @@ let initPromise: Promise<void> | null = null;
 function resolveModelBasePath(): string {
   const base = (import.meta as unknown as { env?: Record<string, string> }).env?.BASE_URL || "/";
   const normalizedBase = base.endsWith("/") ? base : `${base}/`;
-  // In some packaged deployments (e.g. desktop wrappers), absolute `/models/`
-  // can point to the host root instead of the app bundle. Use a relative
-  // models path for root deployments and keep absolute base-prefixed paths
-  // for subfolder deployments.
-  if (normalizedBase === "/") {
-    return "models/";
+
+  // Prefer Vite's configured base when available.
+  if (normalizedBase !== "/") {
+    return `${normalizedBase}models/`;
   }
 
-  return `${normalizedBase}models/`;
+  // Fallback for deployments where BASE_URL is left as "/" but the app is
+  // actually served from a sub-path (e.g. some GitHub Pages setups). In those
+  // cases, infer the current directory from location.pathname.
+  if (typeof window !== 'undefined') {
+    const pathname = window.location.pathname || '/';
+    const inferredBase = pathname.endsWith('/')
+      ? pathname
+      : pathname.slice(0, pathname.lastIndexOf('/') + 1);
+
+    if (inferredBase && inferredBase !== '/') {
+      return `${inferredBase}models/`;
+    }
+  }
+
+  // Keep relative path for root deployments and packaged shells.
+  return 'models/';
 }
 
 function getEngine(): TranslationEngine {
