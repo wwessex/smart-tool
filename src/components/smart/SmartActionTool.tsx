@@ -117,6 +117,26 @@ const softSpring = { type: "spring" as const, damping: 28, stiffness: 200 };
 
 type Mode = 'now' | 'future';
 
+/** Displays translated text below the English output — uses plain DOM to guarantee visibility */
+const TranslatedOutputBox = memo(function TranslatedOutputBox({ text, langCode }: { text: string; langCode: string }) {
+  const langInfo = SUPPORTED_LANGUAGES[langCode];
+  return (
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <p className="text-xs font-medium text-muted-foreground mb-2">
+        {langInfo?.flag && (
+          <span className="inline-flex items-center justify-center rounded-sm border px-1 text-[10px] font-semibold leading-4 text-foreground/80 mr-1">
+            {langInfo.flag}
+          </span>
+        )}
+        {langInfo?.nativeName?.toUpperCase() || langCode.toUpperCase()}
+      </p>
+      <div className="p-5 rounded-xl border-2 border-primary/30 bg-primary/5 leading-relaxed whitespace-pre-wrap text-sm">
+        {text}
+      </div>
+    </div>
+  );
+});
+
 interface NowForm {
   date: string;
   time: string;
@@ -218,6 +238,7 @@ export function SmartActionTool() {
   const [outputSource, setOutputSource] = useState<'form' | 'ai' | 'manual'>('form');
   const [translatedOutput, setTranslatedOutput] = useState<string | null>(null);
   const translatedForOutputRef = useRef<string>(''); // Track which English text was translated
+  const translationLanguageRef = useRef<string>(''); // Track which language was translated to
   const hasOutput = output.trim().length > 0;
   const [showValidation, setShowValidation] = useState(false);
   const [suggestQuery, setSuggestQuery] = useState('');
@@ -465,12 +486,20 @@ export function SmartActionTool() {
     }
 
     const result = await translation.translate(output, storage.participantLanguage);
-    if (result) {
+    if (result && result.translated) {
       translatedForOutputRef.current = output; // Track the source text
+      translationLanguageRef.current = storage.participantLanguage;
       setTranslatedOutput(result.translated);
       toast({
         title: 'Translated!',
         description: `Action translated to ${result.languageName}.`
+      });
+    } else if (result) {
+      // Engine returned empty translation
+      toast({
+        title: 'Translation issue',
+        description: 'Translation returned empty. Please try again.',
+        variant: 'destructive',
       });
     }
   }, [output, storage.participantLanguage, translation, toast]);
@@ -2419,7 +2448,7 @@ export function SmartActionTool() {
               )}
             </div>
 
-            <AnimatePresence mode="wait">
+            <AnimatePresence mode="sync">
               <motion.div
                 key="output-container"
                 initial={{ opacity: 0.5, scale: 0.98 }}
@@ -2429,7 +2458,12 @@ export function SmartActionTool() {
               >
                 {/* English output */}
                 <div>
-                  {translatedOutput && <p id="output-label-en" className="text-xs font-medium text-muted-foreground mb-2">🇬🇧 ENGLISH</p>}
+                  {translatedOutput && (
+                    <p id="output-label-en" className="text-xs font-medium text-muted-foreground mb-2">
+                      <span className="inline-flex items-center justify-center rounded-sm border px-1 text-[10px] font-semibold leading-4 text-foreground/80 mr-1">GB</span>
+                      ENGLISH
+                    </p>
+                  )}
                   <Textarea
                     id="action-output"
                     value={output}
@@ -2444,21 +2478,12 @@ export function SmartActionTool() {
                     )}
                   />
                 </div>
-                
-                {/* Translated output */}
-                {translatedOutput && storage.participantLanguage !== 'none' && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    <p className="text-xs font-medium text-muted-foreground mb-2">
-                      {SUPPORTED_LANGUAGES[storage.participantLanguage]?.flag} {SUPPORTED_LANGUAGES[storage.participantLanguage]?.nativeName?.toUpperCase()}
-                    </p>
-                    <div className="p-5 rounded-xl border-2 border-primary/30 bg-primary/5 leading-relaxed whitespace-pre-wrap text-sm">
-                      {translatedOutput}
-                    </div>
-                  </motion.div>
-                )}
+
+                {/* Translated output — use plain div, not motion.div, to guarantee visibility */}
+                {translatedOutput && <TranslatedOutputBox
+                  text={translatedOutput}
+                  langCode={storage.participantLanguage !== 'none' ? storage.participantLanguage : translationLanguageRef.current}
+                />}
               </motion.div>
             </AnimatePresence>
 
