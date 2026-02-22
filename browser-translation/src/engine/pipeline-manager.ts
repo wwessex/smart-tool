@@ -146,6 +146,15 @@ export class PipelineManager {
   // Private
   // -----------------------------------------------------------------------
 
+  /**
+   * Default remote CDN for OPUS-MT ONNX models.
+   *
+   * Points to the Xenova HuggingFace Hub namespace which hosts
+   * ONNX-converted OPUS-MT models compatible with Puente Engine.
+   * Model files are resolved as: `{CDN}{modelId}/resolve/main/`.
+   */
+  private static readonly DEFAULT_REMOTE_CDN = "https://huggingface.co/Xenova/";
+
   private async loadPipeline(
     pair: LanguagePairId,
     modelId: string,
@@ -157,59 +166,27 @@ export class PipelineManager {
     // Evict LRU pipeline if at capacity
     await this.ensureCapacity();
 
+    // Try local model files first
     try {
-      // Dynamic import to avoid loading ONNX Runtime until needed
-      const { TranslationPipeline: PuenteTranslationPipeline } = await import(
-        "@smart-tool/puente-engine"
-      );
+      const localPaths = this.buildModelPaths(modelId, /* remote */ false);
+      return await this.createPuentePipeline(pair, modelId, dtype, cacheKey, localPaths);
+    } catch (localError) {
+      // If local loading fails with 404 and remote models are allowed,
+      // fall back to fetching from a remote CDN.
+      if (this.config.allowRemoteModels && PipelineManager.is404Error(localError)) {
+        try {
+          const remotePaths = this.buildModelPaths(modelId, /* remote */ true);
+          return await this.createPuentePipeline(pair, modelId, dtype, cacheKey, remotePaths);
+        } catch (remoteError) {
+          const rawMessage = remoteError instanceof Error ? remoteError.message : String(remoteError);
+          this.emitProgress(modelId, "error", 0, 0, rawMessage);
+          throw new Error(rawMessage);
+        }
+      }
 
-      this.emitProgress(modelId, "initializing", 0, 0);
+      // Not a 404, or remote models not allowed — propagate original error.
+      const rawMessage = localError instanceof Error ? localError.message : String(localError);
 
-      // Build model paths.
-      // Models store config.json/tokenizer.json at root and ONNX files
-      // in an onnx/ subdirectory. Puente Engine's configPath option lets
-      // us resolve each from the correct location.
-      const basePath = this.config.modelBasePath ?? "./models/";
-      const configPath = `${basePath}${modelId}/`;
-      const modelPath = `${basePath}${modelId}/onnx/`;
-
-      // Resolve quantized encoder/decoder filenames
-      const fileSuffix = getOnnxFileSuffix(dtype);
-      const encoderFileName = `encoder_model${fileSuffix}.onnx`;
-      const decoderFileName = `decoder_model_merged${fileSuffix}.onnx`;
-
-      const device = this.config.preferredBackend === "webgpu" ? "webgpu" : undefined;
-
-      const translationPipeline = await PuenteTranslationPipeline.create(modelPath, {
-        configPath,
-        device,
-        dtype: dtype !== "fp32" ? dtype : undefined,
-        encoderFileName,
-        decoderFileName,
-        progress_callback: (progress: { loaded?: number; total?: number }) => {
-          if (progress.loaded !== undefined && progress.total !== undefined && progress.total > 0) {
-            this.emitProgress(modelId, "downloading", progress.loaded, progress.total);
-          }
-        },
-      });
-
-      const now = Date.now();
-      this.pipelines.set(cacheKey, {
-        pipeline: translationPipeline,
-        pair,
-        modelId,
-        dtype,
-        lastUsedAt: now,
-        loadedAt: now,
-      });
-
-      this.emitProgress(modelId, "ready", 0, 0);
-      return translationPipeline;
-    } catch (error) {
-      const rawMessage = error instanceof Error ? error.message : String(error);
-
-      // Provide a clearer message for HTTP 401/403 errors (model files
-      // may be missing or inaccessible).
       const isAccessError = /unauthori[sz]ed|forbidden|401|403/i.test(rawMessage);
       const message = isAccessError
         ? `Translation model "${modelId}" is unavailable — the model files may be missing or inaccessible.`
@@ -218,6 +195,93 @@ export class PipelineManager {
       this.emitProgress(modelId, "error", 0, 0, message);
       throw new Error(message);
     }
+  }
+
+  /**
+   * Build config and model paths for a given model ID.
+   *
+   * Local layout:
+   *   configPath = {modelBasePath}{modelId}/
+   *   modelPath  = {modelBasePath}{modelId}/onnx/
+   *
+   * Remote (HuggingFace Hub) layout:
+   *   configPath = {remoteCDN}{modelId}/resolve/main/
+   *   modelPath  = {remoteCDN}{modelId}/resolve/main/onnx/
+   */
+  private buildModelPaths(
+    modelId: string,
+    remote: boolean
+  ): { configPath: string; modelPath: string } {
+    if (remote) {
+      const cdnBase =
+        this.config.remoteModelBasePath ?? PipelineManager.DEFAULT_REMOTE_CDN;
+      const normalized = cdnBase.endsWith("/") ? cdnBase : `${cdnBase}/`;
+      const root = `${normalized}${modelId}/resolve/main/`;
+      return { configPath: root, modelPath: `${root}onnx/` };
+    }
+
+    const basePath = this.config.modelBasePath ?? "./models/";
+    return {
+      configPath: `${basePath}${modelId}/`,
+      modelPath: `${basePath}${modelId}/onnx/`,
+    };
+  }
+
+  /**
+   * Create a Puente Engine TranslationPipeline from resolved paths.
+   */
+  private async createPuentePipeline(
+    pair: LanguagePairId,
+    modelId: string,
+    dtype: ModelDtype,
+    cacheKey: string,
+    paths: { configPath: string; modelPath: string }
+  ): Promise<TranslationPipeline> {
+    // Dynamic import to avoid loading ONNX Runtime until needed
+    const { TranslationPipeline: PuenteTranslationPipeline } = await import(
+      "@smart-tool/puente-engine"
+    );
+
+    this.emitProgress(modelId, "initializing", 0, 0);
+
+    // Resolve quantized encoder/decoder filenames
+    const fileSuffix = getOnnxFileSuffix(dtype);
+    const encoderFileName = `encoder_model${fileSuffix}.onnx`;
+    const decoderFileName = `decoder_model_merged${fileSuffix}.onnx`;
+
+    const device = this.config.preferredBackend === "webgpu" ? "webgpu" : undefined;
+
+    const translationPipeline = await PuenteTranslationPipeline.create(paths.modelPath, {
+      configPath: paths.configPath,
+      device,
+      dtype: dtype !== "fp32" ? dtype : undefined,
+      encoderFileName,
+      decoderFileName,
+      progress_callback: (progress: { loaded?: number; total?: number }) => {
+        if (progress.loaded !== undefined && progress.total !== undefined && progress.total > 0) {
+          this.emitProgress(modelId, "downloading", progress.loaded, progress.total);
+        }
+      },
+    });
+
+    const now = Date.now();
+    this.pipelines.set(cacheKey, {
+      pipeline: translationPipeline,
+      pair,
+      modelId,
+      dtype,
+      lastUsedAt: now,
+      loadedAt: now,
+    });
+
+    this.emitProgress(modelId, "ready", 0, 0);
+    return translationPipeline;
+  }
+
+  /** Check if an error indicates a 404 (model files not found). */
+  private static is404Error(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    return /\b404\b|not found/i.test(message);
   }
 
   /** Evict the least recently used pipeline if at capacity. */

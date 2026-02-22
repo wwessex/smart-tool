@@ -107,8 +107,15 @@ export interface TranslationResult {
 export interface TranslationEngineConfig {
   /** Base URL or path where model files are stored locally. */
   modelBasePath: string;
-  /** Whether to allow fetching models from Hugging Face Hub (default: false). */
+  /** Whether to allow fetching models from a remote CDN when local files are not found (default: false). */
   allowRemoteModels: boolean;
+  /**
+   * Base URL for remote model hosting.
+   * Used as a fallback when `allowRemoteModels` is true and local model files return 404.
+   * Models are resolved as `{remoteModelBasePath}{modelId}/resolve/main/`.
+   * Defaults to the Xenova HuggingFace Hub namespace (ONNX-converted OPUS-MT models).
+   */
+  remoteModelBasePath?: string;
   /** Whether to use the browser Cache API for model files (default: true). */
   useBrowserCache: boolean;
   /** Preferred inference backend (auto-detected if not set). */
