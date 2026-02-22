@@ -12,18 +12,29 @@ import type { ModelConfig, GenerationConfig } from "../core/types.js";
 /**
  * Load and parse a model's config.json.
  * Accepts a URL string or a pre-parsed object.
+ *
+ * @param source - URL to fetch or a pre-parsed config object.
+ * @param headers - Optional HTTP headers to include in the fetch request
+ *   (e.g. `{ Authorization: "Bearer hf_..." }` for gated HuggingFace models).
  */
 export async function loadModelConfig(
-  source: string | Record<string, unknown>
+  source: string | Record<string, unknown>,
+  headers?: Record<string, string>
 ): Promise<ModelConfig> {
   let raw: Record<string, unknown>;
 
   if (typeof source === "string") {
-    const response = await fetch(source);
+    const response = await fetch(source, headers ? { headers } : undefined);
     if (!response.ok) {
       if (response.status === 404) {
         throw new Error(
           `Failed to load model config from ${source}: 404 — model files not found. Ensure models have been downloaded.`
+        );
+      }
+      if (response.status === 401 || response.status === 403) {
+        throw new Error(
+          `Failed to load model config from ${source}: ${response.status} — authentication required. ` +
+          `If this is a gated or private HuggingFace model, provide a valid access token via the "remoteModelRequestHeaders" configuration option.`
         );
       }
       throw new Error(
@@ -41,14 +52,18 @@ export async function loadModelConfig(
 /**
  * Load and parse a generation_config.json.
  * Returns undefined if the file doesn't exist (404).
+ *
+ * @param source - URL to fetch or a pre-parsed config object.
+ * @param headers - Optional HTTP headers to include in the fetch request.
  */
 export async function loadGenerationConfig(
-  source: string | Record<string, unknown>
+  source: string | Record<string, unknown>,
+  headers?: Record<string, string>
 ): Promise<GenerationConfig | undefined> {
   let raw: Record<string, unknown>;
 
   if (typeof source === "string") {
-    const response = await fetch(source);
+    const response = await fetch(source, headers ? { headers } : undefined);
     if (!response.ok) {
       if (response.status === 404) return undefined;
       throw new Error(

@@ -15,6 +15,8 @@ export interface FetchModelOptions {
   signal?: AbortSignal;
   /** Whether to verify SHA-256 hash after download. */
   verifyHash?: string;
+  /** Optional HTTP headers to include in the fetch request. */
+  headers?: Record<string, string>;
 }
 
 /** Description of a model file to download. */
@@ -44,7 +46,10 @@ export async function fetchModel(
     phase: "downloading",
   });
 
-  const response = await fetch(url, { signal: options.signal });
+  const fetchInit: RequestInit = {};
+  if (options.signal) fetchInit.signal = options.signal;
+  if (options.headers) fetchInit.headers = options.headers;
+  const response = await fetch(url, fetchInit);
   if (!response.ok) {
     throw new Error(
       `Failed to fetch model from ${url}: ${response.status} ${response.statusText}`

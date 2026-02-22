@@ -116,6 +116,16 @@ export interface TranslationEngineConfig {
    * Defaults to the Xenova HuggingFace Hub namespace (ONNX-converted OPUS-MT models).
    */
   remoteModelBasePath?: string;
+  /**
+   * Optional HTTP headers to include in fetch requests when downloading
+   * models from the remote CDN.
+   *
+   * Use this to authenticate with gated or private model repositories.
+   * For HuggingFace, set `{ Authorization: "Bearer hf_..." }`.
+   *
+   * These headers are only sent for remote model requests, not local file fetches.
+   */
+  remoteModelRequestHeaders?: Record<string, string>;
   /** Whether to use the browser Cache API for model files (default: true). */
   useBrowserCache: boolean;
   /** Preferred inference backend (auto-detected if not set). */
