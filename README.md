@@ -34,6 +34,31 @@ npm install
 npm run build
 ```
 
+
+## Local Translation Model Provisioning
+
+Lengua Materna translation runs against local files in `public/models/` when operating in offline/local-only mode.
+
+```bash
+npm run fetch-models
+```
+
+This command provisions:
+- `public/models/smart-planner-150m-q4/` (local planner model)
+- `public/models/<translation-model-id>/` for all translation models in `browser-translation/src/models/registry.ts`
+
+Shipped translation model IDs:
+`opus-mt-ar-en`, `opus-mt-bn-en`, `opus-mt-cy-en`, `opus-mt-de-en`, `opus-mt-en-ar`, `opus-mt-en-bn`, `opus-mt-en-cy`, `opus-mt-en-de`, `opus-mt-en-es`, `opus-mt-en-fr`, `opus-mt-en-hi`, `opus-mt-en-it`, `opus-mt-en-pa`, `opus-mt-en-pl`, `opus-mt-en-ps`, `opus-mt-en-pt`, `opus-mt-en-so`, `opus-mt-en-ti`, `opus-mt-en-ur`, `opus-mt-es-en`, `opus-mt-fr-en`, `opus-mt-hi-en`, `opus-mt-it-en`, `opus-mt-pa-en`, `opus-mt-pl-en`, `opus-mt-ps-en`, `opus-mt-pt-en`, `opus-mt-so-en`, `opus-mt-ti-en`, `opus-mt-ur-en`.
+
+Validate that every `MODEL_REGISTRY` entry has required local artifacts:
+
+```bash
+npm run validate:translation-models
+LOCAL_ONLY_MODELS=1 npm run validate:translation-models:offline
+```
+
+Required per-model file layout is documented in `browser-translation/README.md`.
+
 ## Quick start / Usage
 
 Example (importing from TypeScript):
