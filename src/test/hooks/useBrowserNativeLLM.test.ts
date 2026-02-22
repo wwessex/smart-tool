@@ -40,14 +40,15 @@ const mockGenerateTemplatePlan = vi.fn().mockReturnValue({
   metadata: { model_id: "template-only", model_version: "0.1.0", backend: "wasm-basic", retrieval_pack_version: "1.0.0", generated_at: new Date().toISOString(), generation_time_ms: 5, tokens_generated: 0 },
 });
 const mockDispose = vi.fn();
+const mockSmartPlanner = vi.fn().mockImplementation(() => ({
+  initialize: mockInitialize,
+  generatePlan: mockGeneratePlan,
+  generateTemplatePlan: mockGenerateTemplatePlan,
+  dispose: mockDispose,
+}));
 
 vi.mock("@smart-tool/browser-native-llm", () => ({
-  SmartPlanner: vi.fn().mockImplementation(() => ({
-    initialize: mockInitialize,
-    generatePlan: mockGeneratePlan,
-    generateTemplatePlan: mockGenerateTemplatePlan,
-    dispose: mockDispose,
-  })),
+  SmartPlanner: mockSmartPlanner,
   detectCapabilities: vi.fn().mockResolvedValue({
     webgpu: false,
     wasmSimd: true,
@@ -71,7 +72,11 @@ vi.mock("../../browser-native-llm/src/runtime/worker.ts?worker", () => ({
   })),
 }));
 
-import { useBrowserNativeLLM, RECOMMENDED_MODELS } from "@/hooks/useBrowserNativeLLM";
+import {
+  useBrowserNativeLLM,
+  RECOMMENDED_MODELS,
+  buildAbsoluteAppAssetUrl,
+} from "@/hooks/useBrowserNativeLLM";
 
 describe("useBrowserNativeLLM", () => {
   beforeEach(() => {
@@ -165,6 +170,25 @@ describe("useBrowserNativeLLM", () => {
       expect(result.current.deviceInfo).toBeDefined();
       expect(typeof result.current.browserInfo.isChrome).toBe("boolean");
       expect(typeof result.current.deviceInfo.isMobile).toBe("boolean");
+    });
+  });
+
+  describe("asset URL resolution", () => {
+    it("builds absolute model and retrieval URLs from BASE_URL", () => {
+      const modelUrl = buildAbsoluteAppAssetUrl("./", "models/", "https://example.com");
+      const retrievalUrl = buildAbsoluteAppAssetUrl(
+        "./",
+        "retrieval-packs/job-search-actions.json",
+        "https://example.com",
+      );
+
+      expect(modelUrl).toBe("https://example.com/models/");
+      expect(retrievalUrl).toBe("https://example.com/retrieval-packs/job-search-actions.json");
+    });
+
+    it("falls back to localhost when app origin is unavailable", () => {
+      const modelUrl = buildAbsoluteAppAssetUrl("./", "models/", "null");
+      expect(modelUrl).toBe("http://localhost/models/");
     });
   });
 
