@@ -119,8 +119,11 @@ function resolveModelBasePath(): string {
 
 function getEngine(): TranslationEngine {
   if (!engineInstance) {
+    const env = (import.meta as unknown as { env?: Record<string, string> }).env;
+    const allowRemoteModels = env?.VITE_ALLOW_REMOTE_TRANSLATION_MODELS !== 'false';
+
     engineInstance = new TranslationEngine({
-      allowRemoteModels: false,
+      allowRemoteModels,
       modelBasePath: resolveModelBasePath(),
       useBrowserCache: true,
       maxLoadedPipelines: 3,
