@@ -40,13 +40,6 @@ export const SUPPORTED_LANGUAGES: Record<LanguageCode, LanguageInfo> = {
     flag: "GB",
     direction: "ltr",
   },
-  cy: {
-    code: "cy",
-    name: "Welsh",
-    nativeName: "Cymraeg",
-    flag: "CY",
-    direction: "ltr",
-  },
   pl: {
     code: "pl",
     name: "Polish",
@@ -62,14 +55,6 @@ export const SUPPORTED_LANGUAGES: Record<LanguageCode, LanguageInfo> = {
     direction: "rtl",
     scriptHint: "Use Arabic script.",
   },
-  bn: {
-    code: "bn",
-    name: "Bengali",
-    nativeName: "\u09AC\u09BE\u0982\u09B2\u09BE",
-    flag: "BD",
-    direction: "ltr",
-    scriptHint: "Use Bengali script.",
-  },
   ar: {
     code: "ar",
     name: "Arabic",
@@ -77,37 +62,6 @@ export const SUPPORTED_LANGUAGES: Record<LanguageCode, LanguageInfo> = {
     flag: "SA",
     direction: "rtl",
     scriptHint: "Use Arabic script.",
-  },
-  pa: {
-    code: "pa",
-    name: "Punjabi",
-    nativeName: "\u0A2A\u0A70\u0A1C\u0A3E\u0A2C\u0A40",
-    flag: "IN",
-    direction: "ltr",
-    scriptHint: "Use Gurmukhi script where appropriate.",
-  },
-  ps: {
-    code: "ps",
-    name: "Pashto",
-    nativeName: "\u067E\u069A\u062A\u0648",
-    flag: "AF",
-    direction: "rtl",
-    scriptHint: "Use Pashto in Arabic script.",
-  },
-  so: {
-    code: "so",
-    name: "Somali",
-    nativeName: "Soomaali",
-    flag: "SO",
-    direction: "ltr",
-  },
-  ti: {
-    code: "ti",
-    name: "Tigrinya",
-    nativeName: "\u1275\u130D\u122D\u129B",
-    flag: "ER",
-    direction: "ltr",
-    scriptHint: "Use Ge\u2019ez script.",
   },
   de: {
     code: "de",
@@ -211,24 +165,24 @@ export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
     attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data.",
   },
   "en-pt": {
-    modelId: "opus-mt-en-mul",
+    modelId: "opus-mt-en-pt",
     sourceLang: "en",
     targetLang: "pt",
-    availableDtypes: ["fp32", "fp16", "int8"],
-    recommendedDtype: "int8",
-    approximateSizeBytes: 130 * 1024 * 1024,
+    availableDtypes: ["fp32", "fp16", "int8", "q4"],
+    recommendedDtype: "q4",
+    approximateSizeBytes: 105 * 1024 * 1024,
     licence: "CC-BY-4.0",
-    attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data. Multilingual target model.",
+    attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data.",
   },
   "en-pl": {
-    modelId: "opus-mt-en-mul",
+    modelId: "opus-mt-en-pl",
     sourceLang: "en",
     targetLang: "pl",
-    availableDtypes: ["fp32", "fp16", "int8"],
-    recommendedDtype: "int8",
-    approximateSizeBytes: 130 * 1024 * 1024,
+    availableDtypes: ["fp32", "fp16", "int8", "q4"],
+    recommendedDtype: "q4",
+    approximateSizeBytes: 105 * 1024 * 1024,
     licence: "CC-BY-4.0",
-    attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data. Multilingual target model.",
+    attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data.",
   },
   "en-ar": {
     modelId: "opus-mt-en-ar",
@@ -251,79 +205,16 @@ export const MODEL_REGISTRY: Record<LanguagePairId, ModelInfo> = {
     attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data.",
   },
   "en-ur": {
-    modelId: "opus-mt-en-mul",
+    modelId: "opus-mt-en-ur",
     sourceLang: "en",
     targetLang: "ur",
-    availableDtypes: ["fp32", "fp16", "int8"],
-    recommendedDtype: "int8",
-    approximateSizeBytes: 130 * 1024 * 1024,
+    availableDtypes: ["fp32", "fp16", "int8", "q4"],
+    recommendedDtype: "q4",
+    approximateSizeBytes: 105 * 1024 * 1024,
     licence: "CC-BY-4.0",
-    attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data. Multilingual target model.",
+    attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data.",
   },
 
-  // ---- Multilingual group models (en → multiple) ----
-  // Some OPUS-MT models cover multiple target languages in one model.
-  // These use a target language prefix token (e.g., ">>cy<<").
-  "en-cy": {
-    modelId: "opus-mt-en-mul",
-    sourceLang: "en",
-    targetLang: "cy",
-    availableDtypes: ["fp32", "fp16", "int8"],
-    recommendedDtype: "int8",
-    approximateSizeBytes: 130 * 1024 * 1024,
-    licence: "CC-BY-4.0",
-    attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data. Multilingual target model.",
-  },
-  "en-bn": {
-    modelId: "opus-mt-en-mul",
-    sourceLang: "en",
-    targetLang: "bn",
-    availableDtypes: ["fp32", "fp16", "int8"],
-    recommendedDtype: "int8",
-    approximateSizeBytes: 130 * 1024 * 1024,
-    licence: "CC-BY-4.0",
-    attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data. Multilingual target model.",
-  },
-  "en-pa": {
-    modelId: "opus-mt-en-mul",
-    sourceLang: "en",
-    targetLang: "pa",
-    availableDtypes: ["fp32", "fp16", "int8"],
-    recommendedDtype: "int8",
-    approximateSizeBytes: 130 * 1024 * 1024,
-    licence: "CC-BY-4.0",
-    attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data. Multilingual target model.",
-  },
-  "en-so": {
-    modelId: "opus-mt-en-mul",
-    sourceLang: "en",
-    targetLang: "so",
-    availableDtypes: ["fp32", "fp16", "int8"],
-    recommendedDtype: "int8",
-    approximateSizeBytes: 130 * 1024 * 1024,
-    licence: "CC-BY-4.0",
-    attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data. Multilingual target model.",
-  },
-  "en-ti": {
-    modelId: "opus-mt-en-mul",
-    sourceLang: "en",
-    targetLang: "ti",
-    availableDtypes: ["fp32", "fp16", "int8"],
-    recommendedDtype: "int8",
-    approximateSizeBytes: 130 * 1024 * 1024,
-    licence: "CC-BY-4.0",
-    attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data. Multilingual target model.",
-  },
-  "en-ps": {
-    modelId: "opus-mt-en-mul",
-    sourceLang: "en",
-    targetLang: "ps",
-    availableDtypes: ["fp32", "fp16", "int8"],
-    recommendedDtype: "int8",
-    approximateSizeBytes: 130 * 1024 * 1024,
-    licence: "CC-BY-4.0",
-    attribution: "OPUS-MT, Helsinki-NLP. Trained on OPUS data. Multilingual target model.",
-  },
 
   // ---- Target → English (reverse pairs for bidirectional support) ----
   "de-en": {
@@ -425,7 +316,7 @@ export function getDirection(code: LanguageCode): ScriptDirection {
  * Uses the recommended dtype for each pair.
  */
 export function estimateDownloadSize(pairs: LanguagePairId[]): number {
-  // Deduplicate by model ID since some pairs share models (e.g., en-mul)
+  // Deduplicate by model ID since multiple pairs can still share a model.
   const seen = new Set<string>();
   let total = 0;
   for (const pair of pairs) {
