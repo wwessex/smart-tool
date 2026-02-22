@@ -194,11 +194,15 @@ export class BPETokenizer {
       throw new Error("Invalid tokenizer.json: missing 'model' field");
     }
 
-    // Parse vocabulary
+    // Parse vocabulary.
+    // Coerce IDs to numbers — some tokenizer.json files store IDs as strings.
     if (model.vocab) {
-      for (const [token, id] of Object.entries(model.vocab)) {
-        this.vocab.set(token, id);
-        this.reverseVocab.set(id, token);
+      for (const [token, rawId] of Object.entries(model.vocab)) {
+        const id = typeof rawId === "number" ? rawId : Number(rawId);
+        if (!Number.isFinite(id) || id < 0) continue; // skip malformed entries
+        const intId = Math.trunc(id);
+        this.vocab.set(token, intId);
+        this.reverseVocab.set(intId, token);
       }
     }
 

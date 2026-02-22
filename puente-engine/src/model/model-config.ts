@@ -108,11 +108,11 @@ function normalizeModelConfig(raw: Record<string, unknown>): ModelConfig {
       (raw.n_positions as number) ??
       512,
     is_encoder_decoder: isEncoderDecoder,
-    decoder_start_token_id: raw.decoder_start_token_id as number | undefined,
+    decoder_start_token_id: toSafeInt(raw.decoder_start_token_id),
     eos_token_id: normalizeTokenId(raw.eos_token_id),
-    bos_token_id: raw.bos_token_id as number | undefined,
-    pad_token_id: raw.pad_token_id as number | undefined,
-    forced_bos_token_id: raw.forced_bos_token_id as number | undefined,
+    bos_token_id: toSafeInt(raw.bos_token_id),
+    pad_token_id: toSafeInt(raw.pad_token_id),
+    forced_bos_token_id: toSafeInt(raw.forced_bos_token_id),
     rope_theta:
       (raw.rope_theta as number) ??
       (raw.rope_scaling ? 10000 : undefined),
@@ -150,13 +150,24 @@ function normalizeGenerationConfig(
 }
 
 /**
+ * Coerce a raw config value to a safe integer, or return undefined.
+ * Handles string-typed IDs that some model config files produce.
+ */
+function toSafeInt(value: unknown): number | undefined {
+  if (value == null) return undefined;
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? Math.trunc(n) : undefined;
+}
+
+/**
  * Normalise eos_token_id which can be a number or array of numbers.
  */
 function normalizeTokenId(
   value: unknown
 ): number | number[] | undefined {
   if (typeof value === "number") return value;
-  if (Array.isArray(value)) return value as number[];
+  if (Array.isArray(value)) return value.map(Number).filter(Number.isFinite);
+  if (typeof value === "string") return toSafeInt(value);
   return undefined;
 }
 
