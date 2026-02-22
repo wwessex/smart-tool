@@ -207,7 +207,7 @@ export function useTranslation(options: UseTranslationOptions = {}) {
         const translatedText = extractTranslatedText(engineResult);
 
         if (!translatedText) {
-          throw new Error('Translation completed but returned no text.');
+          throw new Error('Translation model returned empty output. The model may still be loading — please try again.');
         }
 
         const result: TranslationResult = {

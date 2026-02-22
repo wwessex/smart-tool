@@ -154,7 +154,7 @@ describe('useTranslation', () => {
 
     expect(translated).toBeNull();
     expect(result.current.result).toBeNull();
-    expect(result.current.error).toBe('Translation completed but returned no text.');
+    expect(result.current.error).toBe('Translation model returned empty output. The model may still be loading — please try again.');
   });
 
   it('returns null and sets error on translation failure', async () => {
