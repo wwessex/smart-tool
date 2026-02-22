@@ -56,6 +56,7 @@ import { useBrowserNativeLLM } from '@/hooks/useBrowserNativeLLM';
 import type { SMARTAction, SMARTPlan, RawUserInput } from '@/hooks/useBrowserNativeLLM';
 import { usePromptPack } from '@/hooks/usePromptPack';
 import { buildSystemPrompt, DEFAULT_PROMPT_PACK } from '@/lib/prompt-pack';
+import { logDraftAnalytics } from '@/lib/draft-analytics';
 
 /**
  * Safely remove from localStorage, catching any errors.
@@ -607,7 +608,7 @@ export function SmartActionTool() {
   }, [futureForm, toast]);
 
   // Map a selected SMARTAction from the plan picker to form fields
-  const handleSelectPlanAction = useCallback((action: SMARTAction) => {
+  const handleSelectPlanAction = useCallback((action: SMARTAction, selectedIndex?: number) => {
     if (mode === 'now') {
       setNowForm(prev => ({
         ...prev,
@@ -621,10 +622,21 @@ export function SmartActionTool() {
         outcome: action.action,
       }));
     }
+
+    // Log analytics: action selected from plan
+    logDraftAnalytics({
+      timestamp: new Date().toISOString(),
+      signal: "selected",
+      barrier: mode === 'now' ? nowForm.barrier : undefined,
+      selected_index: selectedIndex,
+      generated_text: action.action,
+      source: "ai",
+    });
+
     setShowPlanPicker(false);
     setPlanResult(null);
     toast({ title: 'Action applied', description: 'SMART action added to form. Edit as needed.' });
-  }, [mode, toast]);
+  }, [mode, nowForm.barrier, toast]);
 
   const handleAIDraft = useCallback(async () => {
     if (mode === 'now') {
@@ -676,6 +688,8 @@ export function SmartActionTool() {
             situation: `Employment advisor helping ${nowForm.forename} with ${nowForm.barrier}`,
             participant_name: nowForm.forename,
             supporter: nowForm.responsible,
+            selected_barrier_id: nowForm.barrier,
+            selected_barrier_label: nowForm.barrier,
           }
         : {
             goal: futureForm.task,
@@ -686,6 +700,16 @@ export function SmartActionTool() {
           };
 
       const plan = await llm.generatePlan(input);
+
+      // Log analytics: plan generated
+      logDraftAnalytics({
+        timestamp: new Date().toISOString(),
+        signal: "generated",
+        barrier: mode === 'now' ? nowForm.barrier : undefined,
+        barrier_id: input.selected_barrier_id,
+        actions_count: plan.actions.length,
+        source: "ai",
+      });
 
       if (plan.actions.length === 1) {
         // Single action — apply directly
@@ -938,6 +962,8 @@ export function SmartActionTool() {
           situation: `Helping ${context.forename || 'participant'}`,
           participant_name: context.forename,
           supporter: context.responsible,
+          selected_barrier_id: context.barrier,
+          selected_barrier_label: context.barrier,
         };
         const plan = await llm.generatePlan(input);
         if (plan.actions.length > 0) {
@@ -2664,7 +2690,7 @@ export function SmartActionTool() {
             {planResult?.actions.map((action, idx) => (
               <button
                 key={idx}
-                onClick={() => handleSelectPlanAction(action)}
+                onClick={() => handleSelectPlanAction(action, idx)}
                 className="w-full p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm transition-all duration-200 text-left group space-y-2"
               >
                 <div className="flex items-start justify-between gap-2">
@@ -2686,7 +2712,17 @@ export function SmartActionTool() {
               </p>
             )}
             <div className="flex justify-end pt-2">
-              <Button variant="ghost" size="sm" onClick={() => { setShowPlanPicker(false); setPlanResult(null); }}>
+              <Button variant="ghost" size="sm" onClick={() => {
+                logDraftAnalytics({
+                  timestamp: new Date().toISOString(),
+                  signal: "rejected",
+                  barrier: mode === 'now' ? nowForm.barrier : undefined,
+                  actions_count: planResult?.actions.length,
+                  source: "ai",
+                });
+                setShowPlanPicker(false);
+                setPlanResult(null);
+              }}>
                 Cancel
               </Button>
             </div>
