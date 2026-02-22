@@ -1,6 +1,6 @@
 /**
  * AI Prompts for SMART Action Tool
- * Optimized for the Amor inteligente local LLM (135M-500M)
+ * Optimized for the Amor inteligente local LLM (35M-350M)
  */
 
 export const IMPROVE_PROMPT = `You are a SMART action improvement specialist for employment advisors. Your job is to enhance employment-related actions to be more Specific, Measurable, Achievable, Relevant, and Time-bound.
@@ -100,7 +100,7 @@ export const WIZARD_PROMPTS = {
 };
 
 // ===== AI DRAFT PROMPTS FOR LOCAL LLM =====
-// These are optimized for small LLMs (135M-500M parameters)
+// These are optimized for small LLMs (35M-350M parameters)
 // Keep prompts concise, direct, and context-specific
 // CRITICAL: Include negative instructions to prevent off-topic generation
 
@@ -187,7 +187,7 @@ export function getPromptForModel(
   isCompact: boolean = false
 ): string {
   // Use compact prompts for smallest models or when explicitly requested
-  const useCompact = isCompact || (modelId && modelId.includes('135M'));
+  const useCompact = isCompact || (modelId && modelId.includes('35m'));
   
   switch (promptType) {
     case 'action':

@@ -31,18 +31,18 @@ export interface ModelInfo {
 
 export const RECOMMENDED_MODELS: ModelInfo[] = [
   {
-    id: "SmolLM2-360M-Instruct",
+    id: "smart-planner-150m-q4",
     name: "AI Module",
-    size: "~500MB",
+    size: "~80MB",
     description: "Offline AI drafting module",
   },
 ];
 
 const MOBILE_RECOMMENDED_MODELS: ModelInfo[] = [
   {
-    id: "SmolLM2-135M-Instruct",
+    id: "smart-planner-35m-q4",
     name: "AI Module (Mobile)",
-    size: "~220MB",
+    size: "~20MB",
     description: "Smaller offline AI module for mobile Safari",
   },
 ];
