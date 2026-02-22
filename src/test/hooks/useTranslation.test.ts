@@ -133,7 +133,7 @@ describe('useTranslation', () => {
   });
 
 
-  it('falls back to source text when engine returns an empty translation payload', async () => {
+  it('returns error when engine returns an empty translation payload', async () => {
     mockTranslate.mockResolvedValue({
       original: 'Hello',
       translated: '   ',
@@ -152,13 +152,9 @@ describe('useTranslation', () => {
       translated = await result.current.translate('Hello', 'ar');
     });
 
-    expect(translated).toEqual({
-      original: 'Hello',
-      translated: 'Hello',
-      language: 'ar',
-      languageName: 'Arabic',
-    });
-    expect(result.current.error).toBeNull();
+    expect(translated).toBeNull();
+    expect(result.current.result).toBeNull();
+    expect(result.current.error).toBe('Translation completed but returned no text.');
   });
 
   it('returns null and sets error on translation failure', async () => {
