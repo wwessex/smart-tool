@@ -186,11 +186,18 @@ export class PipelineManager {
 
       // Not a 404, or remote models not allowed — propagate original error.
       const rawMessage = localError instanceof Error ? localError.message : String(localError);
+      const isMissingModel = PipelineManager.is404Error(localError);
 
       const isAccessError = /unauthori[sz]ed|forbidden|401|403/i.test(rawMessage);
       const message = isAccessError
         ? `Translation model "${modelId}" is unavailable — the model files may be missing or inaccessible.`
-        : rawMessage;
+        : isMissingModel
+          ? [
+              `Translation model "${modelId}" was not found in local files.`,
+              `Expected model path: "${this.buildModelPaths(modelId, false).configPath}".`,
+              `Run \`npm run fetch-models\` to download local translation models, or set \`allowRemoteModels: true\` to enable automatic CDN fallback.`,
+            ].join(" ")
+          : rawMessage;
 
       this.emitProgress(modelId, "error", 0, 0, message);
       throw new Error(message);
