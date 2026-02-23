@@ -207,7 +207,7 @@ export function SmartActionTool() {
     forename: '',
     barrier: '',
     action: '',
-    responsible: '',
+    responsible: 'Participant',
     help: '',
     timescale: ''
   });
@@ -215,7 +215,7 @@ export function SmartActionTool() {
     date: today,
     forename: '',
     task: '',
-    responsible: '',
+    responsible: 'Participant',
     outcome: '',
     timescale: ''
   });
@@ -455,9 +455,9 @@ export function SmartActionTool() {
 
   const handleClear = useCallback(() => {
     if (mode === 'now') {
-      setNowForm({ date: today, time: '', forename: '', barrier: '', action: '', responsible: '', help: '', timescale: '' });
+      setNowForm({ date: today, time: '', forename: '', barrier: '', action: '', responsible: 'Participant', help: '', timescale: '' });
     } else {
-      setFutureForm({ date: today, forename: '', task: '', responsible: '', outcome: '', timescale: '' });
+      setFutureForm({ date: today, forename: '', task: '', responsible: 'Participant', outcome: '', timescale: '' });
     }
     setOutput('');
     setOutputSource('form');
@@ -2233,14 +2233,19 @@ export function SmartActionTool() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-muted-foreground">Who is responsible?</label>
-                    <ComboboxInput
+                    <Select
                       value={nowForm.responsible}
-                      onChange={(value) => setNowForm(prev => ({ ...prev, responsible: value }))}
-                      options={['Participant', 'Advisor', 'I']}
-                      placeholder="Select or type…"
-                      emptyMessage="No options found."
-                      className={getFieldClass(!!nowForm.responsible)}
-                    />
+                      onValueChange={(value) => setNowForm(prev => ({ ...prev, responsible: value }))}
+                    >
+                      <SelectTrigger className={getFieldClass(!!nowForm.responsible)}>
+                        <SelectValue placeholder="Select responsible person…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Participant">Participant</SelectItem>
+                        <SelectItem value="Advisor">Advisor</SelectItem>
+                        <SelectItem value="I">I</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-muted-foreground">This action will help…</label>
@@ -2330,14 +2335,19 @@ export function SmartActionTool() {
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Who is responsible?</label>
-                  <ComboboxInput
+                  <Select
                     value={futureForm.responsible}
-                    onChange={(value) => setFutureForm(prev => ({ ...prev, responsible: value }))}
-                    options={['Participant', 'Advisor', 'I']}
-                    placeholder="Select or type…"
-                    emptyMessage="No options found."
-                    className={getFieldClass(!!futureForm.responsible)}
-                  />
+                    onValueChange={(value) => setFutureForm(prev => ({ ...prev, responsible: value }))}
+                  >
+                    <SelectTrigger className={getFieldClass(!!futureForm.responsible)}>
+                      <SelectValue placeholder="Select responsible person…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Participant">Participant</SelectItem>
+                      <SelectItem value="Advisor">Advisor</SelectItem>
+                      <SelectItem value="I">I</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Advisor Assist - Task-based */}
