@@ -15,7 +15,7 @@
 
 import { checkSmart, type SmartCheck } from './smart-checker';
 import { classifyBarrier } from './smart-data';
-import { evaluateBarrierRelevance } from '../../browser-native-llm/src/relevance/barrier-relevance';
+import { evaluateBarrierRelevance } from '@smart-tool/browser-native-llm';
 
 export interface RelevanceResult {
   /** The action text that was checked. */
