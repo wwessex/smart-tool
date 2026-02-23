@@ -11,6 +11,74 @@ import type { UserProfile, ActionTemplate, SkillEntry, JobSearchStage, ResolvedB
 import { ActionLibrary } from "./action-library.js";
 import { splitOnWhitespace } from "../utils/sanitize.js";
 
+const WORD_RE = /[a-z0-9]+(?:[\-_][a-z0-9]+)*/gi;
+
+function normalizeTerm(text: string): string {
+  return text.toLowerCase().replace(/[\-_]+/g, " ").trim();
+}
+
+function tokenize(text: string): string[] {
+  return (text.match(WORD_RE) ?? []).map(normalizeTerm).filter((t) => t.length > 0);
+}
+
+function tokenSet(text: string): Set<string> {
+  return new Set(tokenize(text));
+}
+
+function hasTokenBoundaryMatch(text: string, term: string): boolean {
+  const normalized = normalizeTerm(term);
+  if (!normalized) return false;
+
+  if (normalized.includes(" ")) {
+    const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "[\\s_-]+");
+    return new RegExp(`(?:^|[^a-z0-9])${escaped}(?:$|[^a-z0-9])`, "i").test(text);
+  }
+
+  return tokenSet(text).has(normalized);
+}
+
+function overlapRatio(left: Set<string>, right: Set<string>): number {
+  if (left.size === 0 || right.size === 0) return 0;
+  let common = 0;
+  for (const token of left) {
+    if (right.has(token)) common++;
+  }
+  return common / Math.min(left.size, right.size);
+}
+
+function phraseOverlapScore(query: string, text: string): number {
+  const queryTokens = splitOnWhitespace(query.toLowerCase()).filter((t) => t.length > 2);
+  if (queryTokens.length < 2) return 0;
+
+  let hitCount = 0;
+  let total = 0;
+  for (let i = 0; i < queryTokens.length - 1; i++) {
+    const phrase = `${queryTokens[i]} ${queryTokens[i + 1]}`;
+    total += 1;
+    if (hasTokenBoundaryMatch(text, phrase)) {
+      hitCount += 1;
+    }
+  }
+
+  return total > 0 ? hitCount / total : 0;
+}
+
+function cosineSimilarity(left: number[], right: number[]): number {
+  if (left.length === 0 || right.length === 0 || left.length !== right.length) return 0;
+
+  let dot = 0;
+  let leftNorm = 0;
+  let rightNorm = 0;
+  for (let i = 0; i < left.length; i++) {
+    dot += left[i] * right[i];
+    leftNorm += left[i] * left[i];
+    rightNorm += right[i] * right[i];
+  }
+
+  if (leftNorm === 0 || rightNorm === 0) return 0;
+  return dot / (Math.sqrt(leftNorm) * Math.sqrt(rightNorm));
+}
+
 /** Result of a retrieval query. */
 export interface RetrievalResult {
   /** Templates selected for prompt injection. */
@@ -21,6 +89,8 @@ export interface RetrievalResult {
   stages: JobSearchStage[];
   /** Short summary for debugging/tracing. */
   retrieval_summary: string;
+  /** Per-template score diagnostics for offline tuning. */
+  score_breakdown: Array<{ template_id: string; score: number; features: Record<string, number> }>;
 }
 
 /** Configuration for the retriever. */
@@ -42,6 +112,27 @@ const DEFAULT_CONFIG: RetrieverConfig = {
   diversify_stages: true,
 };
 
+const WEIGHTS = {
+  goal_token_overlap: 2.6,
+  goal_phrase_overlap: 2.2,
+  barrier_exact_match: 4.8,
+  barrier_tag_exact_match: 3.8,
+  skill_token_overlap: 1.8,
+  confidence_fit: 1.0,
+  support_fit: 1.2,
+  effort_fit: 0.5,
+  prerequisites_bonus: 0.8,
+  semantic_similarity: 1.6,
+  contraindicated_stage_penalty: -3.0,
+  contraindicated_barrier_penalty: -5.0,
+};
+
+interface ScoredCandidate {
+  template: ActionTemplate;
+  score: number;
+  features: Record<string, number>;
+}
+
 /**
  * Retrieves relevant templates and skills for a user profile.
  * Uses a multi-signal scoring approach combining:
@@ -61,24 +152,21 @@ export class LocalRetriever {
 
   /** Retrieve templates and skills relevant to the user profile. */
   retrieve(profile: UserProfile): RetrievalResult {
-    // Collect candidate templates from multiple signals
     const candidates = this.gatherCandidates(profile);
-
-    // Score and rank candidates
     const scored = this.scoreCandidates(candidates, profile);
 
-    // When a resolved barrier is present, ensure at least half the selected
-    // templates are barrier-matched before diversifying across stages
     const selectedTemplates = profile.resolved_barrier
       ? this.barrierPrioritisedSelect(scored, this.config.max_templates, profile)
       : this.config.diversify_stages
         ? this.diverseSelect(scored, this.config.max_templates)
         : scored.slice(0, this.config.max_templates).map((s) => s.template);
 
-    // Retrieve relevant skills
-    const skills = this.retrieveSkills(profile);
+    const selectedSet = new Set(selectedTemplates.map((t) => t.id));
+    const score_breakdown = scored
+      .filter((s) => selectedSet.has(s.template.id))
+      .map((s) => ({ template_id: s.template.id, score: s.score, features: s.features }));
 
-    // Determine which stages are covered
+    const skills = this.retrieveSkills(profile);
     const stages = [...new Set(selectedTemplates.map((t) => t.stage))];
 
     return {
@@ -86,62 +174,48 @@ export class LocalRetriever {
       skills,
       stages,
       retrieval_summary: `Retrieved ${selectedTemplates.length} templates across ${stages.length} stages, ${skills.length} skills (barrier: ${profile.resolved_barrier?.id ?? "none"})`,
+      score_breakdown,
     };
   }
 
-  /**
-   * Select templates ensuring at least half are barrier-matched,
-   * then fill the rest with stage-diversified picks.
-   */
   private barrierPrioritisedSelect(
-    scored: Array<{ template: ActionTemplate; score: number }>,
+    scored: ScoredCandidate[],
     maxCount: number,
     profile: UserProfile,
   ): ActionTemplate[] {
     const resolved = profile.resolved_barrier!;
-    const barrierTerms = [resolved.id, ...resolved.retrieval_tags].map(t => t.toLowerCase());
+    const barrierTerms = [resolved.id, ...resolved.retrieval_tags].map(normalizeTerm);
     const contraindicated = new Set(resolved.contraindicated_stages);
 
-    // Partition into barrier-matched and other
-    const barrierMatched: Array<{ template: ActionTemplate; score: number }> = [];
-    const other: Array<{ template: ActionTemplate; score: number }> = [];
+    const barrierMatched: ScoredCandidate[] = [];
+    const other: ScoredCandidate[] = [];
 
     for (const item of scored) {
-      // Skip contraindicated stages
-      if (contraindicated.has(item.template.stage)) {
-        continue;
-      }
+      if (contraindicated.has(item.template.stage)) continue;
+      if (this.isTemplateContraindicatedForBarrier(item.template, resolved)) continue;
 
-      // Skip templates explicitly contraindicated for this barrier
-      if (this.isTemplateContraindicatedForBarrier(item.template, resolved)) {
-        continue;
-      }
-
-      const isBarrierMatch = item.template.relevant_barriers.some((rb) =>
-        barrierTerms.some((bt) => rb.toLowerCase().includes(bt) || bt.includes(rb.toLowerCase()))
-      ) || item.template.tags.some((tag) =>
-        barrierTerms.some((bt) => tag.toLowerCase().includes(bt))
+      const barrierExact = item.template.relevant_barriers.some((rb) =>
+        barrierTerms.some((bt) => hasTokenBoundaryMatch(rb.toLowerCase(), bt) || hasTokenBoundaryMatch(bt, rb.toLowerCase()))
+      );
+      const barrierTagExact = item.template.tags.some((tag) =>
+        barrierTerms.some((bt) => hasTokenBoundaryMatch(tag.toLowerCase(), bt))
       );
 
-      if (isBarrierMatch) {
+      if (barrierExact || barrierTagExact) {
         barrierMatched.push(item);
       } else {
         other.push(item);
       }
     }
 
-    // Take at least half barrier-matched, then fill with diversified others
     const minBarrier = Math.min(Math.ceil(maxCount / 2), barrierMatched.length);
-    const selected: ActionTemplate[] = barrierMatched.slice(0, minBarrier).map(s => s.template);
+    const selected: ActionTemplate[] = barrierMatched.slice(0, minBarrier).map((s) => s.template);
 
-    // Fill remaining with stage-diversified picks from other
     const remaining = maxCount - selected.length;
     if (remaining > 0 && other.length > 0) {
-      const diversified = this.diverseSelect(other, remaining);
-      selected.push(...diversified);
+      selected.push(...this.diverseSelect(other, remaining));
     }
 
-    // If still under target, add more barrier-matched
     if (selected.length < maxCount && barrierMatched.length > minBarrier) {
       for (let i = minBarrier; i < barrierMatched.length && selected.length < maxCount; i++) {
         selected.push(barrierMatched[i].template);
@@ -154,64 +228,32 @@ export class LocalRetriever {
   private gatherCandidates(profile: UserProfile): Set<ActionTemplate> {
     const candidates = new Set<ActionTemplate>();
 
-    // Signal 1: barrier-matched templates
     if (profile.barriers.length > 0) {
-      for (const t of this.library.getByBarriers(profile.barriers)) {
-        candidates.add(t);
-      }
+      for (const t of this.library.getByBarriers(profile.barriers)) candidates.add(t);
     }
 
-    // Signal 1b: retrieval tags from resolved barrier catalog
     if (profile.resolved_barrier) {
-      const tagTemplates = this.library.getByTags(profile.resolved_barrier.retrieval_tags);
-      for (const t of tagTemplates) {
-        candidates.add(t);
-      }
+      for (const t of this.library.getByTags(profile.resolved_barrier.retrieval_tags)) candidates.add(t);
     }
 
-    // Signal 2: goal keyword search
-    const goalTemplates = this.library.search(profile.job_goal, 20);
-    for (const t of goalTemplates) {
-      candidates.add(t);
-    }
+    for (const t of this.library.search(profile.job_goal, 20)) candidates.add(t);
 
-    // Signal 3: skill-tagged templates
     if (profile.skills.length > 0) {
-      const skillTemplates = this.library.getByTags(profile.skills);
-      for (const t of skillTemplates) {
-        candidates.add(t);
-      }
+      for (const t of this.library.getByTags(profile.skills)) candidates.add(t);
     }
 
-    // Signal 4: industry-tagged templates
     if (profile.industry) {
-      const industryTemplates = this.library.getByTags([profile.industry]);
-      for (const t of industryTemplates) {
-        candidates.add(t);
-      }
+      for (const t of this.library.getByTags([profile.industry])) candidates.add(t);
     }
 
-    // Signal 5: confidence-appropriate templates
-    const confidenceTemplates = this.library.getByConfidence(profile.confidence_level);
-    for (const t of confidenceTemplates) {
-      candidates.add(t);
-    }
+    for (const t of this.library.getByConfidence(profile.confidence_level)) candidates.add(t);
 
-    // If we have very few candidates, add templates from all core stages
-    // (but skip contraindicated stages when resolved barrier is present)
     if (candidates.size < this.config.max_templates) {
-      const coreStages: JobSearchStage[] = [
-        "cv_preparation",
-        "applications",
-        "networking",
-        "interviewing",
-      ];
+      const coreStages: JobSearchStage[] = ["cv_preparation", "applications", "networking", "interviewing"];
       const contraindicated = profile.resolved_barrier?.contraindicated_stages ?? [];
       for (const stage of coreStages) {
         if (!contraindicated.includes(stage)) {
-          for (const t of this.library.getByStage(stage)) {
-            candidates.add(t);
-          }
+          for (const t of this.library.getByStage(stage)) candidates.add(t);
         }
       }
     }
@@ -219,117 +261,110 @@ export class LocalRetriever {
     return candidates;
   }
 
-  private scoreCandidates(
-    candidates: Set<ActionTemplate>,
-    profile: UserProfile
-  ): Array<{ template: ActionTemplate; score: number }> {
-    const scored: Array<{ template: ActionTemplate; score: number }> = [];
-    const goalTerms = splitOnWhitespace(profile.job_goal.toLowerCase());
-    const barrierTerms = profile.barriers.map((b) => b.toLowerCase());
-    const skillTerms = profile.skills.map((s) => s.toLowerCase());
-    const resolved = profile.resolved_barrier;
+  private scoreCandidates(candidates: Set<ActionTemplate>, profile: UserProfile): ScoredCandidate[] {
+    const scored: ScoredCandidate[] = [];
 
-    // When a resolved barrier is present, boost barrier matching weight
-    const barrierWeight = resolved ? 4 : 2;
+    const goalQuery = profile.job_goal.toLowerCase();
+    const goalTokens = tokenSet(goalQuery);
+    const skillTokens = tokenSet(profile.skills.join(" "));
+    const barrierTerms = profile.barriers.map(normalizeTerm).filter((t) => t.length > 0);
+    const resolved = profile.resolved_barrier;
+    const semanticQuery = this.buildLightweightSemanticVector(profile);
 
     for (const template of candidates) {
-      let score = 0;
-      const templateText = [
-        template.action_template,
-        ...template.tags,
-        ...template.relevant_barriers,
-      ]
-        .join(" ")
-        .toLowerCase();
+      const features: Record<string, number> = {};
+      const templateText = [template.action_template, template.stage, ...template.tags, ...template.relevant_barriers].join(" ").toLowerCase();
+      const templateTokens = tokenSet(templateText);
 
-      // Goal relevance (up to 3 points)
-      let goalScore = 0;
-      for (const term of goalTerms) {
-        if (term.length > 2 && templateText.includes(term)) {
-          goalScore += 1;
-        }
-      }
-      score += Math.min(goalScore, 3);
+      features.goal_token_overlap = overlapRatio(goalTokens, templateTokens) * WEIGHTS.goal_token_overlap;
+      features.goal_phrase_overlap = phraseOverlapScore(goalQuery, templateText) * WEIGHTS.goal_phrase_overlap;
 
-      // Barrier match (boosted when resolved barrier is available)
-      for (const barrier of barrierTerms) {
-        if (template.relevant_barriers.some((rb) => rb.toLowerCase().includes(barrier))) {
-          score += barrierWeight;
-        }
-      }
+      const barrierExactHits = barrierTerms.filter((barrier) =>
+        template.relevant_barriers.some((rb) => hasTokenBoundaryMatch(rb.toLowerCase(), barrier))
+      ).length;
+      features.barrier_exact_match = barrierExactHits * WEIGHTS.barrier_exact_match;
 
-      // Retrieval tag match from resolved barrier (bonus for catalog-tagged templates)
       if (resolved) {
-        for (const tag of resolved.retrieval_tags) {
-          if (template.tags.some((t) => t.toLowerCase().includes(tag.toLowerCase()))) {
-            score += 1.5;
-          }
-        }
+        const barrierTagHits = resolved.retrieval_tags.filter((tag) =>
+          template.tags.some((templateTag) => hasTokenBoundaryMatch(templateTag.toLowerCase(), tag.toLowerCase()))
+        ).length;
+        features.barrier_tag_exact_match = barrierTagHits * WEIGHTS.barrier_tag_exact_match;
 
-        // Penalise templates in contraindicated stages
         if (resolved.contraindicated_stages.includes(template.stage)) {
-          score -= 3;
+          features.contraindicated_stage_penalty = WEIGHTS.contraindicated_stage_penalty;
         }
 
         if (this.isTemplateContraindicatedForBarrier(template, resolved)) {
-          score -= 5;
+          features.contraindicated_barrier_penalty = WEIGHTS.contraindicated_barrier_penalty;
         }
 
-        // Boost templates that include practical prerequisites for this barrier
         if ((template.required_prerequisites ?? []).length > 0) {
-          score += 1;
+          features.prerequisites_bonus = WEIGHTS.prerequisites_bonus;
         }
       }
 
-      // Skill match (1 point per matching skill)
-      for (const skill of skillTerms) {
-        if (template.tags.some((tag) => tag.toLowerCase().includes(skill))) {
-          score += 1;
-        }
-      }
+      const skillTagText = template.tags.join(" ").toLowerCase();
+      features.skill_token_overlap = overlapRatio(skillTokens, tokenSet(skillTagText)) * WEIGHTS.skill_token_overlap;
 
-      // Confidence appropriateness (1 point if within range)
       if (template.min_confidence <= profile.confidence_level) {
-        score += 1;
+        features.confidence_fit = WEIGHTS.confidence_fit;
       }
 
-      // Support-level fit: lower confidence users benefit from higher-support templates
       if (template.support_level === "high" && profile.confidence_level <= 2) {
-        score += 1.5;
+        features.support_fit = WEIGHTS.support_fit;
       } else if (template.support_level === "medium" && profile.confidence_level <= 3) {
-        score += 1;
+        features.support_fit = WEIGHTS.support_fit * 0.75;
       } else if (template.support_level === "low" && profile.confidence_level >= 4) {
-        score += 0.5;
+        features.support_fit = WEIGHTS.support_fit * 0.5;
       }
 
-      // Effort feasibility (0.5 points if effort hint seems compatible with hours)
       if (template.effort_hint && profile.hours_per_week > 0) {
-        score += 0.5;
+        features.effort_fit = WEIGHTS.effort_fit;
       }
 
+      const templateEmbedding = this.library.getTemplateEmbedding(template.id);
+      if (semanticQuery && templateEmbedding) {
+        const sim = Math.max(0, cosineSimilarity(semanticQuery, templateEmbedding));
+        features.semantic_similarity = sim * WEIGHTS.semantic_similarity;
+      }
+
+      const score = Object.values(features).reduce((sum, val) => sum + val, 0);
       if (score >= this.config.min_relevance) {
-        scored.push({ template, score });
+        scored.push({ template, score, features });
       }
     }
 
     return scored.sort((a, b) => b.score - a.score);
   }
 
-  /**
-   * Select templates ensuring diversity across job-search stages.
-   * Uses round-robin across stages, prioritising higher-scored templates.
-   */
-  private diverseSelect(
-    scored: Array<{ template: ActionTemplate; score: number }>,
-    maxCount: number
-  ): ActionTemplate[] {
-    const byStage = new Map<JobSearchStage, Array<{ template: ActionTemplate; score: number }>>();
+  private buildLightweightSemanticVector(profile: UserProfile): number[] | null {
+    const corpus = `${profile.job_goal} ${profile.skills.join(" ")} ${profile.barriers.join(" ")}`.trim();
+    const terms = tokenize(corpus).filter((term) => term.length > 2);
+    if (terms.length === 0) return null;
+
+    // 16-d hashed bag-of-words vector for lightweight paraphrase signal.
+    const dims = 16;
+    const vector = new Array<number>(dims).fill(0);
+    for (const term of terms) {
+      let hash = 2166136261;
+      for (let i = 0; i < term.length; i++) {
+        hash ^= term.charCodeAt(i);
+        hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+      }
+      const idx = Math.abs(hash) % dims;
+      vector[idx] += 1;
+    }
+
+    return vector;
+  }
+
+  private diverseSelect(scored: ScoredCandidate[], maxCount: number): ActionTemplate[] {
+    const byStage = new Map<JobSearchStage, ScoredCandidate[]>();
 
     for (const item of scored) {
-      const stage = item.template.stage;
-      const stageList = byStage.get(stage) ?? [];
+      const stageList = byStage.get(item.template.stage) ?? [];
       stageList.push(item);
-      byStage.set(stage, stageList);
+      byStage.set(item.template.stage, stageList);
     }
 
     const selected: ActionTemplate[] = [];
@@ -347,16 +382,13 @@ export class LocalRetriever {
     return selected;
   }
 
-  private isTemplateContraindicatedForBarrier(
-    template: ActionTemplate,
-    barrier: ResolvedBarrier
-  ): boolean {
+  private isTemplateContraindicatedForBarrier(template: ActionTemplate, barrier: ResolvedBarrier): boolean {
     const contraindicated = (template.contraindicated_barriers ?? []).map((b) => b.toLowerCase());
     if (contraindicated.length === 0) return false;
 
-    const barrierTerms = [barrier.id, ...barrier.retrieval_tags].map((t) => t.toLowerCase());
+    const barrierTerms = [barrier.id, ...barrier.retrieval_tags].map(normalizeTerm);
     return contraindicated.some((cb) =>
-      barrierTerms.some((term) => cb.includes(term) || term.includes(cb))
+      barrierTerms.some((term) => hasTokenBoundaryMatch(cb, term) || hasTokenBoundaryMatch(term, cb))
     );
   }
 
@@ -364,7 +396,6 @@ export class LocalRetriever {
     const allSkills: SkillEntry[] = [];
     const seen = new Set<string>();
 
-    // Search by goal
     for (const skill of this.library.searchSkills(profile.job_goal, 3)) {
       if (!seen.has(skill.id)) {
         seen.add(skill.id);
@@ -372,7 +403,6 @@ export class LocalRetriever {
       }
     }
 
-    // Search by existing skills
     for (const userSkill of profile.skills) {
       for (const skill of this.library.searchSkills(userSkill, 2)) {
         if (!seen.has(skill.id)) {
