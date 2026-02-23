@@ -242,6 +242,28 @@ describe('useTranslation', () => {
     );
   });
 
+
+
+  it('preserves Authorization header when token already includes Bearer prefix', async () => {
+    vi.stubEnv('VITE_HF_TOKEN', 'Bearer hf_prefixed');
+
+    const { result } = renderHook(() => useTranslation({ enabled: true }));
+
+    await act(async () => {
+      await result.current.translate('Hello', 'ar');
+    });
+
+    const EngineCtor = vi.mocked(TranslationEngine);
+    expect(EngineCtor).toHaveBeenCalledTimes(1);
+    expect(EngineCtor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        remoteModelRequestHeaders: {
+          Authorization: 'Bearer hf_prefixed',
+        },
+      }),
+    );
+  });
+
   it('omits auth headers when VITE_HF_TOKEN is absent', async () => {
     vi.unstubAllEnvs();
     vi.stubEnv('PROD', false);
