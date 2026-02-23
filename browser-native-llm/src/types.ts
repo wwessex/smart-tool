@@ -150,6 +150,8 @@ export interface ActionTemplate {
   min_confidence: number;
   /** Source attribution (e.g. "National Careers Service, OGL v3.0"). */
   source_attribution: string;
+  /** Optional precomputed embedding vector used for semantic retrieval scoring. */
+  embedding?: number[];
 }
 
 export type JobSearchStage =
@@ -179,6 +181,13 @@ export interface RetrievalPack {
   updated_at: string;
   templates: ActionTemplate[];
   skills: SkillEntry[];
+  /** Optional semantic metadata for retrieval-time embedding scoring. */
+  semantic_index?: {
+    /** Embeddings keyed by template id (fallback when template.embedding is absent). */
+    template_embeddings?: Record<string, number[]>;
+    /** Optional embedding model identifier used for offline generation. */
+    model?: string;
+  };
 }
 
 // ---------------------------------------------------------------------------
