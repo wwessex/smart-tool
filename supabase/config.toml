@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.smart-translate]
 verify_jwt = false
+
+[functions.custom-knowledge-base]
+verify_jwt = true
