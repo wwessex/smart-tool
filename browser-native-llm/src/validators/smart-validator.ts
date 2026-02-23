@@ -18,6 +18,7 @@ import type {
   ResolvedBarrier,
 } from "../types.js";
 import { sanitizeForLog, splitOnWhitespace } from "../utils/sanitize.js";
+import { evaluateActionBarrierRelevance } from "../relevance/barrier-relevance.js";
 
 /**
  * Validate a single SMART action against criteria and user profile.
@@ -124,16 +125,8 @@ function checkBarrierFit(
   actions: SMARTAction[],
   barrier: ResolvedBarrier,
 ): { atLeastOneAddresses: boolean; firstActionRelevant: boolean } {
-  // Build keyword list from barrier ID, label, aliases → retrieval_tags
-  const barrierTerms = [
-    barrier.id.replace(/_/g, " "),
-    barrier.label.toLowerCase(),
-    ...barrier.retrieval_tags.map((t) => t.replace(/_/g, " ")),
-  ];
-
   function isActionBarrierRelevant(action: SMARTAction): boolean {
-    const text = `${action.action} ${action.rationale} ${action.first_step}`.toLowerCase();
-    return barrierTerms.some((term) => text.includes(term));
+    return evaluateActionBarrierRelevance(action, barrier).isRelevant;
   }
 
   const atLeastOneAddresses = actions.some(isActionBarrierRelevant);
