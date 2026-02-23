@@ -68,6 +68,8 @@ export interface ResolvedBarrier {
   do_not_assume: string[];
   /** Job-search stages to deprioritise. */
   contraindicated_stages: string[];
+  /** Suggested low-friction actions to start with for this barrier. */
+  starter_actions?: string[];
 }
 
 /** Normalised user profile used by the prompt assembler. */

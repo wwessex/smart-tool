@@ -17,6 +17,14 @@ export interface AssembledPrompt {
   estimated_tokens: number;
   /** Template IDs used for grounding traceability. */
   grounding_template_ids: string[];
+  /** Prompt assembly observability metadata for truncation behavior. */
+  metadata: {
+    dropped_sections: string[];
+    templates_included_count: number;
+    skills_included_count: number;
+    templates_dropped_count: number;
+    skills_dropped_count: number;
+  };
 }
 
 /** Configuration for prompt assembly. */
@@ -27,12 +35,15 @@ export interface PromptAssemblerConfig {
   num_examples: number;
   /** Whether to include the retrieval pack templates verbatim. */
   include_templates: boolean;
+  /** Maximum number of skills to include before any truncation drops all skills. */
+  max_skills_context: number;
 }
 
 const DEFAULT_CONFIG: PromptAssemblerConfig = {
   max_prompt_chars: 3000,
   num_examples: 2,
   include_templates: true,
+  max_skills_context: 3,
 };
 
 /**
@@ -44,50 +55,81 @@ export function assemblePrompt(
   config: Partial<PromptAssemblerConfig> = {}
 ): AssembledPrompt {
   const cfg = { ...DEFAULT_CONFIG, ...config };
-  const grounding_template_ids: string[] = [];
+  const mustKeepSections = {
+    system: buildSystemInstructions(),
+    profile: buildProfileSection(profile),
+    barrier_guidance: profile.resolved_barrier
+      ? buildBarrierGuidanceSection(profile.resolved_barrier)
+      : "",
+    output_format: buildOutputInstruction(profile),
+  };
 
-  const parts: string[] = [];
+  const templatePool = cfg.include_templates
+    ? [...retrieval.templates].sort((a, b) => templatePriorityScore(b, profile) - templatePriorityScore(a, profile))
+    : [];
+  const skillsPool = retrieval.skills.slice(0, cfg.max_skills_context);
+  let templatesIncludedCount = templatePool.length;
+  let skillsIncludedCount = skillsPool.length;
 
-  // System instructions
-  parts.push(buildSystemInstructions());
-
-  // User profile section
-  parts.push(buildProfileSection(profile));
-
-  // Retrieved templates for grounding
-  if (cfg.include_templates && retrieval.templates.length > 0) {
-    const templateSection = buildTemplateSection(
-      retrieval.templates,
-      profile
-    );
-    parts.push(templateSection);
-    grounding_template_ids.push(...retrieval.templates.map((t) => t.id));
-  }
-
-  // Relevant skills context
-  if (retrieval.skills.length > 0) {
-    parts.push(buildSkillsSection(retrieval.skills));
-  }
-
-  // Barrier-specific guidance (from resolved barrier catalog)
-  if (profile.resolved_barrier) {
-    parts.push(buildBarrierGuidanceSection(profile.resolved_barrier));
-  }
-
-  // Output instruction
-  parts.push(buildOutputInstruction(profile));
-
-  let text = parts.join("\n\n");
-
-  // Truncate if exceeding max chars (remove templates first)
-  if (text.length > cfg.max_prompt_chars) {
-    // Reassemble without templates
-    const reducedParts = [
-      buildSystemInstructions(),
-      buildProfileSection(profile),
-      buildOutputInstruction(profile),
+  const composePrompt = (): string => {
+    const parts = [
+      mustKeepSections.system,
+      mustKeepSections.profile,
     ];
-    text = reducedParts.join("\n\n");
+
+    if (templatesIncludedCount > 0) {
+      parts.push(buildTemplateSection(templatePool.slice(0, templatesIncludedCount), profile));
+    }
+
+    if (skillsIncludedCount > 0) {
+      parts.push(buildSkillsSection(skillsPool.slice(0, skillsIncludedCount)));
+    }
+
+    if (mustKeepSections.barrier_guidance) {
+      parts.push(mustKeepSections.barrier_guidance);
+    }
+
+    parts.push(mustKeepSections.output_format);
+    return parts.join("\n\n");
+  };
+
+  let text = composePrompt();
+
+  // Section-priority budget strategy:
+  // must keep = system/profile/barrier_guidance/output_format
+  // nice-to-have = templates/skills
+  // degrade gracefully by trimming templates first, then skills.
+  while (text.length > cfg.max_prompt_chars) {
+    if (templatesIncludedCount > 0) {
+      templatesIncludedCount -= 1;
+      text = composePrompt();
+      continue;
+    }
+
+    if (skillsIncludedCount > 0) {
+      skillsIncludedCount -= 1;
+      text = composePrompt();
+      continue;
+    }
+
+    // Budget exhausted while preserving required sections.
+    break;
+  }
+
+  const grounding_template_ids = templatePool
+    .slice(0, templatesIncludedCount)
+    .map((t) => t.id);
+
+  const dropped_sections: string[] = [];
+  if (templatePool.length > 0 && templatesIncludedCount === 0) {
+    dropped_sections.push("templates");
+  } else if (templatesIncludedCount < templatePool.length) {
+    dropped_sections.push("templates_partial");
+  }
+  if (skillsPool.length > 0 && skillsIncludedCount === 0) {
+    dropped_sections.push("skills");
+  } else if (skillsIncludedCount < skillsPool.length) {
+    dropped_sections.push("skills_partial");
   }
 
   // Rough token estimate: ~4 chars per token for English
@@ -97,6 +139,13 @@ export function assemblePrompt(
     text,
     estimated_tokens,
     grounding_template_ids,
+    metadata: {
+      dropped_sections,
+      templates_included_count: templatesIncludedCount,
+      skills_included_count: skillsIncludedCount,
+      templates_dropped_count: templatePool.length - templatesIncludedCount,
+      skills_dropped_count: skillsPool.length - skillsIncludedCount,
+    },
   };
 }
 
@@ -228,9 +277,9 @@ function buildBarrierGuidanceSection(barrier: ResolvedBarrier): string {
     }
   }
 
-  if (barrier.starter_actions.length > 0) {
+  if ((barrier.starter_actions ?? []).length > 0) {
     lines.push("BARRIER-FIRST STARTER ACTIONS (prefer these early):");
-    for (const starter of barrier.starter_actions) {
+    for (const starter of barrier.starter_actions ?? []) {
       lines.push(`- ${starter}`);
     }
   }
@@ -257,4 +306,27 @@ function substitutePlaceholders(template: string, profile: UserProfile): string 
 
 function formatDate(date: Date): string {
   return date.toISOString().split("T")[0];
+}
+
+function templatePriorityScore(template: ActionTemplate, profile: UserProfile): number {
+  let score = 0;
+
+  if (profile.resolved_barrier) {
+    const barrierTerms = [profile.resolved_barrier.id, ...profile.resolved_barrier.retrieval_tags]
+      .map((term) => term.toLowerCase());
+    const hasBarrierMatch = template.relevant_barriers.some((barrier) =>
+      barrierTerms.some((term) => barrier.toLowerCase().includes(term) || term.includes(barrier.toLowerCase()))
+    ) || template.tags.some((tag) =>
+      barrierTerms.some((term) => tag.toLowerCase().includes(term))
+    );
+
+    if (hasBarrierMatch) {
+      score += 100;
+    }
+  }
+
+  const confidenceDistance = Math.abs(template.min_confidence - profile.confidence_level);
+  score += Math.max(0, 10 - confidenceDistance);
+
+  return score;
 }
