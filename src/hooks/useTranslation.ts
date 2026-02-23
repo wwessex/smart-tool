@@ -118,6 +118,17 @@ function isTruthy(value: boolean | string | undefined): boolean {
   return value === true || value === 'true';
 }
 
+function buildAuthHeader(tokenValue: string | undefined): { Authorization: string } | undefined {
+  const token = tokenValue?.trim();
+  if (!token) {
+    return undefined;
+  }
+
+  return {
+    Authorization: /^Bearer\s+/i.test(token) ? token : `Bearer ${token}`,
+  };
+}
+
 /** Resolve modelBasePath from Vite's BASE_URL so subfolder/portable deployments work. */
 function resolveModelBasePath(): string {
   const base = (import.meta as unknown as { env?: Record<string, string> }).env?.BASE_URL || "/";
@@ -151,14 +162,14 @@ function getEngine(): TranslationEngine {
     const env = getEnv();
     const remoteModelsOverride = env.VITE_ALLOW_REMOTE_TRANSLATION_MODELS;
     const allowRemoteModels = remoteModelsOverride == null ? true : remoteModelsOverride === 'true';
-    const token = env.VITE_HF_TOKEN?.trim();
+    const authHeaders = buildAuthHeader(env.VITE_HF_TOKEN);
     const remoteModelBasePath = env.VITE_REMOTE_MODEL_BASE_PATH?.trim() || undefined;
 
     engineInstance = new TranslationEngine({
       allowRemoteModels,
       modelBasePath: resolveModelBasePath(),
       remoteModelBasePath,
-      remoteModelRequestHeaders: token ? { Authorization: `Bearer ${token}` } : undefined,
+      remoteModelRequestHeaders: authHeaders,
       useBrowserCache: true,
       maxLoadedPipelines: 3,
       maxChunkChars: 900,
