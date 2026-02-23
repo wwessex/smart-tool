@@ -12,7 +12,46 @@ import type {
   UserProfile,
   ValidationResult,
   ActionTemplate,
+  SMARTCriteriaResult,
 } from "../types.js";
+
+export interface RetryFailureSummary {
+  smartCriteriaFailures: Record<keyof SMARTCriteriaResult, number>;
+  barrierFitFailures: string[];
+  planLevelIssues: string[];
+  categories: string[];
+  compact: string;
+}
+
+/**
+ * Build a compact feedback block for retry prompting.
+ */
+export function buildRetryInstructionBlock(
+  summary: RetryFailureSummary,
+  attempt: number,
+): string {
+  const strictnessLabel = attempt <= 1 ? "SOFT RETRY CONSTRAINTS" : "HARD RETRY CONSTRAINTS";
+  const lines = [
+    "",
+    "<|begin|>user",
+    `REPAIR INSTRUCTIONS (${strictnessLabel}):`,
+    `- Previous output failed because: ${summary.compact}.`,
+    "- Must satisfy all SMART checks and output valid JSON only.",
+    "- Must keep barrier-first ordering when barriers are present.",
+    "- Must keep action difficulty aligned with stated confidence level.",
+  ];
+
+  if (attempt <= 1) {
+    lines.push("- Prefer concise, concrete actions with measurable numeric targets and realistic effort.");
+  } else {
+    lines.push("- HARD REQUIREMENT: every action must pass all SMART criteria.");
+    lines.push("- HARD REQUIREMENT: output exactly 3 actions only, prioritised and non-duplicated.");
+    lines.push("- HARD REQUIREMENT: first action must directly reduce the stated barrier.");
+  }
+
+  lines.push("<|end|>");
+  return lines.join("\n");
+}
 
 /**
  * Attempt to repair a single action that failed validation.
@@ -104,6 +143,20 @@ export function createFallbackActions(
       score: scoreTemplate(t, profile),
     }))
     .sort((a, b) => b.score - a.score);
+
+  // Enforce barrier-first ordering in fallback plans.
+  if (profile.resolved_barrier && scored.length > 0) {
+    const barrierIndex = scored.findIndex(({ template }) =>
+      template.relevant_barriers.some(
+        (rb) => rb.toLowerCase() === profile.resolved_barrier?.id.toLowerCase()
+          || rb.toLowerCase().includes(profile.resolved_barrier?.label.toLowerCase() ?? "")
+      )
+    );
+    if (barrierIndex > 0) {
+      const [barrierMatch] = scored.splice(barrierIndex, 1);
+      scored.unshift(barrierMatch);
+    }
+  }
 
   for (const { template } of scored) {
     if (actions.length >= targetCount) break;
@@ -300,6 +353,22 @@ function scoreTemplate(
   // Confidence appropriateness
   if (template.min_confidence <= profile.confidence_level) {
     score += 1;
+  }
+
+  if (profile.confidence_level <= 2) {
+    if (template.support_level === "high") score += 3;
+    if (template.support_level === "medium") score += 1;
+  }
+
+  if (profile.resolved_barrier) {
+    const barrierId = profile.resolved_barrier.id.toLowerCase();
+    const barrierLabel = profile.resolved_barrier.label.toLowerCase();
+    if (template.relevant_barriers.some((b) => {
+      const normalized = b.toLowerCase();
+      return normalized === barrierId || normalized.includes(barrierLabel);
+    })) {
+      score += 4;
+    }
   }
 
   return score;
