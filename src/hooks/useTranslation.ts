@@ -150,10 +150,7 @@ function getEngine(): TranslationEngine {
   if (!engineInstance) {
     const env = getEnv();
     const remoteModelsOverride = env.VITE_ALLOW_REMOTE_TRANSLATION_MODELS;
-    const allowRemoteModels =
-      remoteModelsOverride == null
-        ? !isTruthy(env.PROD) && env.MODE !== 'production'
-        : remoteModelsOverride === 'true';
+    const allowRemoteModels = remoteModelsOverride == null ? true : remoteModelsOverride === 'true';
     const token = env.VITE_HF_TOKEN?.trim();
     const remoteModelBasePath = env.VITE_REMOTE_MODEL_BASE_PATH?.trim() || undefined;
 

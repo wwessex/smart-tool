@@ -261,6 +261,25 @@ describe('useTranslation', () => {
     );
   });
 
+  it('defaults allowRemoteModels to true in production when no explicit override is set', async () => {
+    vi.unstubAllEnvs();
+    vi.stubEnv('MODE', 'production');
+    vi.stubEnv('PROD', true);
+
+    const { result } = renderHook(() => useTranslation({ enabled: true }));
+    await act(async () => {
+      await result.current.translate('Hello', 'ar');
+    });
+
+    const EngineCtor = vi.mocked(TranslationEngine);
+    expect(EngineCtor).toHaveBeenCalledTimes(1);
+    expect(EngineCtor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        allowRemoteModels: true,
+      }),
+    );
+  });
+
   it('sets allowRemoteModels to false when explicitly disabled', async () => {
     vi.unstubAllEnvs();
     vi.stubEnv('VITE_ALLOW_REMOTE_TRANSLATION_MODELS', 'false');
