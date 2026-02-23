@@ -11,10 +11,10 @@ import type { UserProfile, ActionTemplate, SkillEntry, JobSearchStage, ResolvedB
 import { ActionLibrary } from "./action-library.js";
 import { splitOnWhitespace } from "../utils/sanitize.js";
 
-const WORD_RE = /[a-z0-9]+(?:[\-_][a-z0-9]+)*/gi;
+const WORD_RE = /[a-z0-9]+(?:[-_][a-z0-9]+)*/gi;
 
 function normalizeTerm(text: string): string {
-  return text.toLowerCase().replace(/[\-_]+/g, " ").trim();
+  return text.toLowerCase().replace(/[-_]+/g, " ").trim();
 }
 
 function tokenize(text: string): string[] {

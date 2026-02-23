@@ -11,10 +11,10 @@
 import type { ActionTemplate, SkillEntry, RetrievalPack, JobSearchStage } from "../types.js";
 import { validateUrl, splitOnWhitespace } from "../utils/sanitize.js";
 
-const WORD_RE = /[a-z0-9]+(?:[\-_][a-z0-9]+)*/gi;
+const WORD_RE = /[a-z0-9]+(?:[-_][a-z0-9]+)*/gi;
 
 function normalizeToken(token: string): string {
-  return token.toLowerCase().replace(/[\-_]+/g, " ").trim();
+  return token.toLowerCase().replace(/[-_]+/g, " ").trim();
 }
 
 function toTokenSet(text: string): Set<string> {
