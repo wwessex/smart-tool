@@ -47,7 +47,7 @@ export const SMART_TOOL_SHORTCUTS = {
     key: '2',
     ctrl: true,
     alt: true,
-    description: 'Switch to Task Based Mode',
+    description: 'Switch to Task-based mode',
     category: 'Navigation',
   },
   showShortcutsHelp: {
@@ -56,4 +56,3 @@ export const SMART_TOOL_SHORTCUTS = {
     category: 'Help',
   },
 } as const satisfies Record<string, ShortcutDefinition>;
-
