@@ -14,7 +14,8 @@
  */
 
 import { checkSmart, type SmartCheck } from './smart-checker';
-import { classifyBarrier, BARRIER_CATEGORIES } from './smart-data';
+import { classifyBarrier } from './smart-data';
+import { evaluateBarrierRelevance } from '@smart-tool/browser-native-llm';
 
 export interface RelevanceResult {
   /** The action text that was checked. */
@@ -42,44 +43,6 @@ const GENERIC_PATTERNS = [
 
 // Employment-domain verbs that indicate a concrete action
 const CONCRETE_ACTION_VERBS = /\b(apply|submit|attend|complete|register|create|update|contact|call|email|visit|write|rewrite|prepare|research|practise|practice|book|schedule|discuss|enrol|identify|gather|bring|confirm|arrange|set up|sign up|send|save|upload|print|tailor|review|obtain|start|join|speak|meet|check|explore|develop|build)\b/i;
-
-/**
- * Check barrier alignment by looking for barrier-related keywords in the action.
- * This is a lightweight version focused on barrier → action connection.
- */
-function checkBarrierAlignment(action: string, barrier: string): boolean {
-  const actionLower = action.toLowerCase();
-  const barrierLower = barrier.toLowerCase();
-
-  // Direct mention of the barrier in the action
-  const barrierWords = barrierLower
-    .split(/\s+/)
-    .filter(w => w.length >= 3 && !['and', 'the', 'for', 'with', 'or'].includes(w));
-
-  if (barrierWords.some(w => actionLower.includes(w))) {
-    return true;
-  }
-
-  // Check if action and barrier share the same category domain
-  const category = classifyBarrier(barrier);
-  if (category === 'unknown') return false;
-
-  // Category-specific keyword sets for validation
-  const categoryKeywords: Record<string, string[]> = {
-    'practical': ['housing', 'council', 'rent', 'transport', 'bus', 'train', 'route', 'childcare', 'nursery', 'budget', 'money', 'debt', 'benefits', 'id', 'passport', 'licence', 'computer', 'laptop', 'internet', 'wifi'],
-    'confidence': ['confidence', 'strength', 'self-esteem', 'nervous', 'anxiety', 'mock', 'practice', 'practise', 'interview prep'],
-    'wellbeing': ['wellbeing', 'mental', 'health', 'self-care', 'gp', 'counselling', 'support service', 'coping'],
-    'skills': ['course', 'module', 'certificate', 'training', 'digital', 'email', 'literacy', 'numeracy', 'esol', 'english', 'qualification'],
-    'experience': ['volunteer', 'work experience', 'placement', 'reference', 'employment history'],
-    'job-search': ['cv', 'resume', 'application', 'job search', 'job alert', 'interview', 'indeed', 'apply', 'vacancy', 'star example', 'personal statement'],
-    'neurodiversity': ['adjustment', 'routine', 'reminder', 'structure', 'focus', 'support worker', 'communication profile', 'sensory'],
-  };
-
-  const keywords = categoryKeywords[category];
-  if (!keywords) return false;
-
-  return keywords.some(kw => actionLower.includes(kw));
-}
 
 /**
  * Detect whether an action is too generic / not concrete enough.
@@ -115,7 +78,12 @@ export function checkActionRelevance(
   timescale?: string,
 ): RelevanceResult {
   const smartCheck = checkSmart(action, { forename, barrier, timescale });
-  const barrierAligned = checkBarrierAlignment(action, barrier);
+  const barrierRelevance = evaluateBarrierRelevance({
+    text: action,
+    barrierLabel: barrier,
+    barrierCategory: classifyBarrier(barrier),
+  });
+  const barrierAligned = barrierRelevance.isRelevant;
   const generic = isGenericAction(action);
 
   // Compute combined relevance score (0-1)
@@ -145,7 +113,9 @@ export function checkActionRelevance(
     if (generic) {
       reason = 'Action is too generic. It needs a more concrete, specific task.';
     } else if (!barrierAligned) {
-      reason = `Action does not appear to address the "${barrier}" barrier directly.`;
+      reason = barrierRelevance.antiPatternDetected
+        ? `Action mentions the "${barrier}" barrier but uses generic language and no mitigation step.`
+        : `Action does not appear to address the "${barrier}" barrier directly.`;
     } else if (smartCheck.overallScore < 2) {
       reason = `Action only meets ${smartCheck.overallScore}/5 SMART criteria. Needs more detail.`;
     }

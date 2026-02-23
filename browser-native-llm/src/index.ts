@@ -60,6 +60,10 @@ export { ActionLibrary } from "./retrieval/action-library.js";
 export { LocalRetriever } from "./retrieval/retriever.js";
 export type { RetrievalResult, RetrieverConfig } from "./retrieval/retriever.js";
 
+// ---- Relevance ----
+export { evaluateBarrierRelevance, evaluateActionBarrierRelevance } from "./relevance/barrier-relevance.js";
+export type { BarrierRelevanceInput, BarrierRelevanceResult } from "./relevance/barrier-relevance.js";
+
 // ---- Validators ----
 export { validateAction, validatePlan } from "./validators/smart-validator.js";
 export { repairAction, createFallbackActions } from "./validators/repair.js";
