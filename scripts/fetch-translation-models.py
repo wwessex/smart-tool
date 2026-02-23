@@ -97,7 +97,14 @@ def get_models_for_langs(langs: set[str]) -> list[str]:
     return models
 
 
-def download_model(model_id: str, dest: str) -> None:
+def resolve_token(cli_token: str | None) -> str | None:
+    """Resolve HuggingFace token from CLI arg, env var, or cached login."""
+    if cli_token:
+        return cli_token
+    return os.environ.get("HF_TOKEN") or None
+
+
+def download_model(model_id: str, dest: str, token: str | None = None) -> None:
     """Download a single translation model from HuggingFace."""
     repo_id = f"{HF_NAMESPACE}/{model_id}"
     os.makedirs(dest, exist_ok=True)
@@ -108,6 +115,7 @@ def download_model(model_id: str, dest: str) -> None:
         cache_dir=HF_CACHE,
         allow_patterns=ALLOW_PATTERNS,
         resume_download=True,
+        token=token,
     )
 
 
@@ -136,6 +144,12 @@ def main():
         action="store_true",
         help="Show which models would be downloaded without downloading",
     )
+    parser.add_argument(
+        "--token",
+        type=str,
+        default=None,
+        help="HuggingFace access token for gated/private models (also reads HF_TOKEN env var)",
+    )
     args = parser.parse_args()
 
     # Determine which models to download
@@ -160,6 +174,13 @@ def main():
         print("\nDry run — no files downloaded.")
         return
 
+    token = resolve_token(args.token)
+    if token:
+        print(f"Using HuggingFace token: {'hf_...' + token[-4:]}")
+    else:
+        print("No HuggingFace token provided. Gated models may fail to download.")
+        print("  Set HF_TOKEN env var or pass --token to authenticate.")
+
     os.makedirs(args.output, exist_ok=True)
 
     downloaded = 0
@@ -168,7 +189,7 @@ def main():
         dest = os.path.join(args.output, model_id)
         print(f"\n[{downloaded + 1}/{len(models)}] Downloading {HF_NAMESPACE}/{model_id} → {dest}")
         try:
-            download_model(model_id, dest)
+            download_model(model_id, dest, token=token)
             downloaded += 1
         except Exception as e:
             print(f"  ERROR: {e}")

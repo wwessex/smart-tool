@@ -179,8 +179,16 @@ export class PipelineManager {
           return await this.createPuentePipeline(pair, modelId, dtype, cacheKey, remotePaths, this.config.remoteModelRequestHeaders);
         } catch (remoteError) {
           const rawMessage = remoteError instanceof Error ? remoteError.message : String(remoteError);
-          this.emitProgress(modelId, "error", 0, 0, rawMessage);
-          throw new Error(rawMessage);
+          const isAuthError = /\b40[13]\b|authenticat|unauthori[sz]ed|forbidden/i.test(rawMessage);
+          const message = isAuthError
+            ? [
+                `Translation model "${modelId}" requires authentication to download from HuggingFace.`,
+                `Set the VITE_HF_TOKEN environment variable with a valid HuggingFace access token,`,
+                `or run \`npm run fetch-translation-models\` to download models locally for offline use.`,
+              ].join(" ")
+            : rawMessage;
+          this.emitProgress(modelId, "error", 0, 0, message);
+          throw new Error(message);
         }
       }
 
