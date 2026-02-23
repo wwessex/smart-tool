@@ -1389,7 +1389,6 @@ export function SmartActionTool() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="3">3/5</SelectItem>
                               <SelectItem value="4">4/5</SelectItem>
                               <SelectItem value="5">5/5</SelectItem>
                             </SelectContent>
