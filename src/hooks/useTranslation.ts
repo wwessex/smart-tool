@@ -106,11 +106,11 @@ function getEnv(): ViteEnv {
   return {
     ...viteEnv,
     VITE_ALLOW_REMOTE_TRANSLATION_MODELS:
-      viteEnv.VITE_ALLOW_REMOTE_TRANSLATION_MODELS ?? processEnv?.VITE_ALLOW_REMOTE_TRANSLATION_MODELS,
-    VITE_HF_TOKEN: viteEnv.VITE_HF_TOKEN ?? processEnv?.VITE_HF_TOKEN,
-    VITE_REMOTE_MODEL_BASE_PATH: viteEnv.VITE_REMOTE_MODEL_BASE_PATH ?? processEnv?.VITE_REMOTE_MODEL_BASE_PATH,
-    MODE: viteEnv.MODE ?? processEnv?.MODE,
-    PROD: viteEnv.PROD ?? processEnv?.PROD,
+      processEnv?.VITE_ALLOW_REMOTE_TRANSLATION_MODELS ?? viteEnv.VITE_ALLOW_REMOTE_TRANSLATION_MODELS,
+    VITE_HF_TOKEN: processEnv?.VITE_HF_TOKEN ?? viteEnv.VITE_HF_TOKEN,
+    VITE_REMOTE_MODEL_BASE_PATH: processEnv?.VITE_REMOTE_MODEL_BASE_PATH ?? viteEnv.VITE_REMOTE_MODEL_BASE_PATH,
+    MODE: processEnv?.MODE ?? viteEnv.MODE,
+    PROD: processEnv?.PROD ?? viteEnv.PROD,
   };
 }
 

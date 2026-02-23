@@ -82,6 +82,8 @@ VITE_REMOTE_MODEL_BASE_PATH=https://huggingface.co
 
 > Security note: Vite `VITE_*` variables are exposed to browser clients. Do not use sensitive long-lived/private tokens unless you explicitly accept the risk of browser exposure.
 
+> Put real tokens in local-only env files (for example `.env.local`) and never commit them to git.
+
 ## Quick start / Usage
 
 Example (importing from TypeScript):
