@@ -21,7 +21,12 @@ import { assemblePrompt } from "./prompt-assembler.js";
 import { ActionLibrary } from "../retrieval/action-library.js";
 import { LocalRetriever } from "../retrieval/retriever.js";
 import { validateAction, validatePlan } from "../validators/smart-validator.js";
-import { repairAction, createFallbackActions } from "../validators/repair.js";
+import {
+  repairAction,
+  createFallbackActions,
+  buildRetryInstructionBlock,
+  type RetryFailureSummary,
+} from "../validators/repair.js";
 import { SMART_ACTION_SCHEMA, parseJsonOutput } from "../validators/schema.js";
 import { DEFAULT_INFERENCE_CONFIG } from "../model/config.js";
 import { sanitizeForLog } from "../utils/sanitize.js";
@@ -69,6 +74,7 @@ export interface PlannerCallbacks {
 interface ParseValidationOutcome {
   actions: SMARTAction[] | null;
   rejectionReason?: string;
+  failureSummary?: RetryFailureSummary;
 }
 
 /**
@@ -229,10 +235,11 @@ export class SmartPlanner {
 
     // Step 3: Assemble prompt
     const prompt = assemblePrompt(profile, retrieval);
+    const basePrompt = prompt.text;
 
     // Step 4: Generate with the LLM
     let rawOutput = await this.runInference(
-      prompt.text,
+      basePrompt,
       callbacks?.onTokenGenerated
     );
 
@@ -247,15 +254,27 @@ export class SmartPlanner {
       repairAttempts < this.config.max_repair_attempts
     ) {
       repairAttempts++;
-      callbacks?.onRepairAttempt?.(
-        repairAttempts,
-        validation.rejectionReason
-          ? [`Regenerating due to: ${validation.rejectionReason}`]
-          : ["Regenerating..."]
-      );
+      const retryPrompt = validation.failureSummary
+        ? `${basePrompt}
+${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
+        : basePrompt;
+
+      const retryIssues = validation.rejectionReason
+        ? [`Regenerating due to: ${validation.rejectionReason}`]
+        : ["Regenerating..."];
+      if (validation.failureSummary?.categories.length) {
+        retryIssues.push(`Failure categories: ${validation.failureSummary.categories.join(", ")}`);
+      }
+      callbacks?.onRepairAttempt?.(repairAttempts, retryIssues);
+
+      if (validation.failureSummary) {
+        console.info(
+          `[smart-planner] Retry attempt ${repairAttempts} failure categories: ${validation.failureSummary.categories.join(",")}`
+        );
+      }
 
       rawOutput = await this.runInference(
-        prompt.text,
+        retryPrompt,
         callbacks?.onTokenGenerated
       );
       validation = this.parseAndValidate(rawOutput, profile, callbacks);
@@ -390,13 +409,33 @@ export class SmartPlanner {
     const parsed = parseJsonOutput(rawOutput);
     if (!parsed) {
       const rejectionReason = "Model output was not valid JSON";
+      const failureSummary: RetryFailureSummary = {
+        smartCriteriaFailures: {
+          specific: 0,
+          measurable: 0,
+          achievable: 0,
+          relevant: 0,
+          time_bound: 0,
+        },
+        barrierFitFailures: [],
+        planLevelIssues: [rejectionReason],
+        categories: ["json_parse"],
+        compact: rejectionReason,
+      };
       callbacks?.onPlanRejected?.(rejectionReason, 0, [rejectionReason]);
-      return { actions: null, rejectionReason };
+      return { actions: null, rejectionReason, failureSummary };
     }
 
     // Validate each action
     const validatedActions: SMARTAction[] = [];
     const allIssues: string[] = [];
+    const smartCriteriaFailures = {
+      specific: 0,
+      measurable: 0,
+      achievable: 0,
+      relevant: 0,
+      time_bound: 0,
+    };
 
     for (const rawAction of parsed) {
       // Check schema compliance
@@ -417,11 +456,60 @@ export class SmartPlanner {
           validatedActions.push(repaired);
         } else {
           allIssues.push(...result.issues);
+          for (const criterion of Object.keys(result.criteria) as Array<keyof typeof smartCriteriaFailures>) {
+            if (!result.criteria[criterion].passed) {
+              smartCriteriaFailures[criterion]++;
+            }
+          }
         }
       }
     }
 
     const planResult = validatePlan(validatedActions, profile);
+    const barrierFitFailures = planResult.issues.filter((issue) =>
+      issue.includes("No actions directly address") || issue.includes("First action should address")
+    );
+    const planLevelIssues = planResult.issues.filter((issue) => !barrierFitFailures.includes(issue));
+
+    const failureCategories = new Set<string>();
+    if (Object.values(smartCriteriaFailures).some((count) => count > 0)) {
+      failureCategories.add("smart_criteria");
+    }
+    if (barrierFitFailures.length > 0) {
+      failureCategories.add("barrier_fit");
+    }
+    if (planLevelIssues.length > 0) {
+      failureCategories.add("plan_level");
+    }
+    if (allIssues.some((issue) => issue.startsWith("Schema validation failed"))) {
+      failureCategories.add("schema");
+    }
+
+    const summaryParts: string[] = [];
+    const failedCriteriaEntries = Object.entries(smartCriteriaFailures).filter(([, count]) => count > 0);
+    if (failedCriteriaEntries.length > 0) {
+      summaryParts.push(
+        `SMART failures ${failedCriteriaEntries.map(([k, v]) => `${k}:${v}`).join(",")}`
+      );
+    }
+    if (barrierFitFailures.length > 0) {
+      summaryParts.push(`Barrier-fit: ${barrierFitFailures.join("; ")}`);
+    }
+    if (planLevelIssues.length > 0) {
+      summaryParts.push(`Plan-level: ${planLevelIssues.join("; ")}`);
+    }
+    if (summaryParts.length === 0 && allIssues.length > 0) {
+      summaryParts.push(`Action issues: ${allIssues.slice(0, 2).join("; ")}`);
+    }
+
+    const failureSummary: RetryFailureSummary = {
+      smartCriteriaFailures,
+      barrierFitFailures,
+      planLevelIssues,
+      categories: Array.from(failureCategories),
+      compact: summaryParts.join(" | ") || "Validation failed",
+    };
+
     callbacks?.onValidationResult?.(planResult.score, planResult.issues);
 
     if (validatedActions.length < 1) {
@@ -430,7 +518,7 @@ export class SmartPlanner {
         ...allIssues,
         ...planResult.issues,
       ]);
-      return { actions: null, rejectionReason };
+      return { actions: null, rejectionReason, failureSummary };
     }
 
     const criticalPlanIssues = planResult.issues.filter((issue) =>
@@ -455,7 +543,7 @@ export class SmartPlanner {
 
       const rejectionReason = reasons.join(" | ");
       callbacks?.onPlanRejected?.(rejectionReason, planResult.score, planResult.issues);
-      return { actions: null, rejectionReason };
+      return { actions: null, rejectionReason, failureSummary };
     }
 
     return { actions: validatedActions };
