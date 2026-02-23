@@ -40,6 +40,8 @@ export interface PlannerConfig {
   max_repair_attempts: number;
   /** Minimum acceptable overall validation score (0-100). */
   min_validation_score: number;
+  /** Minimum acceptable plan-level validation score (0-100). */
+  min_plan_validation_score: number;
   /** Skip model worker init and run in retrieval/template-only mode. */
   template_only?: boolean;
 }
@@ -50,6 +52,7 @@ const DEFAULT_PLANNER_CONFIG: PlannerConfig = {
   worker_url: "./worker.js",
   max_repair_attempts: 2,
   min_validation_score: 60,
+  min_plan_validation_score: 70,
   template_only: false,
 };
 
@@ -60,6 +63,12 @@ export interface PlannerCallbacks {
   onTokenGenerated?: (token: string) => void;
   onValidationResult?: (score: number, issues: string[]) => void;
   onRepairAttempt?: (attempt: number, issues: string[]) => void;
+  onPlanRejected?: (reason: string, score: number, issues: string[]) => void;
+}
+
+interface ParseValidationOutcome {
+  actions: SMARTAction[] | null;
+  rejectionReason?: string;
 }
 
 /**
@@ -228,7 +237,8 @@ export class SmartPlanner {
     );
 
     // Step 5: Parse and validate output
-    let actions = this.parseAndValidate(rawOutput, profile, callbacks);
+    let validation = this.parseAndValidate(rawOutput, profile, callbacks);
+    let actions = validation.actions;
 
     // Step 6: Repair loop if needed
     let repairAttempts = 0;
@@ -237,13 +247,19 @@ export class SmartPlanner {
       repairAttempts < this.config.max_repair_attempts
     ) {
       repairAttempts++;
-      callbacks?.onRepairAttempt?.(repairAttempts, ["Regenerating..."]);
+      callbacks?.onRepairAttempt?.(
+        repairAttempts,
+        validation.rejectionReason
+          ? [`Regenerating due to: ${validation.rejectionReason}`]
+          : ["Regenerating..."]
+      );
 
       rawOutput = await this.runInference(
         prompt.text,
         callbacks?.onTokenGenerated
       );
-      actions = this.parseAndValidate(rawOutput, profile, callbacks);
+      validation = this.parseAndValidate(rawOutput, profile, callbacks);
+      actions = validation.actions;
     }
 
     // Step 7: Fallback to template-based actions if repair loop exhausted
@@ -369,10 +385,14 @@ export class SmartPlanner {
     rawOutput: string,
     profile: UserProfile,
     callbacks?: PlannerCallbacks
-  ): SMARTAction[] | null {
+  ): ParseValidationOutcome {
     // Parse JSON from model output
     const parsed = parseJsonOutput(rawOutput);
-    if (!parsed) return null;
+    if (!parsed) {
+      const rejectionReason = "Model output was not valid JSON";
+      callbacks?.onPlanRejected?.(rejectionReason, 0, [rejectionReason]);
+      return { actions: null, rejectionReason };
+    }
 
     // Validate each action
     const validatedActions: SMARTAction[] = [];
@@ -405,9 +425,39 @@ export class SmartPlanner {
     callbacks?.onValidationResult?.(planResult.score, planResult.issues);
 
     if (validatedActions.length < 1) {
-      return null;
+      const rejectionReason = "No actions passed action-level validation";
+      callbacks?.onPlanRejected?.(rejectionReason, planResult.score, [
+        ...allIssues,
+        ...planResult.issues,
+      ]);
+      return { actions: null, rejectionReason };
     }
 
-    return validatedActions;
+    const criticalPlanIssues = planResult.issues.filter((issue) =>
+      issue.includes("No actions directly address") ||
+      issue.includes("duplicate or very similar actions") ||
+      issue.includes("Estimated total effort")
+    );
+
+    const belowPlanScoreThreshold =
+      planResult.score < this.config.min_plan_validation_score;
+
+    if (belowPlanScoreThreshold || criticalPlanIssues.length > 0) {
+      const reasons: string[] = [];
+      if (belowPlanScoreThreshold) {
+        reasons.push(
+          `Plan score ${planResult.score} is below minimum ${this.config.min_plan_validation_score}`
+        );
+      }
+      if (criticalPlanIssues.length > 0) {
+        reasons.push(`Critical issues: ${criticalPlanIssues.join("; ")}`);
+      }
+
+      const rejectionReason = reasons.join(" | ");
+      callbacks?.onPlanRejected?.(rejectionReason, planResult.score, planResult.issues);
+      return { actions: null, rejectionReason };
+    }
+
+    return { actions: validatedActions };
   }
 }
