@@ -38,24 +38,26 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
 
 async function handleInit(config: InferenceConfig): Promise<void> {
   try {
-    // Detect browser capabilities
-    const capabilities = await detectCapabilities();
-    activeBackend = selectBackend(
-      capabilities,
-      config.preferred_backend
-    );
+    // Use pre-selected backend from main thread when available to avoid
+    // redundant capability detection (WebGPU adapter creation is expensive).
+    if (config.preferred_backend) {
+      activeBackend = config.preferred_backend;
+    } else {
+      const capabilities = await detectCapabilities();
+      activeBackend = selectBackend(capabilities);
+    }
 
     // Create Puente Engine inference (custom ONNX Runtime backend with
     // full tokenization, KV cache, and generation loop).
     engine = new PuenteInferenceEngine(config, activeBackend);
-    await engine.load((loaded, total) => {
+    await engine.load((loaded, total, phase, file) => {
       postMessage({
         type: "progress",
         progress: {
-          file: "model",
+          file: file ?? "model",
           loaded_bytes: loaded,
           total_bytes: total,
-          phase: "downloading",
+          phase: (phase as "downloading" | "caching" | "complete" | "error" | "initializing" | "session_creating") ?? "downloading",
         },
       } satisfies WorkerMessage);
     });
