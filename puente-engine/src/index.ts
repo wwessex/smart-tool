@@ -72,8 +72,8 @@ export {
 export type { StoppingCriterion } from "./generation/stopping.js";
 
 // ---- Model Loading ----
-export { fetchModel, fetchModelFiles } from "./model/model-loader.js";
-export type { FetchModelOptions, ModelFileInfo } from "./model/model-loader.js";
+export { fetchModel, fetchModelFiles, fetchModelWithShards, computeSha256 } from "./model/model-loader.js";
+export type { FetchModelOptions, ModelFileInfo, ShardManifest, ShardEntry } from "./model/model-loader.js";
 export {
   loadModelConfig,
   loadGenerationConfig,

@@ -129,6 +129,8 @@ interface HookState {
   selectedModel: string | null;
   capabilities: BrowserCapabilities | null;
   activeBackend: InferenceBackend | null;
+  /** Whether the model is cached in the browser (checked on mount). */
+  isCached: boolean | null;
 }
 
 /** Maximum time (ms) to wait for plan generation before timing out. */
@@ -145,7 +147,26 @@ const INITIAL_STATE: HookState = {
   selectedModel: null,
   capabilities: null,
   activeBackend: null,
+  isCached: null,
 };
+
+/** Map progress phase to user-facing status text. */
+function progressPhaseToStatus(phase: string): string {
+  switch (phase) {
+    case "downloading":
+      return "Downloading AI model…";
+    case "caching":
+      return "Caching model for offline use…";
+    case "initializing":
+      return "Loading model configuration…";
+    case "session_creating":
+      return "Creating inference session…";
+    case "complete":
+      return "Ready";
+    default:
+      return "Loading…";
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Hook
@@ -292,17 +313,28 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
 
         await planner.initialize({
           onProgress: (progress: DownloadProgress) => {
+            // Phase-only progress (no byte counts) — e.g. initializing, session_creating
+            if (progress.total_bytes === 0 && progress.loaded_bytes === 0 && progress.phase) {
+              const phaseProgress =
+                progress.phase === "initializing" ? 8
+                  : progress.phase === "session_creating" ? 92
+                    : undefined;
+              if (phaseProgress !== undefined) {
+                setState((prev) => ({
+                  ...prev,
+                  loadingProgress: phaseProgress,
+                  loadingStatus: progressPhaseToStatus(progress.phase),
+                }));
+              }
+              return;
+            }
+            // Byte-based progress (download / caching phases)
             if (progress.total_bytes > 0) {
               const pct = Math.round((progress.loaded_bytes / progress.total_bytes) * 80) + 10;
               setState((prev) => ({
                 ...prev,
                 loadingProgress: Math.min(pct, 90),
-                loadingStatus:
-                  progress.phase === "downloading"
-                    ? "Downloading AI model…"
-                    : progress.phase === "caching"
-                      ? "Caching model for offline use…"
-                      : "Finalizing…",
+                loadingStatus: progressPhaseToStatus(progress.phase),
               }));
             }
           },
@@ -342,7 +374,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
         return false;
       }
     },
-    [canUseLocalAI, supportedModels, safariWebGPUEnabled, browserInfo.isSafari, setError],
+    [canUseLocalAI, supportedModels, safariWebGPUEnabled, browserInfo.isSafari, setError, modelBaseRoot, retrievalPackUrl],
   );
 
   // ---------------------------------------------------------------------------
@@ -470,6 +502,57 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
   );
 
   // ---------------------------------------------------------------------------
+  // checkCached — lightweight mount-time check if model is in Cache API
+  // ---------------------------------------------------------------------------
+
+  const checkCached = useCallback(async (): Promise<boolean> => {
+    if (!canUseLocalAI) return false;
+    try {
+      const { ModelCache } = await import("@smart-tool/puente-engine");
+      const cache = new ModelCache();
+      if (!cache.isAvailable()) return false;
+      // Check for the main model ONNX file in cache
+      const modelUrl = `${modelBaseRoot}${LEGACY_MODEL_ID}/onnx/model_q4.onnx`;
+      return cache.has(modelUrl);
+    } catch {
+      return false;
+    }
+  }, [canUseLocalAI, modelBaseRoot]);
+
+  // ---------------------------------------------------------------------------
+  // preloadIfCached — silently load model if already cached (background warm-start)
+  // ---------------------------------------------------------------------------
+
+  const preloadingRef = useRef(false);
+  const preloadIfCached = useCallback(async (): Promise<boolean> => {
+    // Skip if already loading, ready, or preloading
+    if (state.isLoading || state.isReady || preloadingRef.current) return false;
+    // Only preload if model is cached (never auto-download)
+    const cached = await checkCached();
+    if (!cached) return false;
+
+    preloadingRef.current = true;
+    try {
+      const result = await initialize();
+      return result;
+    } finally {
+      preloadingRef.current = false;
+    }
+  }, [state.isLoading, state.isReady, checkCached, initialize]);
+
+  // ---------------------------------------------------------------------------
+  // Check cache status on mount
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (canUseLocalAI) {
+      checkCached().then((cached) => {
+        setState((prev) => ({ ...prev, isCached: cached }));
+      });
+    }
+  }, [canUseLocalAI, checkCached]);
+
+  // ---------------------------------------------------------------------------
   // Cleanup on unmount
   // ---------------------------------------------------------------------------
 
@@ -508,5 +591,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
     clearError,
     checkDevice,
     isModelAvailable,
+    checkCached,
+    preloadIfCached,
   };
 }

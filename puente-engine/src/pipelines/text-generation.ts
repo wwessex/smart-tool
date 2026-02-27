@@ -16,7 +16,8 @@ import type {
 import { createSession, getExecutionProvider } from "../core/session.js";
 import { BPETokenizer } from "../tokenizer/bpe-tokenizer.js";
 import { CausalGenerator } from "../generation/causal-generator.js";
-import { fetchModel } from "../model/model-loader.js";
+import { fetchModelWithShards } from "../model/model-loader.js";
+import { ModelCache } from "../model/model-cache.js";
 import { loadModelConfig, loadGenerationConfig } from "../model/model-config.js";
 import { selectBackend, detectCapabilities } from "../runtime/device.js";
 import { configureBackend } from "../runtime/backend.js";
@@ -28,10 +29,12 @@ export interface TextGenerationPipelineOptions {
   device?: string;
   /** Model quantization dtype (e.g., "q4", "int8"). */
   dtype?: string;
-  /** Progress callback for model download. */
+  /** Progress callback for model download and pipeline phases. */
   progress_callback?: (progress: {
     loaded?: number;
     total?: number;
+    phase?: string;
+    file?: string;
   }) => void;
   /**
    * Separate base path for config.json and tokenizer.json.
@@ -42,6 +45,19 @@ export interface TextGenerationPipelineOptions {
   configPath?: string;
   /** Override ONNX model filename (defaults to "model.onnx"). */
   modelFileName?: string;
+  /**
+   * Optional ModelCache instance for persistent cache-first loading.
+   * When provided, model files are served from browser Cache API on
+   * subsequent loads, avoiding re-download.
+   */
+  cache?: ModelCache;
+  /**
+   * Skip capability detection and use this backend directly.
+   * When true, the `device` option is treated as an explicit backend
+   * selection rather than a preference hint. Falls back to WASM if
+   * session creation fails with the specified backend.
+   */
+  skipDetection?: boolean;
 }
 
 export class TextGenerationPipeline {
@@ -88,13 +104,24 @@ export class TextGenerationPipeline {
           : options.configPath + "/")
       : basePath;
 
-    // Detect capabilities and select backend
-    const capabilities = await detectCapabilities();
-    let backend = selectBackend(
-      capabilities,
-      options.device as InferenceBackend | undefined
-    );
+    // Detect capabilities and select backend.
+    // When skipDetection is true and device is set, use it directly to avoid
+    // redundant capability detection (e.g. when the caller already detected).
+    let backend: InferenceBackend;
+    let capabilities: Awaited<ReturnType<typeof detectCapabilities>> | null = null;
+    if (options.skipDetection && options.device) {
+      backend = options.device as InferenceBackend;
+    } else {
+      capabilities = await detectCapabilities();
+      backend = selectBackend(
+        capabilities,
+        options.device as InferenceBackend | undefined
+      );
+    }
     configureBackend(backend);
+
+    // Phase: loading config
+    options.progress_callback?.({ phase: "initializing", file: "config.json" });
 
     // Load model config
     const modelConfig = await loadModelConfig(configBase + "config.json");
@@ -103,20 +130,29 @@ export class TextGenerationPipeline {
       configBase + "generation_config.json"
     ).catch(() => undefined);
 
+    // Phase: loading tokenizer
+    options.progress_callback?.({ phase: "initializing", file: "tokenizer.json" });
+
     // Load tokenizer
     const tokenizer = new BPETokenizer();
     await tokenizer.load(configBase + "tokenizer.json");
 
-    // Load model weights
+    // Phase: downloading model (with shard support and resume)
     const modelFileName = options.modelFileName ?? "model.onnx";
-    const modelBuffer = await fetchModel(basePath + modelFileName, {
+    const modelBuffer = await fetchModelWithShards(basePath + modelFileName, {
+      cache: options.cache,
       onProgress: (progress) => {
         options.progress_callback?.({
           loaded: progress.loaded_bytes,
           total: progress.total_bytes,
+          phase: progress.phase,
+          file: progress.file,
         });
       },
     });
+
+    // Phase: creating inference session
+    options.progress_callback?.({ phase: "session_creating", file: "model" });
 
     // Create ONNX session — fall back to WASM if WebGPU provider fails
     let session: ort.InferenceSession;
@@ -129,7 +165,9 @@ export class TextGenerationPipeline {
           "[puente-engine] WebGPU session creation failed, falling back to WASM:",
           err instanceof Error ? err.message : err,
         );
-        backend = capabilities.wasmSimd ? "wasm-simd" : "wasm-basic";
+        // Determine WASM fallback — use capabilities if available, else default to basic
+        const wasmSimd = capabilities ? capabilities.wasmSimd : false;
+        backend = wasmSimd ? "wasm-simd" : "wasm-basic";
         configureBackend(backend);
         session = await createSession(modelBuffer, {
           executionProvider: getExecutionProvider(backend),

@@ -184,13 +184,14 @@ export class PuenteInferenceEngine extends InferenceEngine {
   }
 
   async load(
-    onProgress?: (loaded: number, total: number) => void
+    onProgress?: (loaded: number, total: number, phase?: string, file?: string) => void
   ): Promise<void> {
-    const { TextGenerationPipeline } = await import(
+    const { TextGenerationPipeline, ModelCache } = await import(
       "@smart-tool/puente-engine"
     );
 
-    const device = this.activeBackend === "webgpu" ? "webgpu" : undefined;
+    // Use the pre-selected backend directly, skipping redundant detection
+    const device = this.activeBackend;
 
     // Model layout: config.json/tokenizer.json at root, ONNX in onnx/
     const baseUrl = this.config.model_base_url.endsWith("/")
@@ -198,20 +199,30 @@ export class PuenteInferenceEngine extends InferenceEngine {
       : this.config.model_base_url + "/";
     const onnxPath = baseUrl + "onnx/";
 
+    // Create model cache for persistent cache-first loading
+    const cache = new ModelCache();
+
     this.pipeline = await TextGenerationPipeline.create(onnxPath, {
       configPath: baseUrl,
       device,
+      skipDetection: true,
+      cache,
       dtype: "q4",
       modelFileName: "model_q4.onnx",
       progress_callback: (progress: {
         loaded?: number;
         total?: number;
+        phase?: string;
+        file?: string;
       }) => {
         if (
           progress.loaded !== undefined &&
           progress.total !== undefined
         ) {
-          onProgress?.(progress.loaded, progress.total);
+          onProgress?.(progress.loaded, progress.total, progress.phase, progress.file);
+        } else if (progress.phase) {
+          // Phase-only progress (e.g., initializing, session_creating)
+          onProgress?.(0, 0, progress.phase, progress.file);
         }
       },
     });

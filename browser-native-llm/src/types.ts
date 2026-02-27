@@ -292,7 +292,7 @@ export interface DownloadProgress {
   file: string;
   loaded_bytes: number;
   total_bytes: number;
-  phase: "downloading" | "caching" | "complete" | "error";
+  phase: "downloading" | "caching" | "initializing" | "session_creating" | "complete" | "error";
   error?: string;
 }
 
@@ -306,4 +306,7 @@ export type WorkerMessage =
   | { type: "generate_complete"; id: string; text: string; tokens_generated: number; time_ms: number }
   | { type: "generate_error"; id: string; error: string }
   | { type: "progress"; progress: DownloadProgress }
+  | { type: "preload"; config: InferenceConfig }
+  | { type: "preload_complete"; backend: InferenceBackend; cached: boolean }
+  | { type: "preload_skipped"; reason: string }
   | { type: "abort"; id: string };
