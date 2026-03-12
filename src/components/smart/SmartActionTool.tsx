@@ -1625,7 +1625,7 @@ export function SmartActionTool() {
                                 {llm.classifiedError && (
                                   <p className="text-xs font-medium text-destructive">{llm.classifiedError.title}</p>
                                 )}
-                                <p className="text-xs text-destructive">{llm.error}</p>
+                                <p className="text-xs text-destructive">{llm.classifiedError?.message || llm.error}</p>
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -2592,7 +2592,7 @@ export function SmartActionTool() {
               <DelightfulError
                 variant="ai"
                 title={llm.classifiedError?.title || "AI took a nap"}
-                message={llm.error}
+                message={llm.classifiedError?.message || llm.error}
                 onRetry={undefined}
                 onDismiss={() => llm.clearError()}
               />
@@ -2870,7 +2870,7 @@ export function SmartActionTool() {
                 {llm.classifiedError && (
                   <p className="text-sm font-medium text-destructive">{llm.classifiedError.title}</p>
                 )}
-                <p className="text-sm text-destructive">{llm.error}</p>
+                <p className="text-sm text-destructive">{llm.classifiedError?.message || llm.error}</p>
                 <div className="flex items-center gap-2">
                   {(!llm.classifiedError || llm.classifiedError.retryable) && (
                     <Button

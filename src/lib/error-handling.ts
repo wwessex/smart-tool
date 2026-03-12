@@ -104,7 +104,7 @@ const ERROR_PATTERNS: ErrorPattern[] = [
     test: (m) => /model.*not found|404.*model|model.*404/i.test(m),
     category: "model_load",
     title: "Model not found",
-    message: "The AI model files are not available. The model may not have been downloaded or included in this deployment.",
+    message: "The AI model files are not available. Ensure models have been downloaded or try reloading the page.",
     retryable: false,
   },
   // Model loading
