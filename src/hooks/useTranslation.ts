@@ -3,6 +3,7 @@ import {
   TranslationEngine,
   SUPPORTED_LANGUAGES as ENGINE_LANGUAGES,
   isRTL as engineIsRTL,
+  type LanguageInfo,
 } from '@smart-tool/lengua-materna';
 
 export interface TranslationResult {
@@ -64,21 +65,13 @@ export interface UseTranslationOptions {
  */
 export const SUPPORTED_LANGUAGES: Record<
   string,
-  { name: string; nativeName: string; flag: string; scriptHint?: string }
+  Partial<LanguageInfo> & { name: string; nativeName: string; flag: string }
 > = {
   none: { name: 'English only', nativeName: 'English', flag: 'GB' },
   ...Object.fromEntries(
     Object.entries(ENGINE_LANGUAGES)
       .filter(([code]) => code !== 'en')
-      .map(([code, info]) => [
-        code,
-        {
-          name: info.name,
-          nativeName: info.nativeName,
-          flag: info.flag,
-          scriptHint: info.scriptHint,
-        },
-      ]),
+      .map(([code, info]) => [code, { ...info }]),
   ),
 };
 

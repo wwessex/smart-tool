@@ -32,6 +32,22 @@ export interface LanguageInfo {
   direction: ScriptDirection;
   /** Optional hint about the writing script (e.g., "Use Arabic script."). */
   scriptHint?: string;
+  /** ISO 639-2/T code (e.g., "deu" for German). */
+  iso639_2?: string;
+  /** ISO 639-3 code (usually same as 639-2/T for these languages). */
+  iso639_3?: string;
+  /** Writing system name (e.g., "Latin", "Arabic", "Devanagari"). */
+  script?: string;
+  /** Language family path (e.g., ["Indo-European", "Romance"] for French). */
+  family?: string[];
+  /** Countries/regions where this is an official or widely-spoken language. */
+  regions?: string[];
+  /** A short greeting in the language (e.g., "Shwmae" for Welsh). */
+  greeting?: string;
+  /** Brief translation notes relevant to advisors (formality, grammar caveats). */
+  translationNotes?: string;
+  /** Approximate number of native speakers (L1) in millions. */
+  speakersMillions?: number;
 }
 
 /** Quantization level for model weights. */
