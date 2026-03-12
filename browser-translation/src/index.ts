@@ -65,6 +65,7 @@ export {
   getRegisteredPairs,
   getLanguageInfo,
   getSupportedLanguageCodes,
+  isSupportedLanguage,
   isRTL,
   getDirection,
   estimateDownloadSize,
@@ -110,8 +111,11 @@ export {
 } from "./utils/rtl.js";
 
 // ---- Types (re-export all) ----
+export { SUPPORTED_LANGUAGE_CODES } from "./types.js";
+
 export type {
   LanguageCode,
+  SupportedLanguageCode,
   LanguagePairId,
   ScriptDirection,
   LanguageInfo,

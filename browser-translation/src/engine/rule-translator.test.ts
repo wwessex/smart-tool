@@ -110,6 +110,84 @@ describe("RuleBasedTranslator", () => {
     });
   });
 
+  describe("RTL mixed-directionality", () => {
+    it("wraps preserved English names in LTR isolates within Arabic output", async () => {
+      const t = await RuleBasedTranslator.create("en-ar");
+      const result = t!.translate("Sarah will attend the workshop");
+      // Name should be wrapped in LTR isolate (U+2066) ... Pop Directional Isolate (U+2069)
+      expect(result).toContain("Sarah");
+      expect(result).toMatch(/\u2066.*Sarah.*\u2069/);
+    });
+
+    it("wraps preserved dates in LTR isolates within Arabic output", async () => {
+      const t = await RuleBasedTranslator.create("en-ar");
+      const result = t!.translate("Complete the task by 25-Jan-26");
+      expect(result).toContain("25-Jan-26");
+      expect(result).toMatch(/\u2066.*25-Jan-26.*\u2069/);
+    });
+
+    it("preserves standalone numbers in Arabic output", async () => {
+      const t = await RuleBasedTranslator.create("en-ar");
+      const result = t!.translate("Apply for 3 roles by Friday");
+      // Single digit "3" is too short for the LTR isolate regex (needs 2+ chars),
+      // but it should still be preserved in the output
+      expect(result).toContain("3");
+    });
+
+    it("wraps multi-char numbers with units in LTR isolates within Arabic output", async () => {
+      const t = await RuleBasedTranslator.create("en-ar");
+      const result = t!.translate("Complete 15 applications by Friday");
+      expect(result).toContain("15");
+      expect(result).toMatch(/\u2066.*15.*\u2069/);
+    });
+
+    it("wraps preserved acronyms in LTR isolates within Arabic output", async () => {
+      const t = await RuleBasedTranslator.create("en-ar");
+      const result = t!.translate("Update the CV with STAR examples");
+      expect(result).toMatch(/\u2066.*CV.*\u2069/);
+      expect(result).toMatch(/\u2066.*STAR.*\u2069/);
+    });
+
+    it("handles multiple LTR entities mixed with Arabic text", async () => {
+      const t = await RuleBasedTranslator.create("en-ar");
+      const result = t!.translate("Sarah will apply for 3 roles on Indeed.co.uk by 25-Jan-26");
+      // Should have RTL mark at start
+      expect(result.charCodeAt(0)).toBe(0x200F);
+      // All LTR entities should be isolated
+      expect(result).toContain("Sarah");
+      expect(result).toContain("Indeed.co.uk");
+      expect(result).toContain("25-Jan-26");
+      // Count LTR isolate pairs — at least 3 entities should be wrapped
+      const lriCount = (result.match(/\u2066/g) || []).length;
+      expect(lriCount).toBeGreaterThanOrEqual(3);
+    });
+
+    it("does not apply RTL marks for LTR languages like French", async () => {
+      const t = await RuleBasedTranslator.create("en-fr");
+      const result = t!.translate("Sarah will attend the workshop");
+      // Should NOT start with RTL mark
+      expect(result.charCodeAt(0)).not.toBe(0x200F);
+      // Should NOT contain LTR isolates
+      expect(result).not.toContain("\u2066");
+    });
+
+    it("applies RTL marks for Urdu output", async () => {
+      const t = await RuleBasedTranslator.create("en-ur");
+      if (!t) return; // skip if no Urdu dictionary
+      const result = t.translate("John will start the training");
+      expect(result.charCodeAt(0)).toBe(0x200F);
+      expect(result).toContain("John");
+    });
+
+    it("applies RTL marks for Pashto output", async () => {
+      const t = await RuleBasedTranslator.create("en-ps");
+      if (!t) return; // skip if no Pashto dictionary
+      const result = t.translate("Sarah will complete the course");
+      expect(result.charCodeAt(0)).toBe(0x200F);
+      expect(result).toContain("Sarah");
+    });
+  });
+
   describe("hasDictionary", () => {
     it("returns true for supported pairs", () => {
       expect(RuleBasedTranslator.hasDictionary("en-fr")).toBe(true);
