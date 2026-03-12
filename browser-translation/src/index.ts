@@ -97,6 +97,11 @@ export type { WorkerClientCallbacks } from "./runtime/worker-client.js";
 export { TranslationCache } from "./cache/translation-cache.js";
 export { ModelCacheManager } from "./cache/model-cache.js";
 
+// ---- Rule-based translation ----
+export { RuleBasedTranslator } from "./engine/rule-translator.js";
+export { getDictionary, hasDictionary, getDictionaryPairs } from "./dictionaries/index.js";
+export type { PhraseDictionary, DictionaryEntry, TimePattern } from "./dictionaries/types.js";
+
 // ---- RTL utilities ----
 export {
   isRTL as isRTLScript,
