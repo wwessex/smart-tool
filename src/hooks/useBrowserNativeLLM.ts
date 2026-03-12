@@ -50,6 +50,10 @@ const MOBILE_RECOMMENDED_MODELS: ModelInfo[] = [
 const LEGACY_MODEL_ID = "smart-planner-150m-q4";
 const BUILTIN_MODEL_ID = "amor-inteligente-built-in";
 
+/** HuggingFace CDN fallback when local model files are not deployed. */
+const REMOTE_MODEL_BASE_URL =
+  "https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct/resolve/main/";
+
 export interface UseBrowserNativeLLMOptions {
   /** Allow local LLM on iPhone/iPad (experimental). Android remains blocked. */
   allowMobileLLM?: boolean;
@@ -222,7 +226,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
   // ---------------------------------------------------------------------------
 
   const initialize = useCallback(
-    async (modelId?: string): Promise<boolean> => {
+    async (modelId?: string, overrideModelBaseUrl?: string): Promise<boolean> => {
       if (!canUseLocalAI) {
         setError("Local AI is not available on this device.");
         return false;
@@ -241,6 +245,10 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
         plannerRef.current.dispose();
         plannerRef.current = null;
       }
+
+      const effectiveModelBaseUrl =
+        overrideModelBaseUrl || `${modelBaseRoot}${LEGACY_MODEL_ID}/`;
+      const isRemote = !!overrideModelBaseUrl;
 
       setState((prev) => ({
         ...prev,
@@ -285,7 +293,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
         const planner = new SmartPlanner({
           inference: {
             model_id: BUILTIN_MODEL_ID,
-            model_base_url: `${modelBaseRoot}${LEGACY_MODEL_ID}/`,
+            model_base_url: effectiveModelBaseUrl,
             preferred_backend: backend,
             max_seq_length: 1024,
             max_new_tokens: 512,
@@ -305,8 +313,9 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
         setState((prev) => ({
           ...prev,
           loadingProgress: 10,
-          loadingStatus:
-            effectiveModelId === BUILTIN_MODEL_ID
+          loadingStatus: isRemote
+            ? "Downloading AI model…"
+            : effectiveModelId === BUILTIN_MODEL_ID
               ? "Loading built-in AI planner…"
               : "Downloading AI model…",
         }));
@@ -356,17 +365,16 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
 
         return true;
       } catch (err) {
-        // If the model wasn't found (404), fall back to the default model once.
-        const fallbackId = BUILTIN_MODEL_ID;
         const errMsg = err instanceof Error ? err.message : String(err);
         const isModelNotFound = /404|not found|model.*config/i.test(errMsg);
 
-        if (isModelNotFound && effectiveModelId !== fallbackId) {
+        // If local model files returned 404, fall back to HuggingFace CDN
+        if (isModelNotFound && !isRemote) {
           console.warn(
-            `[useBrowserNativeLLM] Model "${effectiveModelId}" not found, falling back to "${fallbackId}".`
+            `[useBrowserNativeLLM] Local model files not found, falling back to remote HuggingFace CDN.`
           );
           plannerRef.current = null;
-          return initialize(fallbackId);
+          return initialize(effectiveModelId, REMOTE_MODEL_BASE_URL);
         }
 
         plannerRef.current = null;
@@ -511,9 +519,10 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
       const { ModelCache } = await import("@smart-tool/puente-engine");
       const cache = new ModelCache();
       if (!cache.isAvailable()) return false;
-      // Check for the main model ONNX file in cache
-      const modelUrl = `${modelBaseRoot}${LEGACY_MODEL_ID}/onnx/model_q4.onnx`;
-      return cache.has(modelUrl);
+      // Check for the main model ONNX file in cache (local or remote URL)
+      const localUrl = `${modelBaseRoot}${LEGACY_MODEL_ID}/onnx/model_q4.onnx`;
+      const remoteUrl = `${REMOTE_MODEL_BASE_URL}onnx/model_q4.onnx`;
+      return (await cache.has(localUrl)) || (await cache.has(remoteUrl));
     } catch {
       return false;
     }
