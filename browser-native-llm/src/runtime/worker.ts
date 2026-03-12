@@ -18,6 +18,22 @@ let engine: InferenceEngine | null = null;
 let activeBackend: InferenceBackend = "wasm-basic";
 
 /**
+ * Catch unhandled errors in the worker (e.g. WASM OOM on iOS Safari).
+ * When iOS kills the WASM process due to memory pressure, this handler
+ * fires before the worker terminates, giving us a chance to notify the
+ * main thread with a meaningful error instead of silently dying.
+ */
+self.onerror = (event) => {
+  const msg = typeof event === "string"
+    ? event
+    : (event as ErrorEvent).message ?? "unknown worker error";
+  postMessage({
+    type: "init_error",
+    error: `Worker crashed: ${msg}. This may be caused by memory pressure on this device.`,
+  } satisfies WorkerMessage);
+};
+
+/**
  * Handle messages from the main thread.
  */
 self.onmessage = async (event: MessageEvent<WorkerMessage>) => {

@@ -199,11 +199,11 @@ export class SmartPlanner {
     // instead of silently calling the (already-resolved) init reject.
     if (this.worker) {
       this.worker.onerror = (event: ErrorEvent) => {
-        const error = new Error(`Worker error: ${event.message || "unknown error"}`);
-        for (const [id, gen] of this.pendingGenerations) {
-          this.pendingGenerations.delete(id);
-          gen.reject(error);
-        }
+        const error = new Error(
+          `Worker error: ${event.message || "unknown error"}. ` +
+          "This may be caused by memory pressure — try closing other tabs."
+        );
+        this.rejectAllPending(error);
       };
     }
 
@@ -355,6 +355,14 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
   // -------------------------------------------------------------------------
   // Private helpers
   // -------------------------------------------------------------------------
+
+  /** Reject all pending generation promises (e.g. on worker crash). */
+  private rejectAllPending(error: Error): void {
+    for (const [id, gen] of this.pendingGenerations) {
+      this.pendingGenerations.delete(id);
+      gen.reject(error);
+    }
+  }
 
   /** Maximum time (ms) to wait for a single inference call before timing out. */
   private static readonly INFERENCE_TIMEOUT_MS = 120_000; // 2 minutes

@@ -377,12 +377,27 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
           return initialize(effectiveModelId, REMOTE_MODEL_BASE_URL);
         }
 
+        // Detect iOS memory-related crashes — the worker may die with a
+        // generic message or the WASM heap may throw during session creation.
+        const isMemoryError = /memory|OOM|allocation|crash|Worker error|Worker crashed/i.test(errMsg);
+        if (isMemoryError && deviceInfo.isIOS) {
+          plannerRef.current = null;
+          setError(
+            new Error(
+              "Not enough memory to run the AI model on this device. " +
+              "Try closing other browser tabs and apps, then try again. " +
+              "If the issue persists, use Smart Templates instead."
+            )
+          );
+          return false;
+        }
+
         plannerRef.current = null;
         setError(err);
         return false;
       }
     },
-    [canUseLocalAI, supportedModels, safariWebGPUEnabled, browserInfo.isSafari, setError, modelBaseRoot, retrievalPackUrl],
+    [canUseLocalAI, supportedModels, safariWebGPUEnabled, browserInfo.isSafari, deviceInfo.isIOS, setError, modelBaseRoot, retrievalPackUrl],
   );
 
   // ---------------------------------------------------------------------------
@@ -412,11 +427,24 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
         setState((prev) => ({ ...prev, isGenerating: false }));
         return plan;
       } catch (err) {
+        // On iOS, a worker crash during generation often manifests as a
+        // generic "Worker error" or the promise hanging until timeout.
+        // Provide a clear memory-related message for iOS devices.
+        const errMsg = err instanceof Error ? err.message : String(err);
+        const isWorkerCrash = /Worker error|Worker crashed|memory|OOM/i.test(errMsg);
+        if (isWorkerCrash && deviceInfo.isIOS) {
+          const iosErr = new Error(
+            "The AI model ran out of memory on this device. " +
+            "Close other tabs and apps, then reload and try again."
+          );
+          setError(iosErr);
+          throw iosErr;
+        }
         setError(err);
         throw err;
       }
     },
-    [state.isReady, setError],
+    [state.isReady, deviceInfo.isIOS, setError],
   );
 
   // ---------------------------------------------------------------------------

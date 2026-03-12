@@ -44,12 +44,12 @@ interface ErrorPattern {
 }
 
 const ERROR_PATTERNS: ErrorPattern[] = [
-  // Memory / OOM
+  // Memory / OOM (including iOS Safari worker/WASM crashes)
   {
-    test: (m) => /out of memory|OOM|memory pressure|allocation failed/i.test(m),
+    test: (m) => /out of memory|OOM|memory pressure|allocation failed|Worker crashed.*memory/i.test(m),
     category: "memory",
     title: "Out of memory",
-    message: "Not enough memory to run the AI model. Close other tabs or try a smaller model.",
+    message: "Not enough memory to run the AI model. Close other tabs and apps, then try again.",
     retryable: false,
   },
   // Timeout (before general network — "timed out" is not a network issue here)

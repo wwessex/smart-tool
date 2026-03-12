@@ -101,13 +101,17 @@ export async function fetchModel(
     });
   }
 
-  // Concatenate chunks into a single buffer
+  // Concatenate chunks into a single buffer and release individual chunks
+  // immediately to reduce peak memory (important on iOS where jetsam kills
+  // processes exceeding ~1–1.5 GB).
   const buffer = new Uint8Array(loaded);
   let offset = 0;
-  for (const chunk of chunks) {
-    buffer.set(chunk, offset);
-    offset += chunk.byteLength;
+  for (let i = 0; i < chunks.length; i++) {
+    buffer.set(chunks[i], offset);
+    offset += chunks[i].byteLength;
+    chunks[i] = null as unknown as Uint8Array; // release chunk for GC
   }
+  chunks.length = 0; // release array itself
 
   // Verify integrity if hash provided
   const hashToVerify = options.verifyHash;
