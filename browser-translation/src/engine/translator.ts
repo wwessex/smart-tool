@@ -47,6 +47,7 @@ import { resolveRoute, buildPairId, canTranslate } from "../models/pivot.js";
 import { getModelForPair, isRTL, getDirection, SUPPORTED_LANGUAGES } from "../models/registry.js";
 import { TranslationCache } from "../cache/translation-cache.js";
 import { detectCapabilities, selectBackend } from "../runtime/backend-selector.js";
+import { RuleBasedTranslator } from "./rule-translator.js";
 
 /** Default engine configuration. */
 const DEFAULT_CONFIG: TranslationEngineConfig = {
@@ -74,6 +75,9 @@ export class TranslationEngine {
   /**
    * Initialize the engine: detect browser capabilities and select backend.
    * Must be called before translate().
+   *
+   * In "prefer-rules" mode, backend detection is skipped since ONNX models
+   * are not used.
    */
   async initialize(callbacks: TranslationEngineCallbacks = {}): Promise<void> {
     this.callbacks = callbacks;
@@ -83,13 +87,16 @@ export class TranslationEngine {
       this.callbacks.onModelLoadProgress?.(progress);
     });
 
-    // Detect capabilities and select backend
-    const capabilities = await detectCapabilities();
-    this.backend = selectBackend(capabilities, this.config.preferredBackend);
-    this.callbacks.onBackendSelected?.(this.backend);
+    // Skip heavy backend detection in prefer-rules mode
+    if (this.config.ruleTranslationMode !== "prefer-rules") {
+      // Detect capabilities and select backend
+      const capabilities = await detectCapabilities();
+      this.backend = selectBackend(capabilities, this.config.preferredBackend);
+      this.callbacks.onBackendSelected?.(this.backend);
 
-    // Update config with detected backend
-    this.config.preferredBackend = this.backend;
+      // Update config with detected backend
+      this.config.preferredBackend = this.backend;
+    }
 
     this.initialized = true;
   }
@@ -120,9 +127,18 @@ export class TranslationEngine {
       return this.buildResult(text, text, request, false, 0, []);
     }
 
+    // In "prefer-rules" mode, skip pipeline entirely and use dictionaries
+    if (this.config.ruleTranslationMode === "prefer-rules") {
+      return this.translateWithRules(text, request);
+    }
+
     // Resolve translation route (direct or pivot)
     const route = resolveRoute(sourceLang, targetLang);
     if (!route) {
+      // If no model route exists, try rule-based as fallback
+      if (this.config.ruleTranslationMode !== "disabled") {
+        return this.translateWithRules(text, request);
+      }
       throw new Error(
         `No translation route available for ${sourceLang} → ${targetLang}. ` +
         `Neither a direct model nor a pivot path through English exists.`
@@ -134,16 +150,24 @@ export class TranslationEngine {
     const modelsUsed: string[] = [];
     let totalChunks = 0;
 
-    // Execute each step in the route
-    for (const pairId of route.steps) {
-      const { translated, chunks, modelId } = await this.translateWithPipeline(
-        currentText,
-        pairId,
-        maxNewTokens
-      );
-      currentText = translated;
-      modelsUsed.push(modelId);
-      totalChunks += chunks;
+    try {
+      // Execute each step in the route
+      for (const pairId of route.steps) {
+        const { translated, chunks, modelId } = await this.translateWithPipeline(
+          currentText,
+          pairId,
+          maxNewTokens
+        );
+        currentText = translated;
+        modelsUsed.push(modelId);
+        totalChunks += chunks;
+      }
+    } catch (pipelineError) {
+      // Fall back to rule-based translation when ONNX pipeline fails
+      if (this.config.ruleTranslationMode !== "disabled") {
+        return this.translateWithRules(text, request);
+      }
+      throw pipelineError;
     }
 
     const durationMs = performance.now() - startTime;
@@ -253,6 +277,71 @@ export class TranslationEngine {
   // -----------------------------------------------------------------------
   // Private
   // -----------------------------------------------------------------------
+
+  /**
+   * Translate text using rule-based phrase/word dictionaries.
+   * Used as a fallback when ONNX models are unavailable, or in "prefer-rules" mode.
+   * Only supports English as source language.
+   */
+  private async translateWithRules(
+    text: string,
+    request: TranslationRequest
+  ): Promise<TranslationResult> {
+    const { sourceLang, targetLang } = request;
+
+    if (sourceLang !== "en") {
+      throw new Error(
+        `Rule-based translation only supports English as source language (got "${sourceLang}").`
+      );
+    }
+
+    const pairId = buildPairId(sourceLang, targetLang) as LanguagePairId;
+    const ruleTranslator = await RuleBasedTranslator.create(pairId);
+
+    if (!ruleTranslator) {
+      throw new Error(
+        `No rule-based dictionary available for ${sourceLang} → ${targetLang}.`
+      );
+    }
+
+    const startTime = performance.now();
+    const chunks = chunkText(text, { maxChars: this.config.maxChunkChars });
+    const translatedChunks = [];
+
+    for (const chunk of chunks) {
+      if (chunk.isSeparator) {
+        translatedChunks.push(chunk);
+        continue;
+      }
+
+      // Check translation cache
+      const cached = this.translationCache.get(chunk.text, pairId);
+      if (cached) {
+        translatedChunks.push({ ...chunk, text: cached });
+        continue;
+      }
+
+      const translated = ruleTranslator.translate(chunk.text);
+      this.translationCache.set(chunk.text, pairId, translated);
+      translatedChunks.push({ ...chunk, text: translated });
+    }
+
+    const translated = reassembleChunks(translatedChunks);
+    const durationMs = performance.now() - startTime;
+    const contentChunks = chunks.filter((c) => !c.isSeparator).length;
+
+    return this.buildResult(
+      text,
+      translated,
+      request,
+      false,
+      durationMs,
+      ["rule-based"],
+      contentChunks,
+      undefined,
+      "Translated using rule-based dictionary. Quality may be lower than neural translation."
+    );
+  }
 
   /**
    * Translate text through a single pipeline (one language pair).

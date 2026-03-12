@@ -154,6 +154,13 @@ export interface TranslationEngineConfig {
   workerUrl?: string;
   /** Maximum characters per translation chunk (default: 900). */
   maxChunkChars: number;
+  /**
+   * Rule-based translation mode:
+   * - "fallback" (default): Try ONNX pipeline first, fall back to rules on failure.
+   * - "prefer-rules": Always use rule-based dictionary (skip model loading).
+   * - "disabled": Never use rule-based translation.
+   */
+  ruleTranslationMode?: "fallback" | "prefer-rules" | "disabled";
 }
 
 // ---------------------------------------------------------------------------
