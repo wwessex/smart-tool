@@ -296,7 +296,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
           retrieval_pack_url: retrievalPackUrl,
           worker_url: "",
           worker,
-          template_only: effectiveModelId === BUILTIN_MODEL_ID,
+          template_only: false,
           max_repair_attempts: 2,
           min_validation_score: 60,
         });
