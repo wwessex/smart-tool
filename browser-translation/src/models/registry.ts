@@ -21,7 +21,9 @@ import type {
   LanguageInfo,
   ModelInfo,
   ScriptDirection,
+  SupportedLanguageCode,
 } from "../types.js";
+import { SUPPORTED_LANGUAGE_CODES } from "../types.js";
 
 // ---------------------------------------------------------------------------
 // Supported languages
@@ -32,7 +34,7 @@ import type {
  * Matches the current Lengua Materna language set (from useTranslation.ts)
  * plus additional high-value pairs.
  */
-export const SUPPORTED_LANGUAGES: Record<LanguageCode, LanguageInfo> = {
+export const SUPPORTED_LANGUAGES: Record<SupportedLanguageCode, LanguageInfo> = {
   en: {
     code: "en",
     name: "English",
@@ -611,8 +613,14 @@ export function getRegisteredPairs(): LanguagePairId[] {
   return Object.keys(MODEL_REGISTRY) as LanguagePairId[];
 }
 
+/** Runtime check: is this string a supported language code? */
+export function isSupportedLanguage(code: string): code is SupportedLanguageCode {
+  return SUPPORTED_LANGUAGE_CODES.includes(code as SupportedLanguageCode);
+}
+
 /** Get language info by code. Returns undefined if not supported. */
 export function getLanguageInfo(code: LanguageCode): LanguageInfo | undefined {
+  if (!isSupportedLanguage(code)) return undefined;
   return SUPPORTED_LANGUAGES[code];
 }
 

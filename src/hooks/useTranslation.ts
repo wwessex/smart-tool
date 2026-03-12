@@ -77,6 +77,14 @@ export const SUPPORTED_LANGUAGES: Record<
 
 // ---------------------------------------------------------------------------
 // Singleton TranslationEngine (shared across hook instances)
+//
+// IMPORTANT: All useTranslation() hook instances share a single
+// TranslationEngine. The engine is configured once (on first access via
+// getEngine()) and subsequent calls reuse the same instance. This means
+// all consumers inherit the same config (modelBasePath, allowRemoteModels,
+// maxLoadedPipelines, etc.). If you need different configs per component,
+// you would need to instantiate TranslationEngine directly instead of
+// using this hook.
 // ---------------------------------------------------------------------------
 
 let engineInstance: TranslationEngine | null = null;
@@ -171,7 +179,15 @@ function getEngine(): TranslationEngine {
   return engineInstance;
 }
 
+/**
+ * @internal Test-only helper — resets the singleton engine so each test
+ * starts with a clean slate. Guarded to prevent accidental use in
+ * production builds.
+ */
 export function __resetTranslationEngineForTests(): void {
+  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+    return;
+  }
   engineInstance = null;
   initPromise = null;
 }

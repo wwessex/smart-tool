@@ -9,7 +9,30 @@
 // Language and model types
 // ---------------------------------------------------------------------------
 
-/** ISO 639-1 language code (e.g., "en", "ar", "cy"). */
+/**
+ * ISO 639-1 codes for all languages supported by the engine.
+ * Add new language codes here when expanding language support.
+ */
+export const SUPPORTED_LANGUAGE_CODES = [
+  "en", "pl", "ur", "cy", "bn", "pa", "ps", "so", "ti",
+  "ar", "de", "fr", "es", "it", "pt", "hi",
+] as const;
+
+/**
+ * Strongly-typed language code — one of the supported ISO 639-1 codes.
+ * Use this in internal code and registry definitions for compile-time
+ * validation. For public API boundaries that accept user input, use
+ * {@link LanguageCode} (which accepts any string).
+ */
+export type SupportedLanguageCode = typeof SUPPORTED_LANGUAGE_CODES[number];
+
+/**
+ * ISO 639-1 language code (e.g., "en", "ar", "cy").
+ *
+ * This is typed as `string` to keep the public API flexible — callers
+ * may pass user-supplied strings that are validated at runtime. For
+ * internal registry use, prefer {@link SupportedLanguageCode}.
+ */
 export type LanguageCode = string;
 
 /** Directional language pair identifier (e.g., "en-de", "en-ar"). */
@@ -51,7 +74,7 @@ export interface LanguageInfo {
 }
 
 /** Quantization level for model weights. */
-export type ModelDtype = "fp32" | "fp16" | "int8" | "uint8" | "q4";
+export type ModelDtype = "fp32" | "fp16" | "int8" | "q4";
 
 /** Information about an OPUS-MT model for a specific language pair. */
 export interface ModelInfo {

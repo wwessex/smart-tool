@@ -165,7 +165,17 @@ export class TranslationEngine {
     } catch (pipelineError) {
       // Fall back to rule-based translation when ONNX pipeline fails
       if (this.config.ruleTranslationMode !== "disabled") {
-        return this.translateWithRules(text, request);
+        try {
+          return await this.translateWithRules(text, request);
+        } catch (ruleError) {
+          // Both ONNX and rule-based failed — include both errors for debugging
+          const onnxMsg = pipelineError instanceof Error ? pipelineError.message : String(pipelineError);
+          const ruleMsg = ruleError instanceof Error ? ruleError.message : String(ruleError);
+          throw new Error(
+            `Translation failed. ONNX pipeline error: ${onnxMsg}. ` +
+            `Rule-based fallback error: ${ruleMsg}.`
+          );
+        }
       }
       throw pipelineError;
     }
