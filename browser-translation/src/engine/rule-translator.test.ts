@@ -3,12 +3,9 @@ import { RuleBasedTranslator } from "./rule-translator.js";
 
 describe("RuleBasedTranslator", () => {
   describe("French (en-fr)", () => {
-    let translator: RuleBasedTranslator;
-
     it("loads the French dictionary", async () => {
       const t = await RuleBasedTranslator.create("en-fr");
       expect(t).not.toBeNull();
-      translator = t!;
     });
 
     it("translates 'will + verb' phrases", async () => {

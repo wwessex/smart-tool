@@ -14,7 +14,7 @@
  * 6. Apply RTL marks for right-to-left languages
  */
 
-import type { PhraseDictionary, DictionaryEntry } from "../dictionaries/types.js";
+import type { PhraseDictionary } from "../dictionaries/types.js";
 import { getDictionary, hasDictionary } from "../dictionaries/index.js";
 import { isRTL } from "../models/registry.js";
 import type { LanguagePairId } from "../types.js";
