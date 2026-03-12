@@ -139,7 +139,7 @@ export class TextGenerationPipeline {
 
     // Phase: downloading model (with shard support and resume)
     const modelFileName = options.modelFileName ?? "model.onnx";
-    const modelBuffer = await fetchModelWithShards(basePath + modelFileName, {
+    let modelBuffer: ArrayBuffer | null = await fetchModelWithShards(basePath + modelFileName, {
       cache: options.cache,
       onProgress: (progress) => {
         options.progress_callback?.({
@@ -154,11 +154,16 @@ export class TextGenerationPipeline {
     // Phase: creating inference session
     options.progress_callback?.({ phase: "session_creating", file: "model" });
 
-    // Create ONNX session — fall back to WASM if WebGPU provider fails
+    // Create ONNX session — fall back to WASM if WebGPU provider fails.
+    // After session creation the weight buffer is no longer needed — null it
+    // out so the GC can reclaim ~180 MB. This is critical on iOS Safari where
+    // the process memory cap (~1–1.5 GB) is easily exceeded when both the raw
+    // buffer and the ONNX Runtime internal copy coexist.
     let session: ort.InferenceSession;
     try {
       const executionProvider = getExecutionProvider(backend);
       session = await createSession(modelBuffer, { executionProvider });
+      modelBuffer = null; // free weight buffer
     } catch (err) {
       if (backend === "webgpu") {
         console.warn(
@@ -169,9 +174,10 @@ export class TextGenerationPipeline {
         const wasmSimd = capabilities ? capabilities.wasmSimd : false;
         backend = wasmSimd ? "wasm-simd" : "wasm-basic";
         configureBackend(backend);
-        session = await createSession(modelBuffer, {
+        session = await createSession(modelBuffer!, {
           executionProvider: getExecutionProvider(backend),
         });
+        modelBuffer = null; // free weight buffer
       } else {
         throw err;
       }

@@ -73,9 +73,23 @@ function configureWebGPU(): void {
   }
 }
 
+/** Detect iOS (iPhone/iPad) from inside a worker or main thread. */
+function isIOS(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  const platform = (navigator as { platform?: string }).platform || "";
+  const maxTP = (navigator as { maxTouchPoints?: number }).maxTouchPoints || 0;
+  return /iPhone|iPod|iPad/i.test(ua) || (platform === "MacIntel" && maxTP > 1);
+}
+
 function configureWasm(options: BackendOptions, simd: boolean): void {
   if (ort.env.wasm) {
-    if (options.numThreads !== undefined) {
+    // On iOS Safari, force single-threaded execution to reduce peak memory.
+    // iOS jetsam kills processes that exceed ~1–1.5 GB and multi-threaded
+    // WASM doubles memory usage due to SharedArrayBuffer copies.
+    if (isIOS()) {
+      ort.env.wasm.numThreads = 1;
+    } else if (options.numThreads !== undefined) {
       ort.env.wasm.numThreads = options.numThreads;
     }
     // SIMD is auto-detected by ort; we just set up the environment
