@@ -37,8 +37,9 @@ const ACRONYMS = new Set([
 // Date patterns: 25-Jan-26, 20/02/2026, 2026-01-20, 15 January 2026
 const DATE_PATTERN = /\b\d{1,2}[-/]\w{3,9}[-/]\d{2,4}\b|\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{2,4}\b/gi;
 
-// URL/email pattern
-const URL_PATTERN = /\b(?:https?:\/\/|www\.)\S+|\b\S+@\S+\.\S+|\b\S+\.(?:co\.uk|org\.uk|gov\.uk|com|org|net)\b/gi;
+// URL/email pattern — uses [^\s]+ (possessive-style via atomic groups not available,
+// so we use bounded character classes to avoid polynomial backtracking)
+const URL_PATTERN = /\b(?:https?:\/\/|www\.)[^\s]{1,200}|\b[^\s@]{1,100}@[^\s.]{1,100}\.[^\s]{1,100}|\b[a-zA-Z0-9][-a-zA-Z0-9]{0,62}\.(?:co\.uk|org\.uk|gov\.uk|com|org|net)\b/gi;
 
 // Number with optional unit: "3 warehouse roles", "£50", "5 miles"
 const NUMBER_PATTERN = /\b\d+(?:\.\d+)?(?:\s*(?:%|£|€|\$|miles?|km|hours?|days?|minutes?))?/gi;

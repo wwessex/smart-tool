@@ -38,8 +38,8 @@ const cache = new Map<string, PhraseDictionary>();
 export async function getDictionary(pair: string): Promise<PhraseDictionary | null> {
   if (cache.has(pair)) return cache.get(pair)!;
 
+  if (!Object.hasOwn(loaders, pair)) return null;
   const loader = loaders[pair];
-  if (!loader) return null;
 
   const mod = await loader();
   cache.set(pair, mod.dictionary);
@@ -50,7 +50,7 @@ export async function getDictionary(pair: string): Promise<PhraseDictionary | nu
  * Check if a rule-based dictionary exists for a language pair.
  */
 export function hasDictionary(pair: string): boolean {
-  return pair in loaders;
+  return Object.hasOwn(loaders, pair);
 }
 
 /**
