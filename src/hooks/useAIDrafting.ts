@@ -3,7 +3,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useBrowserNativeLLM } from '@/hooks/useBrowserNativeLLM';
 import type { SMARTAction, SMARTPlan, RawUserInput } from '@/hooks/useBrowserNativeLLM';
 import { usePromptPack } from '@/hooks/usePromptPack';
-import { buildSystemPrompt, DEFAULT_PROMPT_PACK } from '@/lib/prompt-pack';
 import { classifyBarrier } from '@/lib/smart-data';
 import { retrieveExemplars, formatExemplarsForPrompt } from '@/lib/smart-retrieval';
 import { rankActionsByRelevance } from '@/lib/relevance-checker';
@@ -52,10 +51,7 @@ export function useAIDrafting({
     safariWebGPUEnabled: storage.safariWebGPUEnabled,
   });
 
-  const { pack: promptPack } = usePromptPack();
-  const effectivePromptPack = promptPack || DEFAULT_PROMPT_PACK;
-  // Keep system prompt available for future use
-  const _llmSystemPrompt = buildSystemPrompt(effectivePromptPack);
+  const { pack: promptPack, source: promptPackSource } = usePromptPack();
 
   // AI Draft state
   const [aiDrafting, setAIDrafting] = useState(false);
@@ -451,6 +447,6 @@ export function useAIDrafting({
     handleAIDraft,
     buildLLMContext,
     handleWizardAIDraft,
-    promptPackSource: usePromptPack().source,
+    promptPackSource,
   };
 }

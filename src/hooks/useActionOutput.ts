@@ -12,6 +12,8 @@ export interface UseActionOutputOptions {
   mode: Mode;
   nowForm: NowForm;
   futureForm: FutureForm;
+  validateNow: () => boolean;
+  validateFuture: () => boolean;
   participantLanguage: string;
   updateParticipantLanguage: (lang: string) => void;
 }
@@ -20,6 +22,8 @@ export function useActionOutput({
   mode,
   nowForm,
   futureForm,
+  validateNow,
+  validateFuture,
   participantLanguage,
   updateParticipantLanguage,
 }: UseActionOutputOptions) {
@@ -36,9 +40,7 @@ export function useActionOutput({
   const hasOutput = output.trim().length > 0;
 
   const generateOutput = useCallback((force = false) => {
-    const isValid = mode === 'now'
-      ? !!(nowForm.date && nowForm.forename.trim() && nowForm.barrier.trim() && nowForm.action.trim() && nowForm.responsible && nowForm.help.trim() && nowForm.timescale)
-      : !!(futureForm.date && futureForm.forename.trim() && futureForm.task.trim() && futureForm.outcome.trim() && futureForm.timescale);
+    const isValid = mode === 'now' ? validateNow() : validateFuture();
 
     if (!isValid) {
       if (force) {
@@ -72,7 +74,7 @@ export function useActionOutput({
       );
       setOutput(text);
     }
-  }, [mode, nowForm, futureForm, toast]);
+  }, [mode, nowForm, futureForm, validateNow, validateFuture, toast]);
 
   // Auto-generate on form changes (skip when output was set by AI fix)
   useEffect(() => {

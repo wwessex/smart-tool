@@ -117,16 +117,34 @@ export function SmartActionTool() {
 
   // --- Extracted hooks ---
   const form = useSmartForm();
-  const { today, mode, setMode, nowForm, setNowForm, futureForm, setFutureForm, showValidation, setShowValidation, suggestQuery, setSuggestQuery, wizardMode, setWizardMode, futureDateError, nowDateWarning, validateNow, validateFuture, getFieldClass } = form;
+  const {
+    today, mode, setMode,
+    nowForm, setNowForm, futureForm, setFutureForm,
+    showValidation, setShowValidation,
+    suggestQuery, setSuggestQuery,
+    wizardMode, setWizardMode,
+    futureDateError, nowDateWarning,
+    validateNow, validateFuture, getFieldClass,
+  } = form;
 
   const actionOutput = useActionOutput({
     mode,
     nowForm,
     futureForm,
+    validateNow,
+    validateFuture,
     participantLanguage: storage.participantLanguage,
     updateParticipantLanguage: storage.updateParticipantLanguage,
   });
-  const { translation, output, setOutput, outputSource, setOutputSource, translatedOutput, setTranslatedOutput, translatedForOutputRef, hasTranslation, hasOutput, copied, generateOutput, smartCheck, handleCopy, handleDownload, handleTranslate, handleLanguageChange, clearOutput } = actionOutput;
+  const {
+    translation, output, setOutput,
+    outputSource, setOutputSource,
+    translatedOutput, setTranslatedOutput, translatedForOutputRef,
+    hasTranslation, hasOutput, copied,
+    generateOutput, smartCheck,
+    handleCopy, handleDownload, handleTranslate, handleLanguageChange,
+    clearOutput,
+  } = actionOutput;
 
   const aiDraft = useAIDrafting({
     mode,
@@ -146,7 +164,16 @@ export function SmartActionTool() {
       updateFeedback: storage.updateFeedback,
     },
   });
-  const { llm, aiDrafting, showLLMPicker, setShowLLMPicker, pendingAIDraftRef, planResult, setPlanResult, showPlanPicker, setShowPlanPicker, feedbackRating, currentFeedbackId, aiGeneratedActionRef, showFeedbackUI, resetFeedbackState, templateDraftNow, templateDraftFuture, handleFeedbackRate, handleSelectPlanAction, handleAIDraft, buildLLMContext, handleWizardAIDraft, promptPackSource } = aiDraft;
+  const {
+    llm, aiDrafting,
+    showLLMPicker, setShowLLMPicker, pendingAIDraftRef,
+    planResult, setPlanResult, showPlanPicker, setShowPlanPicker,
+    feedbackRating, currentFeedbackId, aiGeneratedActionRef,
+    showFeedbackUI, resetFeedbackState,
+    templateDraftNow, templateDraftFuture,
+    handleFeedbackRate, handleSelectPlanAction, handleAIDraft,
+    buildLLMContext, handleWizardAIDraft, promptPackSource,
+  } = aiDraft;
 
   // --- UI state (remains in component) ---
   const [historySearch, setHistorySearch] = useState('');
