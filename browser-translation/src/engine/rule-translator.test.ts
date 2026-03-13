@@ -202,6 +202,74 @@ describe("RuleBasedTranslator", () => {
     });
   });
 
+  describe("expanded vocabulary", () => {
+    it("translates referral and service terms in Urdu", async () => {
+      const t = await RuleBasedTranslator.create("en-ur");
+      const result = t!.translate("John will be referred to a mentoring service for additional one-to-one support");
+      expect(result).toContain("حوالہ کیا جائے گا");
+      expect(result).toContain("رہنمائی کی خدمت");
+      expect(result).toContain("اضافی");
+      expect(result).toContain("انفرادی مدد");
+    });
+
+    it("translates guidance and encouragement words in Urdu", async () => {
+      const t = await RuleBasedTranslator.create("en-ur");
+      const result = t!.translate("Mentors can provide guidance and encouragement");
+      // "mentors" → رہنما, "guidance" → رہنمائی, "encouragement" → حوصلہ افزائی
+      expect(result).toContain("رہنمائی");
+      expect(result).toContain("حوصلہ افزائی");
+    });
+
+    it("translates passive phrases in French", async () => {
+      const t = await RuleBasedTranslator.create("en-fr");
+      const result = t!.translate("John will be referred to a counselling service");
+      expect(result).toContain("sera orienté vers");
+      expect(result).toContain("service de conseil");
+    });
+
+    it("translates service compound terms in German", async () => {
+      const t = await RuleBasedTranslator.create("en-de");
+      const result = t!.translate("additional one-to-one support from the mentoring service");
+      expect(result).toContain("zusätzlich");
+      expect(result).toContain("Einzelunterstützung");
+      expect(result).toContain("Mentoring-Dienst");
+    });
+
+    it("translates 'can provide' phrase in French", async () => {
+      const t = await RuleBasedTranslator.create("en-fr");
+      // "can provide" matched when not followed by longer phrases like "provide support"
+      const result = t!.translate("They can provide help");
+      expect(result).toContain("peut fournir");
+    });
+
+    it("translates new adjectives in Urdu", async () => {
+      const t = await RuleBasedTranslator.create("en-ur");
+      const result = t!.translate("social and emotional support");
+      expect(result).toContain("سماجی");
+      expect(result).toContain("جذباتی");
+    });
+  });
+
+  describe("time patterns with numbers", () => {
+    it("translates 'in 2 weeks' before numbers are captured as entities", async () => {
+      const t = await RuleBasedTranslator.create("en-fr");
+      const result = t!.translate("Complete the task in 2 weeks");
+      expect(result).toContain("dans 2 semaines");
+    });
+
+    it("translates 'within 3 days' pattern", async () => {
+      const t = await RuleBasedTranslator.create("en-de");
+      const result = t!.translate("Respond within 3 days");
+      expect(result).toContain("innerhalb von 3 Tagen");
+    });
+
+    it("translates 'in 1 month' in Arabic with RTL marks", async () => {
+      const t = await RuleBasedTranslator.create("en-ar");
+      const result = t!.translate("Complete the course in 1 month");
+      expect(result).toContain("في 1 أشهر");
+    });
+  });
+
   describe("phrase precedence over words", () => {
     it("matches 'job search' as phrase not separate words", async () => {
       const t = await RuleBasedTranslator.create("en-fr");

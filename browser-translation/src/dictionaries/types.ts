@@ -13,7 +13,7 @@ export interface DictionaryEntry {
   /** Target phrase in the destination language. */
   tgt: string;
   /** Optional part-of-speech hint for future grammar handling. */
-  pos?: "verb" | "noun" | "phrase" | "connector" | "time";
+  pos?: "verb" | "noun" | "adjective" | "phrase" | "connector" | "time";
 }
 
 /** Regex-based time expression pattern with a replacement template. */
