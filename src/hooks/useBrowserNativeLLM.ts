@@ -138,7 +138,7 @@ interface HookState {
 }
 
 /** Maximum time (ms) to wait for plan generation before timing out. */
-const PLAN_GENERATION_TIMEOUT_MS = 60_000;
+const PLAN_GENERATION_TIMEOUT_MS = 180_000;
 
 const INITIAL_STATE: HookState = {
   isLoading: false,
@@ -411,11 +411,8 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
         throw new Error("Planner not initialized. Call initialize() first.");
       }
 
-      setState((prev) => ({ ...prev, isGenerating: true, error: null, classifiedError: null }));
-      abortRef.current = false;
-
-      try {
-        const plan = await Promise.race([
+      const runWithTimeout = async (): Promise<SMARTPlan> => {
+        return Promise.race([
           planner.generatePlan(input, callbacks),
           new Promise<never>((_, reject) => {
             setTimeout(
@@ -424,13 +421,30 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
             );
           }),
         ]);
-        setState((prev) => ({ ...prev, isGenerating: false }));
-        return plan;
+      };
+
+      setState((prev) => ({ ...prev, isGenerating: true, error: null, classifiedError: null }));
+      abortRef.current = false;
+
+      try {
+        return await runWithTimeout();
       } catch (err) {
+        let finalError: unknown = err;
+        const isTimeoutError = err instanceof Error && /timed out/i.test(err.message);
+        if (isTimeoutError) {
+          // First run can exceed timeout while runtime/JIT caches warm up.
+          // Retry once before surfacing a failure to the UI.
+          try {
+            return await runWithTimeout();
+          } catch (retryErr) {
+            finalError = retryErr;
+          }
+        }
+
         // On iOS, a worker crash during generation often manifests as a
         // generic "Worker error" or the promise hanging until timeout.
         // Provide a clear memory-related message for iOS devices.
-        const errMsg = err instanceof Error ? err.message : String(err);
+        const errMsg = finalError instanceof Error ? finalError.message : String(finalError);
         const isWorkerCrash = /Worker error|Worker crashed|memory|OOM/i.test(errMsg);
         if (isWorkerCrash && deviceInfo.isIOS) {
           const iosErr = new Error(
@@ -440,8 +454,10 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
           setError(iosErr);
           throw iosErr;
         }
-        setError(err);
-        throw err;
+        setError(finalError);
+        throw finalError;
+      } finally {
+        setState((prev) => ({ ...prev, isGenerating: false }));
       }
     },
     [state.isReady, deviceInfo.isIOS, setError],

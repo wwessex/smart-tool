@@ -311,6 +311,18 @@ export function useAIDrafting({
 
       scheduleSafariModelUnload();
     } catch (err) {
+      const isTimeoutError = err instanceof Error && /timed out/i.test(err.message);
+      if (isTimeoutError) {
+        console.warn('SmartPlanner draft timed out; keeping AI mode enabled for retry:', err);
+        toast({
+          title: 'AI draft timed out',
+          description: 'The built-in model is still warming up. Try drafting again to use Local AI.',
+          variant: 'destructive',
+        });
+        scheduleSafariModelUnload(0);
+        return;
+      }
+
       console.warn('SmartPlanner draft failed, falling back to templates:', err);
       if (mode === 'now') {
         let timescale = nowForm.timescale;
