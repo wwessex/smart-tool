@@ -14,15 +14,15 @@ import {
   formatDDMMMYY,
 } from '@/lib/smart-utils';
 import type { FeedbackRating } from '@/components/smart/ActionFeedback';
-import type { Mode, NowForm, FutureForm } from '@/hooks/useSmartForm';
+import type { Mode, NowForm, TaskBasedForm } from '@/hooks/useSmartForm';
 import type { ActionFeedback as ActionFeedbackRecord } from '@/hooks/useSmartStorage';
 
 export interface UseAIDraftingOptions {
   mode: Mode;
   nowForm: NowForm;
-  futureForm: FutureForm;
+  taskBasedForm: TaskBasedForm;
   setNowForm: React.Dispatch<React.SetStateAction<NowForm>>;
-  setFutureForm: React.Dispatch<React.SetStateAction<FutureForm>>;
+  setTaskBasedForm: React.Dispatch<React.SetStateAction<TaskBasedForm>>;
   suggestQuery: string;
   storage: {
     aiDraftMode: string;
@@ -39,9 +39,9 @@ export interface UseAIDraftingOptions {
 export function useAIDrafting({
   mode,
   nowForm,
-  futureForm,
+  taskBasedForm,
   setNowForm,
-  setFutureForm,
+  setTaskBasedForm,
   suggestQuery,
   storage,
 }: UseAIDraftingOptions) {
@@ -136,11 +136,11 @@ export function useAIDrafting({
     toast({ title: 'Draft inserted', description: 'Template draft added. Edit as needed.' });
   }, [nowForm, suggestQuery, setNowForm, toast]);
 
-  const templateDraftFuture = useCallback(() => {
-    const outcome = aiDraftFuture(futureForm.task, futureForm.forename);
-    setFutureForm(prev => ({ ...prev, outcome }));
+  const templateDraftTaskBased = useCallback(() => {
+    const outcome = aiDraftFuture(taskBasedForm.task, taskBasedForm.forename);
+    setTaskBasedForm(prev => ({ ...prev, outcome }));
     toast({ title: 'Draft inserted', description: 'Template draft added. Edit as needed.' });
-  }, [futureForm, setFutureForm, toast]);
+  }, [taskBasedForm, setTaskBasedForm, toast]);
 
   // Handle feedback rating from the ActionFeedback component
   const handleFeedbackRate = useCallback((rating: FeedbackRating) => {
@@ -160,7 +160,7 @@ export function useAIDrafting({
         timescale: prev.timescale || '2 weeks',
       }));
     } else {
-      setFutureForm(prev => ({
+      setTaskBasedForm(prev => ({
         ...prev,
         outcome: action.action,
       }));
@@ -173,7 +173,7 @@ export function useAIDrafting({
     setShowFeedbackUI(true);
 
     // Create a pending feedback record
-    const barrier = mode === 'now' ? nowForm.barrier : (futureForm.task || '');
+    const barrier = mode === 'now' ? nowForm.barrier : (taskBasedForm.task || '');
     const feedbackRecord = storage.addFeedback({
       barrier,
       category: classifyBarrier(barrier),
@@ -181,8 +181,8 @@ export function useAIDrafting({
       rating: null,
       acceptedAsIs: false,
       source: 'ai',
-      forename: mode === 'now' ? nowForm.forename : futureForm.forename,
-      timescale: mode === 'now' ? (nowForm.timescale || '2 weeks') : (futureForm.timescale || '4 weeks'),
+      forename: mode === 'now' ? nowForm.forename : taskBasedForm.forename,
+      timescale: mode === 'now' ? (nowForm.timescale || '2 weeks') : (taskBasedForm.timescale || '4 weeks'),
     });
     setCurrentFeedbackId(feedbackRecord.id);
 
@@ -199,7 +199,7 @@ export function useAIDrafting({
     setShowPlanPicker(false);
     setPlanResult(null);
     toast({ title: 'Action applied', description: 'SMART action added to form. Edit as needed.' });
-  }, [mode, nowForm.barrier, nowForm.forename, nowForm.timescale, futureForm.task, futureForm.forename, futureForm.timescale, setNowForm, setFutureForm, storage, toast]);
+  }, [mode, nowForm.barrier, nowForm.forename, nowForm.timescale, taskBasedForm.task, taskBasedForm.forename, taskBasedForm.timescale, setNowForm, setTaskBasedForm, storage, toast]);
 
   const handleAIDraft = useCallback(async () => {
     if (mode === 'now') {
@@ -208,7 +208,7 @@ export function useAIDrafting({
         return;
       }
     } else {
-      if (!futureForm.forename.trim() || !futureForm.task.trim()) {
+      if (!taskBasedForm.forename.trim() || !taskBasedForm.task.trim()) {
         toast({ title: 'Missing info', description: 'Add a forename and task first.', variant: 'destructive' });
         return;
       }
@@ -217,14 +217,14 @@ export function useAIDrafting({
     // User preference: templates - use templates directly
     if (storage.aiDraftMode === 'template') {
       if (mode === 'now') templateDraftNow();
-      else templateDraftFuture();
+      else templateDraftTaskBased();
       return;
     }
 
     // On mobile/iPad, use templates unless Experimental Local AI is enabled
     if (llm.isMobile && !llm.canUseLocalAI) {
       if (mode === 'now') templateDraftNow();
-      else templateDraftFuture();
+      else templateDraftTaskBased();
       toast({
         title: 'Smart templates applied',
         description: 'Local AI is disabled on mobile/iPad by default. Enable it in Settings (Experimental) to use Local AI.',
@@ -243,17 +243,17 @@ export function useAIDrafting({
     setAIDrafting(true);
     try {
       // Retrieve similar exemplars for context (RAG-style)
-      const barrier = mode === 'now' ? nowForm.barrier : (futureForm.task || '');
+      const barrier = mode === 'now' ? nowForm.barrier : (taskBasedForm.task || '');
       const barrierCategory = classifyBarrier(barrier);
       const exemplars = retrieveExemplars(barrier, storage.actionFeedback, 3);
-      const timescale = mode === 'now' ? (nowForm.timescale || '2 weeks') : (futureForm.timescale || '4 weeks');
+      const timescale = mode === 'now' ? (nowForm.timescale || '2 weeks') : (taskBasedForm.timescale || '4 weeks');
       const targetDate = formatDDMMMYY(parseTimescaleToTargetISO(
-        mode === 'now' ? nowForm.date : futureForm.date,
+        mode === 'now' ? nowForm.date : taskBasedForm.date,
         timescale,
       ));
       const exemplarContext = formatExemplarsForPrompt(
         exemplars,
-        mode === 'now' ? nowForm.forename : futureForm.forename,
+        mode === 'now' ? nowForm.forename : taskBasedForm.forename,
         targetDate,
       );
 
@@ -270,11 +270,11 @@ export function useAIDrafting({
             selected_barrier_label: nowForm.barrier,
           }
         : {
-            goal: futureForm.task,
+            goal: taskBasedForm.task,
             timeframe: timescale,
-            situation: `Employment advisor helping ${futureForm.forename} plan ahead.${exemplarContext ? '\n\n' + exemplarContext : ''}`,
-            participant_name: futureForm.forename,
-            supporter: futureForm.responsible,
+            situation: `Employment advisor helping ${taskBasedForm.forename} plan ahead.${exemplarContext ? '\n\n' + exemplarContext : ''}`,
+            participant_name: taskBasedForm.forename,
+            supporter: taskBasedForm.responsible,
           };
 
       const plan = await llm.generatePlan(input);
@@ -293,7 +293,7 @@ export function useAIDrafting({
       const rankedActions = rankActionsByRelevance(
         plan.actions,
         barrier,
-        mode === 'now' ? nowForm.forename : futureForm.forename,
+        mode === 'now' ? nowForm.forename : taskBasedForm.forename,
         timescale,
       );
       const rankedPlan = { ...plan, actions: rankedActions };
@@ -321,8 +321,8 @@ export function useAIDrafting({
         );
         setNowForm(prev => ({ ...prev, action, help, timescale }));
       } else {
-        const outcome = aiDraftFuture(futureForm.task, futureForm.forename);
-        setFutureForm(prev => ({ ...prev, outcome }));
+        const outcome = aiDraftFuture(taskBasedForm.task, taskBasedForm.forename);
+        setTaskBasedForm(prev => ({ ...prev, outcome }));
       }
       // Clear persisted error state so the UI doesn't keep showing the AI
       // error after templates have been successfully applied.
@@ -336,7 +336,7 @@ export function useAIDrafting({
     } finally {
       setAIDrafting(false);
     }
-  }, [mode, nowForm, futureForm, llm, templateDraftNow, templateDraftFuture, toast, storage.aiDraftMode, storage.actionFeedback, scheduleSafariModelUnload, suggestQuery, handleSelectPlanAction, setNowForm, setFutureForm]);
+  }, [mode, nowForm, taskBasedForm, llm, templateDraftNow, templateDraftTaskBased, toast, storage.aiDraftMode, storage.actionFeedback, scheduleSafariModelUnload, suggestQuery, handleSelectPlanAction, setNowForm, setTaskBasedForm]);
 
   // Auto-trigger AI draft after model finishes loading
   useEffect(() => {
@@ -361,16 +361,16 @@ export function useAIDrafting({
         : 'Help me create a SMART action for employment support. The action should address a barrier to work.';
     } else {
       const parts: string[] = [];
-      if (futureForm.forename) parts.push(`Participant: ${futureForm.forename}`);
-      if (futureForm.task) parts.push(`Activity/event: ${futureForm.task}`);
-      if (futureForm.responsible) parts.push(`Who is responsible: ${futureForm.responsible}`);
-      if (futureForm.outcome) parts.push(`Expected outcome: ${futureForm.outcome}`);
-      if (futureForm.timescale) parts.push(`Review in: ${futureForm.timescale}`);
+      if (taskBasedForm.forename) parts.push(`Participant: ${taskBasedForm.forename}`);
+      if (taskBasedForm.task) parts.push(`Activity/event: ${taskBasedForm.task}`);
+      if (taskBasedForm.responsible) parts.push(`Who is responsible: ${taskBasedForm.responsible}`);
+      if (taskBasedForm.outcome) parts.push(`Expected outcome: ${taskBasedForm.outcome}`);
+      if (taskBasedForm.timescale) parts.push(`Review in: ${taskBasedForm.timescale}`);
       return parts.length > 0
         ? `Help me improve this task-based SMART action:\n\n${parts.join('\n')}\n\nHow can I make this more specific and measurable?`
         : 'Help me create a task-based SMART action for a future activity or event.';
     }
-  }, [mode, nowForm, futureForm]);
+  }, [mode, nowForm, taskBasedForm]);
 
   // Handle wizard AI draft — uses SmartPlanner plan generation with template fallback
   const handleWizardAIDraft = useCallback(async (field: string, context: Record<string, string>): Promise<string> => {
@@ -441,7 +441,7 @@ export function useAIDrafting({
     showFeedbackUI,
     resetFeedbackState,
     templateDraftNow,
-    templateDraftFuture,
+    templateDraftTaskBased,
     handleFeedbackRate,
     handleSelectPlanAction,
     handleAIDraft,

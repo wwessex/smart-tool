@@ -141,7 +141,7 @@ export const GUIDANCE = [
     body: "This tool helps you create consistent, SMART-style actions for participants faster than ever and get past \"Action Block\"."
   },
   {
-    title: "Barrier to action now",
+    title: "Barrier to action",
     body: [
       "Complete every field.",
       "Write the action so it's clear and measurable (what, when, where).",

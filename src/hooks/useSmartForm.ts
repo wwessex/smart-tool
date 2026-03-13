@@ -14,7 +14,7 @@ export interface NowForm {
   timescale: string;
 }
 
-export interface FutureForm {
+export interface TaskBasedForm {
   date: string;
   forename: string;
   task: string;
@@ -34,7 +34,7 @@ const INITIAL_NOW_FORM = (today: string): NowForm => ({
   timescale: '',
 });
 
-const INITIAL_FUTURE_FORM = (today: string): FutureForm => ({
+const INITIAL_TASK_BASED_FORM = (today: string): TaskBasedForm => ({
   date: today,
   forename: '',
   task: '',
@@ -47,19 +47,19 @@ export function useSmartForm() {
   const today = todayISO();
   const [mode, setMode] = useState<Mode>('now');
   const [nowForm, setNowForm] = useState<NowForm>(INITIAL_NOW_FORM(today));
-  const [futureForm, setFutureForm] = useState<FutureForm>(INITIAL_FUTURE_FORM(today));
+  const [taskBasedForm, setTaskBasedForm] = useState<TaskBasedForm>(INITIAL_TASK_BASED_FORM(today));
   const [showValidation, setShowValidation] = useState(false);
   const [suggestQuery, setSuggestQuery] = useState('');
   const [wizardMode, setWizardMode] = useState(false);
 
-  // BUG FIX #1: Validate future date - must be today or later
-  const futureDateError = useMemo(() => {
-    if (!futureForm.date) return '';
-    if (futureForm.date < today) {
+  // BUG FIX #1: Validate task-based date - must be today or later
+  const taskBasedDateError = useMemo(() => {
+    if (!taskBasedForm.date) return '';
+    if (taskBasedForm.date < today) {
       return 'Date must be today or in the future for task-based actions.';
     }
     return '';
-  }, [futureForm.date, today]);
+  }, [taskBasedForm.date, today]);
 
   const nowDateWarning = useMemo(() => {
     if (!nowForm.date) return '';
@@ -81,25 +81,25 @@ export function useSmartForm() {
     );
   }, [nowForm]);
 
-  // BUG FIX #1: Add date validation to validateFuture
-  const validateFuture = useCallback((): boolean => {
+  // BUG FIX #1: Add date validation to validateTaskBased
+  const validateTaskBased = useCallback((): boolean => {
     return !!(
-      futureForm.date &&
-      futureForm.date >= today && // Must be today or future
-      futureForm.forename.trim() &&
-      futureForm.task.trim() &&
-      futureForm.outcome.trim() &&
-      futureForm.timescale
+      taskBasedForm.date &&
+      taskBasedForm.date >= today && // Must be today or future
+      taskBasedForm.forename.trim() &&
+      taskBasedForm.task.trim() &&
+      taskBasedForm.outcome.trim() &&
+      taskBasedForm.timescale
     );
-  }, [futureForm, today]);
+  }, [taskBasedForm, today]);
 
-  const isValid = mode === 'now' ? validateNow() : validateFuture();
+  const isValid = mode === 'now' ? validateNow() : validateTaskBased();
 
   const resetForm = useCallback(() => {
     if (mode === 'now') {
       setNowForm(INITIAL_NOW_FORM(today));
     } else {
-      setFutureForm(INITIAL_FUTURE_FORM(today));
+      setTaskBasedForm(INITIAL_TASK_BASED_FORM(today));
     }
     setShowValidation(false);
     setSuggestQuery('');
@@ -116,18 +116,18 @@ export function useSmartForm() {
     setMode,
     nowForm,
     setNowForm,
-    futureForm,
-    setFutureForm,
+    taskBasedForm,
+    setTaskBasedForm,
     showValidation,
     setShowValidation,
     suggestQuery,
     setSuggestQuery,
     wizardMode,
     setWizardMode,
-    futureDateError,
+    taskBasedDateError,
     nowDateWarning,
     validateNow,
-    validateFuture,
+    validateTaskBased,
     isValid,
     resetForm,
     getFieldClass,

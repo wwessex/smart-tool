@@ -12,7 +12,7 @@ export interface LLMPickerDialogProps {
   mode: Mode;
   pendingAIDraftRef: React.MutableRefObject<boolean>;
   templateDraftNow: () => void;
-  templateDraftFuture: () => void;
+  templateDraftTaskBased: () => void;
   llm: {
     isLoading: boolean;
     error: string | null;
@@ -38,7 +38,7 @@ export function LLMPickerDialog({
   mode,
   pendingAIDraftRef,
   templateDraftNow,
-  templateDraftFuture,
+  templateDraftTaskBased,
   llm,
   storage,
 }: LLMPickerDialogProps) {
@@ -153,7 +153,7 @@ export function LLMPickerDialog({
                 if (mode === 'now') {
                   templateDraftNow();
                 } else {
-                  templateDraftFuture();
+                  templateDraftTaskBased();
                 }
               }}
             >

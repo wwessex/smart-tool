@@ -4,16 +4,16 @@ import { useToast } from '@/hooks/use-toast';
 import { useTranslation, SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
 import { checkSmart, SmartCheck } from '@/lib/smart-checker';
 import { buildNowOutput, buildFutureOutput } from '@/lib/smart-utils';
-import type { Mode, NowForm, FutureForm } from '@/hooks/useSmartForm';
+import type { Mode, NowForm, TaskBasedForm } from '@/hooks/useSmartForm';
 
 export type OutputSource = 'form' | 'ai' | 'manual';
 
 export interface UseActionOutputOptions {
   mode: Mode;
   nowForm: NowForm;
-  futureForm: FutureForm;
+  taskBasedForm: TaskBasedForm;
   validateNow: () => boolean;
-  validateFuture: () => boolean;
+  validateTaskBased: () => boolean;
   participantLanguage: string;
   updateParticipantLanguage: (lang: string) => void;
 }
@@ -21,9 +21,9 @@ export interface UseActionOutputOptions {
 export function useActionOutput({
   mode,
   nowForm,
-  futureForm,
+  taskBasedForm,
   validateNow,
-  validateFuture,
+  validateTaskBased,
   participantLanguage,
   updateParticipantLanguage,
 }: UseActionOutputOptions) {
@@ -40,7 +40,7 @@ export function useActionOutput({
   const hasOutput = output.trim().length > 0;
 
   const generateOutput = useCallback((force = false) => {
-    const isValid = mode === 'now' ? validateNow() : validateFuture();
+    const isValid = mode === 'now' ? validateNow() : validateTaskBased();
 
     if (!isValid) {
       if (force) {
@@ -65,16 +65,16 @@ export function useActionOutput({
       setOutput(text);
     } else {
       const text = buildFutureOutput(
-        futureForm.date,
-        futureForm.forename.trim(),
-        futureForm.task.trim(),
-        futureForm.responsible,
-        futureForm.outcome.trim(),
-        futureForm.timescale,
+        taskBasedForm.date,
+        taskBasedForm.forename.trim(),
+        taskBasedForm.task.trim(),
+        taskBasedForm.responsible,
+        taskBasedForm.outcome.trim(),
+        taskBasedForm.timescale,
       );
       setOutput(text);
     }
-  }, [mode, nowForm, futureForm, validateNow, validateFuture, toast]);
+  }, [mode, nowForm, taskBasedForm, validateNow, validateTaskBased, toast]);
 
   // Auto-generate on form changes (skip when output was set by AI fix)
   useEffect(() => {
@@ -88,7 +88,7 @@ export function useActionOutput({
       return;
     }
     generateOutput(false);
-  }, [nowForm, futureForm, mode, outputSource, generateOutput]);
+  }, [nowForm, taskBasedForm, mode, outputSource, generateOutput]);
 
   // Clear stale translation when the English output changes
   useEffect(() => {
@@ -117,10 +117,10 @@ export function useActionOutput({
 
     const meta = mode === 'now'
       ? { forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, date: nowForm.date }
-      : { forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, date: futureForm.date };
+      : { forename: taskBasedForm.forename, barrier: taskBasedForm.task, timescale: taskBasedForm.timescale, date: taskBasedForm.date };
 
     return checkSmart(checkableOutput, meta);
-  }, [checkableOutput, mode, nowForm.forename, nowForm.barrier, nowForm.timescale, nowForm.date, futureForm.forename, futureForm.task, futureForm.timescale, futureForm.date]);
+  }, [checkableOutput, mode, nowForm.forename, nowForm.barrier, nowForm.timescale, nowForm.date, taskBasedForm.forename, taskBasedForm.task, taskBasedForm.timescale, taskBasedForm.date]);
 
   const handleCopy = useCallback(async () => {
     if (!output.trim()) {

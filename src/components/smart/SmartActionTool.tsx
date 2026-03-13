@@ -82,20 +82,20 @@ export function SmartActionTool() {
   const form = useSmartForm();
   const {
     today, mode, setMode,
-    nowForm, setNowForm, futureForm, setFutureForm,
+    nowForm, setNowForm, taskBasedForm, setTaskBasedForm,
     showValidation, setShowValidation,
     suggestQuery, setSuggestQuery,
     wizardMode, setWizardMode,
-    futureDateError, nowDateWarning,
-    validateNow, validateFuture, getFieldClass,
+    taskBasedDateError, nowDateWarning,
+    validateNow, validateTaskBased, getFieldClass,
   } = form;
 
   const actionOutput = useActionOutput({
     mode,
     nowForm,
-    futureForm,
+    taskBasedForm,
     validateNow,
-    validateFuture,
+    validateTaskBased,
     participantLanguage: storage.participantLanguage,
     updateParticipantLanguage: storage.updateParticipantLanguage,
   });
@@ -112,9 +112,9 @@ export function SmartActionTool() {
   const aiDraft = useAIDrafting({
     mode,
     nowForm,
-    futureForm,
+    taskBasedForm,
     setNowForm,
-    setFutureForm,
+    setTaskBasedForm,
     suggestQuery,
     storage: {
       aiDraftMode: storage.aiDraftMode,
@@ -133,7 +133,7 @@ export function SmartActionTool() {
     planResult, setPlanResult, showPlanPicker, setShowPlanPicker,
     feedbackRating, currentFeedbackId, aiGeneratedActionRef,
     showFeedbackUI, resetFeedbackState,
-    templateDraftNow, templateDraftFuture,
+    templateDraftNow, templateDraftTaskBased,
     handleFeedbackRate, handleSelectPlanAction, handleAIDraft,
     buildLLMContext, handleWizardAIDraft, promptPack, promptPackSource,
   } = aiDraft;
@@ -201,12 +201,12 @@ export function SmartActionTool() {
       return;
     }
 
-    const forename = mode === 'now' ? nowForm.forename : futureForm.forename;
+    const forename = mode === 'now' ? nowForm.forename : taskBasedForm.forename;
     storage.addRecentName(forename);
 
     const baseMeta = mode === 'now'
       ? { date: nowForm.date, time: nowForm.time, forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
-      : { date: futureForm.date, forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, responsible: futureForm.responsible, reason: futureForm.outcome };
+      : { date: taskBasedForm.date, forename: taskBasedForm.forename, barrier: taskBasedForm.task, timescale: taskBasedForm.timescale, responsible: taskBasedForm.responsible, reason: taskBasedForm.outcome };
 
     const item: HistoryItem = {
       id: crypto.randomUUID(),
@@ -226,7 +226,7 @@ export function SmartActionTool() {
 
     // Update feedback record if this was an AI-generated action
     if (currentFeedbackId && showFeedbackUI) {
-      const currentAction = mode === 'now' ? nowForm.action : futureForm.outcome;
+      const currentAction = mode === 'now' ? nowForm.action : taskBasedForm.outcome;
       const wasEdited = aiGeneratedActionRef.current && currentAction !== aiGeneratedActionRef.current;
       storage.updateFeedback(currentFeedbackId, {
         acceptedAsIs: !wasEdited,
@@ -264,7 +264,7 @@ export function SmartActionTool() {
     } else {
       toast({ title: 'Saved!', description: hasTranslation ? 'Action with translation saved to history.' : 'Action saved to history.' });
     }
-  }, [output, storage, smartCheck.overallScore, mode, nowForm, futureForm, translatedOutput, hasTranslation, toast, localSync, currentFeedbackId, showFeedbackUI, aiGeneratedActionRef, resetFeedbackState]);
+  }, [output, storage, smartCheck.overallScore, mode, nowForm, taskBasedForm, translatedOutput, hasTranslation, toast, localSync, currentFeedbackId, showFeedbackUI, aiGeneratedActionRef, resetFeedbackState]);
 
   const handleEditHistory = (item: HistoryItem) => {
     setMode(item.mode);
@@ -280,7 +280,7 @@ export function SmartActionTool() {
         timescale: item.meta.timescale || ''
       });
     } else {
-      setFutureForm({
+      setTaskBasedForm({
         date: item.meta.date || today,
         forename: item.meta.forename || '',
         task: item.meta.barrier || '',
@@ -314,17 +314,17 @@ export function SmartActionTool() {
         s.help.toLowerCase().includes(q)
       ).slice(0, 14);
     } else {
-      return getTaskSuggestions(futureForm.task);
+      return getTaskSuggestions(taskBasedForm.task);
     }
-  }, [mode, nowForm.barrier, futureForm.task, suggestQuery]);
+  }, [mode, nowForm.barrier, taskBasedForm.task, suggestQuery]);
 
   const targetCtx = useMemo(() => {
-    const baseISO = mode === 'now' ? nowForm.date : futureForm.date;
-    const timescale = mode === 'now' ? nowForm.timescale : futureForm.timescale;
-    const forename = mode === 'now' ? nowForm.forename : futureForm.forename;
+    const baseISO = mode === 'now' ? nowForm.date : taskBasedForm.date;
+    const timescale = mode === 'now' ? nowForm.timescale : taskBasedForm.timescale;
+    const forename = mode === 'now' ? nowForm.forename : taskBasedForm.forename;
     const targetISO = parseTimescaleToTargetISO(baseISO || today, timescale || '2 weeks');
     return { targetPretty: formatDDMMMYY(targetISO), n: 2, forename: forename.trim() };
-  }, [mode, nowForm.date, nowForm.timescale, nowForm.forename, futureForm.date, futureForm.timescale, futureForm.forename, today]);
+  }, [mode, nowForm.date, nowForm.timescale, nowForm.forename, taskBasedForm.date, taskBasedForm.timescale, taskBasedForm.forename, today]);
 
   const handleInsertSuggestion = (suggestion: { title: string; action?: string; help?: string; outcome?: string }) => {
     if (mode === 'now' && suggestion.action) {
@@ -337,12 +337,12 @@ export function SmartActionTool() {
       }));
       toast({ title: 'Inserted', description: 'Suggestion added.' });
     } else if (mode === 'future' && suggestion.outcome) {
-      if (!futureForm.forename.trim()) {
+      if (!taskBasedForm.forename.trim()) {
         toast({ title: 'Enter forename first', description: 'Add the participant\'s forename.', variant: 'destructive' });
         return;
       }
-      const outcome = suggestion.outcome.replace(/\[Name\]/g, futureForm.forename);
-      setFutureForm(prev => ({ ...prev, outcome }));
+      const outcome = suggestion.outcome.replace(/\[Name\]/g, taskBasedForm.forename);
+      setTaskBasedForm(prev => ({ ...prev, outcome }));
       toast({ title: 'Inserted', description: 'Suggestion added.' });
     }
   };
@@ -358,13 +358,13 @@ export function SmartActionTool() {
         help: template.help || prev.help,
       }));
     } else {
-      setFutureForm(prev => ({
+      setTaskBasedForm(prev => ({
         ...prev,
         task: template.task || prev.task,
         outcome: template.outcome || prev.outcome,
       }));
     }
-  }, [setNowForm, setFutureForm]);
+  }, [setNowForm, setTaskBasedForm]);
 
   const handleExport = () => {
     // Use the same format as exportAllData for consistency and full round-trip support
@@ -394,7 +394,7 @@ export function SmartActionTool() {
         timescale: data.timescale || prev.timescale,
       }));
     } else {
-      setFutureForm(prev => ({
+      setTaskBasedForm(prev => ({
         ...prev,
         forename: data.forename || prev.forename,
         task: data.task || prev.task,
@@ -405,7 +405,7 @@ export function SmartActionTool() {
     }
     setWizardMode(false);
     toast({ title: 'Wizard complete', description: 'Form populated. Review and generate your action.' });
-  }, [mode, setNowForm, setFutureForm, setWizardMode, toast]);
+  }, [mode, setNowForm, setTaskBasedForm, setWizardMode, toast]);
 
   // Keyboard shortcuts configuration
   const shortcuts: ShortcutConfig[] = useMemo(() => [
@@ -695,7 +695,7 @@ export function SmartActionTool() {
                 )}
                 onClick={() => { setMode('now'); setShowValidation(false); }}
               >
-                Barrier to action now
+                Barrier to action
               </Button>
               <Button
                 type="button"
@@ -929,33 +929,33 @@ export function SmartActionTool() {
                   <div className="space-y-2 shrink-0 mb-4 sm:mb-0 sm:mr-6" style={{ width: 'clamp(140px, 40%, 220px)' }}>
                     <label htmlFor="scheduled-date" className="text-sm font-medium text-muted-foreground">Scheduled date</label>
                     <div className="relative">
-                      <InputGlow show={!!futureDateError} variant="error" />
+                      <InputGlow show={!!taskBasedDateError} variant="error" />
                       <Input
                         id="scheduled-date"
                         type="date"
-                        value={futureForm.date}
-                        onChange={e => setFutureForm(prev => ({ ...prev, date: e.target.value }))}
+                        value={taskBasedForm.date}
+                        onChange={e => setTaskBasedForm(prev => ({ ...prev, date: e.target.value }))}
                         min={today}
-                        className={`${getFieldClass(!!futureForm.date && !futureDateError)} ${futureDateError ? 'border-destructive' : ''}`}
-                        aria-describedby={futureDateError ? "future-date-error" : undefined}
-                        aria-invalid={!!futureDateError}
+                        className={`${getFieldClass(!!taskBasedForm.date && !taskBasedDateError)} ${taskBasedDateError ? 'border-destructive' : ''}`}
+                        aria-describedby={taskBasedDateError ? "future-date-error" : undefined}
+                        aria-invalid={!!taskBasedDateError}
                       />
                     </div>
                     {/* BUG FIX #1: Show error for past dates */}
-                    <WarningText show={!!futureDateError} variant="error" id="future-date-error">
-                      {futureDateError}
+                    <WarningText show={!!taskBasedDateError} variant="error" id="future-date-error">
+                      {taskBasedDateError}
                     </WarningText>
                   </div>
                   <div className="space-y-2 flex-1 min-w-0">
                     <label htmlFor="future-participant-name" className="text-sm font-medium text-muted-foreground">Participant forename</label>
                     <Input
                       id="future-participant-name"
-                      value={futureForm.forename}
-                      onChange={e => setFutureForm(prev => ({ ...prev, forename: e.target.value }))}
+                      value={taskBasedForm.forename}
+                      onChange={e => setTaskBasedForm(prev => ({ ...prev, forename: e.target.value }))}
                       placeholder="e.g. John"
                       list="recent-names"
                       autoComplete="off"
-                      className={getFieldClass(!!futureForm.forename.trim())}
+                      className={getFieldClass(!!taskBasedForm.forename.trim())}
                     />
                   </div>
                 </div>
@@ -963,12 +963,12 @@ export function SmartActionTool() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Activity or event</label>
                   <Textarea
-                    value={futureForm.task}
-                    onChange={e => setFutureForm(prev => ({ ...prev, task: e.target.value }))}
+                    value={taskBasedForm.task}
+                    onChange={e => setTaskBasedForm(prev => ({ ...prev, task: e.target.value }))}
                     placeholder="e.g. Christmas Job Fair at Twickenham Stadium"
                     rows={2}
                     spellCheck
-                    className={getFieldClass(!!futureForm.task.trim())}
+                    className={getFieldClass(!!taskBasedForm.task.trim())}
                   />
                   <p className="text-xs text-muted-foreground">Describe the task, event, or activity they will attend.</p>
                 </div>
@@ -976,10 +976,10 @@ export function SmartActionTool() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Who is responsible?</label>
                   <Select
-                    value={futureForm.responsible}
-                    onValueChange={(value) => setFutureForm(prev => ({ ...prev, responsible: value }))}
+                    value={taskBasedForm.responsible}
+                    onValueChange={(value) => setTaskBasedForm(prev => ({ ...prev, responsible: value }))}
                   >
-                    <SelectTrigger className={getFieldClass(!!futureForm.responsible)}>
+                    <SelectTrigger className={getFieldClass(!!taskBasedForm.responsible)}>
                       <SelectValue placeholder="Select responsible person…" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1040,13 +1040,13 @@ export function SmartActionTool() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">What will happen / expected outcome?</label>
                   <Textarea
-                    value={futureForm.outcome}
-                    onChange={e => setFutureForm(prev => ({ ...prev, outcome: e.target.value }))}
+                    value={taskBasedForm.outcome}
+                    onChange={e => setTaskBasedForm(prev => ({ ...prev, outcome: e.target.value }))}
                     placeholder="e.g. will speak with employers about warehouse roles and collect contact details"
                     rows={4}
                     spellCheck
                     data-field="outcome"
-                    className={getFieldClass(!!futureForm.outcome.trim())}
+                    className={getFieldClass(!!taskBasedForm.outcome.trim())}
                   />
                   <p className="text-xs text-muted-foreground">Describe what the participant will do or achieve. Use AI draft for suggestions.</p>
                 </div>
@@ -1054,12 +1054,12 @@ export function SmartActionTool() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">This will be reviewed in…</label>
                   <ComboboxInput
-                    value={futureForm.timescale}
-                    onChange={(value) => setFutureForm(prev => ({ ...prev, timescale: value }))}
+                    value={taskBasedForm.timescale}
+                    onChange={(value) => setTaskBasedForm(prev => ({ ...prev, timescale: value }))}
                     options={storage.timescales}
                     placeholder="Select timescale…"
                     emptyMessage="No timescales found."
-                    className={getFieldClass(!!futureForm.timescale)}
+                    className={getFieldClass(!!taskBasedForm.timescale)}
                     data-field="timescale"
                   />
                 </div>
@@ -1094,7 +1094,7 @@ export function SmartActionTool() {
                 currentMode={mode}
                 currentForm={mode === 'now' 
                   ? { barrier: nowForm.barrier, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
-                  : { task: futureForm.task, responsible: futureForm.responsible, outcome: futureForm.outcome }
+                  : { task: taskBasedForm.task, responsible: taskBasedForm.responsible, outcome: taskBasedForm.outcome }
                 }
               />
             </motion.div>
@@ -1222,7 +1222,7 @@ export function SmartActionTool() {
         planResult={planResult}
         setPlanResult={setPlanResult}
         mode={mode}
-        barrier={mode === 'now' ? nowForm.barrier : futureForm.task}
+        barrier={mode === 'now' ? nowForm.barrier : taskBasedForm.task}
         onSelectAction={handleSelectPlanAction}
       />
 
@@ -1233,7 +1233,7 @@ export function SmartActionTool() {
         mode={mode}
         pendingAIDraftRef={pendingAIDraftRef}
         templateDraftNow={templateDraftNow}
-        templateDraftFuture={templateDraftFuture}
+        templateDraftTaskBased={templateDraftTaskBased}
         llm={llm}
         storage={{
           preferredLLMModel: storage.preferredLLMModel,
