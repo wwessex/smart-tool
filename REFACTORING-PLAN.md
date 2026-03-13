@@ -4,7 +4,7 @@
 
 ## Executive Summary
 
-The SMART Action Tool codebase is functional but has accumulated significant complexity, primarily concentrated in a single ~3,000-line component. This plan identifies **5 refactoring streams** ordered by impact and risk, with each stream broken into discrete, testable steps.
+The SMART Action Tool codebase is functional but has accumulated significant complexity, primarily concentrated in a single ~3,000-line component. This plan identifies **6 refactoring streams** ordered by impact and risk, with each stream broken into discrete, testable steps.
 
 ---
 
@@ -16,9 +16,12 @@ The SMART Action Tool codebase is functional but has accumulated significant com
 | `useState` calls in one component | **28** | Critical |
 | Total `src/` lines | ~22,200 | OK |
 | Test coverage areas | hooks, lib, portability | Moderate |
-| Component test coverage | **None** | Needs attention |
+| Component test coverage | **None** (16 `it.todo` stubs, 0 real tests) | Needs attention |
 | Number of smart components | 18 files | OK |
 | Workspace packages | 3 (puente-engine, browser-native-llm, browser-translation) | Well-structured |
+| SMART validator implementations | **3 separate** (inconsistent scoring) | Needs dedup |
+| Barrier taxonomy definitions | **4 separate** (fragmented) | Needs dedup |
+| `useSmartStorage` domains | **5 in 1 hook** (647 LOC) | Should split |
 
 ---
 
@@ -182,14 +185,78 @@ After all steps, `SmartActionTool.tsx` should be **~200-300 lines** — a thin o
 
 ---
 
+## Stream 6: Deduplicate Cross-Package Logic (Medium Impact)
+
+**Problem:** SMART criteria validation and barrier taxonomy are defined independently in multiple places, leading to inconsistent scoring and fragile maintenance.
+
+### Step 6.1 — Unify SMART Criteria Patterns
+
+Three separate implementations exist today:
+
+| Location | What it defines | Used by |
+|----------|----------------|---------|
+| `src/lib/smart-checker.ts` | `SPECIFIC_PATTERNS`, `MEASURABLE_PATTERNS`, etc. | Frontend SMART score display |
+| `browser-native-llm/validators/smart-validator.ts` | Own `SPECIFIC_VERBS`, `checkSpecific()`, `checkMeasurable()` | Post-generation validation |
+| `browser-native-llm/relevance/barrier-relevance.ts` | `evaluateBarrierRelevance()` | Relevance scoring |
+
+**Impact:** An action rated 4/5 by the frontend checker might score 3/5 in the LLM validator because patterns differ.
+
+- [ ] Create `src/lib/smart-patterns.ts` as the canonical pattern source
+- [ ] Export all pattern arrays: `SPECIFIC_PATTERNS`, `MEASURABLE_PATTERNS`, `ACHIEVABLE_PATTERNS`, `RELEVANT_PATTERNS`, `TIMEBOUND_PATTERNS`, `WEAK_PATTERNS`, `STRONG_VERB_PATTERN`
+- [ ] Update `smart-checker.ts` to import from `smart-patterns.ts`
+- [ ] Update `browser-native-llm/validators/smart-validator.ts` to import from `smart-patterns.ts` (or from the main package)
+- **Risk:** Medium — cross-package change, needs careful testing
+- **Test:** Verify both checkers produce identical scores for the same input
+
+### Step 6.2 — Consolidate Barrier Taxonomy
+
+Four separate barrier definitions exist today:
+
+| Location | What it defines |
+|----------|----------------|
+| `src/lib/smart-data.ts` → `DEFAULT_BARRIERS` | Barrier names (strings) |
+| `src/lib/smart-data.ts` → `BARRIER_CATEGORIES` | Name → category mapping |
+| `src/lib/smart-data.ts` → `BARRIER_KEYWORDS` | Category → keyword arrays |
+| `browser-native-llm/barrier-catalog.ts` → `BARRIER_CATALOG` | Rich entries (id, label, aliases, category, tags, prompt_hints) |
+
+- [ ] Designate `BARRIER_CATALOG` in browser-native-llm as the single source of truth
+- [ ] Derive `DEFAULT_BARRIERS`, `BARRIER_CATEGORIES`, and `BARRIER_KEYWORDS` from the catalog
+- [ ] Or: move the canonical catalog into `src/lib/` and have browser-native-llm import it
+- [ ] Remove redundant definitions
+- **Risk:** Medium — touches both frontend and LLM package
+- **Test:** Verify barrier classification and keyword matching still works identically
+
+### Step 6.3 — Split useSmartStorage (647 LOC, 5 Domains)
+
+`useSmartStorage.ts` manages 13 localStorage keys across 5 unrelated domains:
+
+| Domain | Responsibility |
+|--------|---------------|
+| History | CRUD, retention, cleanup, export |
+| Templates | Save/load action templates |
+| Settings | 7+ boolean/string preferences |
+| Feedback | AI quality ratings, analytics |
+| Data portability | Import/export (GDPR) |
+
+- [ ] Create `src/hooks/useHistory.ts` — history CRUD + retention + cleanup
+- [ ] Create `src/hooks/useTemplates.ts` — template CRUD
+- [ ] Create `src/hooks/useSettings.ts` — preferences read/write
+- [ ] Create `src/hooks/useFeedback.ts` — feedback storage + ratings
+- [ ] Keep `useSmartStorage.ts` as a facade that composes the four hooks (for backward compatibility during transition)
+- **Risk:** Low-Medium — existing tests cover the current hook well
+- **Test:** Migrate existing `useSmartStorage.test.ts` tests to the split hooks
+
+---
+
 ## Recommended Execution Order
 
 ```
 Phase 1 (Foundation):     Stream 1, Steps 1.1–1.3 (extract hooks)
 Phase 2 (UI Extraction):  Stream 1, Steps 1.4–1.8 (extract components)
 Phase 3 (Stabilize):      Stream 3, Steps 3.1–3.2 (add tests)
-Phase 4 (Polish):         Stream 4 (cleanup) + Stream 2 (state consolidation)
-Phase 5 (Optional):       Stream 5 (architecture improvements)
+Phase 4 (Dedup):          Stream 6 (unify patterns, barrier taxonomy, split storage hook)
+Phase 5 (Polish):         Stream 4 (cleanup) + Stream 2 (state consolidation)
+Phase 6 (Optional):       Stream 5 (architecture improvements)
 ```
 
 Each phase should be a separate PR. Each step within a phase can be a separate commit.
@@ -205,6 +272,7 @@ Each phase should be a separate PR. Each step within a phase can be a separate c
 | Stream 3 (Tests) | Low — additive only | N/A |
 | Stream 4 (Cleanup) | Low — cosmetic | Lint + build verification |
 | Stream 5 (Architecture) | Low — incremental | Optional, skip if not needed |
+| Stream 6 (Deduplication) | Medium — cross-package | Verify scoring consistency with tests |
 
 ---
 
