@@ -447,6 +447,7 @@ export function useAIDrafting({
     handleAIDraft,
     buildLLMContext,
     handleWizardAIDraft,
+    promptPack,
     promptPackSource,
   };
 }

@@ -1,69 +1,35 @@
-import { useState, useCallback, useMemo, useEffect, lazy, Suspense, useRef } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { z } from 'zod';
 import { useSmartStorage, HistoryItem, ActionTemplate } from '@/hooks/useSmartStorage';
-import { SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
 import { parseSmartToolImportFile } from '@/lib/smart-portability';
 import {
   getSuggestionList,
   getTaskSuggestions,
   resolvePlaceholders,
   parseTimescaleToTargetISO,
-  formatDDMMMYY
+  formatDDMMMYY,
 } from '@/lib/smart-utils';
 import { useSmartForm } from '@/hooks/useSmartForm';
-import type { NowForm, FutureForm } from '@/hooks/useSmartForm';
 import { useAIDrafting } from '@/hooks/useAIDrafting';
 import { useActionOutput } from '@/hooks/useActionOutput';
-import { SmartChecklist } from './SmartChecklist';
 import { TemplateLibrary } from './TemplateLibrary';
 import { ActionWizard } from './ActionWizard';
 import { ShortcutsHelp } from './ShortcutsHelp';
-import { OnboardingTutorial, useOnboarding } from './OnboardingTutorial';
-import { EmptyState } from './EmptyState';
-import { DelightfulError } from './DelightfulError';
+import { OnboardingTutorial } from './OnboardingTutorial';
 import { useLocalSync } from '@/hooks/useLocalSync';
-
-// Lazy load HistoryInsights as it uses recharts which is a heavy dependency
-const HistoryInsights = lazy(() => import('./HistoryInsights').then(module => ({ default: module.HistoryInsights })));
-
-// Skeleton loader for lazy-loaded components with shimmer effect
-const InsightsSkeleton = () => (
-  <div className="space-y-4">
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      {[1, 2, 3, 4].map(i => (
-        <div key={i} className="h-20 rounded-xl skeleton-shimmer" style={{ animationDelay: `${i * 0.15}s` }} />
-      ))}
-    </div>
-    <div className="h-48 rounded-xl skeleton-shimmer" style={{ animationDelay: '0.6s' }} />
-  </div>
-);
 import { FloatingToolbar } from './FloatingToolbar';
 import { Footer } from './Footer';
-import { ManageConsentDialog, getStoredConsent } from './CookieConsent';
-import { LanguageSelector } from './LanguageSelector';
-import { WarningBox, WarningText, InputGlow } from './WarningBox';
+import { ManageConsentDialog } from './CookieConsent';
+import { WarningText, InputGlow } from './WarningBox';
 import { useKeyboardShortcuts, groupShortcuts, createShortcutMap, ShortcutConfig } from '@/hooks/useKeyboardShortcuts';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getHelpSubject } from '@/lib/smart-prompts';
 import { SMART_TOOL_SHORTCUTS } from '@/lib/smart-tool-shortcuts';
 import logoIcon from '@/assets/logo-icon.png';
-import { logDraftAnalytics } from '@/lib/draft-analytics';
-import { ActionFeedback } from './ActionFeedback';
-
-/**
- * Safely remove from localStorage, catching any errors.
- */
-function safeRemoveItem(key: string): boolean {
-  try {
-    localStorage.removeItem(key);
-    return true;
-  } catch (error) {
-    console.warn(`localStorage remove failed for key "${key}":`, error);
-    return false;
-  }
-}
-
+import { SettingsPanel } from './SettingsPanel';
+import { HistoryPanel } from './HistoryPanel';
+import { OutputPanel } from './OutputPanel';
+import { LLMPickerDialog } from './LLMPickerDialog';
+import { PlanPickerDialog } from './PlanPickerDialog';
 import { GUIDANCE } from '@/lib/smart-data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -71,19 +37,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3, Shield, FileDown, Clock, Languages, Loader2, RefreshCw, Cloud, CloudOff, Check, ExternalLink, FolderSync, FolderOpen, FileArchive } from 'lucide-react';
+import {
+  Settings, HelpCircle, Sparkles, Sun, Moon, Monitor,
+  ChevronDown, ChevronUp, Keyboard, Loader2, AlertTriangle, History,
+} from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { ComboboxInput } from './ComboboxInput';
 
-// Animation variants - soft physics with spring easing
-const fadeInUp = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -10 }
-};
-
+// Animation variants
 const staggerContainer = {
   animate: {
     transition: {
@@ -172,19 +135,15 @@ export function SmartActionTool() {
     showFeedbackUI, resetFeedbackState,
     templateDraftNow, templateDraftFuture,
     handleFeedbackRate, handleSelectPlanAction, handleAIDraft,
-    buildLLMContext, handleWizardAIDraft, promptPackSource,
+    buildLLMContext, handleWizardAIDraft, promptPack, promptPackSource,
   } = aiDraft;
 
   // --- UI state (remains in component) ---
-  const [historySearch, setHistorySearch] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [guidanceOpen, setGuidanceOpen] = useState(false);
-  const [settingsBarriers, setSettingsBarriers] = useState('');
-  const [settingsTimescales, setSettingsTimescales] = useState('');
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
-  const [historyTab, setHistoryTab] = useState<'history' | 'insights'>('history');
   const [privacySettingsOpen, setPrivacySettingsOpen] = useState(false);
 
   // Detect landscape orientation
@@ -387,16 +346,6 @@ export function SmartActionTool() {
       toast({ title: 'Inserted', description: 'Suggestion added.' });
     }
   };
-
-  const filteredHistory = useMemo(() => {
-    const q = historySearch.toLowerCase();
-    if (!q) return storage.history;
-    return storage.history.filter(h =>
-      h.text.toLowerCase().includes(q) ||
-      h.meta.forename?.toLowerCase().includes(q) ||
-      h.meta.barrier?.toLowerCase().includes(q)
-    );
-  }, [storage.history, historySearch]);
 
   // Handle template insertion
   const handleInsertTemplate = useCallback((template: ActionTemplate) => {
@@ -660,693 +609,11 @@ export function SmartActionTool() {
               <Keyboard className="w-4 h-4" />
             </Button>
 
-            <Dialog open={settingsOpen} onOpenChange={(open) => {
-              setSettingsOpen(open);
-              if (open) {
-                setSettingsBarriers(storage.barriers.join('\n'));
-                setSettingsTimescales(storage.timescales.join('\n'));
-              }
-            }}>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="px-1.5 sm:px-2 h-8">
-                  <Settings className="w-4 h-4" />
-                  <span className="ml-1 hidden sm:inline">Settings</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-3xl max-h-[85vh] sm:max-h-[80vh] flex flex-col overflow-hidden">
-                <DialogHeader className="shrink-0">
-                  <DialogTitle>Settings</DialogTitle>
-                </DialogHeader>
-                <div className="flex-1 overflow-y-auto pr-2 space-y-4">
-                  <div className="grid md:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-lg border bg-card space-y-3 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
-                    <h3 className="font-bold">Barriers list</h3>
-                    <p className="text-xs text-muted-foreground">One per line. Users can still type custom barriers.</p>
-                    <Textarea 
-                      value={settingsBarriers} 
-                      onChange={e => setSettingsBarriers(e.target.value)}
-                      className="font-mono text-sm min-h-[200px]"
-                    />
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => {
-                        storage.resetBarriers();
-                        setSettingsBarriers(storage.barriers.join('\n'));
-                        toast({ title: 'Reset', description: 'Barriers reset to default.' });
-                      }}>Reset</Button>
-                      <Button size="sm" onClick={() => {
-                        const list = settingsBarriers.split('\n').map(s => s.trim()).filter(Boolean);
-                        if (!list.length) {
-                          toast({ title: 'Error', description: 'Barriers list cannot be empty.', variant: 'destructive' });
-                          return;
-                        }
-                        storage.updateBarriers(Array.from(new Set(list)));
-                        toast({ title: 'Saved', description: 'Barriers updated.' });
-                      }}>Save</Button>
-                    </div>
-                  </div>
-                  <div className="p-4 rounded-lg border bg-card space-y-3 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
-                    <h3 className="font-bold">Timescales</h3>
-                    <p className="text-xs text-muted-foreground">One per line.</p>
-                    <Textarea 
-                      value={settingsTimescales} 
-                      onChange={e => setSettingsTimescales(e.target.value)}
-                      className="font-mono text-sm min-h-[200px]"
-                    />
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => {
-                        storage.resetTimescales();
-                        setSettingsTimescales(storage.timescales.join('\n'));
-                        toast({ title: 'Reset', description: 'Timescales reset to default.' });
-                      }}>Reset</Button>
-                      <Button size="sm" onClick={() => {
-                        const list = settingsTimescales.split('\n').map(s => s.trim()).filter(Boolean);
-                        if (!list.length) {
-                          toast({ title: 'Error', description: 'Timescales list cannot be empty.', variant: 'destructive' });
-                          return;
-                        }
-                        storage.updateTimescales(Array.from(new Set(list)));
-                        toast({ title: 'Saved', description: 'Timescales updated.' });
-                      }}>Save</Button>
-                      </div>
-                    </div>
-                  </div>
-                
-                  {/* Quality Enforcement Section */}
-                  <div className="p-4 rounded-lg border bg-card space-y-4 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="w-5 h-5 text-primary" />
-                      <h3 className="font-bold">Quality Enforcement</h3>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Prevent saving actions that don't meet SMART quality standards.
-                    </p>
-                    
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input 
-                          type="checkbox" 
-                          checked={storage.minScoreEnabled} 
-                          onChange={e => storage.updateMinScoreEnabled(e.target.checked)}
-                          className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
-                        />
-                        <span className="text-sm font-medium">Enforce minimum SMART score</span>
-                      </label>
-                      
-                      {storage.minScoreEnabled && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground">Minimum score:</span>
-                          <Select 
-                            value={String(storage.minScoreThreshold)} 
-                            onValueChange={v => storage.updateMinScoreThreshold(parseInt(v, 10))}
-                          >
-                            <SelectTrigger className="w-20">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="4">4/5</SelectItem>
-                              <SelectItem value="5">5/5</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <WarningBox show={storage.minScoreEnabled} variant="warning">
-                      Actions with a SMART score below {storage.minScoreThreshold}/5 cannot be saved to history. 
-                      This encourages higher quality action writing.
-                    </WarningBox>
-                  </div>
+            <Button variant="ghost" size="sm" className="px-1.5 sm:px-2 h-8" onClick={() => setSettingsOpen(true)}>
+              <Settings className="w-4 h-4" />
+              <span className="ml-1 hidden sm:inline">Settings</span>
+            </Button>
 
-                  {/* Wizard Mode Toggle */}
-                  <div className="p-4 rounded-lg border bg-card space-y-4 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
-                    <div className="flex items-center gap-2">
-                      <Wand2 className="w-5 h-5 text-primary" />
-                      <h3 className="font-bold">Guided Wizard Mode</h3>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Step-by-step guided form that walks you through creating a SMART action.
-                    </p>
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={wizardMode} 
-                        onChange={e => setWizardMode(e.target.checked)}
-                        className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
-                      />
-                      <span className="text-sm font-medium">Enable guided wizard mode</span>
-                    </label>
-                  </div>
-
-                  {/* AI Draft Settings Section */}
-                  <div className="p-4 rounded-lg border bg-card space-y-4 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
-                    <div className="flex items-center gap-2">
-                      <Bot className="w-5 h-5 text-primary" />
-                      <h3 className="font-bold">AI Draft</h3>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      AI drafting runs locally in your browser by default. If local AI is unavailable, switch
-                      to Smart Templates for instant built-in suggestions.
-                    </p>
-                    
-                    {/* Mode Toggle */}
-                    <div className="space-y-3">
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input 
-                          type="radio" 
-                          name="aiDraftMode"
-                          checked={storage.aiDraftMode === 'ai'} 
-                          onChange={() => storage.updateAIDraftMode('ai')}
-                          className="w-4 h-4 accent-primary"
-                        />
-                        <div>
-                          <span className="text-sm font-medium">Use Local AI</span>
-                          <p className="text-xs text-muted-foreground">
-                            AI-generated suggestions (requires a one-time model download in this browser)
-                          </p>
-                        </div>
-                      </label>
-                      
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input 
-                          type="radio" 
-                          name="aiDraftMode"
-                          checked={storage.aiDraftMode === 'template'} 
-                          onChange={() => storage.updateAIDraftMode('template')}
-                          className="w-4 h-4 accent-primary"
-                        />
-                        <div>
-                          <span className="text-sm font-medium">Use Smart Templates</span>
-                          <p className="text-xs text-muted-foreground">
-                            Instant template-based suggestions (no download required)
-                          </p>
-                        </div>
-                      </label>
-                    </div>
-                    
-
-
-                    {/* iOS / mobile enable (experimental) */}
-                    {storage.aiDraftMode === 'ai' && llm.deviceInfo?.isIOS && llm.isMobile && (
-                      <div className="pt-4 border-t space-y-3">
-                        <label className="flex items-start gap-3 cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            checked={storage.allowMobileLLM} 
-                            onChange={e => storage.updateAllowMobileLLM(e.target.checked)}
-                            className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary mt-0.5"
-                          />
-                          <div>
-                            <span className="text-sm font-medium">Enable Local AI on iPhone/iPad (experimental)</span>
-                            <p className="text-xs text-muted-foreground">
-                              iPhone is limited to the smallest model and shorter outputs to reduce memory use.
-                            </p>
-                          </div>
-                        </label>
-                      </div>
-                    )}
-
-                    {/* Safari WebGPU toggle (experimental) */}
-                    {storage.aiDraftMode === 'ai' && llm.browserInfo?.isSafari && (
-                      <div className="pt-4 border-t space-y-3">
-                        <label className="flex items-start gap-3 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={storage.safariWebGPUEnabled}
-                            onChange={e => storage.updateSafariWebGPUEnabled(e.target.checked)}
-                            className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary mt-0.5"
-                          />
-                          <div>
-                            <span className="text-sm font-medium">Safari WebGPU (experimental)</span>
-                            <p className="text-xs text-muted-foreground">
-                              Safari WebGPU can cause tab reloads on heavy models.
-                            </p>
-                          </div>
-                        </label>
-                      </div>
-                    )}
-
-                    {/* Safari model unload behavior */}
-                    {storage.aiDraftMode === 'ai' && llm.browserInfo?.isSafari && (
-                      <div className="pt-4 border-t space-y-3">
-                        <label className="flex items-start gap-3 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={storage.keepSafariModelLoaded}
-                            onChange={e => storage.updateKeepSafariModelLoaded(e.target.checked)}
-                            className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary mt-0.5"
-                          />
-                          <div>
-                            <span className="text-sm font-medium">Keep model loaded (Safari)</span>
-                            <p className="text-xs text-muted-foreground">
-                              Safari unloads the local model shortly after each draft to reduce memory pressure and
-                              avoid tab reloads. Enable this to keep it loaded between drafts.
-                            </p>
-                          </div>
-                        </label>
-                      </div>
-                    )}
-
-                    {/* Model Selection (shown when AI mode is enabled and device is allowed) */}
-                    {storage.aiDraftMode === 'ai' && llm.canUseLocalAI && (
-                      <div className="pt-4 border-t space-y-3">
-                        <h4 className="text-sm font-medium">AI Model</h4>
-                        <p className="text-xs text-muted-foreground">
-                          AI playbook v{effectivePromptPack.version} ({promptPackSource || 'default'})
-                        </p>
-                        
-                        {llm.isReady && (
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
-                              <Check className="w-4 h-4" />
-                              {llm.supportedModels.find(m => m.id === llm.selectedModel)?.name || 'Model'} loaded
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={async () => {
-                                  const modelId = llm.selectedModel;
-                                  if (modelId) {
-                                    llm.unload();
-                                    await llm.loadModel(modelId);
-                                  }
-                                }}
-                                className="h-7 text-xs"
-                              >
-                                <RefreshCw className="w-3 h-3 mr-1" />
-                                Reload
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => llm.unload()}
-                                className="h-7 text-xs"
-                              >
-                                Unload
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {llm.isLoading && (
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              <span className="text-sm">{llm.loadingStatus}</span>
-                            </div>
-                            <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-primary transition-all duration-300"
-                                style={{ width: `${llm.loadingProgress}%` }}
-                              />
-                            </div>
-                          </div>
-                        )}
-                        
-                        {!llm.isReady && !llm.isLoading && (
-                          <div className="space-y-2">
-                            {llm.supportedModels.map((model) => (
-                              <button
-                                key={model.id}
-                                onClick={async () => {
-                                  const success = await llm.loadModel(model.id);
-                                  if (success) {
-                                    if (storage.updatePreferredLLMModel) {
-                                      storage.updatePreferredLLMModel(model.id);
-                                    }
-                                    if (storage.updateAIDraftMode) {
-                                      storage.updateAIDraftMode('ai');
-                                    }
-                                  }
-                                }}
-                                className="w-full p-3 rounded-lg border hover:border-primary/50 hover:bg-primary/5 transition-colors text-left"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <span className="font-medium text-sm">{model.name}</span>
-                                  <span className="text-xs text-muted-foreground">{model.size}</span>
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-1">{model.description}</p>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        
-                        {llm.error && (
-                          <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 space-y-2">
-                            <div className="flex items-start gap-2">
-                              <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-                              <div className="space-y-1">
-                                {llm.classifiedError && (
-                                  <p className="text-xs font-medium text-destructive">{llm.classifiedError.title}</p>
-                                )}
-                                <p className="text-xs text-destructive">{llm.classifiedError?.message || llm.error}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {(!llm.classifiedError || llm.classifiedError.retryable) && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs"
-                                  onClick={async () => {
-                                    llm.clearError();
-                                    const modelId = llm.selectedModel || storage.preferredLLMModel || llm.supportedModels[0]?.id;
-                                    if (modelId) {
-                                      llm.unload();
-                                      await llm.loadModel(modelId);
-                                    }
-                                  }}
-                                >
-                                  <RefreshCw className="w-3 h-3 mr-1" />
-                                  Try Again
-                                </Button>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 text-xs"
-                                onClick={() => llm.clearError()}
-                              >
-                                Dismiss
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    
-                    {/* Mobile warning */}
-                    {!llm.canUseLocalAI && storage.aiDraftMode === 'ai' && (
-                      <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                        <p className="text-xs text-amber-700 dark:text-amber-400">
-                          Local AI is disabled for this device right now. Enable the iPhone/iPad toggle above (if available) or use Smart Templates instead.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="p-4 rounded-lg border bg-card space-y-4 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
-                    <div className="flex items-center gap-2">
-                      <HelpCircle className="w-5 h-5 text-primary" />
-                      <h3 className="font-bold">Tutorial</h3>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Replay the onboarding tutorial to learn about key features.
-                    </p>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        safeRemoveItem('smartTool.onboardingComplete');
-                        setSettingsOpen(false);
-                        window.location.reload();
-                      }}
-                      className="gap-2"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      Replay Tutorial
-                    </Button>
-                  </div>
-
-                  {/* Local Folder Sync / Export Section */}
-                  <div className="p-4 rounded-lg border bg-card space-y-4 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {localSync.isSupported ? (
-                          <FolderSync className="w-5 h-5 text-primary" />
-                        ) : (
-                          <FileArchive className="w-5 h-5 text-primary" />
-                        )}
-                        <h3 className="font-bold">{localSync.isSupported ? 'Folder Sync' : 'Export Actions'}</h3>
-                      </div>
-                      {localSync.isSupported && localSync.isConnected && (
-                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                          <Check className="w-3 h-3" />
-                          Connected
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Different content based on browser support */}
-                    {localSync.isSupported ? (
-                      <>
-                        <p className="text-xs text-muted-foreground">
-                          Save actions to a folder on your device. Tip: Select your OneDrive or Google Drive folder for automatic cloud sync!
-                        </p>
-
-                        {/* Connection status and controls */}
-                        <div className="space-y-3">
-                          {localSync.isConnected ? (
-                            <>
-                              {/* Folder info */}
-                              <div className="p-3 rounded-lg bg-muted/50 space-y-1">
-                                <p className="text-sm font-medium flex items-center gap-2">
-                                  <FolderOpen className="w-4 h-4 text-muted-foreground" />
-                                  {localSync.folderName}
-                                </p>
-                                {localSync.lastSync && (
-                                  <p className="text-xs text-muted-foreground">
-                                    Last sync: {new Date(localSync.lastSync).toLocaleString()}
-                                  </p>
-                                )}
-                              </div>
-
-                              {/* Action buttons */}
-                              <div className="flex gap-2">
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
-                                  onClick={() => localSync.selectFolder()}
-                                  className="flex-1 gap-1.5"
-                                >
-                                  <RefreshCw className="w-3.5 h-3.5" />
-                                  Change Folder
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
-                                  onClick={() => localSync.disconnect()}
-                                  className="flex-1 gap-1.5"
-                                >
-                                  <CloudOff className="w-3.5 h-3.5" />
-                                  Disconnect
-                                </Button>
-                              </div>
-
-                              <label className="flex items-center gap-3 cursor-pointer">
-                                <input 
-                                  type="checkbox" 
-                                  checked={localSync.syncEnabled} 
-                                  onChange={e => localSync.setSyncEnabled(e.target.checked)}
-                                  className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
-                                />
-                                <span className="text-sm font-medium">Sync when saving to history</span>
-                              </label>
-
-                              {localSync.syncEnabled && (
-                                <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
-                                  <FolderSync className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                                  <p className="text-xs text-muted-foreground">
-                                    Each saved action will be written as a .txt file to your selected folder.
-                                  </p>
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <Button 
-                              onClick={() => localSync.selectFolder()}
-                              disabled={localSync.isConnecting}
-                              className="w-full gap-2"
-                            >
-                              {localSync.isConnecting ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                  Selecting...
-                                </>
-                              ) : (
-                                <>
-                                  <FolderOpen className="w-4 h-4" />
-                                  Choose Folder
-                                </>
-                              )}
-                            </Button>
-                          )}
-
-                          {localSync.error && (
-                            <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                              <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-                              <p className="text-xs text-destructive">{localSync.error}</p>
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    ) : (
-                      /* Safari/Firefox fallback - ZIP download */
-                      <>
-                        <p className="text-xs text-muted-foreground">
-                          Your browser doesn't support automatic folder sync, but you can download your actions as a ZIP file.
-                        </p>
-                        
-                        <Button 
-                          onClick={() => localSync.downloadAllAsZip(storage.history)}
-                          disabled={storage.history.length === 0}
-                          className="w-full gap-2"
-                        >
-                          <FileArchive className="w-4 h-4" />
-                          Download All as ZIP ({storage.history.length} action{storage.history.length !== 1 ? 's' : ''})
-                        </Button>
-
-                        <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 border border-border/50">
-                          <Download className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                          <p className="text-xs text-muted-foreground">
-                            Tip: Save the ZIP to your OneDrive or iCloud folder for cloud backup! For automatic sync, use Chrome or Edge on desktop.
-                          </p>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Data Retention Section */}
-                  <div className="p-4 rounded-lg border bg-card space-y-4 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-5 h-5 text-primary" />
-                      <h3 className="font-bold">Data Retention</h3>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Automatically delete old history items to comply with data minimisation principles.
-                    </p>
-                    
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input 
-                          type="checkbox" 
-                          checked={storage.retentionEnabled} 
-                          onChange={e => storage.updateRetentionEnabled(e.target.checked)}
-                          className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
-                        />
-                        <span className="text-sm font-medium">Auto-delete old actions</span>
-                      </label>
-                      
-                      {storage.retentionEnabled && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground">Keep for:</span>
-                          <Select 
-                            value={String(storage.retentionDays)} 
-                            onValueChange={v => storage.updateRetentionDays(parseInt(v, 10))}
-                          >
-                            <SelectTrigger className="w-28">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="30">30 days</SelectItem>
-                              <SelectItem value="60">60 days</SelectItem>
-                              <SelectItem value="90">90 days</SelectItem>
-                              <SelectItem value="180">180 days</SelectItem>
-                              <SelectItem value="365">1 year</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {storage.retentionEnabled && (
-                      <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
-                        <Clock className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                        <p className="text-xs text-muted-foreground">
-                          Actions older than {storage.retentionDays} days will be automatically deleted when you open the app. 
-                          You currently have {storage.history.length} action{storage.history.length === 1 ? '' : 's'} in history.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Privacy & Data Section - GDPR Compliance */}
-                  <div className="p-4 rounded-lg border bg-card space-y-4 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Shield className="w-5 h-5 text-primary" />
-                        <h3 className="font-bold">Privacy & Data</h3>
-                      </div>
-                      {/* Local AI status */}
-                      <div className={cn(
-                        "flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium",
-                        llm.isReady
-                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                          : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                      )}>
-                        <div className={cn(
-                          "w-2 h-2 rounded-full",
-                          llm.isReady ? "bg-emerald-500" : "bg-amber-500"
-                        )} />
-                        <span>{llm.isReady ? "Local AI ready" : "Local AI not loaded"}</span>
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Manage your data and privacy preferences in accordance with UK GDPR.
-                    </p>
-                    
-                    <div className="grid gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          const data = storage.exportAllData();
-                          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = `smart-action-data-${new Date().toISOString().slice(0, 10)}.json`;
-                          document.body.appendChild(a);
-                          a.click();
-                          a.remove();
-                          URL.revokeObjectURL(url);
-                          toast({ title: 'Data exported', description: 'Your data has been downloaded.' });
-                        }}
-                        className="gap-2 justify-start"
-                      >
-                        <FileDown className="w-4 h-4" />
-                        Export All My Data
-                      </Button>
-                      
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => setPrivacySettingsOpen(true)}
-                        className="gap-2 justify-start"
-                      >
-                        <Shield className="w-4 h-4" />
-                        Manage Cookie Preferences
-                      </Button>
-                      
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          if (confirm('Are you sure you want to delete all your data? This cannot be undone.')) {
-                            storage.deleteAllData();
-                            toast({ title: 'Data deleted', description: 'All your data has been removed.' });
-                            window.location.reload();
-                          }
-                        }}
-                        className="gap-2 justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete All My Data
-                      </Button>
-                    </div>
-                    
-                    <a 
-                      href="#/privacy" 
-                      className="text-xs text-primary hover:underline block mt-2"
-                      onClick={() => setSettingsOpen(false)}
-                    >
-                      View Privacy Policy →
-                    </a>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
           </div>
         </div>
       </motion.header>
@@ -1867,264 +1134,47 @@ export function SmartActionTool() {
             variants={slideInRight}
             transition={{ ...softSpring, delay: 0.1 }}
           >
-            <div className="flex items-end justify-between gap-4 flex-wrap">
-              <div>
-                <h2 className="font-bold text-lg">Generated action</h2>
-                <p className="text-xs text-muted-foreground">Proofread before pasting into important documents.</p>
-              </div>
-              <div className="flex gap-2">
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button size="sm" onClick={handleCopy} className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm">
-                    <Copy className="w-4 h-4 mr-1" /> Copy
-                  </Button>
-                </motion.div>
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button size="sm" variant="outline" onClick={handleDownload}>
-                    <Download className="w-4 h-4 mr-1" /> .txt
-                  </Button>
-                </motion.div>
-              </div>
-            </div>
-
-            {/* Language selector and translate button */}
-            <div className="flex items-center gap-3 flex-wrap p-3 rounded-lg bg-muted/30 border border-border/50">
-              <LanguageSelector 
-                value={storage.participantLanguage} 
-                onChange={handleLanguageChange}
-                disabled={translation.isTranslating || !translation.canTranslate}
-              />
-              {storage.participantLanguage !== 'none' && (
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={handleTranslate}
-                  disabled={!hasOutput || translation.isTranslating || !translation.canTranslate}
-                  className="border-primary/30 hover:bg-primary/10"
-                >
-                  {translation.isTranslating ? (
-                    <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Translating...</>
-                  ) : (
-                    <><Languages className="w-4 h-4 mr-1" /> Translate</>
-                  )}
-                </Button>
-              )}
-              {translation.error && (
-                <span className="text-xs text-destructive">{translation.error}</span>
-              )}
-            </div>
-
-            <AnimatePresence mode="wait">
-              <motion.div
-                key="output-container"
-                initial={{ opacity: 0.5, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                className="space-y-4"
-              >
-                {/* English output */}
-                <div>
-                  {hasTranslation && <p id="output-label-en" className="text-xs font-medium text-muted-foreground mb-2">🇬🇧 ENGLISH</p>}
-                  <Textarea
-                    id="action-output"
-                    value={output}
-                    onChange={e => { setOutput(e.target.value); setOutputSource('manual'); setTranslatedOutput(null); }}
-                    placeholder="Generated action will appear here… You can also edit the text directly."
-                    aria-label="Generated SMART action text"
-                    aria-describedby={hasTranslation ? "output-label-en" : undefined}
-                    className={cn(
-                      "min-h-[120px] p-5 rounded-xl border-2 border-dashed border-border bg-muted/30 leading-relaxed resize-y",
-                      copied && "border-accent bg-accent/10 shadow-glow",
-                      !output && "text-muted-foreground"
-                    )}
-                  />
-                </div>
-                
-                {/* Translated output */}
-                {hasTranslation && storage.participantLanguage !== 'none' && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    <p className="text-xs font-medium text-muted-foreground mb-2">
-                      {SUPPORTED_LANGUAGES[storage.participantLanguage]?.flag} {SUPPORTED_LANGUAGES[storage.participantLanguage]?.nativeName?.toUpperCase()}
-                    </p>
-                    <Textarea
-                      id="action-output-translated"
-                      value={translatedOutput}
-                      readOnly
-                      lang={storage.participantLanguage}
-                      aria-label={`Translated SMART action text in ${SUPPORTED_LANGUAGES[storage.participantLanguage]?.nativeName || storage.participantLanguage}`}
-                      dir={translation.isRTL(storage.participantLanguage) ? 'rtl' : 'ltr'}
-                      className="min-h-[120px] p-5 rounded-xl border-2 border-primary/30 bg-primary/5 leading-relaxed whitespace-pre-wrap text-sm resize-y"
-                    />
-                  </motion.div>
-                )}
-              </motion.div>
-            </AnimatePresence>
-
-            {llm.error && (
-              <DelightfulError
-                variant="ai"
-                title={llm.classifiedError?.title || "AI took a nap"}
-                message={llm.classifiedError?.message || llm.error}
-                onRetry={undefined}
-                onDismiss={() => llm.clearError()}
-              />
-            )}
-
-            {/* Action Feedback (shown after AI draft) */}
-            <ActionFeedback
-              visible={showFeedbackUI && hasOutput}
-              rating={feedbackRating}
-              onRate={handleFeedbackRate}
-              onRegenerate={handleAIDraft}
-              isRegenerating={aiDrafting || llm.isGenerating}
+            <OutputPanel
+              output={output}
+              setOutput={setOutput}
+              setOutputSource={setOutputSource}
+              setTranslatedOutput={setTranslatedOutput}
+              translatedOutput={translatedOutput}
+              hasTranslation={hasTranslation}
+              hasOutput={hasOutput}
+              copied={copied}
+              smartCheck={smartCheck}
+              participantLanguage={storage.participantLanguage}
+              handleCopy={handleCopy}
+              handleDownload={handleDownload}
+              handleTranslate={handleTranslate}
+              handleLanguageChange={handleLanguageChange}
+              translation={translation}
+              llm={llm}
+              showFeedbackUI={showFeedbackUI}
+              feedbackRating={feedbackRating}
+              handleFeedbackRate={handleFeedbackRate}
+              handleAIDraft={handleAIDraft}
+              aiDrafting={aiDrafting}
             />
 
-            {/* SMART Checklist */}
-            <SmartChecklist check={smartCheck} />
-
-            {/* History with Tabs */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-4 flex-wrap">
-                <h2 className="font-bold text-lg">History</h2>
-                <div className="flex gap-2 flex-wrap">
-                  <Button 
-                    size="sm" 
-                    onClick={handleSave}
-                    disabled={!output.trim() || (storage.minScoreEnabled && smartCheck.overallScore < storage.minScoreThreshold)}
-                    className="bg-primary hover:bg-primary/90"
-                    aria-label="Save current action to history"
-                  >
-                    Save to History
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={handleExport}>Export</Button>
-                  <label className="cursor-pointer">
-                    <Button size="sm" variant="outline" asChild><span>Import</span></Button>
-                    <input 
-                      type="file" 
-                      accept="application/json" 
-                      className="hidden" 
-                      onChange={handleImport}
-                      aria-label="Import history from JSON file"
-                    />
-                  </label>
-                  <Button 
-                    size="sm" 
-                    variant="destructive" 
-                    onClick={() => {
-                      storage.clearHistory();
-                      toast({ title: 'Cleared', description: 'History cleared.' });
-                    }}
-                    aria-label="Clear all history"
-                  >
-                    <Trash2 className="w-4 h-4" aria-hidden="true" />
-                    <span className="sr-only">Clear history</span>
-                  </Button>
-                </div>
-              </div>
-
-              <Tabs data-tutorial="history" value={historyTab} onValueChange={(v) => setHistoryTab(v as 'history' | 'insights')}>
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="history" className="flex items-center gap-2">
-                    <History className="w-4 h-4" /> History
-                  </TabsTrigger>
-                  <TabsTrigger value="insights" className="flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4" /> Insights
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="history" className="mt-4 space-y-4">
-                  <Input
-                    value={historySearch}
-                    onChange={e => setHistorySearch(e.target.value)}
-                    placeholder="Search history…"
-                    className="text-sm"
-                    aria-label="Search history"
-                    type="search"
-                  />
-
-                  <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
-                    {filteredHistory.length === 0 ? (
-                      <EmptyState
-                        variant={historySearch ? 'search' : 'history'}
-                        className="py-6"
-                      />
-                    ) : (
-                      <ul role="list" aria-label="Saved actions history">
-                        {filteredHistory.map((h, index) => (
-                          <motion.li
-                            key={h.id}
-                            className="p-4 rounded-xl border border-border/50 bg-muted/30 space-y-3 hover:border-primary/30 hover:bg-muted/50 hover:shadow-sm mb-3 last:mb-0 transition-[border-color,background-color,box-shadow] duration-200 ease-spring"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: index * 0.04, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                          >
-                            <div className="flex flex-wrap gap-2 text-xs">
-                              <span className={cn(
-                                "px-2 py-0.5 rounded-full font-medium",
-                                h.mode === 'now' ? "bg-primary/10 text-primary" : "bg-accent/10 text-accent"
-                              )}>
-                                {h.mode === 'now' ? 'Barrier to action' : 'Task-based'}
-                              </span>
-                              <span className="text-muted-foreground">
-                                {new Date(h.createdAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
-                              </span>
-                              {h.meta.forename && (
-                                <span className="text-muted-foreground">• {h.meta.forename}</span>
-                              )}
-                            </div>
-                            <p className="text-sm whitespace-pre-wrap leading-relaxed">{h.text}</p>
-                            {h.meta.translatedText && h.meta.translationLanguage && (
-                              <div className="mt-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
-                                <p className="text-xs font-medium text-muted-foreground mb-1">
-                                  {SUPPORTED_LANGUAGES[h.meta.translationLanguage]?.flag && (
-                                    <span className="inline-flex items-center justify-center rounded-sm border px-1 text-[10px] font-semibold leading-4 text-foreground/80 mr-1">
-                                      {SUPPORTED_LANGUAGES[h.meta.translationLanguage].flag}
-                                    </span>
-                                  )}
-                                  {SUPPORTED_LANGUAGES[h.meta.translationLanguage]?.nativeName?.toUpperCase() || h.meta.translationLanguage.toUpperCase()}
-                                </p>
-                                <p className="text-sm whitespace-pre-wrap leading-relaxed">{h.meta.translatedText}</p>
-                              </div>
-                            )}
-                            <div className="flex gap-2" role="group" aria-label="Action buttons">
-                              <Button size="sm" variant="outline" onClick={() => handleEditHistory(h)} aria-label={`Edit action for ${h.meta.forename || 'participant'}`}>
-                                <Edit className="w-3 h-3 mr-1" aria-hidden="true" /> Edit
-                              </Button>
-                              <Button size="sm" variant="ghost" onClick={() => {
-                                const langInfo = h.meta.translationLanguage ? SUPPORTED_LANGUAGES[h.meta.translationLanguage] : null;
-                                const copyText = h.meta.translatedText && langInfo
-                                  ? `=== ENGLISH ===\n${h.text}\n\n=== ${langInfo.nativeName?.toUpperCase() || h.meta.translationLanguage!.toUpperCase()} ===\n${h.meta.translatedText}`
-                                  : h.text;
-                                navigator.clipboard.writeText(copyText);
-                                toast({ title: 'Copied!', description: h.meta.translatedText ? 'Both versions copied.' : undefined });
-                              }} aria-label="Copy action text">
-                                <Copy className="w-3 h-3" aria-hidden="true" />
-                                <span className="sr-only">Copy</span>
-                              </Button>
-                              <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => {
-                                storage.deleteFromHistory(h.id);
-                                toast({ title: 'Deleted' });
-                              }} aria-label={`Delete action for ${h.meta.forename || 'participant'}`}>
-                                <Trash2 className="w-3 h-3" aria-hidden="true" />
-                                <span className="sr-only">Delete</span>
-                              </Button>
-                            </div>
-                          </motion.li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="insights" className="mt-4">
-                  <Suspense fallback={<InsightsSkeleton />}>
-                    <HistoryInsights history={storage.history} />
-                  </Suspense>
-                </TabsContent>
-              </Tabs>
-            </div>
+            <HistoryPanel
+              history={storage.history}
+              hasOutput={hasOutput}
+              output={output}
+              smartCheck={smartCheck}
+              minScoreEnabled={storage.minScoreEnabled}
+              minScoreThreshold={storage.minScoreThreshold}
+              onSave={handleSave}
+              onExport={handleExport}
+              onImport={handleImport}
+              onClearHistory={() => {
+                storage.clearHistory();
+                toast({ title: 'Cleared', description: 'History cleared.' });
+              }}
+              onEditHistory={handleEditHistory}
+              onDeleteFromHistory={storage.deleteFromHistory}
+            />
           </motion.div>
         </motion.div>
       </main>
@@ -2150,201 +1200,47 @@ export function SmartActionTool() {
         onOpenChange={setPrivacySettingsOpen} 
       />
 
-      {/* Plan Picker Dialog — shows generated SMART actions for user selection */}
-      <Dialog open={showPlanPicker} onOpenChange={setShowPlanPicker}>
-        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5" />
-              Choose a SMART Action
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              The AI generated {planResult?.actions.length || 0} SMART actions. Select one to use.
-            </p>
-            {planResult?.actions.map((action, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleSelectPlanAction(action, idx)}
-                className="w-full p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm transition-all duration-200 text-left group space-y-2"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="font-medium text-sm leading-snug">{action.action}</span>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">{action.effort_estimate}</span>
-                </div>
-                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  <span>Metric: {action.metric}</span>
-                  <span>·</span>
-                  <span>By: {action.deadline}</span>
-                </div>
-                <p className="text-xs text-muted-foreground">{action.first_step}</p>
-              </button>
-            ))}
-            {planResult?.metadata && (
-              <p className="text-xs text-muted-foreground pt-2 border-t">
-                Generated in {Math.round(planResult.metadata.generation_time_ms)}ms
-                {planResult.metadata.model_id === 'template-only' && ' (template fallback)'}
-              </p>
-            )}
-            <div className="flex justify-end pt-2">
-              <Button variant="ghost" size="sm" onClick={() => {
-                logDraftAnalytics({
-                  timestamp: new Date().toISOString(),
-                  signal: "rejected",
-                  barrier: mode === 'now' ? nowForm.barrier : undefined,
-                  actions_count: planResult?.actions.length,
-                  source: "ai",
-                });
-                setShowPlanPicker(false);
-                setPlanResult(null);
-              }}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Settings Panel */}
+      <SettingsPanel
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        storage={storage}
+        localSync={localSync}
+        llm={llm}
+        promptPack={promptPack}
+        promptPackSource={promptPackSource}
+        wizardMode={wizardMode}
+        setWizardMode={setWizardMode}
+        privacySettingsOpen={privacySettingsOpen}
+        setPrivacySettingsOpen={setPrivacySettingsOpen}
+      />
+
+      {/* Plan Picker Dialog */}
+      <PlanPickerDialog
+        open={showPlanPicker}
+        onOpenChange={setShowPlanPicker}
+        planResult={planResult}
+        setPlanResult={setPlanResult}
+        mode={mode}
+        barrier={mode === 'now' ? nowForm.barrier : futureForm.task}
+        onSelectAction={handleSelectPlanAction}
+      />
 
       {/* LLM Model Picker Dialog */}
-      <Dialog open={showLLMPicker} onOpenChange={(open) => {
-        setShowLLMPicker(open);
-        if (!open) pendingAIDraftRef.current = false;
-      }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Bot className="w-5 h-5" />
-              Load Local AI Model
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Select a model to enable AI-powered drafting. Models run locally in your browser for privacy.
-            </p>
-            
-            {llm.isLoading ? (
-              <div className="space-y-3 p-4 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  <span className="text-sm font-medium">{llm.loadingStatus}</span>
-                </div>
-                <div className="w-full bg-muted rounded-full h-2">
-                  <div 
-                    className="bg-primary h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${llm.loadingProgress}%` }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {llm.loadingProgress}% - First download may take a few minutes
-                </p>
-              </div>
-            ) : llm.error ? (
-              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 space-y-2">
-                {llm.classifiedError && (
-                  <p className="text-sm font-medium text-destructive">{llm.classifiedError.title}</p>
-                )}
-                <p className="text-sm text-destructive">{llm.classifiedError?.message || llm.error}</p>
-                <div className="flex items-center gap-2">
-                  {(!llm.classifiedError || llm.classifiedError.retryable) && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={async () => {
-                        llm.clearError();
-                        const modelId = llm.selectedModel || storage.preferredLLMModel || llm.supportedModels[0]?.id;
-                        if (modelId) {
-                          llm.unload();
-                          await llm.loadModel(modelId);
-                        }
-                      }}
-                    >
-                      <RefreshCw className="w-3 h-3 mr-1" />
-                      Try Again
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => llm.clearError()}
-                  >
-                    Dismiss
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {llm.supportedModels.map((model) => (
-                    <button
-                    key={model.id}
-                    onClick={async () => {
-                      // When a local model is selected and loaded, automatically set the draft mode
-                      // to "ai" and remember the chosen model. Without this, if the user is
-                      // currently in template mode the Smart Action Tool will continue
-                      // to use templates even after downloading the model. Persisting the
-                      // preference ensures that subsequent drafts use the local AI by default.
-                      const success = await llm.loadModel(model.id);
-                      if (success) {
-                        // Persist preferred model and enable AI mode
-                        if (storage.updatePreferredLLMModel) {
-                          storage.updatePreferredLLMModel(model.id);
-                        }
-                        if (storage.updateAIDraftMode) {
-                          storage.updateAIDraftMode('ai');
-                        }
-                        setShowLLMPicker(false);
-
-                        // If there's no pending draft, just show a toast.
-                        // If pendingAIDraftRef is true, the useEffect watching
-                        // llm.isReady will auto-trigger handleAIDraft.
-                        if (!pendingAIDraftRef.current) {
-                          toast({ title: 'Model loaded', description: `${model.name} is ready for AI Draft.` });
-                        }
-                      }
-                    }}
-                    className="w-full p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 ease-spring text-left group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{model.name}</span>
-                      <span className="text-xs text-muted-foreground">{model.size}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">{model.description}</p>
-                  </button>
-                ))}
-              </div>
-            )}
-            
-            <div className="flex justify-between items-center pt-2 border-t">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  pendingAIDraftRef.current = false;
-                  setShowLLMPicker(false);
-                  // Use template fallback
-                  if (mode === 'now') {
-                    templateDraftNow();
-                  } else {
-                    templateDraftFuture();
-                  }
-                }}
-              >
-                Use template instead
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  pendingAIDraftRef.current = false;
-                  setShowLLMPicker(false);
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <LLMPickerDialog
+        open={showLLMPicker}
+        onOpenChange={setShowLLMPicker}
+        mode={mode}
+        pendingAIDraftRef={pendingAIDraftRef}
+        templateDraftNow={templateDraftNow}
+        templateDraftFuture={templateDraftFuture}
+        llm={llm}
+        storage={{
+          preferredLLMModel: storage.preferredLLMModel,
+          updatePreferredLLMModel: storage.updatePreferredLLMModel,
+          updateAIDraftMode: storage.updateAIDraftMode,
+        }}
+      />
     </>
   );
 }
