@@ -151,6 +151,8 @@ export const dictionary: PhraseDictionary = {
     { src: "face-to-face", tgt: "ਆਹਮੋ-ਸਾਹਮਣੇ", pos: "noun" },
     { src: "for additional support", tgt: "ਵਾਧੂ ਸਹਾਇਤਾ ਲਈ", pos: "connector" },
     { src: "in our next review meeting", tgt: "ਸਾਡੀ ਅਗਲੀ ਸਮੀਖਿਆ ਮੀਟਿੰਗ ਵਿੱਚ", pos: "phrase" },
+    { src: "driving licence", tgt: "ਡ੍ਰਾਈਵਿੰਗ ਲਾਇਸੈਂਸ", pos: "noun" },
+    { src: "bank account", tgt: "ਬੈਂਕ ਖਾਤਾ", pos: "noun" },
   ],
   words: [
     // Action verbs
@@ -480,8 +482,6 @@ export const dictionary: PhraseDictionary = {
     { src: "college", tgt: "ਕਾਲਜ", pos: "noun" },
     { src: "university", tgt: "ਯੂਨੀਵਰਸਿਟੀ", pos: "noun" },
     { src: "passport", tgt: "ਪਾਸਪੋਰਟ", pos: "noun" },
-    { src: "driving licence", tgt: "ਡ੍ਰਾਈਵਿੰਗ ਲਾਇਸੈਂਸ", pos: "noun" },
-    { src: "bank account", tgt: "ਬੈਂਕ ਖਾਤਾ", pos: "noun" },
     { src: "proof", tgt: "ਸਬੂਤ", pos: "noun" },
     // Common adjectives/adverbs
     { src: "able", tgt: "ਸਮਰੱਥ", pos: "adjective" },

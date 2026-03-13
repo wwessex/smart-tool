@@ -151,6 +151,8 @@ export const dictionary: PhraseDictionary = {
     { src: "face-to-face", tgt: "wyneb yn wyneb", pos: "noun" },
     { src: "for additional support", tgt: "am gefnogaeth ychwanegol", pos: "connector" },
     { src: "in our next review meeting", tgt: "yn ein cyfarfod adolygu nesaf", pos: "phrase" },
+    { src: "driving licence", tgt: "trwydded yrru", pos: "noun" },
+    { src: "bank account", tgt: "cyfrif banc", pos: "noun" },
   ],
   words: [
     // Action verbs
@@ -480,8 +482,6 @@ export const dictionary: PhraseDictionary = {
     { src: "college", tgt: "coleg", pos: "noun" },
     { src: "university", tgt: "prifysgol", pos: "noun" },
     { src: "passport", tgt: "pasbort", pos: "noun" },
-    { src: "driving licence", tgt: "trwydded yrru", pos: "noun" },
-    { src: "bank account", tgt: "cyfrif banc", pos: "noun" },
     { src: "proof", tgt: "prawf", pos: "noun" },
     // Common adjectives/adverbs
     { src: "able", tgt: "gallu", pos: "adjective" },

@@ -152,6 +152,8 @@ export const dictionary: PhraseDictionary = {
     { src: "face-to-face", tgt: "twarzą w twarz", pos: "noun" },
     { src: "for additional support", tgt: "w celu dodatkowego wsparcia", pos: "connector" },
     { src: "in our next review meeting", tgt: "na naszym następnym spotkaniu przeglądowym", pos: "phrase" },
+    { src: "driving licence", tgt: "prawo jazdy", pos: "noun" },
+    { src: "bank account", tgt: "konto bankowe", pos: "noun" },
   ],
   words: [
     // Action verbs
@@ -481,8 +483,6 @@ export const dictionary: PhraseDictionary = {
     { src: "college", tgt: "kolegium", pos: "noun" },
     { src: "university", tgt: "uniwersytet", pos: "noun" },
     { src: "passport", tgt: "paszport", pos: "noun" },
-    { src: "driving licence", tgt: "prawo jazdy", pos: "noun" },
-    { src: "bank account", tgt: "konto bankowe", pos: "noun" },
     { src: "proof", tgt: "dowód", pos: "noun" },
     // Common adjectives/adverbs
     { src: "able", tgt: "zdolny", pos: "adjective" },

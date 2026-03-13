@@ -153,6 +153,8 @@ export const dictionary: PhraseDictionary = {
     { src: "face-to-face", tgt: "ገጽ ንገጽ", pos: "noun" },
     { src: "for additional support", tgt: "ንተወሳኺ ደገፍ", pos: "connector" },
     { src: "in our next review meeting", tgt: "ኣብ ዝቕጽል ናይ ግምገማ ኣኼባና", pos: "phrase" },
+    { src: "driving licence", tgt: "መምርሒ ፍቓድ", pos: "noun" },
+    { src: "bank account", tgt: "ሕሳብ ባንክ", pos: "noun" },
   ],
   words: [
     // Action verbs
@@ -486,8 +488,6 @@ export const dictionary: PhraseDictionary = {
     { src: "college", tgt: "ኮለጅ", pos: "noun" },
     { src: "university", tgt: "ዩኒቨርሲቲ", pos: "noun" },
     { src: "passport", tgt: "ፓስፖርት", pos: "noun" },
-    { src: "driving licence", tgt: "መምርሒ ፍቓድ", pos: "noun" },
-    { src: "bank account", tgt: "ሕሳብ ባንክ", pos: "noun" },
     { src: "proof", tgt: "መረጋገጺ", pos: "noun" },
     // Common adjectives/adverbs
     { src: "able", tgt: "ዝኽእል", pos: "adjective" },

@@ -152,6 +152,8 @@ export const dictionary: PhraseDictionary = {
     { src: "face-to-face", tgt: "qof-u-qof", pos: "noun" },
     { src: "for additional support", tgt: "taageero dheeraad ah", pos: "connector" },
     { src: "in our next review meeting", tgt: "kulankayaga dib-u-eegista ee xiga", pos: "phrase" },
+    { src: "driving licence", tgt: "shatiga darawalnimada", pos: "noun" },
+    { src: "bank account", tgt: "xisaabta bangiga", pos: "noun" },
   ],
   words: [
     // Action verbs
@@ -476,8 +478,6 @@ export const dictionary: PhraseDictionary = {
     { src: "college", tgt: "kulliyadda", pos: "noun" },
     { src: "university", tgt: "jaamacad", pos: "noun" },
     { src: "passport", tgt: "baasaboor", pos: "noun" },
-    { src: "driving licence", tgt: "shatiga darawalnimada", pos: "noun" },
-    { src: "bank account", tgt: "xisaabta bangiga", pos: "noun" },
     { src: "proof", tgt: "caddeyn", pos: "noun" },
     // Common adjectives/adverbs
     { src: "able", tgt: "awood u leh", pos: "adjective" },

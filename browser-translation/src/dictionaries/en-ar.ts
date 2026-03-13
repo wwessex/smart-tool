@@ -151,6 +151,8 @@ export const dictionary: PhraseDictionary = {
     { src: "face-to-face", tgt: "وجهاً لوجه", pos: "noun" },
     { src: "for additional support", tgt: "لدعم إضافي", pos: "connector" },
     { src: "in our next review meeting", tgt: "في اجتماع المراجعة القادم", pos: "phrase" },
+    { src: "driving licence", tgt: "رخصة قيادة", pos: "noun" },
+    { src: "bank account", tgt: "حساب مصرفي", pos: "noun" },
   ],
   words: [
     { src: "apply", tgt: "يتقدم", pos: "verb" },
@@ -478,8 +480,6 @@ export const dictionary: PhraseDictionary = {
     { src: "college", tgt: "كلية", pos: "noun" },
     { src: "university", tgt: "جامعة", pos: "noun" },
     { src: "passport", tgt: "جواز سفر", pos: "noun" },
-    { src: "driving licence", tgt: "رخصة قيادة", pos: "noun" },
-    { src: "bank account", tgt: "حساب مصرفي", pos: "noun" },
     { src: "proof", tgt: "إثبات", pos: "noun" },
     // Common adjectives/adverbs
     { src: "able", tgt: "قادر", pos: "adjective" },
