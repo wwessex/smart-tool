@@ -429,6 +429,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
       try {
         return await runWithTimeout();
       } catch (err) {
+        let finalError: unknown = err;
         const isTimeoutError = err instanceof Error && /timed out/i.test(err.message);
         if (isTimeoutError) {
           // First run can exceed timeout while runtime/JIT caches warm up.
@@ -436,14 +437,14 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
           try {
             return await runWithTimeout();
           } catch (retryErr) {
-            err = retryErr;
+            finalError = retryErr;
           }
         }
 
         // On iOS, a worker crash during generation often manifests as a
         // generic "Worker error" or the promise hanging until timeout.
         // Provide a clear memory-related message for iOS devices.
-        const errMsg = err instanceof Error ? err.message : String(err);
+        const errMsg = finalError instanceof Error ? finalError.message : String(finalError);
         const isWorkerCrash = /Worker error|Worker crashed|memory|OOM/i.test(errMsg);
         if (isWorkerCrash && deviceInfo.isIOS) {
           const iosErr = new Error(
@@ -453,8 +454,8 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
           setError(iosErr);
           throw iosErr;
         }
-        setError(err);
-        throw err;
+        setError(finalError);
+        throw finalError;
       } finally {
         setState((prev) => ({ ...prev, isGenerating: false }));
       }
