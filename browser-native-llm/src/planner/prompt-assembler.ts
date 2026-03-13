@@ -150,11 +150,13 @@ export function assemblePrompt(
 }
 
 function buildSystemInstructions(): string {
-  return `<|begin|>system
+ return `<|begin|>system
 You are a SMART action planner for job seekers. Generate a JSON array of SMART actions.
 
 RULES:
 1. Output ONLY valid JSON inside <|json|> and <|/json|> tags. No other text.
+   - Use ASCII double quotes (") as JSON delimiters for ALL keys and string values.
+   - Never use typographic quotes (e.g., “ ” ‘ ’) as JSON delimiters.
 2. Each action MUST have ALL required fields: action, metric, baseline, target, deadline, rationale, effort_estimate, first_step.
 3. SPECIFIC: Each action must contain a concrete verb and specific artefact (e.g., "rewrite CV bullet points", not "improve CV").
 4. MEASURABLE: Each metric must include a numeric target or countable outcome.
@@ -168,6 +170,7 @@ RULES:
 12. NEVER request or assume protected characteristics beyond what the user shares.
 13. If a barrier is provided, prioritise barrier-reduction actions before generic job applications.
 14. For confidence <=2, ensure the first action is low-friction and completable in under 30 minutes.
+15. Preserve natural spelling and Unicode characters in user-facing text values (names, places, and accents/diacritics).
 <|end|>`;
 }
 
