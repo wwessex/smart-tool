@@ -31,6 +31,27 @@ describe("parseJsonOutput", () => {
     ]);
   });
 
+
+  it("parses single-object responses that use typographic quotes", () => {
+    const raw = `The answer is below:
+    {
+      “reasoning": “The teacher bought 24 pencils and 20 erasers. After using 13 total, 31 remain.”,
+      “translations": {
+        “es": “La inteligencia artificial es poderosa, pero un diseño cuidadoso evita comportamientos inesperados.”
+      }
+    }`;
+
+    const parsed = parseJsonOutput(raw);
+    expect(parsed).toEqual([
+      {
+        reasoning:
+          "The teacher bought 24 pencils and 20 erasers. After using 13 total, 31 remain.",
+        translations: {
+          es: "La inteligencia artificial es poderosa, pero un diseño cuidadoso evita comportamientos inesperados.",
+        },
+      },
+    ]);
+  });
   it("escapes inner double quotes inside string values", () => {
     const raw = `[
       {

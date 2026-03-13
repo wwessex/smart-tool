@@ -164,7 +164,7 @@ export function parseJsonOutput(rawOutput: string): unknown[] | null {
   if (objStart !== -1 && objEnd > objStart) {
     const objStr = text.slice(objStart, objEnd + 1);
     try {
-      const obj = JSON.parse(objStr);
+      const obj = JSON.parse(cleanJsonString(objStr));
       if (typeof obj === "object" && !Array.isArray(obj)) {
         return [obj];
       }
