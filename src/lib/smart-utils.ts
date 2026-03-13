@@ -9,12 +9,27 @@ function toLocalISO(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+function parseISODate(iso: string): Date | null {
+  const value = (iso || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const d = new Date(`${value}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function createHistoryId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `hist-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function todayISO(): string {
   return toLocalISO(new Date());
 }
 
 export function formatDDMMMYY(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
+  const d = parseISODate(iso) ?? new Date(`${todayISO()}T00:00:00`);
   const dd = String(d.getDate()).padStart(2, "0");
   const mmm = d.toLocaleString("en-GB", { month: "short" });
   const yy = String(d.getFullYear()).slice(-2);
@@ -22,18 +37,20 @@ export function formatDDMMMYY(iso: string): string {
 }
 
 export function parseTimescaleToTargetISO(baseISO: string, timescale: string): string {
-  const d = new Date(baseISO + "T00:00:00");
+  const parsedBase = parseISODate(baseISO);
+  if (!parsedBase) return todayISO();
+  const d = new Date(parsedBase);
   const t = (timescale || "").trim().toLowerCase();
   if (!t) return baseISO;
 
-  const w = t.match(/^(\d+)\s*week/);
+  const w = t.match(/^(\d+)\s*(?:week|weeks|wk|wks)\b/);
   if (w) {
     const days = parseInt(w[1], 10) * 7;
     d.setDate(d.getDate() + days);
     return toLocalISO(d);
   }
 
-  const m = t.match(/^(\d+)\s*month/);
+  const m = t.match(/^(\d+)\s*(?:month|months|mo|mos)\b/);
   if (m) {
     const months = parseInt(m[1], 10);
     const day = d.getDate();
@@ -366,6 +383,7 @@ export function buildNowOutput(
   if (formattedAction) {
     formattedAction = formattedAction.charAt(0).toLowerCase() + formattedAction.slice(1);
   }
+  const safeAction = formattedAction || "take agreed next steps";
   
   // Strip trailing punctuation from help text too
   const cleanHelp = stripTrailingPunctuation(help);
@@ -374,7 +392,7 @@ export function buildNowOutput(
 
   return [
     `${BUILDER_NOW.p1} ${formattedDate}, ${forename} and I ${BUILDER_NOW.p2} ${cleanBarrier}.`,
-    `${BUILDER_NOW.p3} ${forename} will ${formattedAction}.`,
+    `${BUILDER_NOW.p3} ${forename} will ${safeAction}.`,
     `${BUILDER_NOW.p5} ${cleanHelp}.`,
     `${BUILDER_NOW.p6}`,
     `${BUILDER_NOW.p7} ${cleanTimescale}.`
@@ -468,7 +486,7 @@ export function buildHistoryItem(opts: BuildHistoryItemOptions): HistoryItem {
     : { date: taskBasedForm.date, forename: taskBasedForm.forename, barrier: taskBasedForm.task, timescale: taskBasedForm.timescale, responsible: taskBasedForm.responsible, reason: taskBasedForm.outcome };
 
   return {
-    id: crypto.randomUUID(),
+    id: createHistoryId(),
     mode,
     createdAt: new Date().toISOString(),
     text: output,

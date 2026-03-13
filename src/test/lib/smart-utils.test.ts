@@ -13,6 +13,7 @@ import {
   formatTaskOutcome,
   buildNowOutput,
   buildFutureOutput,
+  buildHistoryItem,
 } from "@/lib/smart-utils";
 
 describe("smart-utils", () => {
@@ -49,6 +50,11 @@ describe("smart-utils", () => {
       const result = formatDDMMMYY("2030-06-20");
       expect(result).toBe("20-Jun-30");
     });
+
+    it("falls back safely for invalid input date", () => {
+      const result = formatDDMMMYY("not-a-date");
+      expect(result).toMatch(/^\d{2}-[A-Za-z]{3}-\d{2}$/);
+    });
   });
 
   describe("parseTimescaleToTargetISO", () => {
@@ -73,6 +79,10 @@ describe("smart-utils", () => {
       it("handles week crossing year boundary", () => {
         const result = parseTimescaleToTargetISO("2026-12-28", "2 weeks");
         expect(result).toBe("2027-01-11");
+      });
+
+      it("supports week abbreviations", () => {
+        expect(parseTimescaleToTargetISO(baseDate, "2 wks")).toBe("2026-01-29");
       });
     });
 
@@ -108,6 +118,10 @@ describe("smart-utils", () => {
         const result = parseTimescaleToTargetISO("2026-11-15", "3 months");
         expect(result).toBe("2027-02-15");
       });
+
+      it("supports month abbreviations", () => {
+        expect(parseTimescaleToTargetISO(baseDate, "1 mo")).toBe("2026-02-15");
+      });
     });
 
     describe("edge cases", () => {
@@ -133,6 +147,13 @@ describe("smart-utils", () => {
 
       it("handles extra whitespace", () => {
         expect(parseTimescaleToTargetISO(baseDate, "  2 weeks  ")).toBe("2026-01-29");
+      });
+
+      it("returns today for invalid base date", () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-05-01T10:00:00"));
+        expect(parseTimescaleToTargetISO("bad-date", "2 weeks")).toBe("2026-05-01");
+        vi.useRealTimers();
       });
     });
   });
@@ -495,6 +516,20 @@ describe("smart-utils", () => {
       // Should not have double periods
       expect(result).not.toContain("..");
     });
+
+    it("uses fallback action when action text is empty", () => {
+      const result = buildNowOutput(
+        "2026-01-15",
+        "John",
+        "CV",
+        "   ",
+        "Participant",
+        "Advisor will review",
+        "2 weeks"
+      );
+
+      expect(result).toContain("John will take agreed next steps.");
+    });
   });
 
   describe("buildFutureOutput", () => {
@@ -554,4 +589,42 @@ describe("smart-utils", () => {
       expect(result.length).toBeGreaterThan(0);
     });
   });
+
+  describe("buildHistoryItem", () => {
+    it("falls back to generated id when crypto.randomUUID is unavailable", () => {
+      const original = globalThis.crypto.randomUUID;
+      // @ts-expect-error - test simulation
+      globalThis.crypto.randomUUID = undefined;
+
+      const item = buildHistoryItem({
+        mode: "now",
+        nowForm: {
+          date: "2026-01-15",
+          time: "10:00",
+          forename: "John",
+          barrier: "CV",
+          timescale: "2 weeks",
+          action: "Update CV",
+          responsible: "Participant",
+          help: "Advisor support",
+        },
+        taskBasedForm: {
+          date: "2026-01-15",
+          forename: "John",
+          task: "Workshop",
+          timescale: "2 weeks",
+          responsible: "Participant",
+          outcome: "John will attend",
+        },
+        output: "out",
+        translatedOutput: null,
+        hasTranslation: false,
+        participantLanguage: "none",
+      });
+
+      expect(item.id).toMatch(/^hist-/);
+      globalThis.crypto.randomUUID = original;
+    });
+  });
+
 });
