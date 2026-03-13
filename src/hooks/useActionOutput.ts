@@ -4,9 +4,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useTranslation, SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
 import { checkSmart, SmartCheck } from '@/lib/smart-checker';
 import { buildNowOutput, buildFutureOutput } from '@/lib/smart-utils';
-import type { Mode, NowForm, TaskBasedForm } from '@/hooks/useSmartForm';
+import type { Mode, NowForm, TaskBasedForm, OutputSource } from '@/types/smart-tool';
 
-export type OutputSource = 'form' | 'ai' | 'manual';
+// Re-export for backward compatibility
+export type { OutputSource } from '@/types/smart-tool';
 
 export interface UseActionOutputOptions {
   mode: Mode;

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useReducer, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { z } from 'zod';
 import { useSmartStorage, HistoryItem, ActionTemplate } from '@/hooks/useSmartStorage';
@@ -25,8 +25,8 @@ import { WarningText, InputGlow } from './WarningBox';
 import { useKeyboardShortcuts, groupShortcuts, createShortcutMap, ShortcutConfig } from '@/hooks/useKeyboardShortcuts';
 import { SMART_TOOL_SHORTCUTS } from '@/lib/smart-tool-shortcuts';
 import logoIcon from '@/assets/logo-icon.png';
-import { SettingsPanel } from './SettingsPanel';
-import { HistoryPanel } from './HistoryPanel';
+const SettingsPanel = lazy(() => import('./SettingsPanel').then(m => ({ default: m.SettingsPanel })));
+const HistoryPanel = lazy(() => import('./HistoryPanel').then(m => ({ default: m.HistoryPanel })));
 import { OutputPanel } from './OutputPanel';
 import { LLMPickerDialog } from './LLMPickerDialog';
 import { PlanPickerDialog } from './PlanPickerDialog';
@@ -44,33 +44,8 @@ import {
 import { useTheme } from 'next-themes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { staggerContainer, slideInLeft, slideInRight, springTransition, softSpring } from '@/lib/animation-variants';
 import { ComboboxInput } from './ComboboxInput';
-
-// Animation variants
-const staggerContainer = {
-  animate: {
-    transition: {
-      staggerChildren: 0.08,
-      delayChildren: 0.05
-    }
-  }
-};
-
-const slideInLeft = {
-  initial: { opacity: 0, x: -24 },
-  animate: { opacity: 1, x: 0 },
-  exit: { opacity: 0, x: 24 }
-};
-
-const slideInRight = {
-  initial: { opacity: 0, x: 24 },
-  animate: { opacity: 1, x: 0 },
-  exit: { opacity: 0, x: -24 }
-};
-
-// Spring config for soft physics feel
-const springTransition = { type: "spring" as const, damping: 22, stiffness: 260 };
-const softSpring = { type: "spring" as const, damping: 28, stiffness: 200 };
 
 export function SmartActionTool() {
   const { toast } = useToast();
@@ -138,18 +113,43 @@ export function SmartActionTool() {
     buildLLMContext, handleWizardAIDraft, promptPack, promptPackSource,
   } = aiDraft;
 
-  // --- UI state (remains in component) ---
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [guidanceOpen, setGuidanceOpen] = useState(false);
-  const [headerCollapsed, setHeaderCollapsed] = useState(false);
-  const [isLandscape, setIsLandscape] = useState(false);
-  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
-  const [privacySettingsOpen, setPrivacySettingsOpen] = useState(false);
+  // --- UI panel state (consolidated reducer) ---
+  type PanelState = {
+    settingsOpen: boolean;
+    guidanceOpen: boolean;
+    headerCollapsed: boolean;
+    isLandscape: boolean;
+    shortcutsHelpOpen: boolean;
+    privacySettingsOpen: boolean;
+  };
+  type PanelAction =
+    | { type: 'toggle'; panel: keyof PanelState }
+    | { type: 'set'; panel: keyof PanelState; value: boolean };
+
+  const [ui, dispatchUI] = useReducer(
+    (state: PanelState, action: PanelAction): PanelState => {
+      switch (action.type) {
+        case 'toggle': return { ...state, [action.panel]: !state[action.panel] };
+        case 'set':    return { ...state, [action.panel]: action.value };
+      }
+    },
+    { settingsOpen: false, guidanceOpen: false, headerCollapsed: false, isLandscape: false, shortcutsHelpOpen: false, privacySettingsOpen: false },
+  );
+
+  // Convenience setters (stable references via dispatch)
+  const setSettingsOpen = useCallback((v: boolean) => dispatchUI({ type: 'set', panel: 'settingsOpen', value: v }), []);
+  const setGuidanceOpen = useCallback((v: boolean) => dispatchUI({ type: 'set', panel: 'guidanceOpen', value: v }), []);
+  const setHeaderCollapsed = useCallback((v: boolean) => dispatchUI({ type: 'set', panel: 'headerCollapsed', value: v }), []);
+  const setShortcutsHelpOpen = useCallback((v: boolean) => dispatchUI({ type: 'set', panel: 'shortcutsHelpOpen', value: v }), []);
+  const setPrivacySettingsOpen = useCallback((v: boolean) => dispatchUI({ type: 'set', panel: 'privacySettingsOpen', value: v }), []);
+
+  // Destructure for direct access
+  const { settingsOpen, guidanceOpen, headerCollapsed, isLandscape, shortcutsHelpOpen, privacySettingsOpen } = ui;
 
   // Detect landscape orientation
   useEffect(() => {
     const checkOrientation = () => {
-      setIsLandscape(window.innerHeight < 600 && window.innerWidth > window.innerHeight);
+      dispatchUI({ type: 'set', panel: 'isLandscape', value: window.innerHeight < 600 && window.innerWidth > window.innerHeight });
     };
     checkOrientation();
     window.addEventListener('resize', checkOrientation);
@@ -537,7 +537,7 @@ export function SmartActionTool() {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={() => setHeaderCollapsed(!headerCollapsed)}
+                onClick={() => dispatchUI({ type: 'toggle', panel: 'headerCollapsed' })}
                 aria-label={headerCollapsed ? "Expand header" : "Collapse header"}
                 className="px-1.5 sm:px-2 h-8"
               >
@@ -1158,23 +1158,25 @@ export function SmartActionTool() {
               aiDrafting={aiDrafting}
             />
 
-            <HistoryPanel
-              history={storage.history}
-              hasOutput={hasOutput}
-              output={output}
-              smartCheck={smartCheck}
-              minScoreEnabled={storage.minScoreEnabled}
-              minScoreThreshold={storage.minScoreThreshold}
-              onSave={handleSave}
-              onExport={handleExport}
-              onImport={handleImport}
-              onClearHistory={() => {
-                storage.clearHistory();
-                toast({ title: 'Cleared', description: 'History cleared.' });
-              }}
-              onEditHistory={handleEditHistory}
-              onDeleteFromHistory={storage.deleteFromHistory}
-            />
+            <Suspense fallback={null}>
+              <HistoryPanel
+                history={storage.history}
+                hasOutput={hasOutput}
+                output={output}
+                smartCheck={smartCheck}
+                minScoreEnabled={storage.minScoreEnabled}
+                minScoreThreshold={storage.minScoreThreshold}
+                onSave={handleSave}
+                onExport={handleExport}
+                onImport={handleImport}
+                onClearHistory={() => {
+                  storage.clearHistory();
+                  toast({ title: 'Cleared', description: 'History cleared.' });
+                }}
+                onEditHistory={handleEditHistory}
+                onDeleteFromHistory={storage.deleteFromHistory}
+              />
+            </Suspense>
           </motion.div>
         </motion.div>
       </main>
@@ -1201,19 +1203,21 @@ export function SmartActionTool() {
       />
 
       {/* Settings Panel */}
-      <SettingsPanel
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        storage={storage}
-        localSync={localSync}
-        llm={llm}
-        promptPack={promptPack}
-        promptPackSource={promptPackSource}
-        wizardMode={wizardMode}
-        setWizardMode={setWizardMode}
-        privacySettingsOpen={privacySettingsOpen}
-        setPrivacySettingsOpen={setPrivacySettingsOpen}
-      />
+      <Suspense fallback={null}>
+        <SettingsPanel
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          storage={storage}
+          localSync={localSync}
+          llm={llm}
+          promptPack={promptPack}
+          promptPackSource={promptPackSource}
+          wizardMode={wizardMode}
+          setWizardMode={setWizardMode}
+          privacySettingsOpen={privacySettingsOpen}
+          setPrivacySettingsOpen={setPrivacySettingsOpen}
+        />
+      </Suspense>
 
       {/* Plan Picker Dialog */}
       <PlanPickerDialog

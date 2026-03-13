@@ -1,27 +1,9 @@
 import { useState, useCallback, useMemo } from 'react';
 import { todayISO } from '@/lib/smart-utils';
+import type { Mode, NowForm, TaskBasedForm } from '@/types/smart-tool';
 
-export type Mode = 'now' | 'future';
-
-export interface NowForm {
-  date: string;
-  time: string;
-  forename: string;
-  barrier: string;
-  action: string;
-  responsible: string;
-  help: string;
-  timescale: string;
-}
-
-export interface TaskBasedForm {
-  date: string;
-  forename: string;
-  task: string;
-  responsible: string;
-  outcome: string;
-  timescale: string;
-}
+// Re-export shared types for backward compatibility
+export type { Mode, NowForm, TaskBasedForm } from '@/types/smart-tool';
 
 const INITIAL_NOW_FORM = (today: string): NowForm => ({
   date: today,

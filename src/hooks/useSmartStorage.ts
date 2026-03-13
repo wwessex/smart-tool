@@ -21,68 +21,8 @@ import { useTemplates } from './useTemplates';
 import { useSettings } from './useSettings';
 import { useFeedback } from './useFeedback';
 
-export interface ActionTemplate {
-  id: string;
-  name: string;
-  mode: 'now' | 'future';
-  createdAt: string;
-  barrier?: string;
-  action?: string;
-  responsible?: string;
-  help?: string;
-  task?: string;
-  outcome?: string;
-}
-
-export interface HistoryItem {
-  id: string;
-  mode: 'now' | 'future';
-  createdAt: string;
-  text: string;
-  meta: {
-    date: string;
-    forename: string;
-    barrier: string;
-    timescale: string;
-    action?: string;
-    responsible?: string;
-    help?: string;
-    reason?: string;
-    // Translation fields (stored locally only)
-    translatedText?: string;
-    translationLanguage?: string;
-  };
-}
-
-// Feedback record for AI-generated actions (Phase 1 relevance improvement)
-export interface ActionFeedback {
-  id: string;
-  createdAt: string;
-  barrier: string;
-  category: string;          // barrier taxonomy category
-  generatedAction: string;   // original AI-generated action
-  editedAction?: string;     // advisor-edited version (if changed)
-  rating: 'relevant' | 'not-relevant' | null;
-  acceptedAsIs: boolean;     // true if saved without editing
-  source: 'ai' | 'template';
-  forename: string;
-  timescale: string;
-}
-
-export type AIDraftMode = 'ai' | 'template';
-
-export interface SmartToolSettings {
-  minScoreEnabled?: boolean;
-  minScoreThreshold?: number;
-  retentionEnabled?: boolean;
-  retentionDays?: number;
-  participantLanguage?: string;
-  aiDraftMode?: AIDraftMode;
-  preferredLLMModel?: string;
-  allowMobileLLM?: boolean;
-  safariWebGPUEnabled?: boolean;
-  keepSafariModelLoaded?: boolean;
-}
+// Re-export shared types for backward compatibility
+export type { ActionTemplate, HistoryItem, ActionFeedback, AIDraftMode, SmartToolSettings } from '@/types/smart-tool';
 
 export function useSmartStorage() {
   // Compose focused hooks
