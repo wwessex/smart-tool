@@ -43,6 +43,20 @@ if (!crypto.randomUUID) {
   });
 }
 
+// Mock ResizeObserver (used by cmdk/radix popover)
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+Object.defineProperty(window, "ResizeObserver", {
+  writable: true,
+  value: ResizeObserverMock,
+});
+
+// Mock scrollIntoView (not available in jsdom, used by Radix/cmdk)
+Element.prototype.scrollIntoView = vi.fn();
+
 Object.defineProperty(window, "matchMedia", {
   writable: true,
   value: (query: string) => ({

@@ -1,80 +1,37 @@
-import { useState, useCallback, useMemo, useEffect, memo, lazy, Suspense, useRef } from 'react';
-import { useDebounce } from '@/hooks/useDebounce';
+import { useState, useCallback, useMemo, useEffect, useReducer, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { z } from 'zod';
-import { useSmartStorage, HistoryItem, ActionTemplate, ActionFeedback as ActionFeedbackRecord } from '@/hooks/useSmartStorage';
-import { useTranslation, SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
+import { useSmartStorage, HistoryItem, ActionTemplate } from '@/hooks/useSmartStorage';
 import { parseSmartToolImportFile } from '@/lib/smart-portability';
-import { 
-  todayISO, 
-  buildNowOutput, 
-  buildFutureOutput,
-  aiDraftNow,
-  aiDraftFuture,
+import {
   getSuggestionList,
   getTaskSuggestions,
   resolvePlaceholders,
   parseTimescaleToTargetISO,
-  formatDDMMMYY
+  formatDDMMMYY,
+  buildHistoryItem,
 } from '@/lib/smart-utils';
-import { checkSmart, SmartCheck } from '@/lib/smart-checker';
-import { SmartChecklist } from './SmartChecklist';
+import { useSmartForm } from '@/hooks/useSmartForm';
+import { useAIDrafting } from '@/hooks/useAIDrafting';
+import { useActionOutput } from '@/hooks/useActionOutput';
 import { TemplateLibrary } from './TemplateLibrary';
 import { ActionWizard } from './ActionWizard';
-// AIImproveDialog removed — SmartPlanner validation/repair loop handles quality
 import { ShortcutsHelp } from './ShortcutsHelp';
-import { OnboardingTutorial, useOnboarding } from './OnboardingTutorial';
-import { EmptyState } from './EmptyState';
-import { DelightfulError } from './DelightfulError';
+import { OnboardingTutorial } from './OnboardingTutorial';
 import { useLocalSync } from '@/hooks/useLocalSync';
-
-// Lazy load HistoryInsights as it uses recharts which is a heavy dependency
-const HistoryInsights = lazy(() => import('./HistoryInsights').then(module => ({ default: module.HistoryInsights })));
-
-// Skeleton loader for lazy-loaded components with shimmer effect
-const InsightsSkeleton = () => (
-  <div className="space-y-4">
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      {[1, 2, 3, 4].map(i => (
-        <div key={i} className="h-20 rounded-xl skeleton-shimmer" style={{ animationDelay: `${i * 0.15}s` }} />
-      ))}
-    </div>
-    <div className="h-48 rounded-xl skeleton-shimmer" style={{ animationDelay: '0.6s' }} />
-  </div>
-);
 import { FloatingToolbar } from './FloatingToolbar';
 import { Footer } from './Footer';
-import { ManageConsentDialog, getStoredConsent } from './CookieConsent';
-import { LanguageSelector } from './LanguageSelector';
-import { WarningBox, WarningText, InputGlow } from './WarningBox';
+import { ManageConsentDialog } from './CookieConsent';
+import { WarningText, InputGlow } from './WarningBox';
 import { useKeyboardShortcuts, groupShortcuts, createShortcutMap, ShortcutConfig } from '@/hooks/useKeyboardShortcuts';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getHelpSubject } from '@/lib/smart-prompts';
 import { SMART_TOOL_SHORTCUTS } from '@/lib/smart-tool-shortcuts';
 import logoIcon from '@/assets/logo-icon.png';
-import { useBrowserNativeLLM } from '@/hooks/useBrowserNativeLLM';
-import type { SMARTAction, SMARTPlan, RawUserInput } from '@/hooks/useBrowserNativeLLM';
-import { usePromptPack } from '@/hooks/usePromptPack';
-import { buildSystemPrompt, DEFAULT_PROMPT_PACK } from '@/lib/prompt-pack';
-import { logDraftAnalytics } from '@/lib/draft-analytics';
-import { ActionFeedback, type FeedbackRating } from './ActionFeedback';
-import { classifyBarrier } from '@/lib/smart-data';
-import { retrieveExemplars, formatExemplarsForPrompt } from '@/lib/smart-retrieval';
-import { rankActionsByRelevance } from '@/lib/relevance-checker';
-
-/**
- * Safely remove from localStorage, catching any errors.
- */
-function safeRemoveItem(key: string): boolean {
-  try {
-    localStorage.removeItem(key);
-    return true;
-  } catch (error) {
-    console.warn(`localStorage remove failed for key "${key}":`, error);
-    return false;
-  }
-}
-
+const SettingsPanel = lazy(() => import('./SettingsPanel').then(m => ({ default: m.SettingsPanel })));
+const HistoryPanel = lazy(() => import('./HistoryPanel').then(m => ({ default: m.HistoryPanel })));
+import { OutputPanel } from './OutputPanel';
+import { PanelErrorBoundary } from './PanelErrorBoundary';
+import { LLMPickerDialog } from './LLMPickerDialog';
+import { PlanPickerDialog } from './PlanPickerDialog';
 import { GUIDANCE } from '@/lib/smart-data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -82,188 +39,119 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Copy, Download, Trash2, History, Settings, HelpCircle, Edit, Sparkles, Sun, Moon, Monitor, ChevronDown, ChevronUp, Bot, AlertTriangle, ShieldCheck, Wand2, Keyboard, BarChart3, Shield, FileDown, Clock, Languages, Loader2, RefreshCw, Cloud, CloudOff, Check, ExternalLink, FolderSync, FolderOpen, FileArchive } from 'lucide-react';
+import {
+  Settings, HelpCircle, Sparkles, Sun, Moon, Monitor,
+  ChevronDown, ChevronUp, Keyboard, Loader2, AlertTriangle, History,
+} from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { staggerContainer, slideInLeft, slideInRight, springTransition, softSpring } from '@/lib/animation-variants';
 import { ComboboxInput } from './ComboboxInput';
-
-// Animation variants - soft physics with spring easing
-const fadeInUp = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -10 }
-};
-
-const staggerContainer = {
-  animate: {
-    transition: {
-      staggerChildren: 0.08,
-      delayChildren: 0.05
-    }
-  }
-};
-
-const slideInLeft = {
-  initial: { opacity: 0, x: -24 },
-  animate: { opacity: 1, x: 0 },
-  exit: { opacity: 0, x: 24 }
-};
-
-const slideInRight = {
-  initial: { opacity: 0, x: 24 },
-  animate: { opacity: 1, x: 0 },
-  exit: { opacity: 0, x: -24 }
-};
-
-// Spring config for soft physics feel
-const springTransition = { type: "spring" as const, damping: 22, stiffness: 260 };
-const softSpring = { type: "spring" as const, damping: 28, stiffness: 200 };
-
-type Mode = 'now' | 'future';
-
-interface NowForm {
-  date: string;
-  time: string;
-  forename: string;
-  barrier: string;
-  action: string;
-  responsible: string;
-  help: string;
-  timescale: string;
-}
-
-interface FutureForm {
-  date: string;
-  forename: string;
-  task: string;
-  responsible: string;
-  outcome: string;
-  timescale: string;
-}
 
 export function SmartActionTool() {
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
   const storage = useSmartStorage();
   const localSync = useLocalSync();
-  const llm = useBrowserNativeLLM({
-    allowMobileLLM: storage.allowMobileLLM,
-    safariWebGPUEnabled: storage.safariWebGPUEnabled,
+
+  // --- Extracted hooks ---
+  const form = useSmartForm();
+  const {
+    today, mode, setMode,
+    nowForm, setNowForm, taskBasedForm, setTaskBasedForm,
+    showValidation, setShowValidation,
+    suggestQuery, setSuggestQuery,
+    wizardMode, setWizardMode,
+    taskBasedDateError, nowDateWarning,
+    validateNow, validateTaskBased, getFieldClass,
+  } = form;
+
+  const actionOutput = useActionOutput({
+    mode,
+    nowForm,
+    taskBasedForm,
+    validateNow,
+    validateTaskBased,
+    participantLanguage: storage.participantLanguage,
+    updateParticipantLanguage: storage.updateParticipantLanguage,
   });
-  const translation = useTranslation();
+  const {
+    translation, output, setOutput,
+    outputSource, setOutputSource,
+    translatedOutput, setTranslatedOutput, translatedForOutputRef,
+    hasTranslation, hasOutput, copied,
+    generateOutput, smartCheck,
+    handleCopy, handleDownload, handleTranslate, handleLanguageChange,
+    clearOutput,
+  } = actionOutput;
 
-  const { pack: promptPack, source: promptPackSource } = usePromptPack();
-  const today = todayISO();
-  const effectivePromptPack = promptPack || DEFAULT_PROMPT_PACK;
-  const _llmSystemPrompt = buildSystemPrompt(effectivePromptPack);
+  const aiDraft = useAIDrafting({
+    mode,
+    nowForm,
+    taskBasedForm,
+    setNowForm,
+    setTaskBasedForm,
+    suggestQuery,
+    storage: {
+      aiDraftMode: storage.aiDraftMode,
+      keepSafariModelLoaded: storage.keepSafariModelLoaded,
+      allowMobileLLM: storage.allowMobileLLM,
+      safariWebGPUEnabled: storage.safariWebGPUEnabled,
+      preferredLLMModel: storage.preferredLLMModel,
+      actionFeedback: storage.actionFeedback,
+      addFeedback: storage.addFeedback,
+      updateFeedback: storage.updateFeedback,
+    },
+  });
+  const {
+    llm, aiDrafting,
+    showLLMPicker, setShowLLMPicker, pendingAIDraftRef,
+    planResult, setPlanResult, showPlanPicker, setShowPlanPicker,
+    feedbackRating, currentFeedbackId, aiGeneratedActionRef,
+    showFeedbackUI, resetFeedbackState,
+    templateDraftNow, templateDraftTaskBased,
+    handleFeedbackRate, handleSelectPlanAction, handleAIDraft,
+    buildLLMContext, handleWizardAIDraft, promptPack, promptPackSource,
+  } = aiDraft;
 
-  // Safari (especially iOS) can aggressively reload tabs under memory pressure. We
-  // proactively unload the local model shortly after generation to free memory,
-  // while keeping the downloaded weights in browser storage/cache.
-  const safariAutoUnloadTimer = useRef<number | null>(null);
-  const scheduleSafariModelUnload = useCallback((delayMs?: number) => {
-    if (!llm.browserInfo.isSafari) return;
-    if (storage.aiDraftMode !== 'ai') return;
-    if (storage.keepSafariModelLoaded) return;
-    if (!llm.isReady) return;
-    if (safariAutoUnloadTimer.current) {
-      window.clearTimeout(safariAutoUnloadTimer.current);
-      safariAutoUnloadTimer.current = null;
-    }
-    const isIOS = llm.deviceInfo?.isIOS;
-    const timeoutMs = delayMs ?? (isIOS ? 200 : 800);
-    safariAutoUnloadTimer.current = window.setTimeout(() => {
-      try {
-        llm.unload();
-      } catch {
-        // ignore
+  // --- UI panel state (consolidated reducer) ---
+  type PanelState = {
+    settingsOpen: boolean;
+    guidanceOpen: boolean;
+    headerCollapsed: boolean;
+    isLandscape: boolean;
+    shortcutsHelpOpen: boolean;
+    privacySettingsOpen: boolean;
+  };
+  type PanelAction =
+    | { type: 'toggle'; panel: keyof PanelState }
+    | { type: 'set'; panel: keyof PanelState; value: boolean };
+
+  const [ui, dispatchUI] = useReducer(
+    (state: PanelState, action: PanelAction): PanelState => {
+      switch (action.type) {
+        case 'toggle': return { ...state, [action.panel]: !state[action.panel] };
+        case 'set':    return { ...state, [action.panel]: action.value };
       }
-    }, timeoutMs);
-  }, [llm, storage.aiDraftMode, storage.keepSafariModelLoaded]);
+    },
+    { settingsOpen: false, guidanceOpen: false, headerCollapsed: false, isLandscape: false, shortcutsHelpOpen: false, privacySettingsOpen: false },
+  );
 
-  useEffect(() => {
-    return () => {
-      if (safariAutoUnloadTimer.current) {
-        window.clearTimeout(safariAutoUnloadTimer.current);
-        safariAutoUnloadTimer.current = null;
-      }
-    };
-  }, []);
+  // Convenience setters (stable references via dispatch)
+  const setSettingsOpen = useCallback((v: boolean) => dispatchUI({ type: 'set', panel: 'settingsOpen', value: v }), []);
+  const setGuidanceOpen = useCallback((v: boolean) => dispatchUI({ type: 'set', panel: 'guidanceOpen', value: v }), []);
+  const setHeaderCollapsed = useCallback((v: boolean) => dispatchUI({ type: 'set', panel: 'headerCollapsed', value: v }), []);
+  const setShortcutsHelpOpen = useCallback((v: boolean) => dispatchUI({ type: 'set', panel: 'shortcutsHelpOpen', value: v }), []);
+  const setPrivacySettingsOpen = useCallback((v: boolean) => dispatchUI({ type: 'set', panel: 'privacySettingsOpen', value: v }), []);
 
-
-  // AI Draft state
-  const [aiDrafting, setAIDrafting] = useState(false);
-  const [showLLMPicker, setShowLLMPicker] = useState(false);
-  // When the user clicks "AI Draft" but the model isn't loaded yet, we open the
-  // model picker. This ref tracks that a draft is pending so we can auto-trigger
-  // it once the model finishes loading instead of requiring a second click.
-  const pendingAIDraftRef = useRef(false);
-
-  const [mode, setMode] = useState<Mode>('now');
-  const [nowForm, setNowForm] = useState<NowForm>({
-    date: today,
-    time: '',
-    forename: '',
-    barrier: '',
-    action: '',
-    responsible: 'Participant',
-    help: '',
-    timescale: ''
-  });
-  const [futureForm, setFutureForm] = useState<FutureForm>({
-    date: today,
-    forename: '',
-    task: '',
-    responsible: 'Participant',
-    outcome: '',
-    timescale: ''
-  });
-  const [output, setOutput] = useState('');
-  const [outputSource, setOutputSource] = useState<'form' | 'ai' | 'manual'>('form');
-  const [translatedOutput, setTranslatedOutput] = useState<string | null>(null);
-  const translatedForOutputRef = useRef<string>(''); // Track which English text was translated
-  const hasTranslation = translatedOutput !== null;
-  const hasOutput = output.trim().length > 0;
-  const [showValidation, setShowValidation] = useState(false);
-  const [suggestQuery, setSuggestQuery] = useState('');
-  const [historySearch, setHistorySearch] = useState('');
-  const [copied, setCopied] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [guidanceOpen, setGuidanceOpen] = useState(false);
-  const [settingsBarriers, setSettingsBarriers] = useState('');
-  const [settingsTimescales, setSettingsTimescales] = useState('');
-  const [headerCollapsed, setHeaderCollapsed] = useState(false);
-  const [isLandscape, setIsLandscape] = useState(false);
-  const [wizardMode, setWizardMode] = useState(false);
-  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
-  const [historyTab, setHistoryTab] = useState<'history' | 'insights'>('history');
-  const [privacySettingsOpen, setPrivacySettingsOpen] = useState(false);
-
-  // SmartPlanner plan picker state
-  const [planResult, setPlanResult] = useState<SMARTPlan | null>(null);
-  const [showPlanPicker, setShowPlanPicker] = useState(false);
-
-  // Feedback state for AI-generated actions
-  const [feedbackRating, setFeedbackRating] = useState<FeedbackRating>(null);
-  const [currentFeedbackId, setCurrentFeedbackId] = useState<string | null>(null);
-  // Track the AI-generated action text before any edits (for feedback comparison)
-  const aiGeneratedActionRef = useRef<string>('');
-  // Whether current output was produced by AI (show feedback UI)
-  const [showFeedbackUI, setShowFeedbackUI] = useState(false);
-
-  // Reset feedback UI when form is cleared or mode changes
-  const resetFeedbackState = useCallback(() => {
-    setShowFeedbackUI(false);
-    setFeedbackRating(null);
-    setCurrentFeedbackId(null);
-    aiGeneratedActionRef.current = '';
-  }, []);
+  // Destructure for direct access
+  const { settingsOpen, guidanceOpen, headerCollapsed, isLandscape, shortcutsHelpOpen, privacySettingsOpen } = ui;
 
   // Detect landscape orientation
   useEffect(() => {
     const checkOrientation = () => {
-      setIsLandscape(window.innerHeight < 600 && window.innerWidth > window.innerHeight);
+      dispatchUI({ type: 'set', panel: 'isLandscape', value: window.innerHeight < 600 && window.innerWidth > window.innerHeight });
     };
     checkOrientation();
     window.addEventListener('resize', checkOrientation);
@@ -273,8 +161,7 @@ export function SmartActionTool() {
   // GDPR: Auto-cleanup old history items on load
   useEffect(() => {
     let isMounted = true;
-    
-    // Defer cleanup check to avoid blocking initial render
+
     const timeoutId = setTimeout(() => {
       if (isMounted && storage.shouldRunCleanup()) {
         const { deletedCount } = storage.cleanupOldHistory();
@@ -286,251 +173,19 @@ export function SmartActionTool() {
         }
       }
     }, 100);
-    
+
     return () => {
       isMounted = false;
       clearTimeout(timeoutId);
     };
-  // Only run once on mount - storage methods are stable
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Show toast when LLM encounters an error (e.g. model load failure, generation error)
-  useEffect(() => {
-    if (llm.classifiedError) {
-      toast({
-        title: llm.classifiedError.title,
-        description: llm.classifiedError.message,
-        variant: 'destructive',
-      });
-    }
-  }, [llm.classifiedError, toast]);
-
-  // BUG FIX #1: Validate future date - must be today or later
-  const futureDateError = useMemo(() => {
-    if (!futureForm.date) return '';
-    if (futureForm.date < today) {
-      return 'Date must be today or in the future for task-based actions.';
-    }
-    return '';
-  }, [futureForm.date, today]);
-
-  const nowDateWarning = useMemo(() => {
-    if (!nowForm.date) return '';
-    if (nowForm.date !== today) {
-      return `This date differs from today. Actions recorded for past or future dates may need additional context.`;
-    }
-    return '';
-  }, [nowForm.date, today]);
-
-  const validateNow = useCallback((): boolean => {
-    return !!(
-      nowForm.date &&
-      nowForm.forename.trim() &&
-      nowForm.barrier.trim() &&
-      nowForm.action.trim() &&
-      nowForm.responsible &&
-      nowForm.help.trim() &&
-      nowForm.timescale
-    );
-  }, [nowForm]);
-
-  // BUG FIX #1: Add date validation to validateFuture
-  const validateFuture = useCallback((): boolean => {
-    return !!(
-      futureForm.date &&
-      futureForm.date >= today && // Must be today or future
-      futureForm.forename.trim() &&
-      futureForm.task.trim() &&
-      futureForm.outcome.trim() &&
-      futureForm.timescale
-    );
-  }, [futureForm, today]);
-
-  const generateOutput = useCallback((force = false) => {
-    if (force) setShowValidation(true);
-    
-    const isValid = mode === 'now' ? validateNow() : validateFuture();
-    
-    if (!isValid) {
-      if (force) {
-        setOutput('Please complete all fields to generate an action.');
-        toast({ title: 'Missing fields', description: 'Please complete all required fields.', variant: 'destructive' });
-      } else {
-        setOutput('');
-      }
-      return;
-    }
-
-    if (mode === 'now') {
-      const text = buildNowOutput(
-        nowForm.date,
-        nowForm.forename.trim(),
-        nowForm.barrier.trim(),
-        nowForm.action.trim(),
-        nowForm.responsible,
-        nowForm.help.trim(),
-        nowForm.timescale
-      );
-      setOutput(text);
-    } else {
-      const text = buildFutureOutput(
-        futureForm.date,
-        futureForm.forename.trim(),
-        futureForm.task.trim(),
-        futureForm.responsible,
-        futureForm.outcome.trim(),
-        futureForm.timescale
-      );
-      setOutput(text);
-    }
-  }, [mode, nowForm, futureForm, validateNow, validateFuture, toast]);
-
-  // Auto-generate on form changes (skip when output was set by AI fix)
-  useEffect(() => {
-    // Only regenerate if output came from form, not from AI fix or manual edit
-    if (outputSource === 'ai') {
-      // Delay reset to 'form' until after debounce settles, so smartCheck
-      // uses the AI-fixed output long enough for the UI to update properly
-      const timer = setTimeout(() => {
-        setOutputSource('form');
-      }, 200); // Slightly longer than debounce (150ms) to ensure check completes
-      return () => clearTimeout(timer);
-    }
-    if (outputSource === 'manual') {
-      return; // Don't overwrite manual edits until form changes
-    }
-    generateOutput(false);
-  }, [nowForm, futureForm, mode, outputSource, generateOutput]);
-
-  // Clear stale translation when the English output changes
-  useEffect(() => {
-    if (hasTranslation && output !== translatedForOutputRef.current) {
-      setTranslatedOutput(null);
-    }
-  }, [output, hasTranslation]);
-
-  const handleCopy = useCallback(async () => {
-    if (!output.trim()) {
-      toast({ title: 'Nothing to copy', description: 'Generate an action first.', variant: 'destructive' });
-      return;
-    }
-    try {
-      // Build combined text with translation if available
-      let textToCopy = output;
-      if (hasTranslation && storage.participantLanguage !== 'none') {
-        const langInfo = SUPPORTED_LANGUAGES[storage.participantLanguage];
-        textToCopy = `=== ENGLISH ===\n${output}\n\n=== ${langInfo?.nativeName?.toUpperCase() || storage.participantLanguage.toUpperCase()} ===\n${translatedOutput}`;
-      }
-      await navigator.clipboard.writeText(textToCopy);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 400);
-      toast({ title: 'Copied!', description: hasTranslation ? 'Both versions copied to clipboard.' : 'Action copied to clipboard.' });
-    } catch {
-      toast({ title: 'Copy failed', description: 'Please copy manually.', variant: 'destructive' });
-    }
-  }, [output, translatedOutput, hasTranslation, storage.participantLanguage, toast]);
-
-  const handleDownload = useCallback(() => {
-    if (!output.trim()) {
-      toast({ title: 'Nothing to download', description: 'Generate an action first.', variant: 'destructive' });
-      return;
-    }
-    // Build combined text with translation if available
-    let textToDownload = output;
-    if (hasTranslation && storage.participantLanguage !== 'none') {
-      const langInfo = SUPPORTED_LANGUAGES[storage.participantLanguage];
-      textToDownload = `=== ENGLISH ===\n${output}\n\n=== ${langInfo?.nativeName?.toUpperCase() || storage.participantLanguage.toUpperCase()} ===\n${translatedOutput}`;
-    }
-    const blob = new Blob([textToDownload], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `smart-action-${mode}-${new Date().toISOString().slice(0, 10)}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }, [output, translatedOutput, hasTranslation, storage.participantLanguage, mode, toast]);
-
   const handleClear = useCallback(() => {
-    if (mode === 'now') {
-      setNowForm({ date: today, time: '', forename: '', barrier: '', action: '', responsible: 'Participant', help: '', timescale: '' });
-    } else {
-      setFutureForm({ date: today, forename: '', task: '', responsible: 'Participant', outcome: '', timescale: '' });
-    }
-    setOutput('');
-    setOutputSource('form');
-    setTranslatedOutput(null);
-    translation.clearTranslation();
-    // Reset language to English only when clearing - ensure this happens
-    storage.updateParticipantLanguage('none');
-    setShowValidation(false);
-    setSuggestQuery('');
+    form.resetForm();
+    clearOutput();
     resetFeedbackState();
-  }, [mode, today, translation, storage.updateParticipantLanguage, resetFeedbackState]);
-
-  // Handle translation
-  const handleTranslate = useCallback(async () => {
-    if (!output.trim()) return;
-    if (storage.participantLanguage === 'none') {
-      setTranslatedOutput(null);
-      return;
-    }
-    
-    if (!translation.canTranslate) {
-      toast({
-        title: 'Translation unavailable',
-        description: 'Translation is currently disabled.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const result = await translation.translate(output, storage.participantLanguage);
-    if (result) {
-      translatedForOutputRef.current = output; // Track the source text
-      setTranslatedOutput(result.translated);
-      toast({
-        title: 'Translated!',
-        description: `Action translated to ${result.languageName}.`
-      });
-    }
-  }, [output, storage.participantLanguage, translation, toast]);
-
-  // Handle language change — always clear stale translation since it was for a different language
-  const handleLanguageChange = useCallback((language: string) => {
-    storage.updateParticipantLanguage(language);
-    setTranslatedOutput(null);
-    translation.clearTranslation();
-  }, [storage, translation]);
-
-  // Debounce output for SMART checking to avoid running on every keystroke
-  const debouncedOutput = useDebounce(output, 150);
-  
-  // Use immediate output when from AI fix to avoid delay in updating checklist
-  const checkableOutput = outputSource === 'ai' ? output : debouncedOutput;
-  
-  // SMART Check - auto-detect elements with debounced input for performance
-  const smartCheck = useMemo((): SmartCheck => {
-    if (!checkableOutput.trim()) {
-      return {
-        specific: { met: false, confidence: 'low', reason: 'Generate an action first' },
-        measurable: { met: false, confidence: 'low', reason: 'Add dates or quantities' },
-        achievable: { met: false, confidence: 'low', reason: 'Show agreement' },
-        relevant: { met: false, confidence: 'low', reason: 'Link to barrier' },
-        timeBound: { met: false, confidence: 'low', reason: 'Add review date' },
-        overallScore: 0,
-        warnings: [],
-      };
-    }
-    
-    const meta = mode === 'now' 
-      ? { forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, date: nowForm.date }
-      : { forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, date: futureForm.date };
-    
-    return checkSmart(checkableOutput, meta);
-  }, [checkableOutput, mode, nowForm.forename, nowForm.barrier, nowForm.timescale, nowForm.date, futureForm.forename, futureForm.task, futureForm.timescale, futureForm.date]);
+  }, [form, clearOutput, resetFeedbackState]);
 
   const handleSave = useCallback(async () => {
     if (!output.trim()) {
@@ -540,41 +195,28 @@ export function SmartActionTool() {
 
     // Check minimum score enforcement
     if (storage.minScoreEnabled && smartCheck.overallScore < storage.minScoreThreshold) {
-      toast({ 
-        title: 'SMART score too low', 
+      toast({
+        title: 'SMART score too low',
         description: `This action scores ${smartCheck.overallScore}/5 but the minimum is ${storage.minScoreThreshold}/5. Improve the action or disable score enforcement in Settings.`,
         variant: 'destructive'
       });
       return;
     }
 
-    const forename = mode === 'now' ? nowForm.forename : futureForm.forename;
+    const forename = mode === 'now' ? nowForm.forename : taskBasedForm.forename;
     storage.addRecentName(forename);
 
-    const baseMeta = mode === 'now' 
-      ? { date: nowForm.date, time: nowForm.time, forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
-      : { date: futureForm.date, forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, responsible: futureForm.responsible, reason: futureForm.outcome };
-
-    // Include translation in history if available
-    const item: HistoryItem = {
-      id: crypto.randomUUID(),
-      mode,
-      createdAt: new Date().toISOString(),
-      text: output,
-      meta: {
-        ...baseMeta,
-        ...(hasTranslation && storage.participantLanguage !== 'none' ? {
-          translatedText: translatedOutput,
-          translationLanguage: storage.participantLanguage
-        } : {})
-      }
-    };
+    const item = buildHistoryItem({
+      mode, nowForm, taskBasedForm, output,
+      translatedOutput, hasTranslation,
+      participantLanguage: storage.participantLanguage,
+    });
 
     storage.addToHistory(item);
 
     // Update feedback record if this was an AI-generated action
     if (currentFeedbackId && showFeedbackUI) {
-      const currentAction = mode === 'now' ? nowForm.action : futureForm.outcome;
+      const currentAction = mode === 'now' ? nowForm.action : taskBasedForm.outcome;
       const wasEdited = aiGeneratedActionRef.current && currentAction !== aiGeneratedActionRef.current;
       storage.updateFeedback(currentFeedbackId, {
         acceptedAsIs: !wasEdited,
@@ -588,23 +230,23 @@ export function SmartActionTool() {
       try {
         const success = await localSync.writeAction(item);
         if (success) {
-          toast({ 
-            title: 'Saved & Synced!', 
-            description: hasTranslation 
-              ? 'Action with translation saved and synced to folder.' 
-              : 'Action saved and synced to folder.' 
+          toast({
+            title: 'Saved & Synced!',
+            description: hasTranslation
+              ? 'Action with translation saved and synced to folder.'
+              : 'Action saved and synced to folder.'
           });
         } else {
-          toast({ 
-            title: 'Saved locally', 
+          toast({
+            title: 'Saved locally',
             description: 'Action saved but folder sync failed. Check connection in Settings.',
             variant: 'default'
           });
         }
       } catch (err) {
         console.error('Folder sync error:', err);
-        toast({ 
-          title: 'Saved locally', 
+        toast({
+          title: 'Saved locally',
           description: 'Action saved but folder sync failed.',
           variant: 'default'
         });
@@ -612,237 +254,7 @@ export function SmartActionTool() {
     } else {
       toast({ title: 'Saved!', description: hasTranslation ? 'Action with translation saved to history.' : 'Action saved to history.' });
     }
-  }, [output, storage, smartCheck.overallScore, mode, nowForm, futureForm, translatedOutput, hasTranslation, toast, localSync, currentFeedbackId, showFeedbackUI, resetFeedbackState]);
-
-  // Template-based fallback for AI Draft
-  const templateDraftNow = useCallback(() => {
-    let timescale = nowForm.timescale;
-    if (!timescale) {
-      timescale = '2 weeks';
-      setNowForm(prev => ({ ...prev, timescale }));
-    }
-    const { action, help } = aiDraftNow(
-      nowForm.barrier, 
-      nowForm.forename, 
-      nowForm.responsible, 
-      timescale, 
-      nowForm.date,
-      suggestQuery
-    );
-    setNowForm(prev => ({ ...prev, action, help }));
-    toast({ title: 'Draft inserted', description: 'Template draft added. Edit as needed.' });
-  }, [nowForm, suggestQuery, toast]);
-
-  const templateDraftFuture = useCallback(() => {
-    const outcome = aiDraftFuture(futureForm.task, futureForm.forename);
-    setFutureForm(prev => ({ ...prev, outcome }));
-    toast({ title: 'Draft inserted', description: 'Template draft added. Edit as needed.' });
-  }, [futureForm, toast]);
-
-  // Handle feedback rating from the ActionFeedback component
-  const handleFeedbackRate = useCallback((rating: FeedbackRating) => {
-    setFeedbackRating(rating);
-    if (currentFeedbackId && rating) {
-      storage.updateFeedback(currentFeedbackId, { rating });
-    }
-  }, [currentFeedbackId, storage]);
-
-  // Map a selected SMARTAction from the plan picker to form fields
-  const handleSelectPlanAction = useCallback((action: SMARTAction, selectedIndex?: number) => {
-    if (mode === 'now') {
-      setNowForm(prev => ({
-        ...prev,
-        action: action.action,
-        help: action.first_step || action.rationale,
-        timescale: prev.timescale || '2 weeks',
-      }));
-    } else {
-      setFutureForm(prev => ({
-        ...prev,
-        outcome: action.action,
-      }));
-    }
-
-    // Track AI-generated text for feedback
-    aiGeneratedActionRef.current = action.action;
-    setFeedbackRating(null);
-    setCurrentFeedbackId(null);
-    setShowFeedbackUI(true);
-
-    // Create a pending feedback record
-    const barrier = mode === 'now' ? nowForm.barrier : (futureForm.task || '');
-    const feedbackRecord = storage.addFeedback({
-      barrier,
-      category: classifyBarrier(barrier),
-      generatedAction: action.action,
-      rating: null,
-      acceptedAsIs: false,
-      source: 'ai',
-      forename: mode === 'now' ? nowForm.forename : futureForm.forename,
-      timescale: mode === 'now' ? (nowForm.timescale || '2 weeks') : (futureForm.timescale || '4 weeks'),
-    });
-    setCurrentFeedbackId(feedbackRecord.id);
-
-    // Log analytics: action selected from plan
-    logDraftAnalytics({
-      timestamp: new Date().toISOString(),
-      signal: "selected",
-      barrier: mode === 'now' ? nowForm.barrier : undefined,
-      selected_index: selectedIndex,
-      generated_text: action.action,
-      source: "ai",
-    });
-
-    setShowPlanPicker(false);
-    setPlanResult(null);
-    toast({ title: 'Action applied', description: 'SMART action added to form. Edit as needed.' });
-  }, [mode, nowForm.barrier, nowForm.forename, nowForm.timescale, futureForm.task, futureForm.forename, futureForm.timescale, storage, toast]);
-
-  const handleAIDraft = useCallback(async () => {
-    if (mode === 'now') {
-      if (!nowForm.forename.trim() || !nowForm.barrier.trim()) {
-        toast({ title: 'Missing info', description: 'Add a forename and barrier first.', variant: 'destructive' });
-        return;
-      }
-    } else {
-      if (!futureForm.forename.trim() || !futureForm.task.trim()) {
-        toast({ title: 'Missing info', description: 'Add a forename and task first.', variant: 'destructive' });
-        return;
-      }
-    }
-
-    // User preference: templates - use templates directly
-    if (storage.aiDraftMode === 'template') {
-      if (mode === 'now') templateDraftNow();
-      else templateDraftFuture();
-      return;
-    }
-
-    // On mobile/iPad, use templates unless Experimental Local AI is enabled
-    if (llm.isMobile && !llm.canUseLocalAI) {
-      if (mode === 'now') templateDraftNow();
-      else templateDraftFuture();
-      toast({
-        title: 'Smart templates applied',
-        description: 'Local AI is disabled on mobile/iPad by default. Enable it in Settings (Experimental) to use Local AI.',
-      });
-      return;
-    }
-
-    // If AI not ready, show model picker and mark draft as pending
-    if (!llm.isReady) {
-      pendingAIDraftRef.current = true;
-      setShowLLMPicker(true);
-      return;
-    }
-
-    // Use SmartPlanner for plan generation
-    setAIDrafting(true);
-    try {
-      // Retrieve similar exemplars for context (RAG-style)
-      const barrier = mode === 'now' ? nowForm.barrier : (futureForm.task || '');
-      const barrierCategory = classifyBarrier(barrier);
-      const exemplars = retrieveExemplars(barrier, storage.actionFeedback, 3);
-      const timescale = mode === 'now' ? (nowForm.timescale || '2 weeks') : (futureForm.timescale || '4 weeks');
-      const targetDate = formatDDMMMYY(parseTimescaleToTargetISO(
-        mode === 'now' ? nowForm.date : futureForm.date,
-        timescale,
-      ));
-      const exemplarContext = formatExemplarsForPrompt(
-        exemplars,
-        mode === 'now' ? nowForm.forename : futureForm.forename,
-        targetDate,
-      );
-
-      // Build RawUserInput with enriched context
-      const input: RawUserInput = mode === 'now'
-        ? {
-            goal: `Address ${nowForm.barrier} barrier (category: ${barrierCategory}) for ${nowForm.forename}`,
-            barriers: nowForm.barrier,
-            timeframe: timescale,
-            situation: `Employment advisor helping ${nowForm.forename} with ${nowForm.barrier}.${exemplarContext ? '\n\n' + exemplarContext : ''}`,
-            participant_name: nowForm.forename,
-            supporter: nowForm.responsible,
-            selected_barrier_id: nowForm.barrier,
-            selected_barrier_label: nowForm.barrier,
-          }
-        : {
-            goal: futureForm.task,
-            timeframe: timescale,
-            situation: `Employment advisor helping ${futureForm.forename} plan ahead.${exemplarContext ? '\n\n' + exemplarContext : ''}`,
-            participant_name: futureForm.forename,
-            supporter: futureForm.responsible,
-          };
-
-      const plan = await llm.generatePlan(input);
-
-      // Log analytics: plan generated
-      logDraftAnalytics({
-        timestamp: new Date().toISOString(),
-        signal: "generated",
-        barrier: mode === 'now' ? nowForm.barrier : undefined,
-        barrier_id: input.selected_barrier_id,
-        actions_count: plan.actions.length,
-        source: "ai",
-      });
-
-      // Phase 2: Rank actions by relevance before presenting to user
-      const rankedActions = rankActionsByRelevance(
-        plan.actions,
-        barrier,
-        mode === 'now' ? nowForm.forename : futureForm.forename,
-        timescale,
-      );
-      const rankedPlan = { ...plan, actions: rankedActions };
-
-      if (rankedPlan.actions.length === 1) {
-        // Single action — apply directly
-        handleSelectPlanAction(rankedPlan.actions[0]);
-      } else if (rankedPlan.actions.length > 1) {
-        // Multiple actions — show picker (best action is first)
-        setPlanResult(rankedPlan);
-        setShowPlanPicker(true);
-      } else {
-        throw new Error('Plan generation returned no actions.');
-      }
-
-      scheduleSafariModelUnload();
-    } catch (err) {
-      console.warn('SmartPlanner draft failed, falling back to templates:', err);
-      if (mode === 'now') {
-        let timescale = nowForm.timescale;
-        if (!timescale) timescale = '2 weeks';
-        const { action, help } = aiDraftNow(
-          nowForm.barrier, nowForm.forename, nowForm.responsible,
-          timescale, nowForm.date, suggestQuery,
-        );
-        setNowForm(prev => ({ ...prev, action, help, timescale }));
-      } else {
-        const outcome = aiDraftFuture(futureForm.task, futureForm.forename);
-        setFutureForm(prev => ({ ...prev, outcome }));
-      }
-      // Clear persisted error state so the UI doesn't keep showing the AI
-      // error after templates have been successfully applied.
-      llm.clearError();
-      toast({
-        title: 'Using smart templates',
-        description: 'AI plan generation failed. Applied templates instead.',
-        variant: 'destructive',
-      });
-      scheduleSafariModelUnload(0);
-    } finally {
-      setAIDrafting(false);
-    }
-  }, [mode, nowForm, futureForm, llm, templateDraftNow, templateDraftFuture, toast, storage.aiDraftMode, storage.actionFeedback, scheduleSafariModelUnload, suggestQuery, handleSelectPlanAction]);
-
-  // Auto-trigger AI draft after model finishes loading (when user originally
-  // clicked "AI Draft" which opened the model picker).
-  useEffect(() => {
-    if (llm.isReady && pendingAIDraftRef.current) {
-      pendingAIDraftRef.current = false;
-      handleAIDraft();
-    }
-  }, [llm.isReady, handleAIDraft]);
+  }, [output, storage, smartCheck.overallScore, mode, nowForm, taskBasedForm, translatedOutput, hasTranslation, toast, localSync, currentFeedbackId, showFeedbackUI, aiGeneratedActionRef, resetFeedbackState]);
 
   const handleEditHistory = (item: HistoryItem) => {
     setMode(item.mode);
@@ -858,7 +270,7 @@ export function SmartActionTool() {
         timescale: item.meta.timescale || ''
       });
     } else {
-      setFutureForm({
+      setTaskBasedForm({
         date: item.meta.date || today,
         forename: item.meta.forename || '',
         task: item.meta.barrier || '',
@@ -868,8 +280,7 @@ export function SmartActionTool() {
       });
     }
     setOutput(item.text || '');
-    setOutputSource('manual'); // Prevent auto-regeneration from overwriting loaded output
-    // Restore translation if the history item had one
+    setOutputSource('manual');
     if (item.meta.translatedText && item.meta.translationLanguage) {
       translatedForOutputRef.current = item.text || '';
       setTranslatedOutput(item.meta.translatedText);
@@ -893,17 +304,17 @@ export function SmartActionTool() {
         s.help.toLowerCase().includes(q)
       ).slice(0, 14);
     } else {
-      return getTaskSuggestions(futureForm.task);
+      return getTaskSuggestions(taskBasedForm.task);
     }
-  }, [mode, nowForm.barrier, futureForm.task, suggestQuery]);
+  }, [mode, nowForm.barrier, taskBasedForm.task, suggestQuery]);
 
   const targetCtx = useMemo(() => {
-    const baseISO = mode === 'now' ? nowForm.date : futureForm.date;
-    const timescale = mode === 'now' ? nowForm.timescale : futureForm.timescale;
-    const forename = mode === 'now' ? nowForm.forename : futureForm.forename;
+    const baseISO = mode === 'now' ? nowForm.date : taskBasedForm.date;
+    const timescale = mode === 'now' ? nowForm.timescale : taskBasedForm.timescale;
+    const forename = mode === 'now' ? nowForm.forename : taskBasedForm.forename;
     const targetISO = parseTimescaleToTargetISO(baseISO || today, timescale || '2 weeks');
     return { targetPretty: formatDDMMMYY(targetISO), n: 2, forename: forename.trim() };
-  }, [mode, nowForm.date, nowForm.timescale, nowForm.forename, futureForm.date, futureForm.timescale, futureForm.forename, today]);
+  }, [mode, nowForm.date, nowForm.timescale, nowForm.forename, taskBasedForm.date, taskBasedForm.timescale, taskBasedForm.forename, today]);
 
   const handleInsertSuggestion = (suggestion: { title: string; action?: string; help?: string; outcome?: string }) => {
     if (mode === 'now' && suggestion.action) {
@@ -916,25 +327,15 @@ export function SmartActionTool() {
       }));
       toast({ title: 'Inserted', description: 'Suggestion added.' });
     } else if (mode === 'future' && suggestion.outcome) {
-      if (!futureForm.forename.trim()) {
+      if (!taskBasedForm.forename.trim()) {
         toast({ title: 'Enter forename first', description: 'Add the participant\'s forename.', variant: 'destructive' });
         return;
       }
-      const outcome = suggestion.outcome.replace(/\[Name\]/g, futureForm.forename);
-      setFutureForm(prev => ({ ...prev, outcome }));
+      const outcome = suggestion.outcome.replace(/\[Name\]/g, taskBasedForm.forename);
+      setTaskBasedForm(prev => ({ ...prev, outcome }));
       toast({ title: 'Inserted', description: 'Suggestion added.' });
     }
   };
-
-  const filteredHistory = useMemo(() => {
-    const q = historySearch.toLowerCase();
-    if (!q) return storage.history;
-    return storage.history.filter(h =>
-      h.text.toLowerCase().includes(q) ||
-      h.meta.forename?.toLowerCase().includes(q) ||
-      h.meta.barrier?.toLowerCase().includes(q)
-    );
-  }, [storage.history, historySearch]);
 
   // Handle template insertion
   const handleInsertTemplate = useCallback((template: ActionTemplate) => {
@@ -947,41 +348,13 @@ export function SmartActionTool() {
         help: template.help || prev.help,
       }));
     } else {
-      setFutureForm(prev => ({
+      setTaskBasedForm(prev => ({
         ...prev,
         task: template.task || prev.task,
         outcome: template.outcome || prev.outcome,
       }));
     }
-  }, []);
-
-  // Build context for LLM chat based on current form inputs
-  const buildLLMContext = useCallback(() => {
-    if (mode === 'now') {
-      const parts: string[] = [];
-      if (nowForm.forename) parts.push(`Participant: ${nowForm.forename}`);
-      if (nowForm.barrier) parts.push(`Barrier to work: ${nowForm.barrier}`);
-      if (nowForm.action) parts.push(`Current action: ${nowForm.action}`);
-      if (nowForm.responsible) parts.push(`Responsible person: ${nowForm.responsible}`);
-      if (nowForm.help) parts.push(`Help/support: ${nowForm.help}`);
-      if (nowForm.timescale) parts.push(`Review in: ${nowForm.timescale}`);
-      return parts.length > 0 
-        ? `Help me improve this SMART action for employment support:\n\n${parts.join('\n')}\n\nHow can I make this more specific, measurable, and actionable?`
-        : 'Help me create a SMART action for employment support. The action should address a barrier to work.';
-    } else {
-      const parts: string[] = [];
-      if (futureForm.forename) parts.push(`Participant: ${futureForm.forename}`);
-      if (futureForm.task) parts.push(`Activity/event: ${futureForm.task}`);
-      if (futureForm.responsible) parts.push(`Who is responsible: ${futureForm.responsible}`);
-      if (futureForm.outcome) parts.push(`Expected outcome: ${futureForm.outcome}`);
-      if (futureForm.timescale) parts.push(`Review in: ${futureForm.timescale}`);
-      return parts.length > 0 
-        ? `Help me improve this task-based SMART action:\n\n${parts.join('\n')}\n\nHow can I make this more specific and measurable?`
-        : 'Help me create a task-based SMART action for a future activity or event.';
-    }
-  }, [mode, nowForm, futureForm]);
-
-  // Backend-taught prompt pack (cached locally). This is NOT user-learned.
+  }, [setNowForm, setTaskBasedForm]);
 
   const handleExport = () => {
     // Use the same format as exportAllData for consistency and full round-trip support
@@ -1011,7 +384,7 @@ export function SmartActionTool() {
         timescale: data.timescale || prev.timescale,
       }));
     } else {
-      setFutureForm(prev => ({
+      setTaskBasedForm(prev => ({
         ...prev,
         forename: data.forename || prev.forename,
         task: data.task || prev.task,
@@ -1022,63 +395,9 @@ export function SmartActionTool() {
     }
     setWizardMode(false);
     toast({ title: 'Wizard complete', description: 'Form populated. Review and generate your action.' });
-  }, [mode, toast]);
-
-  // Handle wizard AI draft — uses SmartPlanner plan generation with template fallback
-  const handleWizardAIDraft = useCallback(async (field: string, context: Record<string, string>): Promise<string> => {
-    if (storage.aiDraftMode === 'ai' && !llm.isReady) {
-      if (llm.canUseLocalAI) {
-        setShowLLMPicker(true);
-        toast({ title: 'Load Local AI', description: 'Pick a model to enable AI drafting.' });
-      } else {
-        toast({ title: 'Local AI not available', description: 'Enable Local AI in Settings or use Smart Templates.', variant: 'destructive' });
-      }
-      return '';
-    }
-
-    // If AI is ready, use SmartPlanner
-    if (llm.isReady) {
-      try {
-        const input: RawUserInput = {
-          goal: context.barrier || context.task || 'Employment support',
-          barriers: context.barrier,
-          timeframe: context.timescale || '2 weeks',
-          situation: `Helping ${context.forename || 'participant'}`,
-          participant_name: context.forename,
-          supporter: context.responsible,
-          selected_barrier_id: context.barrier,
-          selected_barrier_label: context.barrier,
-        };
-        const plan = await llm.generatePlan(input);
-        if (plan.actions.length > 0) {
-          const action = plan.actions[0];
-          if (field === 'action') return action.action;
-          if (field === 'help') return action.first_step || action.rationale;
-          if (field === 'outcome') return action.action;
-        }
-        scheduleSafariModelUnload();
-      } catch (err) {
-        console.warn('SmartPlanner wizard draft failed, falling back to templates:', err);
-        toast({ title: 'Using smart templates', description: 'AI generation failed. Applied templates instead.', variant: 'destructive' });
-        scheduleSafariModelUnload(0);
-      }
-    }
-
-    // Template fallback
-    if (mode === 'now') {
-      const timescale = context.timescale || '2 weeks';
-      if (field === 'action' || field === 'help') {
-        const { action, help } = aiDraftNow(context.barrier || '', context.forename || '', context.responsible || 'Advisor', timescale, nowForm.date);
-        return field === 'action' ? action : help;
-      }
-    } else {
-      if (field === 'outcome') return aiDraftFuture(context.task || '', context.forename || '');
-    }
-    return '';
-  }, [mode, nowForm.date, llm, storage.aiDraftMode, toast, scheduleSafariModelUnload]);
+  }, [mode, setNowForm, setTaskBasedForm, setWizardMode, toast]);
 
   // Keyboard shortcuts configuration
-  // Note: 'id' values must match the action IDs used in FloatingToolbar for shortcut hints to work
   const shortcuts: ShortcutConfig[] = useMemo(() => [
     { ...SMART_TOOL_SHORTCUTS.saveToHistory, action: handleSave },
     { ...SMART_TOOL_SHORTCUTS.aiDraft, action: handleAIDraft },
@@ -1087,9 +406,8 @@ export function SmartActionTool() {
     { ...SMART_TOOL_SHORTCUTS.switchToNow, action: () => { setMode('now'); setShowValidation(false); } },
     { ...SMART_TOOL_SHORTCUTS.switchToFuture, action: () => { setMode('future'); setShowValidation(false); } },
     { ...SMART_TOOL_SHORTCUTS.showShortcutsHelp, action: () => setShortcutsHelpOpen(true) },
-  ], [handleSave, handleAIDraft, handleCopy, handleClear]);
+  ], [handleSave, handleAIDraft, handleCopy, handleClear, setMode, setShowValidation]);
 
-  // Create a map of shortcut IDs to formatted shortcut strings for UI components
   const shortcutMap = useMemo(() => createShortcutMap(shortcuts), [shortcuts]);
 
   useKeyboardShortcuts(shortcuts, true);
@@ -1133,11 +451,6 @@ export function SmartActionTool() {
     };
     reader.readAsText(file);
     e.target.value = '';
-  };
-
-  const getFieldClass = (isValid: boolean) => {
-    if (!showValidation) return '';
-    return isValid ? 'border-green-500/50' : 'border-destructive/60 shadow-[0_0_0_2px_rgba(239,68,68,0.15)]';
   };
 
   return (
@@ -1214,7 +527,7 @@ export function SmartActionTool() {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={() => setHeaderCollapsed(!headerCollapsed)}
+                onClick={() => dispatchUI({ type: 'toggle', panel: 'headerCollapsed' })}
                 aria-label={headerCollapsed ? "Expand header" : "Collapse header"}
                 className="px-1.5 sm:px-2 h-8"
               >
@@ -1286,693 +599,11 @@ export function SmartActionTool() {
               <Keyboard className="w-4 h-4" />
             </Button>
 
-            <Dialog open={settingsOpen} onOpenChange={(open) => {
-              setSettingsOpen(open);
-              if (open) {
-                setSettingsBarriers(storage.barriers.join('\n'));
-                setSettingsTimescales(storage.timescales.join('\n'));
-              }
-            }}>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="px-1.5 sm:px-2 h-8">
-                  <Settings className="w-4 h-4" />
-                  <span className="ml-1 hidden sm:inline">Settings</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-3xl max-h-[85vh] sm:max-h-[80vh] flex flex-col overflow-hidden">
-                <DialogHeader className="shrink-0">
-                  <DialogTitle>Settings</DialogTitle>
-                </DialogHeader>
-                <div className="flex-1 overflow-y-auto pr-2 space-y-4">
-                  <div className="grid md:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-lg border bg-card space-y-3 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
-                    <h3 className="font-bold">Barriers list</h3>
-                    <p className="text-xs text-muted-foreground">One per line. Users can still type custom barriers.</p>
-                    <Textarea 
-                      value={settingsBarriers} 
-                      onChange={e => setSettingsBarriers(e.target.value)}
-                      className="font-mono text-sm min-h-[200px]"
-                    />
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => {
-                        storage.resetBarriers();
-                        setSettingsBarriers(storage.barriers.join('\n'));
-                        toast({ title: 'Reset', description: 'Barriers reset to default.' });
-                      }}>Reset</Button>
-                      <Button size="sm" onClick={() => {
-                        const list = settingsBarriers.split('\n').map(s => s.trim()).filter(Boolean);
-                        if (!list.length) {
-                          toast({ title: 'Error', description: 'Barriers list cannot be empty.', variant: 'destructive' });
-                          return;
-                        }
-                        storage.updateBarriers(Array.from(new Set(list)));
-                        toast({ title: 'Saved', description: 'Barriers updated.' });
-                      }}>Save</Button>
-                    </div>
-                  </div>
-                  <div className="p-4 rounded-lg border bg-card space-y-3 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
-                    <h3 className="font-bold">Timescales</h3>
-                    <p className="text-xs text-muted-foreground">One per line.</p>
-                    <Textarea 
-                      value={settingsTimescales} 
-                      onChange={e => setSettingsTimescales(e.target.value)}
-                      className="font-mono text-sm min-h-[200px]"
-                    />
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => {
-                        storage.resetTimescales();
-                        setSettingsTimescales(storage.timescales.join('\n'));
-                        toast({ title: 'Reset', description: 'Timescales reset to default.' });
-                      }}>Reset</Button>
-                      <Button size="sm" onClick={() => {
-                        const list = settingsTimescales.split('\n').map(s => s.trim()).filter(Boolean);
-                        if (!list.length) {
-                          toast({ title: 'Error', description: 'Timescales list cannot be empty.', variant: 'destructive' });
-                          return;
-                        }
-                        storage.updateTimescales(Array.from(new Set(list)));
-                        toast({ title: 'Saved', description: 'Timescales updated.' });
-                      }}>Save</Button>
-                      </div>
-                    </div>
-                  </div>
-                
-                  {/* Quality Enforcement Section */}
-                  <div className="p-4 rounded-lg border bg-card space-y-4 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="w-5 h-5 text-primary" />
-                      <h3 className="font-bold">Quality Enforcement</h3>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Prevent saving actions that don't meet SMART quality standards.
-                    </p>
-                    
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input 
-                          type="checkbox" 
-                          checked={storage.minScoreEnabled} 
-                          onChange={e => storage.updateMinScoreEnabled(e.target.checked)}
-                          className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
-                        />
-                        <span className="text-sm font-medium">Enforce minimum SMART score</span>
-                      </label>
-                      
-                      {storage.minScoreEnabled && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground">Minimum score:</span>
-                          <Select 
-                            value={String(storage.minScoreThreshold)} 
-                            onValueChange={v => storage.updateMinScoreThreshold(parseInt(v, 10))}
-                          >
-                            <SelectTrigger className="w-20">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="4">4/5</SelectItem>
-                              <SelectItem value="5">5/5</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <WarningBox show={storage.minScoreEnabled} variant="warning">
-                      Actions with a SMART score below {storage.minScoreThreshold}/5 cannot be saved to history. 
-                      This encourages higher quality action writing.
-                    </WarningBox>
-                  </div>
+            <Button variant="ghost" size="sm" className="px-1.5 sm:px-2 h-8" onClick={() => setSettingsOpen(true)}>
+              <Settings className="w-4 h-4" />
+              <span className="ml-1 hidden sm:inline">Settings</span>
+            </Button>
 
-                  {/* Wizard Mode Toggle */}
-                  <div className="p-4 rounded-lg border bg-card space-y-4 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
-                    <div className="flex items-center gap-2">
-                      <Wand2 className="w-5 h-5 text-primary" />
-                      <h3 className="font-bold">Guided Wizard Mode</h3>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Step-by-step guided form that walks you through creating a SMART action.
-                    </p>
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={wizardMode} 
-                        onChange={e => setWizardMode(e.target.checked)}
-                        className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
-                      />
-                      <span className="text-sm font-medium">Enable guided wizard mode</span>
-                    </label>
-                  </div>
-
-                  {/* AI Draft Settings Section */}
-                  <div className="p-4 rounded-lg border bg-card space-y-4 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
-                    <div className="flex items-center gap-2">
-                      <Bot className="w-5 h-5 text-primary" />
-                      <h3 className="font-bold">AI Draft</h3>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      AI drafting runs locally in your browser by default. If local AI is unavailable, switch
-                      to Smart Templates for instant built-in suggestions.
-                    </p>
-                    
-                    {/* Mode Toggle */}
-                    <div className="space-y-3">
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input 
-                          type="radio" 
-                          name="aiDraftMode"
-                          checked={storage.aiDraftMode === 'ai'} 
-                          onChange={() => storage.updateAIDraftMode('ai')}
-                          className="w-4 h-4 accent-primary"
-                        />
-                        <div>
-                          <span className="text-sm font-medium">Use Local AI</span>
-                          <p className="text-xs text-muted-foreground">
-                            AI-generated suggestions (requires a one-time model download in this browser)
-                          </p>
-                        </div>
-                      </label>
-                      
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input 
-                          type="radio" 
-                          name="aiDraftMode"
-                          checked={storage.aiDraftMode === 'template'} 
-                          onChange={() => storage.updateAIDraftMode('template')}
-                          className="w-4 h-4 accent-primary"
-                        />
-                        <div>
-                          <span className="text-sm font-medium">Use Smart Templates</span>
-                          <p className="text-xs text-muted-foreground">
-                            Instant template-based suggestions (no download required)
-                          </p>
-                        </div>
-                      </label>
-                    </div>
-                    
-
-
-                    {/* iOS / mobile enable (experimental) */}
-                    {storage.aiDraftMode === 'ai' && llm.deviceInfo?.isIOS && llm.isMobile && (
-                      <div className="pt-4 border-t space-y-3">
-                        <label className="flex items-start gap-3 cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            checked={storage.allowMobileLLM} 
-                            onChange={e => storage.updateAllowMobileLLM(e.target.checked)}
-                            className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary mt-0.5"
-                          />
-                          <div>
-                            <span className="text-sm font-medium">Enable Local AI on iPhone/iPad (experimental)</span>
-                            <p className="text-xs text-muted-foreground">
-                              iPhone is limited to the smallest model and shorter outputs to reduce memory use.
-                            </p>
-                          </div>
-                        </label>
-                      </div>
-                    )}
-
-                    {/* Safari WebGPU toggle (experimental) */}
-                    {storage.aiDraftMode === 'ai' && llm.browserInfo?.isSafari && (
-                      <div className="pt-4 border-t space-y-3">
-                        <label className="flex items-start gap-3 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={storage.safariWebGPUEnabled}
-                            onChange={e => storage.updateSafariWebGPUEnabled(e.target.checked)}
-                            className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary mt-0.5"
-                          />
-                          <div>
-                            <span className="text-sm font-medium">Safari WebGPU (experimental)</span>
-                            <p className="text-xs text-muted-foreground">
-                              Safari WebGPU can cause tab reloads on heavy models.
-                            </p>
-                          </div>
-                        </label>
-                      </div>
-                    )}
-
-                    {/* Safari model unload behavior */}
-                    {storage.aiDraftMode === 'ai' && llm.browserInfo?.isSafari && (
-                      <div className="pt-4 border-t space-y-3">
-                        <label className="flex items-start gap-3 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={storage.keepSafariModelLoaded}
-                            onChange={e => storage.updateKeepSafariModelLoaded(e.target.checked)}
-                            className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary mt-0.5"
-                          />
-                          <div>
-                            <span className="text-sm font-medium">Keep model loaded (Safari)</span>
-                            <p className="text-xs text-muted-foreground">
-                              Safari unloads the local model shortly after each draft to reduce memory pressure and
-                              avoid tab reloads. Enable this to keep it loaded between drafts.
-                            </p>
-                          </div>
-                        </label>
-                      </div>
-                    )}
-
-                    {/* Model Selection (shown when AI mode is enabled and device is allowed) */}
-                    {storage.aiDraftMode === 'ai' && llm.canUseLocalAI && (
-                      <div className="pt-4 border-t space-y-3">
-                        <h4 className="text-sm font-medium">AI Model</h4>
-                        <p className="text-xs text-muted-foreground">
-                          AI playbook v{effectivePromptPack.version} ({promptPackSource || 'default'})
-                        </p>
-                        
-                        {llm.isReady && (
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
-                              <Check className="w-4 h-4" />
-                              {llm.supportedModels.find(m => m.id === llm.selectedModel)?.name || 'Model'} loaded
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={async () => {
-                                  const modelId = llm.selectedModel;
-                                  if (modelId) {
-                                    llm.unload();
-                                    await llm.loadModel(modelId);
-                                  }
-                                }}
-                                className="h-7 text-xs"
-                              >
-                                <RefreshCw className="w-3 h-3 mr-1" />
-                                Reload
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => llm.unload()}
-                                className="h-7 text-xs"
-                              >
-                                Unload
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {llm.isLoading && (
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              <span className="text-sm">{llm.loadingStatus}</span>
-                            </div>
-                            <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-primary transition-all duration-300"
-                                style={{ width: `${llm.loadingProgress}%` }}
-                              />
-                            </div>
-                          </div>
-                        )}
-                        
-                        {!llm.isReady && !llm.isLoading && (
-                          <div className="space-y-2">
-                            {llm.supportedModels.map((model) => (
-                              <button
-                                key={model.id}
-                                onClick={async () => {
-                                  const success = await llm.loadModel(model.id);
-                                  if (success) {
-                                    if (storage.updatePreferredLLMModel) {
-                                      storage.updatePreferredLLMModel(model.id);
-                                    }
-                                    if (storage.updateAIDraftMode) {
-                                      storage.updateAIDraftMode('ai');
-                                    }
-                                  }
-                                }}
-                                className="w-full p-3 rounded-lg border hover:border-primary/50 hover:bg-primary/5 transition-colors text-left"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <span className="font-medium text-sm">{model.name}</span>
-                                  <span className="text-xs text-muted-foreground">{model.size}</span>
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-1">{model.description}</p>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        
-                        {llm.error && (
-                          <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 space-y-2">
-                            <div className="flex items-start gap-2">
-                              <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-                              <div className="space-y-1">
-                                {llm.classifiedError && (
-                                  <p className="text-xs font-medium text-destructive">{llm.classifiedError.title}</p>
-                                )}
-                                <p className="text-xs text-destructive">{llm.classifiedError?.message || llm.error}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {(!llm.classifiedError || llm.classifiedError.retryable) && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs"
-                                  onClick={async () => {
-                                    llm.clearError();
-                                    const modelId = llm.selectedModel || storage.preferredLLMModel || llm.supportedModels[0]?.id;
-                                    if (modelId) {
-                                      llm.unload();
-                                      await llm.loadModel(modelId);
-                                    }
-                                  }}
-                                >
-                                  <RefreshCw className="w-3 h-3 mr-1" />
-                                  Try Again
-                                </Button>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 text-xs"
-                                onClick={() => llm.clearError()}
-                              >
-                                Dismiss
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    
-                    {/* Mobile warning */}
-                    {!llm.canUseLocalAI && storage.aiDraftMode === 'ai' && (
-                      <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                        <p className="text-xs text-amber-700 dark:text-amber-400">
-                          Local AI is disabled for this device right now. Enable the iPhone/iPad toggle above (if available) or use Smart Templates instead.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="p-4 rounded-lg border bg-card space-y-4 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
-                    <div className="flex items-center gap-2">
-                      <HelpCircle className="w-5 h-5 text-primary" />
-                      <h3 className="font-bold">Tutorial</h3>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Replay the onboarding tutorial to learn about key features.
-                    </p>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        safeRemoveItem('smartTool.onboardingComplete');
-                        setSettingsOpen(false);
-                        window.location.reload();
-                      }}
-                      className="gap-2"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      Replay Tutorial
-                    </Button>
-                  </div>
-
-                  {/* Local Folder Sync / Export Section */}
-                  <div className="p-4 rounded-lg border bg-card space-y-4 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {localSync.isSupported ? (
-                          <FolderSync className="w-5 h-5 text-primary" />
-                        ) : (
-                          <FileArchive className="w-5 h-5 text-primary" />
-                        )}
-                        <h3 className="font-bold">{localSync.isSupported ? 'Folder Sync' : 'Export Actions'}</h3>
-                      </div>
-                      {localSync.isSupported && localSync.isConnected && (
-                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                          <Check className="w-3 h-3" />
-                          Connected
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Different content based on browser support */}
-                    {localSync.isSupported ? (
-                      <>
-                        <p className="text-xs text-muted-foreground">
-                          Save actions to a folder on your device. Tip: Select your OneDrive or Google Drive folder for automatic cloud sync!
-                        </p>
-
-                        {/* Connection status and controls */}
-                        <div className="space-y-3">
-                          {localSync.isConnected ? (
-                            <>
-                              {/* Folder info */}
-                              <div className="p-3 rounded-lg bg-muted/50 space-y-1">
-                                <p className="text-sm font-medium flex items-center gap-2">
-                                  <FolderOpen className="w-4 h-4 text-muted-foreground" />
-                                  {localSync.folderName}
-                                </p>
-                                {localSync.lastSync && (
-                                  <p className="text-xs text-muted-foreground">
-                                    Last sync: {new Date(localSync.lastSync).toLocaleString()}
-                                  </p>
-                                )}
-                              </div>
-
-                              {/* Action buttons */}
-                              <div className="flex gap-2">
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
-                                  onClick={() => localSync.selectFolder()}
-                                  className="flex-1 gap-1.5"
-                                >
-                                  <RefreshCw className="w-3.5 h-3.5" />
-                                  Change Folder
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
-                                  onClick={() => localSync.disconnect()}
-                                  className="flex-1 gap-1.5"
-                                >
-                                  <CloudOff className="w-3.5 h-3.5" />
-                                  Disconnect
-                                </Button>
-                              </div>
-
-                              <label className="flex items-center gap-3 cursor-pointer">
-                                <input 
-                                  type="checkbox" 
-                                  checked={localSync.syncEnabled} 
-                                  onChange={e => localSync.setSyncEnabled(e.target.checked)}
-                                  className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
-                                />
-                                <span className="text-sm font-medium">Sync when saving to history</span>
-                              </label>
-
-                              {localSync.syncEnabled && (
-                                <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
-                                  <FolderSync className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                                  <p className="text-xs text-muted-foreground">
-                                    Each saved action will be written as a .txt file to your selected folder.
-                                  </p>
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <Button 
-                              onClick={() => localSync.selectFolder()}
-                              disabled={localSync.isConnecting}
-                              className="w-full gap-2"
-                            >
-                              {localSync.isConnecting ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                  Selecting...
-                                </>
-                              ) : (
-                                <>
-                                  <FolderOpen className="w-4 h-4" />
-                                  Choose Folder
-                                </>
-                              )}
-                            </Button>
-                          )}
-
-                          {localSync.error && (
-                            <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                              <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-                              <p className="text-xs text-destructive">{localSync.error}</p>
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    ) : (
-                      /* Safari/Firefox fallback - ZIP download */
-                      <>
-                        <p className="text-xs text-muted-foreground">
-                          Your browser doesn't support automatic folder sync, but you can download your actions as a ZIP file.
-                        </p>
-                        
-                        <Button 
-                          onClick={() => localSync.downloadAllAsZip(storage.history)}
-                          disabled={storage.history.length === 0}
-                          className="w-full gap-2"
-                        >
-                          <FileArchive className="w-4 h-4" />
-                          Download All as ZIP ({storage.history.length} action{storage.history.length !== 1 ? 's' : ''})
-                        </Button>
-
-                        <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 border border-border/50">
-                          <Download className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                          <p className="text-xs text-muted-foreground">
-                            Tip: Save the ZIP to your OneDrive or iCloud folder for cloud backup! For automatic sync, use Chrome or Edge on desktop.
-                          </p>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Data Retention Section */}
-                  <div className="p-4 rounded-lg border bg-card space-y-4 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-5 h-5 text-primary" />
-                      <h3 className="font-bold">Data Retention</h3>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Automatically delete old history items to comply with data minimisation principles.
-                    </p>
-                    
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input 
-                          type="checkbox" 
-                          checked={storage.retentionEnabled} 
-                          onChange={e => storage.updateRetentionEnabled(e.target.checked)}
-                          className="w-5 h-5 rounded border-2 border-primary text-primary focus:ring-primary"
-                        />
-                        <span className="text-sm font-medium">Auto-delete old actions</span>
-                      </label>
-                      
-                      {storage.retentionEnabled && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground">Keep for:</span>
-                          <Select 
-                            value={String(storage.retentionDays)} 
-                            onValueChange={v => storage.updateRetentionDays(parseInt(v, 10))}
-                          >
-                            <SelectTrigger className="w-28">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="30">30 days</SelectItem>
-                              <SelectItem value="60">60 days</SelectItem>
-                              <SelectItem value="90">90 days</SelectItem>
-                              <SelectItem value="180">180 days</SelectItem>
-                              <SelectItem value="365">1 year</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {storage.retentionEnabled && (
-                      <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
-                        <Clock className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                        <p className="text-xs text-muted-foreground">
-                          Actions older than {storage.retentionDays} days will be automatically deleted when you open the app. 
-                          You currently have {storage.history.length} action{storage.history.length === 1 ? '' : 's'} in history.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Privacy & Data Section - GDPR Compliance */}
-                  <div className="p-4 rounded-lg border bg-card space-y-4 hover:border-primary/20 hover:shadow-sm transition-all duration-200 ease-spring">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Shield className="w-5 h-5 text-primary" />
-                        <h3 className="font-bold">Privacy & Data</h3>
-                      </div>
-                      {/* Local AI status */}
-                      <div className={cn(
-                        "flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium",
-                        llm.isReady
-                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                          : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                      )}>
-                        <div className={cn(
-                          "w-2 h-2 rounded-full",
-                          llm.isReady ? "bg-emerald-500" : "bg-amber-500"
-                        )} />
-                        <span>{llm.isReady ? "Local AI ready" : "Local AI not loaded"}</span>
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Manage your data and privacy preferences in accordance with UK GDPR.
-                    </p>
-                    
-                    <div className="grid gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          const data = storage.exportAllData();
-                          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = `smart-action-data-${new Date().toISOString().slice(0, 10)}.json`;
-                          document.body.appendChild(a);
-                          a.click();
-                          a.remove();
-                          URL.revokeObjectURL(url);
-                          toast({ title: 'Data exported', description: 'Your data has been downloaded.' });
-                        }}
-                        className="gap-2 justify-start"
-                      >
-                        <FileDown className="w-4 h-4" />
-                        Export All My Data
-                      </Button>
-                      
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => setPrivacySettingsOpen(true)}
-                        className="gap-2 justify-start"
-                      >
-                        <Shield className="w-4 h-4" />
-                        Manage Cookie Preferences
-                      </Button>
-                      
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          if (confirm('Are you sure you want to delete all your data? This cannot be undone.')) {
-                            storage.deleteAllData();
-                            toast({ title: 'Data deleted', description: 'All your data has been removed.' });
-                            window.location.reload();
-                          }
-                        }}
-                        className="gap-2 justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete All My Data
-                      </Button>
-                    </div>
-                    
-                    <a 
-                      href="#/privacy" 
-                      className="text-xs text-primary hover:underline block mt-2"
-                      onClick={() => setSettingsOpen(false)}
-                    >
-                      View Privacy Policy →
-                    </a>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
           </div>
         </div>
       </motion.header>
@@ -2054,7 +685,7 @@ export function SmartActionTool() {
                 )}
                 onClick={() => { setMode('now'); setShowValidation(false); }}
               >
-                Barrier to action now
+                Barrier to action
               </Button>
               <Button
                 type="button"
@@ -2288,33 +919,33 @@ export function SmartActionTool() {
                   <div className="space-y-2 shrink-0 mb-4 sm:mb-0 sm:mr-6" style={{ width: 'clamp(140px, 40%, 220px)' }}>
                     <label htmlFor="scheduled-date" className="text-sm font-medium text-muted-foreground">Scheduled date</label>
                     <div className="relative">
-                      <InputGlow show={!!futureDateError} variant="error" />
+                      <InputGlow show={!!taskBasedDateError} variant="error" />
                       <Input
                         id="scheduled-date"
                         type="date"
-                        value={futureForm.date}
-                        onChange={e => setFutureForm(prev => ({ ...prev, date: e.target.value }))}
+                        value={taskBasedForm.date}
+                        onChange={e => setTaskBasedForm(prev => ({ ...prev, date: e.target.value }))}
                         min={today}
-                        className={`${getFieldClass(!!futureForm.date && !futureDateError)} ${futureDateError ? 'border-destructive' : ''}`}
-                        aria-describedby={futureDateError ? "future-date-error" : undefined}
-                        aria-invalid={!!futureDateError}
+                        className={`${getFieldClass(!!taskBasedForm.date && !taskBasedDateError)} ${taskBasedDateError ? 'border-destructive' : ''}`}
+                        aria-describedby={taskBasedDateError ? "future-date-error" : undefined}
+                        aria-invalid={!!taskBasedDateError}
                       />
                     </div>
                     {/* BUG FIX #1: Show error for past dates */}
-                    <WarningText show={!!futureDateError} variant="error" id="future-date-error">
-                      {futureDateError}
+                    <WarningText show={!!taskBasedDateError} variant="error" id="future-date-error">
+                      {taskBasedDateError}
                     </WarningText>
                   </div>
                   <div className="space-y-2 flex-1 min-w-0">
                     <label htmlFor="future-participant-name" className="text-sm font-medium text-muted-foreground">Participant forename</label>
                     <Input
                       id="future-participant-name"
-                      value={futureForm.forename}
-                      onChange={e => setFutureForm(prev => ({ ...prev, forename: e.target.value }))}
+                      value={taskBasedForm.forename}
+                      onChange={e => setTaskBasedForm(prev => ({ ...prev, forename: e.target.value }))}
                       placeholder="e.g. John"
                       list="recent-names"
                       autoComplete="off"
-                      className={getFieldClass(!!futureForm.forename.trim())}
+                      className={getFieldClass(!!taskBasedForm.forename.trim())}
                     />
                   </div>
                 </div>
@@ -2322,12 +953,12 @@ export function SmartActionTool() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Activity or event</label>
                   <Textarea
-                    value={futureForm.task}
-                    onChange={e => setFutureForm(prev => ({ ...prev, task: e.target.value }))}
+                    value={taskBasedForm.task}
+                    onChange={e => setTaskBasedForm(prev => ({ ...prev, task: e.target.value }))}
                     placeholder="e.g. Christmas Job Fair at Twickenham Stadium"
                     rows={2}
                     spellCheck
-                    className={getFieldClass(!!futureForm.task.trim())}
+                    className={getFieldClass(!!taskBasedForm.task.trim())}
                   />
                   <p className="text-xs text-muted-foreground">Describe the task, event, or activity they will attend.</p>
                 </div>
@@ -2335,10 +966,10 @@ export function SmartActionTool() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">Who is responsible?</label>
                   <Select
-                    value={futureForm.responsible}
-                    onValueChange={(value) => setFutureForm(prev => ({ ...prev, responsible: value }))}
+                    value={taskBasedForm.responsible}
+                    onValueChange={(value) => setTaskBasedForm(prev => ({ ...prev, responsible: value }))}
                   >
-                    <SelectTrigger className={getFieldClass(!!futureForm.responsible)}>
+                    <SelectTrigger className={getFieldClass(!!taskBasedForm.responsible)}>
                       <SelectValue placeholder="Select responsible person…" />
                     </SelectTrigger>
                     <SelectContent>
@@ -2399,13 +1030,13 @@ export function SmartActionTool() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">What will happen / expected outcome?</label>
                   <Textarea
-                    value={futureForm.outcome}
-                    onChange={e => setFutureForm(prev => ({ ...prev, outcome: e.target.value }))}
+                    value={taskBasedForm.outcome}
+                    onChange={e => setTaskBasedForm(prev => ({ ...prev, outcome: e.target.value }))}
                     placeholder="e.g. will speak with employers about warehouse roles and collect contact details"
                     rows={4}
                     spellCheck
                     data-field="outcome"
-                    className={getFieldClass(!!futureForm.outcome.trim())}
+                    className={getFieldClass(!!taskBasedForm.outcome.trim())}
                   />
                   <p className="text-xs text-muted-foreground">Describe what the participant will do or achieve. Use AI draft for suggestions.</p>
                 </div>
@@ -2413,12 +1044,12 @@ export function SmartActionTool() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-muted-foreground">This will be reviewed in…</label>
                   <ComboboxInput
-                    value={futureForm.timescale}
-                    onChange={(value) => setFutureForm(prev => ({ ...prev, timescale: value }))}
+                    value={taskBasedForm.timescale}
+                    onChange={(value) => setTaskBasedForm(prev => ({ ...prev, timescale: value }))}
                     options={storage.timescales}
                     placeholder="Select timescale…"
                     emptyMessage="No timescales found."
-                    className={getFieldClass(!!futureForm.timescale)}
+                    className={getFieldClass(!!taskBasedForm.timescale)}
                     data-field="timescale"
                   />
                 </div>
@@ -2453,7 +1084,7 @@ export function SmartActionTool() {
                 currentMode={mode}
                 currentForm={mode === 'now' 
                   ? { barrier: nowForm.barrier, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
-                  : { task: futureForm.task, responsible: futureForm.responsible, outcome: futureForm.outcome }
+                  : { task: taskBasedForm.task, responsible: taskBasedForm.responsible, outcome: taskBasedForm.outcome }
                 }
               />
             </motion.div>
@@ -2493,264 +1124,53 @@ export function SmartActionTool() {
             variants={slideInRight}
             transition={{ ...softSpring, delay: 0.1 }}
           >
-            <div className="flex items-end justify-between gap-4 flex-wrap">
-              <div>
-                <h2 className="font-bold text-lg">Generated action</h2>
-                <p className="text-xs text-muted-foreground">Proofread before pasting into important documents.</p>
-              </div>
-              <div className="flex gap-2">
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button size="sm" onClick={handleCopy} className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm">
-                    <Copy className="w-4 h-4 mr-1" /> Copy
-                  </Button>
-                </motion.div>
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button size="sm" variant="outline" onClick={handleDownload}>
-                    <Download className="w-4 h-4 mr-1" /> .txt
-                  </Button>
-                </motion.div>
-              </div>
-            </div>
-
-            {/* Language selector and translate button */}
-            <div className="flex items-center gap-3 flex-wrap p-3 rounded-lg bg-muted/30 border border-border/50">
-              <LanguageSelector 
-                value={storage.participantLanguage} 
-                onChange={handleLanguageChange}
-                disabled={translation.isTranslating || !translation.canTranslate}
+            <PanelErrorBoundary panel="Output">
+              <OutputPanel
+                output={output}
+                setOutput={setOutput}
+                setOutputSource={setOutputSource}
+                setTranslatedOutput={setTranslatedOutput}
+                translatedOutput={translatedOutput}
+                hasTranslation={hasTranslation}
+                hasOutput={hasOutput}
+                copied={copied}
+                smartCheck={smartCheck}
+                participantLanguage={storage.participantLanguage}
+                handleCopy={handleCopy}
+                handleDownload={handleDownload}
+                handleTranslate={handleTranslate}
+                handleLanguageChange={handleLanguageChange}
+                translation={translation}
+                llm={llm}
+                showFeedbackUI={showFeedbackUI}
+                feedbackRating={feedbackRating}
+                handleFeedbackRate={handleFeedbackRate}
+                handleAIDraft={handleAIDraft}
+                aiDrafting={aiDrafting}
               />
-              {storage.participantLanguage !== 'none' && (
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={handleTranslate}
-                  disabled={!hasOutput || translation.isTranslating || !translation.canTranslate}
-                  className="border-primary/30 hover:bg-primary/10"
-                >
-                  {translation.isTranslating ? (
-                    <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Translating...</>
-                  ) : (
-                    <><Languages className="w-4 h-4 mr-1" /> Translate</>
-                  )}
-                </Button>
-              )}
-              {translation.error && (
-                <span className="text-xs text-destructive">{translation.error}</span>
-              )}
-            </div>
+            </PanelErrorBoundary>
 
-            <AnimatePresence mode="wait">
-              <motion.div
-                key="output-container"
-                initial={{ opacity: 0.5, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                className="space-y-4"
-              >
-                {/* English output */}
-                <div>
-                  {hasTranslation && <p id="output-label-en" className="text-xs font-medium text-muted-foreground mb-2">🇬🇧 ENGLISH</p>}
-                  <Textarea
-                    id="action-output"
-                    value={output}
-                    onChange={e => { setOutput(e.target.value); setOutputSource('manual'); setTranslatedOutput(null); }}
-                    placeholder="Generated action will appear here… You can also edit the text directly."
-                    aria-label="Generated SMART action text"
-                    aria-describedby={hasTranslation ? "output-label-en" : undefined}
-                    className={cn(
-                      "min-h-[120px] p-5 rounded-xl border-2 border-dashed border-border bg-muted/30 leading-relaxed resize-y",
-                      copied && "border-accent bg-accent/10 shadow-glow",
-                      !output && "text-muted-foreground"
-                    )}
-                  />
-                </div>
-                
-                {/* Translated output */}
-                {hasTranslation && storage.participantLanguage !== 'none' && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    <p className="text-xs font-medium text-muted-foreground mb-2">
-                      {SUPPORTED_LANGUAGES[storage.participantLanguage]?.flag} {SUPPORTED_LANGUAGES[storage.participantLanguage]?.nativeName?.toUpperCase()}
-                    </p>
-                    <Textarea
-                      id="action-output-translated"
-                      value={translatedOutput}
-                      readOnly
-                      lang={storage.participantLanguage}
-                      aria-label={`Translated SMART action text in ${SUPPORTED_LANGUAGES[storage.participantLanguage]?.nativeName || storage.participantLanguage}`}
-                      dir={translation.isRTL(storage.participantLanguage) ? 'rtl' : 'ltr'}
-                      className="min-h-[120px] p-5 rounded-xl border-2 border-primary/30 bg-primary/5 leading-relaxed whitespace-pre-wrap text-sm resize-y"
-                    />
-                  </motion.div>
-                )}
-              </motion.div>
-            </AnimatePresence>
-
-            {llm.error && (
-              <DelightfulError
-                variant="ai"
-                title={llm.classifiedError?.title || "AI took a nap"}
-                message={llm.classifiedError?.message || llm.error}
-                onRetry={undefined}
-                onDismiss={() => llm.clearError()}
-              />
-            )}
-
-            {/* Action Feedback (shown after AI draft) */}
-            <ActionFeedback
-              visible={showFeedbackUI && hasOutput}
-              rating={feedbackRating}
-              onRate={handleFeedbackRate}
-              onRegenerate={handleAIDraft}
-              isRegenerating={aiDrafting || llm.isGenerating}
-            />
-
-            {/* SMART Checklist */}
-            <SmartChecklist check={smartCheck} />
-
-            {/* History with Tabs */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-4 flex-wrap">
-                <h2 className="font-bold text-lg">History</h2>
-                <div className="flex gap-2 flex-wrap">
-                  <Button 
-                    size="sm" 
-                    onClick={handleSave}
-                    disabled={!output.trim() || (storage.minScoreEnabled && smartCheck.overallScore < storage.minScoreThreshold)}
-                    className="bg-primary hover:bg-primary/90"
-                    aria-label="Save current action to history"
-                  >
-                    Save to History
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={handleExport}>Export</Button>
-                  <label className="cursor-pointer">
-                    <Button size="sm" variant="outline" asChild><span>Import</span></Button>
-                    <input 
-                      type="file" 
-                      accept="application/json" 
-                      className="hidden" 
-                      onChange={handleImport}
-                      aria-label="Import history from JSON file"
-                    />
-                  </label>
-                  <Button 
-                    size="sm" 
-                    variant="destructive" 
-                    onClick={() => {
-                      storage.clearHistory();
-                      toast({ title: 'Cleared', description: 'History cleared.' });
-                    }}
-                    aria-label="Clear all history"
-                  >
-                    <Trash2 className="w-4 h-4" aria-hidden="true" />
-                    <span className="sr-only">Clear history</span>
-                  </Button>
-                </div>
-              </div>
-
-              <Tabs data-tutorial="history" value={historyTab} onValueChange={(v) => setHistoryTab(v as 'history' | 'insights')}>
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="history" className="flex items-center gap-2">
-                    <History className="w-4 h-4" /> History
-                  </TabsTrigger>
-                  <TabsTrigger value="insights" className="flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4" /> Insights
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="history" className="mt-4 space-y-4">
-                  <Input
-                    value={historySearch}
-                    onChange={e => setHistorySearch(e.target.value)}
-                    placeholder="Search history…"
-                    className="text-sm"
-                    aria-label="Search history"
-                    type="search"
-                  />
-
-                  <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
-                    {filteredHistory.length === 0 ? (
-                      <EmptyState
-                        variant={historySearch ? 'search' : 'history'}
-                        className="py-6"
-                      />
-                    ) : (
-                      <ul role="list" aria-label="Saved actions history">
-                        {filteredHistory.map((h, index) => (
-                          <motion.li
-                            key={h.id}
-                            className="p-4 rounded-xl border border-border/50 bg-muted/30 space-y-3 hover:border-primary/30 hover:bg-muted/50 hover:shadow-sm mb-3 last:mb-0 transition-[border-color,background-color,box-shadow] duration-200 ease-spring"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: index * 0.04, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                          >
-                            <div className="flex flex-wrap gap-2 text-xs">
-                              <span className={cn(
-                                "px-2 py-0.5 rounded-full font-medium",
-                                h.mode === 'now' ? "bg-primary/10 text-primary" : "bg-accent/10 text-accent"
-                              )}>
-                                {h.mode === 'now' ? 'Barrier to action' : 'Task-based'}
-                              </span>
-                              <span className="text-muted-foreground">
-                                {new Date(h.createdAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
-                              </span>
-                              {h.meta.forename && (
-                                <span className="text-muted-foreground">• {h.meta.forename}</span>
-                              )}
-                            </div>
-                            <p className="text-sm whitespace-pre-wrap leading-relaxed">{h.text}</p>
-                            {h.meta.translatedText && h.meta.translationLanguage && (
-                              <div className="mt-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
-                                <p className="text-xs font-medium text-muted-foreground mb-1">
-                                  {SUPPORTED_LANGUAGES[h.meta.translationLanguage]?.flag && (
-                                    <span className="inline-flex items-center justify-center rounded-sm border px-1 text-[10px] font-semibold leading-4 text-foreground/80 mr-1">
-                                      {SUPPORTED_LANGUAGES[h.meta.translationLanguage].flag}
-                                    </span>
-                                  )}
-                                  {SUPPORTED_LANGUAGES[h.meta.translationLanguage]?.nativeName?.toUpperCase() || h.meta.translationLanguage.toUpperCase()}
-                                </p>
-                                <p className="text-sm whitespace-pre-wrap leading-relaxed">{h.meta.translatedText}</p>
-                              </div>
-                            )}
-                            <div className="flex gap-2" role="group" aria-label="Action buttons">
-                              <Button size="sm" variant="outline" onClick={() => handleEditHistory(h)} aria-label={`Edit action for ${h.meta.forename || 'participant'}`}>
-                                <Edit className="w-3 h-3 mr-1" aria-hidden="true" /> Edit
-                              </Button>
-                              <Button size="sm" variant="ghost" onClick={() => {
-                                const langInfo = h.meta.translationLanguage ? SUPPORTED_LANGUAGES[h.meta.translationLanguage] : null;
-                                const copyText = h.meta.translatedText && langInfo
-                                  ? `=== ENGLISH ===\n${h.text}\n\n=== ${langInfo.nativeName?.toUpperCase() || h.meta.translationLanguage!.toUpperCase()} ===\n${h.meta.translatedText}`
-                                  : h.text;
-                                navigator.clipboard.writeText(copyText);
-                                toast({ title: 'Copied!', description: h.meta.translatedText ? 'Both versions copied.' : undefined });
-                              }} aria-label="Copy action text">
-                                <Copy className="w-3 h-3" aria-hidden="true" />
-                                <span className="sr-only">Copy</span>
-                              </Button>
-                              <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => {
-                                storage.deleteFromHistory(h.id);
-                                toast({ title: 'Deleted' });
-                              }} aria-label={`Delete action for ${h.meta.forename || 'participant'}`}>
-                                <Trash2 className="w-3 h-3" aria-hidden="true" />
-                                <span className="sr-only">Delete</span>
-                              </Button>
-                            </div>
-                          </motion.li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="insights" className="mt-4">
-                  <Suspense fallback={<InsightsSkeleton />}>
-                    <HistoryInsights history={storage.history} />
-                  </Suspense>
-                </TabsContent>
-              </Tabs>
-            </div>
+            <PanelErrorBoundary panel="History">
+              <Suspense fallback={null}>
+                <HistoryPanel
+                  history={storage.history}
+                  hasOutput={hasOutput}
+                  output={output}
+                  smartCheck={smartCheck}
+                  minScoreEnabled={storage.minScoreEnabled}
+                  minScoreThreshold={storage.minScoreThreshold}
+                  onSave={handleSave}
+                  onExport={handleExport}
+                  onImport={handleImport}
+                  onClearHistory={() => {
+                    storage.clearHistory();
+                    toast({ title: 'Cleared', description: 'History cleared.' });
+                  }}
+                  onEditHistory={handleEditHistory}
+                  onDeleteFromHistory={storage.deleteFromHistory}
+                />
+              </Suspense>
+            </PanelErrorBoundary>
           </motion.div>
         </motion.div>
       </main>
@@ -2776,201 +1196,51 @@ export function SmartActionTool() {
         onOpenChange={setPrivacySettingsOpen} 
       />
 
-      {/* Plan Picker Dialog — shows generated SMART actions for user selection */}
-      <Dialog open={showPlanPicker} onOpenChange={setShowPlanPicker}>
-        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5" />
-              Choose a SMART Action
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              The AI generated {planResult?.actions.length || 0} SMART actions. Select one to use.
-            </p>
-            {planResult?.actions.map((action, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleSelectPlanAction(action, idx)}
-                className="w-full p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm transition-all duration-200 text-left group space-y-2"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="font-medium text-sm leading-snug">{action.action}</span>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">{action.effort_estimate}</span>
-                </div>
-                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  <span>Metric: {action.metric}</span>
-                  <span>·</span>
-                  <span>By: {action.deadline}</span>
-                </div>
-                <p className="text-xs text-muted-foreground">{action.first_step}</p>
-              </button>
-            ))}
-            {planResult?.metadata && (
-              <p className="text-xs text-muted-foreground pt-2 border-t">
-                Generated in {Math.round(planResult.metadata.generation_time_ms)}ms
-                {planResult.metadata.model_id === 'template-only' && ' (template fallback)'}
-              </p>
-            )}
-            <div className="flex justify-end pt-2">
-              <Button variant="ghost" size="sm" onClick={() => {
-                logDraftAnalytics({
-                  timestamp: new Date().toISOString(),
-                  signal: "rejected",
-                  barrier: mode === 'now' ? nowForm.barrier : undefined,
-                  actions_count: planResult?.actions.length,
-                  source: "ai",
-                });
-                setShowPlanPicker(false);
-                setPlanResult(null);
-              }}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Settings Panel */}
+      <PanelErrorBoundary panel="Settings">
+        <Suspense fallback={null}>
+          <SettingsPanel
+            open={settingsOpen}
+            onOpenChange={setSettingsOpen}
+            storage={storage}
+            localSync={localSync}
+            llm={llm}
+            promptPack={promptPack}
+            promptPackSource={promptPackSource}
+            wizardMode={wizardMode}
+            setWizardMode={setWizardMode}
+            privacySettingsOpen={privacySettingsOpen}
+            setPrivacySettingsOpen={setPrivacySettingsOpen}
+          />
+        </Suspense>
+      </PanelErrorBoundary>
+
+      {/* Plan Picker Dialog */}
+      <PlanPickerDialog
+        open={showPlanPicker}
+        onOpenChange={setShowPlanPicker}
+        planResult={planResult}
+        setPlanResult={setPlanResult}
+        mode={mode}
+        barrier={mode === 'now' ? nowForm.barrier : taskBasedForm.task}
+        onSelectAction={handleSelectPlanAction}
+      />
 
       {/* LLM Model Picker Dialog */}
-      <Dialog open={showLLMPicker} onOpenChange={(open) => {
-        setShowLLMPicker(open);
-        if (!open) pendingAIDraftRef.current = false;
-      }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Bot className="w-5 h-5" />
-              Load Local AI Model
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Select a model to enable AI-powered drafting. Models run locally in your browser for privacy.
-            </p>
-            
-            {llm.isLoading ? (
-              <div className="space-y-3 p-4 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  <span className="text-sm font-medium">{llm.loadingStatus}</span>
-                </div>
-                <div className="w-full bg-muted rounded-full h-2">
-                  <div 
-                    className="bg-primary h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${llm.loadingProgress}%` }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {llm.loadingProgress}% - First download may take a few minutes
-                </p>
-              </div>
-            ) : llm.error ? (
-              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 space-y-2">
-                {llm.classifiedError && (
-                  <p className="text-sm font-medium text-destructive">{llm.classifiedError.title}</p>
-                )}
-                <p className="text-sm text-destructive">{llm.classifiedError?.message || llm.error}</p>
-                <div className="flex items-center gap-2">
-                  {(!llm.classifiedError || llm.classifiedError.retryable) && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={async () => {
-                        llm.clearError();
-                        const modelId = llm.selectedModel || storage.preferredLLMModel || llm.supportedModels[0]?.id;
-                        if (modelId) {
-                          llm.unload();
-                          await llm.loadModel(modelId);
-                        }
-                      }}
-                    >
-                      <RefreshCw className="w-3 h-3 mr-1" />
-                      Try Again
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => llm.clearError()}
-                  >
-                    Dismiss
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {llm.supportedModels.map((model) => (
-                    <button
-                    key={model.id}
-                    onClick={async () => {
-                      // When a local model is selected and loaded, automatically set the draft mode
-                      // to "ai" and remember the chosen model. Without this, if the user is
-                      // currently in template mode the Smart Action Tool will continue
-                      // to use templates even after downloading the model. Persisting the
-                      // preference ensures that subsequent drafts use the local AI by default.
-                      const success = await llm.loadModel(model.id);
-                      if (success) {
-                        // Persist preferred model and enable AI mode
-                        if (storage.updatePreferredLLMModel) {
-                          storage.updatePreferredLLMModel(model.id);
-                        }
-                        if (storage.updateAIDraftMode) {
-                          storage.updateAIDraftMode('ai');
-                        }
-                        setShowLLMPicker(false);
-
-                        // If there's no pending draft, just show a toast.
-                        // If pendingAIDraftRef is true, the useEffect watching
-                        // llm.isReady will auto-trigger handleAIDraft.
-                        if (!pendingAIDraftRef.current) {
-                          toast({ title: 'Model loaded', description: `${model.name} is ready for AI Draft.` });
-                        }
-                      }
-                    }}
-                    className="w-full p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200 ease-spring text-left group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{model.name}</span>
-                      <span className="text-xs text-muted-foreground">{model.size}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">{model.description}</p>
-                  </button>
-                ))}
-              </div>
-            )}
-            
-            <div className="flex justify-between items-center pt-2 border-t">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  pendingAIDraftRef.current = false;
-                  setShowLLMPicker(false);
-                  // Use template fallback
-                  if (mode === 'now') {
-                    templateDraftNow();
-                  } else {
-                    templateDraftFuture();
-                  }
-                }}
-              >
-                Use template instead
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  pendingAIDraftRef.current = false;
-                  setShowLLMPicker(false);
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <LLMPickerDialog
+        open={showLLMPicker}
+        onOpenChange={setShowLLMPicker}
+        mode={mode}
+        pendingAIDraftRef={pendingAIDraftRef}
+        templateDraftNow={templateDraftNow}
+        templateDraftTaskBased={templateDraftTaskBased}
+        llm={llm}
+        storage={{
+          preferredLLMModel: storage.preferredLLMModel,
+          updatePreferredLLMModel: storage.updatePreferredLLMModel,
+          updateAIDraftMode: storage.updateAIDraftMode,
+        }}
+      />
     </>
   );
 }

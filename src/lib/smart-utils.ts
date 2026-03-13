@@ -1,4 +1,5 @@
 import { BUILDER_NOW, BUILDER_TASK, ACTION_LIBRARY, FALLBACK_SUGGESTIONS, TASK_SUGGESTIONS } from './smart-data';
+import type { Mode, NowForm, TaskBasedForm, HistoryItem } from '@/types/smart-tool';
 
 /** Extract YYYY-MM-DD from a Date using **local** date components (not UTC). */
 function toLocalISO(d: Date): string {
@@ -444,4 +445,39 @@ export function buildFutureOutput(
   parts.push(`${BUILDER_TASK.p3} ${cleanTimescale}.`);
 
   return parts.join(" ");
+}
+
+// ── History item construction ───────────────────────────────
+
+export interface BuildHistoryItemOptions {
+  mode: Mode;
+  nowForm: NowForm;
+  taskBasedForm: TaskBasedForm;
+  output: string;
+  translatedOutput: string | null;
+  hasTranslation: boolean;
+  participantLanguage: string;
+}
+
+/** Build a HistoryItem from the current form state — pure function, no side effects. */
+export function buildHistoryItem(opts: BuildHistoryItemOptions): HistoryItem {
+  const { mode, nowForm, taskBasedForm, output, translatedOutput, hasTranslation, participantLanguage } = opts;
+
+  const baseMeta = mode === 'now'
+    ? { date: nowForm.date, time: nowForm.time, forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
+    : { date: taskBasedForm.date, forename: taskBasedForm.forename, barrier: taskBasedForm.task, timescale: taskBasedForm.timescale, responsible: taskBasedForm.responsible, reason: taskBasedForm.outcome };
+
+  return {
+    id: crypto.randomUUID(),
+    mode,
+    createdAt: new Date().toISOString(),
+    text: output,
+    meta: {
+      ...baseMeta,
+      ...(hasTranslation && participantLanguage !== 'none' ? {
+        translatedText: translatedOutput,
+        translationLanguage: participantLanguage,
+      } : {}),
+    },
+  };
 }

@@ -1,37 +1,45 @@
-// Barrier taxonomy — maps each barrier to a high-level category.
-// Used to improve AI relevance by classifying free-text input and
-// retrieving category-matched exemplars before generation.
-export const BARRIER_CATEGORIES: Record<string, string> = {
-  "Housing": "practical",
-  "Finance": "practical",
-  "Photo ID": "practical",
-  "Transport": "practical",
-  "Digital Hardware & Connectivity": "practical",
-  "Caring Responsibilities": "practical",
-  "Confidence": "confidence",
-  "Motivation": "confidence",
-  "Mental Wellbeing": "wellbeing",
-  "Substance Misuse": "wellbeing",
-  "Health Condition": "wellbeing",
-  "Disability": "wellbeing",
-  "Communication Skills": "skills",
-  "Digital Skills": "skills",
-  "Literacy and/or Numeracy": "skills",
-  "Qualifications": "skills",
-  "Transferable Skills": "skills",
-  "Learning Capability": "skills",
-  "English Language (ESOL)": "skills",
-  "Previous Work History": "experience",
-  "Social & Support Networks": "experience",
-  "Job Search": "job-search",
-  "Job Applications": "job-search",
-  "CV": "job-search",
-  "Interviews": "job-search",
-  "Job Goal": "job-search",
-  "Autism": "neurodiversity",
-  "Learning Difficulties": "neurodiversity",
-  "ADHD": "neurodiversity",
+import {
+  BARRIER_CATALOG,
+  lookupBarrier,
+  type BarrierCategory,
+} from '@smart-tool/browser-native-llm';
+
+// ============= Barrier Taxonomy (derived from canonical BARRIER_CATALOG) =============
+
+/**
+ * Maps BarrierCategory (long form from catalog) to short category names
+ * used throughout the frontend for classification and storage.
+ */
+const CATEGORY_SHORT_NAMES: Record<BarrierCategory, string> = {
+  practical_access: "practical",
+  confidence_and_motivation: "confidence",
+  health_and_wellbeing: "wellbeing",
+  skills_and_qualifications: "skills",
+  job_search_readiness: "job-search",
+  neurodiversity_and_learning: "neurodiversity",
+  identity_and_documents: "practical",
 };
+
+/**
+ * Barrier → short category mapping, derived from BARRIER_CATALOG.
+ * Previously maintained as a separate hand-written record.
+ */
+export const BARRIER_CATEGORIES: Record<string, string> = Object.fromEntries(
+  Object.entries(BARRIER_CATALOG).map(([label, entry]) => [
+    label,
+    CATEGORY_SHORT_NAMES[entry.category],
+  ])
+);
+
+// "English Language (ESOL)" exists in the frontend but not the LLM catalog
+if (!BARRIER_CATEGORIES["English Language (ESOL)"]) {
+  BARRIER_CATEGORIES["English Language (ESOL)"] = "skills";
+}
+// "Social & Support Networks" category override — the catalog classifies it as
+// confidence_and_motivation, but the frontend has historically used "experience"
+BARRIER_CATEGORIES["Social & Support Networks"] = "experience";
+// "Previous Work History" — catalog uses job_search_readiness, frontend uses "experience"
+BARRIER_CATEGORIES["Previous Work History"] = "experience";
 
 // Reverse lookup: category -> barriers in that category
 export function getBarriersByCategory(category: string): string[] {
@@ -40,36 +48,26 @@ export function getBarriersByCategory(category: string): string[] {
     .map(([barrier]) => barrier);
 }
 
-// Classify a barrier string to its category (fuzzy)
+/**
+ * Classify a barrier string to its short category name (fuzzy).
+ * Uses the canonical BARRIER_CATALOG for lookup, falling back to alias matching.
+ */
 export function classifyBarrier(barrier: string): string {
   const b = (barrier || "").trim();
   if (!b) return "unknown";
 
-  // Exact match
+  // Fast exact match via derived mapping
   if (BARRIER_CATEGORIES[b]) return BARRIER_CATEGORIES[b];
 
-  // Case-insensitive match
+  // Case-insensitive match against derived mapping
   const lower = b.toLowerCase();
   for (const [key, cat] of Object.entries(BARRIER_CATEGORIES)) {
     if (key.toLowerCase() === lower) return cat;
   }
 
-  // Partial/fuzzy match
-  const categoryKeywords: Record<string, string[]> = {
-    "practical": ["housing", "finance", "money", "debt", "transport", "bus", "train", "driving", "childcare", "children", "carer", "photo id", "passport", "licence", "computer", "laptop", "internet", "wifi"],
-    "confidence": ["confidence", "self-esteem", "shy", "nervous", "motivation", "motivated", "direction", "purpose"],
-    "wellbeing": ["mental", "health", "wellbeing", "anxiety", "depression", "stress", "substance", "alcohol", "drug", "disability", "disabled", "physical"],
-    "skills": ["digital", "computer skills", "literacy", "numeracy", "reading", "writing", "maths", "english", "esol", "communication", "qualifications", "training", "learning", "transferable"],
-    "experience": ["work history", "employment gap", "never worked", "volunteering", "social", "support network", "references"],
-    "job-search": ["job search", "application", "cv", "resume", "interview", "job goal", "career"],
-    "neurodiversity": ["autism", "autistic", "adhd", "attention", "learning difficult", "dyslexia", "asperger"],
-  };
-
-  for (const [cat, keywords] of Object.entries(categoryKeywords)) {
-    for (const kw of keywords) {
-      if (lower.includes(kw)) return cat;
-    }
-  }
+  // Use the catalog's fuzzy lookup (matches on aliases, partial text)
+  const catalogEntry = lookupBarrier(b);
+  if (catalogEntry) return CATEGORY_SHORT_NAMES[catalogEntry.category];
 
   return "unknown";
 }
@@ -87,35 +85,14 @@ export const DEFAULT_TIMESCALES = [
   "6 months"
 ];
 
-export const DEFAULT_BARRIERS = [
-  "Housing",
-  "Finance",
-  "Caring Responsibilities",
-  "Digital Hardware & Connectivity",
-  "Mental Wellbeing",
-  "Social & Support Networks",
-  "Communication Skills",
-  "Digital Skills",
-  "Literacy and/or Numeracy",
-  "Qualifications",
-  "Transferable Skills",
-  "Learning Capability",
-  "Previous Work History",
-  "Transport",
-  "Job Search",
-  "Job Applications",
-  "CV",
-  "Interviews",
-  "Confidence",
-  "Motivation",
-  "Job Goal",
-  "Photo ID",
-  "Substance Misuse",
-  "Autism",
-  "Learning Difficulties",
-  "ADHD",
-  "Health Condition",
-  "Disability"
+/**
+ * Default barrier list, derived from BARRIER_CATALOG keys.
+ * "English Language (ESOL)" is added separately as it exists in the frontend
+ * but not in the LLM catalog.
+ */
+export const DEFAULT_BARRIERS: string[] = [
+  ...Object.keys(BARRIER_CATALOG),
+  "English Language (ESOL)",
 ];
 
 // Builder phrases (DATA sheet) - SMART format for Restart Advisors
@@ -141,7 +118,7 @@ export const GUIDANCE = [
     body: "This tool helps you create consistent, SMART-style actions for participants faster than ever and get past \"Action Block\"."
   },
   {
-    title: "Barrier to action now",
+    title: "Barrier to action",
     body: [
       "Complete every field.",
       "Write the action so it's clear and measurable (what, when, where).",

@@ -2,6 +2,11 @@ import type { ResolvedBarrier, SMARTAction } from "../types.js";
 
 const STOP_WORDS = new Set(["and", "the", "for", "with", "or", "to", "of", "in", "on", "a", "an"]);
 
+/**
+ * Category keywords for barrier relevance matching.
+ * Related to BARRIER_KEYWORDS in src/lib/smart-patterns.ts — both should be
+ * updated together when new barrier terminology is added.
+ */
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   practical_access: ["housing", "council", "rent", "transport", "bus", "train", "route", "childcare", "nursery", "budget", "money", "debt", "benefits", "id", "passport", "licence", "license", "computer", "laptop", "internet", "wifi"],
   confidence_and_motivation: ["confidence", "strength", "self-esteem", "self belief", "nervous", "anxiety", "mock", "practice", "practise", "interview prep", "mentor", "support group"],
@@ -22,6 +27,7 @@ const CATEGORY_ALIASES: Record<string, string> = {
   neurodiversity: "neurodiversity_and_learning",
 };
 
+/** Anti-pattern prefixes aligned with VAGUE_TERMS in src/lib/smart-patterns.ts. */
 const ANTI_PATTERN_PREFIXES = [
   "think about",
   "consider",
@@ -34,6 +40,7 @@ const ANTI_PATTERN_PREFIXES = [
   "be better at",
 ];
 
+/** Mitigation verbs — subset of ACTION_VERBS in src/lib/smart-patterns.ts. */
 const MITIGATION_VERBS = [
   "book", "arrange", "apply", "contact", "call", "email", "register", "enrol", "enroll", "attend", "complete", "submit", "update", "create", "draft", "prepare", "set up", "schedule", "request", "gather", "obtain", "practise", "practice", "review", "send", "speak", "visit",
 ];
