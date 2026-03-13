@@ -411,16 +411,3 @@ export function OnboardingTutorial({ onComplete }: OnboardingTutorialProps) {
   );
 }
 
-// Hook to manually trigger onboarding
-export function useOnboarding() {
-  const resetOnboarding = () => {
-    safeRemoveItem(STORAGE_KEY);
-    window.location.reload();
-  };
-
-  const isOnboardingComplete = () => {
-    return localStorage.getItem(STORAGE_KEY) === 'true';
-  };
-
-  return { resetOnboarding, isOnboardingComplete };
-}

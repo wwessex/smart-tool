@@ -406,7 +406,7 @@ export function SmartActionTool() {
     { ...SMART_TOOL_SHORTCUTS.switchToNow, action: () => { setMode('now'); setShowValidation(false); } },
     { ...SMART_TOOL_SHORTCUTS.switchToFuture, action: () => { setMode('future'); setShowValidation(false); } },
     { ...SMART_TOOL_SHORTCUTS.showShortcutsHelp, action: () => setShortcutsHelpOpen(true) },
-  ], [handleSave, handleAIDraft, handleCopy, handleClear, setMode, setShowValidation]);
+  ], [handleSave, handleAIDraft, handleCopy, handleClear, setMode, setShowValidation, setShortcutsHelpOpen]);
 
   const shortcutMap = useMemo(() => createShortcutMap(shortcuts), [shortcuts]);
 
