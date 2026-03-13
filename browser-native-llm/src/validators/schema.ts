@@ -229,7 +229,11 @@ function cleanJsonString(text: string): string {
 function normalizeAndEscapeQuotes(text: string): string {
   const normalized = text
     .replace(/[\u201C\u201D]/g, '"')
-    .replace(/[\u2018\u2019]/g, "'");
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u00AB\u00BB\u2039\u203A]/g, '"')
+    .replace(/[\u201A\u201B]/g, "'")
+    .replace(/[\u300C\u300D\u300E\u300F\uFF02]/g, '"')
+    .replace(/[\uFF07]/g, "'");
 
   let result = "";
   let inString = false;
