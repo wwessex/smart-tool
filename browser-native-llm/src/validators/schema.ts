@@ -203,6 +203,9 @@ function tryParseArray(text: string): unknown[] | null {
 function cleanJsonString(text: string): string {
   let cleaned = text;
 
+  // Normalise typographic quotes and repair unescaped quotes inside strings.
+  cleaned = normalizeAndEscapeQuotes(cleaned);
+
   // Remove trailing commas before ] or } (manual scan to avoid ReDoS)
   cleaned = removeTrailingCommas(cleaned);
 
@@ -221,6 +224,72 @@ function cleanJsonString(text: string): string {
   }
 
   return cleaned;
+}
+
+function normalizeAndEscapeQuotes(text: string): string {
+  const normalized = text
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'");
+
+  let result = "";
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < normalized.length; i++) {
+    const char = normalized[i];
+
+    if (escaped) {
+      result += char;
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      result += char;
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      if (!inString) {
+        inString = true;
+        result += char;
+        continue;
+      }
+
+      const next = nextNonWhitespaceChar(normalized, i + 1);
+      const isTerminator =
+        next === null ||
+        next === "," ||
+        next === "]" ||
+        next === "}" ||
+        next === ":";
+
+      if (isTerminator) {
+        inString = false;
+        result += char;
+      } else {
+        // Preserve intended quote marks inside string values.
+        result += '\\"';
+      }
+      continue;
+    }
+
+    result += char;
+  }
+
+  return result;
+}
+
+function nextNonWhitespaceChar(text: string, start: number): string | null {
+  for (let i = start; i < text.length; i++) {
+    const char = text[i];
+    if (char !== " " && char !== "\t" && char !== "\n" && char !== "\r") {
+      return char;
+    }
+  }
+
+  return null;
 }
 
 /**
