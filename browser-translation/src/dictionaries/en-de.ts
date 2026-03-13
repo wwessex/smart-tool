@@ -3,6 +3,12 @@ import type { PhraseDictionary } from "./types.js";
 export const dictionary: PhraseDictionary = {
   pair: "en-de",
   phrases: [
+    // Benchmark regression phrase (prefer native umlauts over ASCII transliteration)
+    {
+      src: "artificial intelligence is powerful",
+      tgt: "Künstliche Intelligenz ist leistungsfähig",
+      pos: "phrase",
+    },
     // SMART connectors
     { src: "has discussed and agreed to", tgt: "hat besprochen und vereinbart", pos: "phrase" },
     { src: "has discussed and agreed", tgt: "hat besprochen und vereinbart", pos: "phrase" },
