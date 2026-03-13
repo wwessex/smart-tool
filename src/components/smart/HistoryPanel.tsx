@@ -1,4 +1,4 @@
-import { useState, useMemo, lazy, Suspense } from 'react';
+import { useState, useMemo, useDeferredValue, memo, lazy, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,7 +41,7 @@ export interface HistoryPanelProps {
   onDeleteFromHistory: (id: string) => void;
 }
 
-export function HistoryPanel({
+export const HistoryPanel = memo(function HistoryPanel({
   history,
   hasOutput,
   output,
@@ -57,17 +57,18 @@ export function HistoryPanel({
 }: HistoryPanelProps) {
   const { toast } = useToast();
   const [historySearch, setHistorySearch] = useState('');
+  const deferredSearch = useDeferredValue(historySearch);
   const [historyTab, setHistoryTab] = useState<'history' | 'insights'>('history');
 
   const filteredHistory = useMemo(() => {
-    const q = historySearch.toLowerCase();
+    const q = deferredSearch.toLowerCase();
     if (!q) return history;
     return history.filter(h =>
       h.text.toLowerCase().includes(q) ||
       h.meta.forename?.toLowerCase().includes(q) ||
       h.meta.barrier?.toLowerCase().includes(q)
     );
-  }, [history, historySearch]);
+  }, [history, deferredSearch]);
 
   return (
     <div className="space-y-4">
@@ -208,4 +209,4 @@ export function HistoryPanel({
       </Tabs>
     </div>
   );
-}
+});

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -48,7 +49,7 @@ export interface OutputPanelProps {
   aiDrafting: boolean;
 }
 
-export function OutputPanel({
+export const OutputPanel = memo(function OutputPanel({
   output,
   setOutput,
   setOutputSource,
@@ -191,4 +192,4 @@ export function OutputPanel({
       <SmartChecklist check={smartCheck} />
     </>
   );
-}
+});

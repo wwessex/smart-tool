@@ -9,6 +9,7 @@ import {
   resolvePlaceholders,
   parseTimescaleToTargetISO,
   formatDDMMMYY,
+  buildHistoryItem,
 } from '@/lib/smart-utils';
 import { useSmartForm } from '@/hooks/useSmartForm';
 import { useAIDrafting } from '@/hooks/useAIDrafting';
@@ -28,6 +29,7 @@ import logoIcon from '@/assets/logo-icon.png';
 const SettingsPanel = lazy(() => import('./SettingsPanel').then(m => ({ default: m.SettingsPanel })));
 const HistoryPanel = lazy(() => import('./HistoryPanel').then(m => ({ default: m.HistoryPanel })));
 import { OutputPanel } from './OutputPanel';
+import { PanelErrorBoundary } from './PanelErrorBoundary';
 import { LLMPickerDialog } from './LLMPickerDialog';
 import { PlanPickerDialog } from './PlanPickerDialog';
 import { GUIDANCE } from '@/lib/smart-data';
@@ -204,23 +206,11 @@ export function SmartActionTool() {
     const forename = mode === 'now' ? nowForm.forename : taskBasedForm.forename;
     storage.addRecentName(forename);
 
-    const baseMeta = mode === 'now'
-      ? { date: nowForm.date, time: nowForm.time, forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
-      : { date: taskBasedForm.date, forename: taskBasedForm.forename, barrier: taskBasedForm.task, timescale: taskBasedForm.timescale, responsible: taskBasedForm.responsible, reason: taskBasedForm.outcome };
-
-    const item: HistoryItem = {
-      id: crypto.randomUUID(),
-      mode,
-      createdAt: new Date().toISOString(),
-      text: output,
-      meta: {
-        ...baseMeta,
-        ...(hasTranslation && storage.participantLanguage !== 'none' ? {
-          translatedText: translatedOutput,
-          translationLanguage: storage.participantLanguage
-        } : {})
-      }
-    };
+    const item = buildHistoryItem({
+      mode, nowForm, taskBasedForm, output,
+      translatedOutput, hasTranslation,
+      participantLanguage: storage.participantLanguage,
+    });
 
     storage.addToHistory(item);
 
@@ -1134,49 +1124,53 @@ export function SmartActionTool() {
             variants={slideInRight}
             transition={{ ...softSpring, delay: 0.1 }}
           >
-            <OutputPanel
-              output={output}
-              setOutput={setOutput}
-              setOutputSource={setOutputSource}
-              setTranslatedOutput={setTranslatedOutput}
-              translatedOutput={translatedOutput}
-              hasTranslation={hasTranslation}
-              hasOutput={hasOutput}
-              copied={copied}
-              smartCheck={smartCheck}
-              participantLanguage={storage.participantLanguage}
-              handleCopy={handleCopy}
-              handleDownload={handleDownload}
-              handleTranslate={handleTranslate}
-              handleLanguageChange={handleLanguageChange}
-              translation={translation}
-              llm={llm}
-              showFeedbackUI={showFeedbackUI}
-              feedbackRating={feedbackRating}
-              handleFeedbackRate={handleFeedbackRate}
-              handleAIDraft={handleAIDraft}
-              aiDrafting={aiDrafting}
-            />
-
-            <Suspense fallback={null}>
-              <HistoryPanel
-                history={storage.history}
-                hasOutput={hasOutput}
+            <PanelErrorBoundary panel="Output">
+              <OutputPanel
                 output={output}
+                setOutput={setOutput}
+                setOutputSource={setOutputSource}
+                setTranslatedOutput={setTranslatedOutput}
+                translatedOutput={translatedOutput}
+                hasTranslation={hasTranslation}
+                hasOutput={hasOutput}
+                copied={copied}
                 smartCheck={smartCheck}
-                minScoreEnabled={storage.minScoreEnabled}
-                minScoreThreshold={storage.minScoreThreshold}
-                onSave={handleSave}
-                onExport={handleExport}
-                onImport={handleImport}
-                onClearHistory={() => {
-                  storage.clearHistory();
-                  toast({ title: 'Cleared', description: 'History cleared.' });
-                }}
-                onEditHistory={handleEditHistory}
-                onDeleteFromHistory={storage.deleteFromHistory}
+                participantLanguage={storage.participantLanguage}
+                handleCopy={handleCopy}
+                handleDownload={handleDownload}
+                handleTranslate={handleTranslate}
+                handleLanguageChange={handleLanguageChange}
+                translation={translation}
+                llm={llm}
+                showFeedbackUI={showFeedbackUI}
+                feedbackRating={feedbackRating}
+                handleFeedbackRate={handleFeedbackRate}
+                handleAIDraft={handleAIDraft}
+                aiDrafting={aiDrafting}
               />
-            </Suspense>
+            </PanelErrorBoundary>
+
+            <PanelErrorBoundary panel="History">
+              <Suspense fallback={null}>
+                <HistoryPanel
+                  history={storage.history}
+                  hasOutput={hasOutput}
+                  output={output}
+                  smartCheck={smartCheck}
+                  minScoreEnabled={storage.minScoreEnabled}
+                  minScoreThreshold={storage.minScoreThreshold}
+                  onSave={handleSave}
+                  onExport={handleExport}
+                  onImport={handleImport}
+                  onClearHistory={() => {
+                    storage.clearHistory();
+                    toast({ title: 'Cleared', description: 'History cleared.' });
+                  }}
+                  onEditHistory={handleEditHistory}
+                  onDeleteFromHistory={storage.deleteFromHistory}
+                />
+              </Suspense>
+            </PanelErrorBoundary>
           </motion.div>
         </motion.div>
       </main>
@@ -1203,21 +1197,23 @@ export function SmartActionTool() {
       />
 
       {/* Settings Panel */}
-      <Suspense fallback={null}>
-        <SettingsPanel
-          open={settingsOpen}
-          onOpenChange={setSettingsOpen}
-          storage={storage}
-          localSync={localSync}
-          llm={llm}
-          promptPack={promptPack}
-          promptPackSource={promptPackSource}
-          wizardMode={wizardMode}
-          setWizardMode={setWizardMode}
-          privacySettingsOpen={privacySettingsOpen}
-          setPrivacySettingsOpen={setPrivacySettingsOpen}
-        />
-      </Suspense>
+      <PanelErrorBoundary panel="Settings">
+        <Suspense fallback={null}>
+          <SettingsPanel
+            open={settingsOpen}
+            onOpenChange={setSettingsOpen}
+            storage={storage}
+            localSync={localSync}
+            llm={llm}
+            promptPack={promptPack}
+            promptPackSource={promptPackSource}
+            wizardMode={wizardMode}
+            setWizardMode={setWizardMode}
+            privacySettingsOpen={privacySettingsOpen}
+            setPrivacySettingsOpen={setPrivacySettingsOpen}
+          />
+        </Suspense>
+      </PanelErrorBoundary>
 
       {/* Plan Picker Dialog */}
       <PlanPickerDialog
