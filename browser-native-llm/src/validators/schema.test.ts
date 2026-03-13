@@ -13,6 +13,24 @@ describe("parseJsonOutput", () => {
     expect(parsed).toEqual([{ action: "Apply for 3 roles by Friday" }]);
   });
 
+
+  it("normalises additional unicode quote delimiters", () => {
+    const raw = `[
+      {
+        «action»: 「Apply for 2 cleaning roles by Monday」,
+        ＂metric＂: ＂2 submitted applications＂
+      }
+    ]`;
+
+    const parsed = parseJsonOutput(raw);
+    expect(parsed).toEqual([
+      {
+        action: "Apply for 2 cleaning roles by Monday",
+        metric: "2 submitted applications",
+      },
+    ]);
+  });
+
   it("escapes inner double quotes inside string values", () => {
     const raw = `[
       {
