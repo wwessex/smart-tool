@@ -139,15 +139,19 @@ function checkBarrierFit(
 // Criterion checks
 // ---------------------------------------------------------------------------
 
-/** Concrete verb + artefact patterns. */
+/**
+ * Concrete verb + artefact patterns.
+ * Kept in sync with canonical ACTION_VERBS in src/lib/smart-patterns.ts.
+ */
 const SPECIFIC_VERBS = [
-  "write", "rewrite", "create", "update", "complete", "send", "apply",
-  "research", "attend", "prepare", "build", "tailor", "proofread",
-  "register", "set up", "configure", "draft", "review", "practise",
-  "practice", "schedule", "contact", "identify", "list", "submit",
-  "enrol", "enroll", "sign up", "download", "install", "upload",
-  "edit", "revise", "organise", "organize", "track", "record",
-  "request", "book", "join", "follow",
+  "apply", "submit", "attend", "complete", "register", "create", "update",
+  "search", "contact", "call", "email", "visit", "speak", "meet", "write",
+  "prepare", "research", "participate", "practise", "practice", "review",
+  "bring", "gather", "book", "schedule", "discuss", "identify", "collect",
+  "confirm", "send", "draft", "build", "tailor", "proofread", "set up",
+  "configure", "list", "enrol", "enroll", "sign up", "download", "install",
+  "upload", "edit", "revise", "organise", "organize", "track", "record",
+  "request", "join", "follow", "rewrite",
 ];
 
 function checkSpecific(action: SMARTAction): CriterionResult {
@@ -156,8 +160,12 @@ function checkSpecific(action: SMARTAction): CriterionResult {
   // Check for a concrete action verb
   const hasVerb = SPECIFIC_VERBS.some((verb) => text.includes(verb));
 
-  // Check for vague/generic language
-  const vagueTerms = ["improve", "try to", "maybe", "consider", "think about", "look into"];
+  // Check for vague/generic language (aligned with VAGUE_TERMS in src/lib/smart-patterns.ts)
+  const vagueTerms = [
+    "try", "maybe", "might", "possibly", "consider", "hope", "attempt",
+    "think about", "look into", "explore", "improve", "reflect on",
+    "be aware of", "keep trying", "work on", "be better at",
+  ];
   const hasVague = vagueTerms.some((term) => text.includes(term));
 
   // Check action length (too short = too vague)

@@ -1,31 +1,25 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+/**
+ * useSmartStorage — facade hook that composes focused domain hooks.
+ *
+ * Split into:
+ *   - useHistory.ts    — history CRUD, retention, cleanup, recent names
+ *   - useTemplates.ts  — action template CRUD
+ *   - useSettings.ts   — all user preferences
+ *   - useFeedback.ts   — AI action feedback storage
+ *   - storage-utils.ts — shared localStorage helpers
+ *
+ * This facade preserves backward compatibility so existing consumers
+ * (SmartActionTool, SettingsPanel, tests) don't need changes.
+ */
+
+import { useState, useCallback } from 'react';
 import { DEFAULT_BARRIERS, DEFAULT_TIMESCALES } from '@/lib/smart-data';
 import { exportDraftAnalytics, clearDraftAnalytics } from '@/lib/draft-analytics';
-
-const STORAGE = {
-  barriers: "smartTool.barriers",
-  timescales: "smartTool.timescales",
-  history: "smartTool.history",
-  recentNames: "smartTool.recentNames",
-  templates: "smartTool.templates",
-  minScoreEnabled: "smartTool.minScoreEnabled",
-  minScoreThreshold: "smartTool.minScoreThreshold",
-  gdprConsent: "smartTool.gdprConsent",
-  onboardingComplete: "smartTool.onboardingComplete",
-  retentionDays: "smartTool.retentionDays",
-  retentionEnabled: "smartTool.retentionEnabled",
-  lastRetentionCheck: "smartTool.lastRetentionCheck",
-  participantLanguage: "smartTool.participantLanguage",
-  aiDraftMode: "smartTool.aiDraftMode",
-  preferredLLMModel: "smartTool.preferredLLMModel",
-  allowMobileLLM: "smartTool.allowMobileLLM",
-  safariWebGPUEnabled: "smartTool.safariWebGPUEnabled",
-  keepSafariModelLoaded: "smartTool.keepSafariModelLoaded",
-  actionFeedback: "smartTool.actionFeedback"
-};
-
-// Default retention period in days
-const DEFAULT_RETENTION_DAYS = 90;
+import { safeSetItem, safeRemoveItem, loadList, saveList, STORAGE_KEYS } from './storage-utils';
+import { useHistory } from './useHistory';
+import { useTemplates } from './useTemplates';
+import { useSettings } from './useSettings';
+import { useFeedback } from './useFeedback';
 
 export interface ActionTemplate {
   id: string;
@@ -90,175 +84,39 @@ export interface SmartToolSettings {
   keepSafariModelLoaded?: boolean;
 }
 
-/**
- * Safely write to localStorage, catching quota errors and blocked storage.
- * Returns true if the write succeeded, false otherwise.
- */
-function safeSetItem(key: string, value: string): boolean {
-  try {
-    localStorage.setItem(key, value);
-    return true;
-  } catch (error) {
-    // QuotaExceededError, SecurityError, or other storage errors
-    console.warn(`localStorage write failed for key "${key}":`, error);
-    return false;
-  }
-}
-
-/**
- * Safely remove from localStorage, catching any errors.
- * Returns true if the removal succeeded, false otherwise.
- */
-function safeRemoveItem(key: string): boolean {
-  try {
-    localStorage.removeItem(key);
-    return true;
-  } catch (error) {
-    console.warn(`localStorage remove failed for key "${key}":`, error);
-    return false;
-  }
-}
-
-function loadList<T>(key: string, fallback: T[]): T[] {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function saveList<T>(key: string, list: T[]): void {
-  safeSetItem(key, JSON.stringify(list));
-}
-
-function loadBoolean(key: string, fallback: boolean): boolean {
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw === null) return fallback;
-    return raw === 'true';
-  } catch {
-    return fallback;
-  }
-}
-
-function loadNumber(key: string, fallback: number): number {
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw === null) return fallback;
-    const num = parseInt(raw, 10);
-    return isNaN(num) ? fallback : num;
-  } catch {
-    return fallback;
-  }
-}
-
 export function useSmartStorage() {
-  const [barriers, setBarriers] = useState<string[]>(() => loadList(STORAGE.barriers, DEFAULT_BARRIERS));
-  const [timescales, setTimescales] = useState<string[]>(() => loadList(STORAGE.timescales, DEFAULT_TIMESCALES));
-  const [history, setHistory] = useState<HistoryItem[]>(() => loadList(STORAGE.history, []));
-  const [recentNames, setRecentNames] = useState<string[]>(() => loadList(STORAGE.recentNames, []));
-  const [templates, setTemplates] = useState<ActionTemplate[]>(() => loadList(STORAGE.templates, []));
-  const [minScoreEnabled, setMinScoreEnabled] = useState<boolean>(() => loadBoolean(STORAGE.minScoreEnabled, false));
-  const [minScoreThreshold, setMinScoreThreshold] = useState<number>(() => loadNumber(STORAGE.minScoreThreshold, 5));
-  const [retentionEnabled, setRetentionEnabled] = useState<boolean>(() => loadBoolean(STORAGE.retentionEnabled, true));
-  const [retentionDays, setRetentionDays] = useState<number>(() => loadNumber(STORAGE.retentionDays, DEFAULT_RETENTION_DAYS));
-  const [participantLanguage, setParticipantLanguage] = useState<string>(() => {
-    try {
-      return localStorage.getItem(STORAGE.participantLanguage) || 'none';
-    } catch {
-      return 'none';
-    }
-  });
-  const [aiDraftMode, setAIDraftMode] = useState<AIDraftMode>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE.aiDraftMode);
-      return stored === 'template' ? 'template' : 'ai';
-    } catch {
-      return 'ai';
-    }
-  });
-  const [preferredLLMModel, setPreferredLLMModel] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem(STORAGE.preferredLLMModel) || null;
-    } catch {
-      return null;
-    }
-  });
-  const [allowMobileLLM, setAllowMobileLLM] = useState<boolean>(() => loadBoolean(STORAGE.allowMobileLLM, false));
-  const [safariWebGPUEnabled, setSafariWebGPUEnabled] = useState<boolean>(() => loadBoolean(STORAGE.safariWebGPUEnabled, false));
-  const [keepSafariModelLoaded, setKeepSafariModelLoaded] = useState<boolean>(() => loadBoolean(STORAGE.keepSafariModelLoaded, false));
-  const [actionFeedback, setActionFeedback] = useState<ActionFeedback[]>(() => loadList(STORAGE.actionFeedback, []));
+  // Compose focused hooks
+  const historyHook = useHistory();
+  const templatesHook = useTemplates();
+  const settingsHook = useSettings();
+  const feedbackHook = useFeedback();
 
-  // Sync collection state to localStorage (skips the initial mount to avoid
-  // redundant writes since state was just loaded from localStorage).
-  const isInitialMount = useRef(true);
-  useEffect(() => {
-    if (isInitialMount.current) return;
-    safeSetItem(STORAGE.history, JSON.stringify(history));
-  }, [history]);
-  useEffect(() => {
-    if (isInitialMount.current) return;
-    safeSetItem(STORAGE.recentNames, JSON.stringify(recentNames));
-  }, [recentNames]);
-  useEffect(() => {
-    if (isInitialMount.current) return;
-    saveList(STORAGE.templates, templates);
-  }, [templates]);
-  useEffect(() => {
-    if (isInitialMount.current) return;
-    safeSetItem(STORAGE.actionFeedback, JSON.stringify(actionFeedback));
-  }, [actionFeedback]);
-  useEffect(() => {
-    // Mark initial mount complete after first render cycle
-    isInitialMount.current = false;
-  }, []);
+  // Barriers and timescales (simple list state)
+  const [barriers, setBarriers] = useState<string[]>(() => loadList(STORAGE_KEYS.barriers, DEFAULT_BARRIERS));
+  const [timescales, setTimescales] = useState<string[]>(() => loadList(STORAGE_KEYS.timescales, DEFAULT_TIMESCALES));
 
   const updateBarriers = useCallback((newBarriers: string[]) => {
     setBarriers(newBarriers);
-    saveList(STORAGE.barriers, newBarriers);
+    saveList(STORAGE_KEYS.barriers, newBarriers);
   }, []);
 
   const resetBarriers = useCallback(() => {
     setBarriers([...DEFAULT_BARRIERS]);
-    saveList(STORAGE.barriers, DEFAULT_BARRIERS);
+    saveList(STORAGE_KEYS.barriers, DEFAULT_BARRIERS);
   }, []);
 
   const updateTimescales = useCallback((newTimescales: string[]) => {
     setTimescales(newTimescales);
-    saveList(STORAGE.timescales, newTimescales);
+    saveList(STORAGE_KEYS.timescales, newTimescales);
   }, []);
 
   const resetTimescales = useCallback(() => {
     setTimescales([...DEFAULT_TIMESCALES]);
-    saveList(STORAGE.timescales, DEFAULT_TIMESCALES);
+    saveList(STORAGE_KEYS.timescales, DEFAULT_TIMESCALES);
   }, []);
 
-  const addToHistory = useCallback((item: HistoryItem) => {
-    setHistory(prev => [item, ...prev].slice(0, 100));
-  }, []);
-
-  const deleteFromHistory = useCallback((id: string) => {
-    setHistory(prev => prev.filter(x => x.id !== id));
-  }, []);
-
-  const clearHistory = useCallback(() => {
-    setHistory([]);
-    safeSetItem(STORAGE.history, JSON.stringify([]));
-  }, []);
-
-  const addRecentName = useCallback((name: string) => {
-    if (!name?.trim()) return;
-    const trimmed = name.trim();
-    setRecentNames(prev => {
-      const names = prev.filter(n => n.toLowerCase() !== trimmed.toLowerCase());
-      return [trimmed, ...names].slice(0, 10);
-    });
-  }, []);
-
-const importData = useCallback((data: {
+  // Import data (GDPR data portability)
+  const importData = useCallback((data: {
     history?: HistoryItem[];
     barriers?: string[];
     timescales?: string[];
@@ -267,16 +125,16 @@ const importData = useCallback((data: {
     settings?: SmartToolSettings;
   }) => {
     if (Array.isArray(data.history)) {
-      setHistory(data.history);
-      safeSetItem(STORAGE.history, JSON.stringify(data.history));
+      historyHook.setHistory(data.history);
+      safeSetItem(STORAGE_KEYS.history, JSON.stringify(data.history));
     }
     if (Array.isArray(data.barriers)) {
       setBarriers(data.barriers);
-      saveList(STORAGE.barriers, data.barriers);
+      saveList(STORAGE_KEYS.barriers, data.barriers);
     }
     if (Array.isArray(data.timescales)) {
       setTimescales(data.timescales);
-      saveList(STORAGE.timescales, data.timescales);
+      saveList(STORAGE_KEYS.timescales, data.timescales);
     }
     if (Array.isArray(data.recentNames)) {
       const map = new Map<string, string>();
@@ -284,200 +142,130 @@ const importData = useCallback((data: {
         const n = typeof raw === 'string' ? raw.trim() : '';
         if (!n) continue;
         const key = n.toLowerCase();
-        // Preserve the first casing encountered.
         if (!map.has(key)) map.set(key, n);
       }
       const cleaned = Array.from(map.values()).slice(0, 10);
-      setRecentNames(cleaned);
-      saveList(STORAGE.recentNames, cleaned);
+      historyHook.setRecentNames(cleaned);
+      saveList(STORAGE_KEYS.recentNames, cleaned);
     }
     if (Array.isArray(data.templates)) {
-      setTemplates(data.templates);
-      saveList(STORAGE.templates, data.templates);
+      templatesHook.setTemplates(data.templates);
+      saveList(STORAGE_KEYS.templates, data.templates);
     }
     if (data.settings && typeof data.settings === 'object') {
       if (typeof data.settings.minScoreEnabled === 'boolean') {
-        setMinScoreEnabled(data.settings.minScoreEnabled);
-        safeSetItem(STORAGE.minScoreEnabled, String(data.settings.minScoreEnabled));
+        settingsHook.setMinScoreEnabled(data.settings.minScoreEnabled);
+        safeSetItem(STORAGE_KEYS.minScoreEnabled, String(data.settings.minScoreEnabled));
       }
       if (typeof data.settings.minScoreThreshold === 'number') {
         const clamped = Math.max(1, Math.min(5, Math.round(data.settings.minScoreThreshold)));
-        setMinScoreThreshold(clamped);
-        safeSetItem(STORAGE.minScoreThreshold, String(clamped));
+        settingsHook.setMinScoreThreshold(clamped);
+        safeSetItem(STORAGE_KEYS.minScoreThreshold, String(clamped));
       }
       if (typeof data.settings.retentionEnabled === 'boolean') {
-        setRetentionEnabled(data.settings.retentionEnabled);
-        safeSetItem(STORAGE.retentionEnabled, String(data.settings.retentionEnabled));
+        historyHook.setHistory(prev => prev); // trigger re-render
+        safeSetItem(STORAGE_KEYS.retentionEnabled, String(data.settings.retentionEnabled));
       }
       if (typeof data.settings.retentionDays === 'number') {
         const clamped = Math.max(7, Math.min(365, Math.round(data.settings.retentionDays)));
-        setRetentionDays(clamped);
-        safeSetItem(STORAGE.retentionDays, String(clamped));
+        safeSetItem(STORAGE_KEYS.retentionDays, String(clamped));
       }
       if (typeof data.settings.participantLanguage === 'string') {
-        setParticipantLanguage(data.settings.participantLanguage);
-        safeSetItem(STORAGE.participantLanguage, data.settings.participantLanguage);
+        settingsHook.setParticipantLanguage(data.settings.participantLanguage);
+        safeSetItem(STORAGE_KEYS.participantLanguage, data.settings.participantLanguage);
       }
       if (data.settings.aiDraftMode === 'ai' || data.settings.aiDraftMode === 'template') {
-        setAIDraftMode(data.settings.aiDraftMode);
-        safeSetItem(STORAGE.aiDraftMode, data.settings.aiDraftMode);
+        settingsHook.setAIDraftMode(data.settings.aiDraftMode);
+        safeSetItem(STORAGE_KEYS.aiDraftMode, data.settings.aiDraftMode);
       }
       if (typeof data.settings.preferredLLMModel === 'string') {
-        setPreferredLLMModel(data.settings.preferredLLMModel);
-        safeSetItem(STORAGE.preferredLLMModel, data.settings.preferredLLMModel);
+        settingsHook.setPreferredLLMModel(data.settings.preferredLLMModel);
+        safeSetItem(STORAGE_KEYS.preferredLLMModel, data.settings.preferredLLMModel);
       }
       if (typeof data.settings.allowMobileLLM === 'boolean') {
-        setAllowMobileLLM(data.settings.allowMobileLLM);
-        safeSetItem(STORAGE.allowMobileLLM, data.settings.allowMobileLLM ? "true" : "false");
+        settingsHook.setAllowMobileLLM(data.settings.allowMobileLLM);
+        safeSetItem(STORAGE_KEYS.allowMobileLLM, data.settings.allowMobileLLM ? "true" : "false");
       }
       if (typeof data.settings.safariWebGPUEnabled === 'boolean') {
-        setSafariWebGPUEnabled(data.settings.safariWebGPUEnabled);
-        safeSetItem(STORAGE.safariWebGPUEnabled, data.settings.safariWebGPUEnabled ? "true" : "false");
+        settingsHook.setSafariWebGPUEnabled(data.settings.safariWebGPUEnabled);
+        safeSetItem(STORAGE_KEYS.safariWebGPUEnabled, data.settings.safariWebGPUEnabled ? "true" : "false");
       }
       if (typeof data.settings.keepSafariModelLoaded === 'boolean') {
-        setKeepSafariModelLoaded(data.settings.keepSafariModelLoaded);
-        safeSetItem(STORAGE.keepSafariModelLoaded, data.settings.keepSafariModelLoaded ? "true" : "false");
+        settingsHook.setKeepSafariModelLoaded(data.settings.keepSafariModelLoaded);
+        safeSetItem(STORAGE_KEYS.keepSafariModelLoaded, data.settings.keepSafariModelLoaded ? "true" : "false");
       }
     }
-  }, []);
-
-  const addTemplate = useCallback((template: Omit<ActionTemplate, 'id' | 'createdAt'>) => {
-    const newTemplate: ActionTemplate = {
-      ...template,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-    };
-    setTemplates(prev => [newTemplate, ...prev].slice(0, 50));
-  }, []);
-
-  const deleteTemplate = useCallback((id: string) => {
-    setTemplates(prev => prev.filter(t => t.id !== id));
-  }, []);
-
-  const updateTemplate = useCallback((id: string, updates: Partial<ActionTemplate>) => {
-    setTemplates(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
-  }, []);
-
-  // ---- Action Feedback (Phase 1 relevance improvement) ----
-  const addFeedback = useCallback((feedback: Omit<ActionFeedback, 'id' | 'createdAt'>) => {
-    const record: ActionFeedback = {
-      ...feedback,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-    };
-    setActionFeedback(prev => [record, ...prev].slice(0, 500));
-    return record;
-  }, []);
-
-  const updateFeedback = useCallback((id: string, updates: Partial<ActionFeedback>) => {
-    setActionFeedback(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));
-  }, []);
-
-  // Get accepted exemplars for a given barrier/category (for retrieval)
-  const getAcceptedExemplars = useCallback((barrier?: string, category?: string): ActionFeedback[] => {
-    return actionFeedback.filter(f => {
-      if (f.rating === 'not-relevant') return false;
-      // Must be either rated positively or accepted without edits
-      if (f.rating !== 'relevant' && !f.acceptedAsIs) return false;
-      // Match by barrier or category
-      if (barrier && f.barrier.toLowerCase() === barrier.toLowerCase()) return true;
-      if (category && f.category === category) return true;
-      return false;
-    });
-  }, [actionFeedback]);
-
-  const updateMinScoreEnabled = useCallback((enabled: boolean) => {
-    setMinScoreEnabled(enabled);
-    safeSetItem(STORAGE.minScoreEnabled, String(enabled));
-  }, []);
-
-  const updateMinScoreThreshold = useCallback((threshold: number) => {
-    const normalized = Number.isFinite(threshold) ? Math.round(threshold) : 5;
-    const clamped = Math.max(1, Math.min(5, normalized));
-    setMinScoreThreshold(clamped);
-    safeSetItem(STORAGE.minScoreThreshold, String(clamped));
-  }, []);
+  }, [historyHook, templatesHook, settingsHook]);
 
   // Export all data for GDPR data portability
-  // Uses flat structure to ensure round-trip compatibility with import
-const exportAllData = useCallback(() => {
-    const exportData = {
+  const exportAllData = useCallback(() => {
+    return {
       version: 2,
       exportedAt: new Date().toISOString(),
       barriers,
       timescales,
-      history,
-      recentNames,
-      templates,
+      history: historyHook.history,
+      recentNames: historyHook.recentNames,
+      templates: templatesHook.templates,
       settings: {
-        minScoreEnabled,
-        minScoreThreshold,
-        retentionEnabled,
-        retentionDays,
-        participantLanguage,
-        aiDraftMode,
-        preferredLLMModel,
-        allowMobileLLM,
-        safariWebGPUEnabled,
-        keepSafariModelLoaded,
+        minScoreEnabled: settingsHook.minScoreEnabled,
+        minScoreThreshold: settingsHook.minScoreThreshold,
+        retentionEnabled: historyHook.retentionEnabled,
+        retentionDays: historyHook.retentionDays,
+        participantLanguage: settingsHook.participantLanguage,
+        aiDraftMode: settingsHook.aiDraftMode,
+        preferredLLMModel: settingsHook.preferredLLMModel,
+        allowMobileLLM: settingsHook.allowMobileLLM,
+        safariWebGPUEnabled: settingsHook.safariWebGPUEnabled,
+        keepSafariModelLoaded: settingsHook.keepSafariModelLoaded,
       },
       draftAnalytics: exportDraftAnalytics(),
-      actionFeedback,
+      actionFeedback: feedbackHook.actionFeedback,
     };
-    return exportData;
   }, [
     barriers,
     timescales,
-    history,
-    recentNames,
-    templates,
-    minScoreEnabled,
-    minScoreThreshold,
-    retentionEnabled,
-    retentionDays,
-    participantLanguage,
-    aiDraftMode,
-    preferredLLMModel,
-    allowMobileLLM,
-    safariWebGPUEnabled,
-    keepSafariModelLoaded,
-    actionFeedback,
+    historyHook.history,
+    historyHook.recentNames,
+    historyHook.retentionEnabled,
+    historyHook.retentionDays,
+    templatesHook.templates,
+    settingsHook.minScoreEnabled,
+    settingsHook.minScoreThreshold,
+    settingsHook.participantLanguage,
+    settingsHook.aiDraftMode,
+    settingsHook.preferredLLMModel,
+    settingsHook.allowMobileLLM,
+    settingsHook.safariWebGPUEnabled,
+    settingsHook.keepSafariModelLoaded,
+    feedbackHook.actionFeedback,
   ]);
 
   // Delete all user data for GDPR right to erasure
   const deleteAllData = useCallback(() => {
-    // Clear all STORAGE keys from localStorage
-    Object.values(STORAGE).forEach(key => {
+    Object.values(STORAGE_KEYS).forEach(key => {
       safeRemoveItem(key);
     });
 
-    // Clear localSync keys (defined in useLocalSync, not in STORAGE)
     safeRemoveItem('smartTool.localSync.folderName');
     safeRemoveItem('smartTool.localSync.syncEnabled');
     safeRemoveItem('smartTool.localSync.lastSync');
-
-    // Clear theme key
     safeRemoveItem('theme');
 
-    // Clear sidebar cookie (dormant but present in codebase)
     try {
       document.cookie = 'sidebar:state=; path=/; max-age=0';
     } catch { /* ignore */ }
 
-    // Clear sessionStorage
     try {
       sessionStorage.removeItem('smarttool:last_error');
     } catch { /* ignore */ }
 
-    // Clear draft analytics
     clearDraftAnalytics();
 
-    // Clear IndexedDB (smart-tool-sync database) - best effort async
     try {
       indexedDB.deleteDatabase('smart-tool-sync');
     } catch { /* ignore */ }
 
-    // Clear CacheStorage (AI model cache) - best effort async
     try {
       if ('caches' in window) {
         caches.delete('smart-tool-llm-cache-v1');
@@ -487,161 +275,76 @@ const exportAllData = useCallback(() => {
     // Reset state to defaults
     setBarriers([...DEFAULT_BARRIERS]);
     setTimescales([...DEFAULT_TIMESCALES]);
-    setHistory([]);
-    setRecentNames([]);
-    setTemplates([]);
-    setMinScoreEnabled(false);
-    setMinScoreThreshold(5);
-    setRetentionEnabled(true);
-    setRetentionDays(DEFAULT_RETENTION_DAYS);
-    setParticipantLanguage('none');
-    setAIDraftMode('ai');
-    setPreferredLLMModel(null);
-    setAllowMobileLLM(false);
-    setSafariWebGPUEnabled(false);
-    setKeepSafariModelLoaded(false);
-    setActionFeedback([]);
-  }, []);
-
-  // Update retention settings
-  const updateRetentionEnabled = useCallback((enabled: boolean) => {
-    setRetentionEnabled(enabled);
-    safeSetItem(STORAGE.retentionEnabled, String(enabled));
-  }, []);
-
-  const updateRetentionDays = useCallback((days: number) => {
-    const clamped = Math.max(7, Math.min(365, days));
-    setRetentionDays(clamped);
-    safeSetItem(STORAGE.retentionDays, String(clamped));
-  }, []);
-
-  const updateParticipantLanguage = useCallback((language: string) => {
-    setParticipantLanguage(language);
-    safeSetItem(STORAGE.participantLanguage, language);
-  }, []);
-
-  const updateAIDraftMode = useCallback((mode: AIDraftMode) => {
-    setAIDraftMode(mode);
-    safeSetItem(STORAGE.aiDraftMode, mode);
-  }, []);
-
-  const updatePreferredLLMModel = useCallback((modelId: string | null) => {
-    setPreferredLLMModel(modelId);
-    if (modelId) {
-      safeSetItem(STORAGE.preferredLLMModel, modelId);
-    } else {
-      safeRemoveItem(STORAGE.preferredLLMModel);
-    }
-  }, []);
-  const updateAllowMobileLLM = useCallback((enabled: boolean) => {
-    setAllowMobileLLM(enabled);
-    safeSetItem(STORAGE.allowMobileLLM, enabled ? "true" : "false");
-  }, []);
-  const updateSafariWebGPUEnabled = useCallback((enabled: boolean) => {
-    setSafariWebGPUEnabled(enabled);
-    safeSetItem(STORAGE.safariWebGPUEnabled, enabled ? "true" : "false");
-  }, []);
-
-  const updateKeepSafariModelLoaded = useCallback((enabled: boolean) => {
-    setKeepSafariModelLoaded(enabled);
-    safeSetItem(STORAGE.keepSafariModelLoaded, enabled ? "true" : "false");
-  }, []);
-
-
-  // Check and clean up old history items
-  // Returns the number of items deleted
-  const cleanupOldHistory = useCallback((): { deletedCount: number; deletedItems: HistoryItem[] } => {
-    if (!retentionEnabled) {
-      return { deletedCount: 0, deletedItems: [] };
-    }
-
-    const now = new Date();
-    const cutoffDate = new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000);
-    
-    const deletedItems: HistoryItem[] = [];
-    const remainingItems: HistoryItem[] = [];
-    
-    history.forEach(item => {
-      const itemDate = new Date(item.createdAt);
-      if (itemDate < cutoffDate) {
-        deletedItems.push(item);
-      } else {
-        remainingItems.push(item);
-      }
-    });
-
-    if (deletedItems.length > 0) {
-      setHistory(remainingItems);
-      safeSetItem(STORAGE.history, JSON.stringify(remainingItems));
-    }
-
-    // Update last check timestamp
-    safeSetItem(STORAGE.lastRetentionCheck, now.toISOString());
-
-    return { deletedCount: deletedItems.length, deletedItems };
-  }, [history, retentionEnabled, retentionDays]);
-
-  // Check if we should run cleanup (once per day)
-  const shouldRunCleanup = useCallback((): boolean => {
-    try {
-      const lastCheck = localStorage.getItem(STORAGE.lastRetentionCheck);
-      if (!lastCheck) return true;
-
-      const lastCheckDate = new Date(lastCheck);
-      const now = new Date();
-      const hoursSinceLastCheck = (now.getTime() - lastCheckDate.getTime()) / (1000 * 60 * 60);
-
-      return hoursSinceLastCheck >= 24;
-    } catch {
-      return true;
-    }
-  }, []);
+    historyHook.setHistory([]);
+    historyHook.setRecentNames([]);
+    templatesHook.setTemplates([]);
+    settingsHook.setMinScoreEnabled(false);
+    settingsHook.setMinScoreThreshold(5);
+    settingsHook.setParticipantLanguage('none');
+    settingsHook.setAIDraftMode('ai');
+    settingsHook.setPreferredLLMModel(null);
+    settingsHook.setAllowMobileLLM(false);
+    settingsHook.setSafariWebGPUEnabled(false);
+    settingsHook.setKeepSafariModelLoaded(false);
+    feedbackHook.setActionFeedback([]);
+  }, [historyHook, templatesHook, settingsHook, feedbackHook]);
 
   return {
+    // Barriers & timescales
     barriers,
     timescales,
-    history,
-    recentNames,
-    templates,
-    minScoreEnabled,
-    minScoreThreshold,
-    retentionEnabled,
-    retentionDays,
-    participantLanguage,
-    aiDraftMode,
-    preferredLLMModel,
-    allowMobileLLM,
-    safariWebGPUEnabled,
-    keepSafariModelLoaded,
     updateBarriers,
     resetBarriers,
     updateTimescales,
     resetTimescales,
-    addToHistory,
-    deleteFromHistory,
-    clearHistory,
-    addRecentName,
+
+    // History (delegated to useHistory)
+    history: historyHook.history,
+    recentNames: historyHook.recentNames,
+    retentionEnabled: historyHook.retentionEnabled,
+    retentionDays: historyHook.retentionDays,
+    addToHistory: historyHook.addToHistory,
+    deleteFromHistory: historyHook.deleteFromHistory,
+    clearHistory: historyHook.clearHistory,
+    addRecentName: historyHook.addRecentName,
+    updateRetentionEnabled: historyHook.updateRetentionEnabled,
+    updateRetentionDays: historyHook.updateRetentionDays,
+    cleanupOldHistory: historyHook.cleanupOldHistory,
+    shouldRunCleanup: historyHook.shouldRunCleanup,
+
+    // Templates (delegated to useTemplates)
+    templates: templatesHook.templates,
+    addTemplate: templatesHook.addTemplate,
+    deleteTemplate: templatesHook.deleteTemplate,
+    updateTemplate: templatesHook.updateTemplate,
+
+    // Settings (delegated to useSettings)
+    minScoreEnabled: settingsHook.minScoreEnabled,
+    minScoreThreshold: settingsHook.minScoreThreshold,
+    participantLanguage: settingsHook.participantLanguage,
+    aiDraftMode: settingsHook.aiDraftMode,
+    preferredLLMModel: settingsHook.preferredLLMModel,
+    allowMobileLLM: settingsHook.allowMobileLLM,
+    safariWebGPUEnabled: settingsHook.safariWebGPUEnabled,
+    keepSafariModelLoaded: settingsHook.keepSafariModelLoaded,
+    updateMinScoreEnabled: settingsHook.updateMinScoreEnabled,
+    updateMinScoreThreshold: settingsHook.updateMinScoreThreshold,
+    updateParticipantLanguage: settingsHook.updateParticipantLanguage,
+    updateAIDraftMode: settingsHook.updateAIDraftMode,
+    updatePreferredLLMModel: settingsHook.updatePreferredLLMModel,
+    updateAllowMobileLLM: settingsHook.updateAllowMobileLLM,
+    updateSafariWebGPUEnabled: settingsHook.updateSafariWebGPUEnabled,
+    updateKeepSafariModelLoaded: settingsHook.updateKeepSafariModelLoaded,
+
+    // Feedback (delegated to useFeedback)
+    actionFeedback: feedbackHook.actionFeedback,
+    addFeedback: feedbackHook.addFeedback,
+    updateFeedback: feedbackHook.updateFeedback,
+    getAcceptedExemplars: feedbackHook.getAcceptedExemplars,
+
+    // GDPR
     importData,
-    addTemplate,
-    deleteTemplate,
-    updateTemplate,
-    updateMinScoreEnabled,
-    updateMinScoreThreshold,
-    updateRetentionEnabled,
-    updateRetentionDays,
-    updateParticipantLanguage,
-    updateAIDraftMode,
-    updatePreferredLLMModel,
-    updateAllowMobileLLM,
-    updateSafariWebGPUEnabled,
-    updateKeepSafariModelLoaded,
-    cleanupOldHistory,
-    shouldRunCleanup,
     exportAllData,
     deleteAllData,
-    actionFeedback,
-    addFeedback,
-    updateFeedback,
-    getAcceptedExemplars
   };
 }

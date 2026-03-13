@@ -60,6 +60,10 @@ export { ActionLibrary } from "./retrieval/action-library.js";
 export { LocalRetriever } from "./retrieval/retriever.js";
 export type { RetrievalResult, RetrieverConfig } from "./retrieval/retriever.js";
 
+// ---- Barrier catalog (canonical barrier taxonomy) ----
+export { BARRIER_CATALOG, lookupBarrier, getAllBarriers } from "./retrieval/barrier-catalog.js";
+export type { BarrierEntry, BarrierCategory } from "./retrieval/barrier-catalog.js";
+
 // ---- Relevance ----
 export { evaluateBarrierRelevance, evaluateActionBarrierRelevance } from "./relevance/barrier-relevance.js";
 export type { BarrierRelevanceInput, BarrierRelevanceResult } from "./relevance/barrier-relevance.js";
