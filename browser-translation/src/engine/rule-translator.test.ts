@@ -250,6 +250,26 @@ describe("RuleBasedTranslator", () => {
     });
   });
 
+  describe("time patterns with numbers", () => {
+    it("translates 'in 2 weeks' before numbers are captured as entities", async () => {
+      const t = await RuleBasedTranslator.create("en-fr");
+      const result = t!.translate("Complete the task in 2 weeks");
+      expect(result).toContain("dans 2 semaines");
+    });
+
+    it("translates 'within 3 days' pattern", async () => {
+      const t = await RuleBasedTranslator.create("en-de");
+      const result = t!.translate("Respond within 3 days");
+      expect(result).toContain("innerhalb von 3 Tagen");
+    });
+
+    it("translates 'in 1 month' in Arabic with RTL marks", async () => {
+      const t = await RuleBasedTranslator.create("en-ar");
+      const result = t!.translate("Complete the course in 1 month");
+      expect(result).toContain("في 1 أشهر");
+    });
+  });
+
   describe("phrase precedence over words", () => {
     it("matches 'job search' as phrase not separate words", async () => {
       const t = await RuleBasedTranslator.create("en-fr");

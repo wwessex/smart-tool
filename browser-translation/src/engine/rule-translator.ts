@@ -6,8 +6,9 @@
  * SMART action domain — not general-purpose translation.
  *
  * Translation flow:
- * 1. Protect entities (names, dates, numbers, URLs, acronyms)
- * 2. Apply time-expression regex patterns
+ * 1. Apply time-expression regex patterns (before entity protection,
+ *    so numbers in "in 2 weeks" are matched before being captured)
+ * 2. Protect entities (names, dates, numbers, URLs, acronyms)
  * 3. Apply multi-word phrase substitutions (longest-first)
  * 4. Apply single-word substitutions (longest-first)
  * 5. Restore protected entities
@@ -112,22 +113,31 @@ function protectEntities(text: string): {
 }
 
 /**
+ * Apply time-expression regex patterns to text.
+ * Must be called BEFORE protectEntities() so that numbers in time
+ * expressions (e.g., "in 2 weeks") are matched before being captured
+ * as standalone number entities.
+ */
+function applyTimePatterns(text: string, dictionary: PhraseDictionary): string {
+  if (!dictionary.timePatterns) return text;
+  let result = text;
+  for (const tp of dictionary.timePatterns) {
+    try {
+      result = result.replace(new RegExp(tp.pattern, "gi"), tp.replace);
+    } catch {
+      // Skip invalid regex patterns
+    }
+  }
+  return result;
+}
+
+/**
  * Apply dictionary substitutions to text.
  * Phrases are matched before words, both in longest-first order.
+ * Time patterns are applied separately via applyTimePatterns().
  */
 function applyDictionary(text: string, dictionary: PhraseDictionary): string {
   let result = text;
-
-  // Apply time patterns (regex-based)
-  if (dictionary.timePatterns) {
-    for (const tp of dictionary.timePatterns) {
-      try {
-        result = result.replace(new RegExp(tp.pattern, "gi"), tp.replace);
-      } catch {
-        // Skip invalid regex patterns
-      }
-    }
-  }
 
   // Apply phrase substitutions (longest first)
   const sortedPhrases = [...dictionary.phrases].sort(
@@ -203,10 +213,14 @@ export class RuleBasedTranslator {
   translate(text: string): string {
     if (!text?.trim()) return text;
 
-    // Step 1: Protect entities
-    const { cleaned, restore } = protectEntities(text);
+    // Step 1: Apply time patterns BEFORE entity protection so numbers
+    // in expressions like "in 2 weeks" are matched, not captured as entities
+    const withTime = applyTimePatterns(text, this.dictionary);
 
-    // Step 2-4: Apply dictionary (time patterns, phrases, words)
+    // Step 2: Protect entities (names, dates, remaining numbers, URLs, acronyms)
+    const { cleaned, restore } = protectEntities(withTime);
+
+    // Step 3-4: Apply phrase and word substitutions
     const translated = applyDictionary(cleaned, this.dictionary);
 
     // Step 5: Restore protected entities
