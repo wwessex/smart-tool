@@ -1,27 +1,23 @@
-import { useState, useCallback, useMemo, useEffect, memo, lazy, Suspense, useRef } from 'react';
-import { useDebounce } from '@/hooks/useDebounce';
+import { useState, useCallback, useMemo, useEffect, lazy, Suspense, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { z } from 'zod';
-import { useSmartStorage, HistoryItem, ActionTemplate, ActionFeedback as ActionFeedbackRecord } from '@/hooks/useSmartStorage';
-import { useTranslation, SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
+import { useSmartStorage, HistoryItem, ActionTemplate } from '@/hooks/useSmartStorage';
+import { SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
 import { parseSmartToolImportFile } from '@/lib/smart-portability';
-import { 
-  todayISO, 
-  buildNowOutput, 
-  buildFutureOutput,
-  aiDraftNow,
-  aiDraftFuture,
+import {
   getSuggestionList,
   getTaskSuggestions,
   resolvePlaceholders,
   parseTimescaleToTargetISO,
   formatDDMMMYY
 } from '@/lib/smart-utils';
-import { checkSmart, SmartCheck } from '@/lib/smart-checker';
+import { useSmartForm } from '@/hooks/useSmartForm';
+import type { NowForm, FutureForm } from '@/hooks/useSmartForm';
+import { useAIDrafting } from '@/hooks/useAIDrafting';
+import { useActionOutput } from '@/hooks/useActionOutput';
 import { SmartChecklist } from './SmartChecklist';
 import { TemplateLibrary } from './TemplateLibrary';
 import { ActionWizard } from './ActionWizard';
-// AIImproveDialog removed — SmartPlanner validation/repair loop handles quality
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { OnboardingTutorial, useOnboarding } from './OnboardingTutorial';
 import { EmptyState } from './EmptyState';
@@ -52,15 +48,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getHelpSubject } from '@/lib/smart-prompts';
 import { SMART_TOOL_SHORTCUTS } from '@/lib/smart-tool-shortcuts';
 import logoIcon from '@/assets/logo-icon.png';
-import { useBrowserNativeLLM } from '@/hooks/useBrowserNativeLLM';
-import type { SMARTAction, SMARTPlan, RawUserInput } from '@/hooks/useBrowserNativeLLM';
-import { usePromptPack } from '@/hooks/usePromptPack';
-import { buildSystemPrompt, DEFAULT_PROMPT_PACK } from '@/lib/prompt-pack';
 import { logDraftAnalytics } from '@/lib/draft-analytics';
-import { ActionFeedback, type FeedbackRating } from './ActionFeedback';
-import { classifyBarrier } from '@/lib/smart-data';
-import { retrieveExemplars, formatExemplarsForPrompt } from '@/lib/smart-retrieval';
-import { rankActionsByRelevance } from '@/lib/relevance-checker';
+import { ActionFeedback } from './ActionFeedback';
 
 /**
  * Safely remove from localStorage, catching any errors.
@@ -120,145 +109,56 @@ const slideInRight = {
 const springTransition = { type: "spring" as const, damping: 22, stiffness: 260 };
 const softSpring = { type: "spring" as const, damping: 28, stiffness: 200 };
 
-type Mode = 'now' | 'future';
-
-interface NowForm {
-  date: string;
-  time: string;
-  forename: string;
-  barrier: string;
-  action: string;
-  responsible: string;
-  help: string;
-  timescale: string;
-}
-
-interface FutureForm {
-  date: string;
-  forename: string;
-  task: string;
-  responsible: string;
-  outcome: string;
-  timescale: string;
-}
-
 export function SmartActionTool() {
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
   const storage = useSmartStorage();
   const localSync = useLocalSync();
-  const llm = useBrowserNativeLLM({
-    allowMobileLLM: storage.allowMobileLLM,
-    safariWebGPUEnabled: storage.safariWebGPUEnabled,
+
+  // --- Extracted hooks ---
+  const form = useSmartForm();
+  const { today, mode, setMode, nowForm, setNowForm, futureForm, setFutureForm, showValidation, setShowValidation, suggestQuery, setSuggestQuery, wizardMode, setWizardMode, futureDateError, nowDateWarning, validateNow, validateFuture, getFieldClass } = form;
+
+  const actionOutput = useActionOutput({
+    mode,
+    nowForm,
+    futureForm,
+    participantLanguage: storage.participantLanguage,
+    updateParticipantLanguage: storage.updateParticipantLanguage,
   });
-  const translation = useTranslation();
+  const { translation, output, setOutput, outputSource, setOutputSource, translatedOutput, setTranslatedOutput, translatedForOutputRef, hasTranslation, hasOutput, copied, generateOutput, smartCheck, handleCopy, handleDownload, handleTranslate, handleLanguageChange, clearOutput } = actionOutput;
 
-  const { pack: promptPack, source: promptPackSource } = usePromptPack();
-  const today = todayISO();
-  const effectivePromptPack = promptPack || DEFAULT_PROMPT_PACK;
-  const _llmSystemPrompt = buildSystemPrompt(effectivePromptPack);
-
-  // Safari (especially iOS) can aggressively reload tabs under memory pressure. We
-  // proactively unload the local model shortly after generation to free memory,
-  // while keeping the downloaded weights in browser storage/cache.
-  const safariAutoUnloadTimer = useRef<number | null>(null);
-  const scheduleSafariModelUnload = useCallback((delayMs?: number) => {
-    if (!llm.browserInfo.isSafari) return;
-    if (storage.aiDraftMode !== 'ai') return;
-    if (storage.keepSafariModelLoaded) return;
-    if (!llm.isReady) return;
-    if (safariAutoUnloadTimer.current) {
-      window.clearTimeout(safariAutoUnloadTimer.current);
-      safariAutoUnloadTimer.current = null;
-    }
-    const isIOS = llm.deviceInfo?.isIOS;
-    const timeoutMs = delayMs ?? (isIOS ? 200 : 800);
-    safariAutoUnloadTimer.current = window.setTimeout(() => {
-      try {
-        llm.unload();
-      } catch {
-        // ignore
-      }
-    }, timeoutMs);
-  }, [llm, storage.aiDraftMode, storage.keepSafariModelLoaded]);
-
-  useEffect(() => {
-    return () => {
-      if (safariAutoUnloadTimer.current) {
-        window.clearTimeout(safariAutoUnloadTimer.current);
-        safariAutoUnloadTimer.current = null;
-      }
-    };
-  }, []);
-
-
-  // AI Draft state
-  const [aiDrafting, setAIDrafting] = useState(false);
-  const [showLLMPicker, setShowLLMPicker] = useState(false);
-  // When the user clicks "AI Draft" but the model isn't loaded yet, we open the
-  // model picker. This ref tracks that a draft is pending so we can auto-trigger
-  // it once the model finishes loading instead of requiring a second click.
-  const pendingAIDraftRef = useRef(false);
-
-  const [mode, setMode] = useState<Mode>('now');
-  const [nowForm, setNowForm] = useState<NowForm>({
-    date: today,
-    time: '',
-    forename: '',
-    barrier: '',
-    action: '',
-    responsible: 'Participant',
-    help: '',
-    timescale: ''
+  const aiDraft = useAIDrafting({
+    mode,
+    nowForm,
+    futureForm,
+    setNowForm,
+    setFutureForm,
+    suggestQuery,
+    storage: {
+      aiDraftMode: storage.aiDraftMode,
+      keepSafariModelLoaded: storage.keepSafariModelLoaded,
+      allowMobileLLM: storage.allowMobileLLM,
+      safariWebGPUEnabled: storage.safariWebGPUEnabled,
+      preferredLLMModel: storage.preferredLLMModel,
+      actionFeedback: storage.actionFeedback,
+      addFeedback: storage.addFeedback,
+      updateFeedback: storage.updateFeedback,
+    },
   });
-  const [futureForm, setFutureForm] = useState<FutureForm>({
-    date: today,
-    forename: '',
-    task: '',
-    responsible: 'Participant',
-    outcome: '',
-    timescale: ''
-  });
-  const [output, setOutput] = useState('');
-  const [outputSource, setOutputSource] = useState<'form' | 'ai' | 'manual'>('form');
-  const [translatedOutput, setTranslatedOutput] = useState<string | null>(null);
-  const translatedForOutputRef = useRef<string>(''); // Track which English text was translated
-  const hasTranslation = translatedOutput !== null;
-  const hasOutput = output.trim().length > 0;
-  const [showValidation, setShowValidation] = useState(false);
-  const [suggestQuery, setSuggestQuery] = useState('');
+  const { llm, aiDrafting, showLLMPicker, setShowLLMPicker, pendingAIDraftRef, planResult, setPlanResult, showPlanPicker, setShowPlanPicker, feedbackRating, currentFeedbackId, aiGeneratedActionRef, showFeedbackUI, resetFeedbackState, templateDraftNow, templateDraftFuture, handleFeedbackRate, handleSelectPlanAction, handleAIDraft, buildLLMContext, handleWizardAIDraft, promptPackSource } = aiDraft;
+
+  // --- UI state (remains in component) ---
   const [historySearch, setHistorySearch] = useState('');
-  const [copied, setCopied] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [guidanceOpen, setGuidanceOpen] = useState(false);
   const [settingsBarriers, setSettingsBarriers] = useState('');
   const [settingsTimescales, setSettingsTimescales] = useState('');
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
-  const [wizardMode, setWizardMode] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const [historyTab, setHistoryTab] = useState<'history' | 'insights'>('history');
   const [privacySettingsOpen, setPrivacySettingsOpen] = useState(false);
-
-  // SmartPlanner plan picker state
-  const [planResult, setPlanResult] = useState<SMARTPlan | null>(null);
-  const [showPlanPicker, setShowPlanPicker] = useState(false);
-
-  // Feedback state for AI-generated actions
-  const [feedbackRating, setFeedbackRating] = useState<FeedbackRating>(null);
-  const [currentFeedbackId, setCurrentFeedbackId] = useState<string | null>(null);
-  // Track the AI-generated action text before any edits (for feedback comparison)
-  const aiGeneratedActionRef = useRef<string>('');
-  // Whether current output was produced by AI (show feedback UI)
-  const [showFeedbackUI, setShowFeedbackUI] = useState(false);
-
-  // Reset feedback UI when form is cleared or mode changes
-  const resetFeedbackState = useCallback(() => {
-    setShowFeedbackUI(false);
-    setFeedbackRating(null);
-    setCurrentFeedbackId(null);
-    aiGeneratedActionRef.current = '';
-  }, []);
 
   // Detect landscape orientation
   useEffect(() => {
@@ -273,8 +173,7 @@ export function SmartActionTool() {
   // GDPR: Auto-cleanup old history items on load
   useEffect(() => {
     let isMounted = true;
-    
-    // Defer cleanup check to avoid blocking initial render
+
     const timeoutId = setTimeout(() => {
       if (isMounted && storage.shouldRunCleanup()) {
         const { deletedCount } = storage.cleanupOldHistory();
@@ -286,251 +185,19 @@ export function SmartActionTool() {
         }
       }
     }, 100);
-    
+
     return () => {
       isMounted = false;
       clearTimeout(timeoutId);
     };
-  // Only run once on mount - storage methods are stable
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Show toast when LLM encounters an error (e.g. model load failure, generation error)
-  useEffect(() => {
-    if (llm.classifiedError) {
-      toast({
-        title: llm.classifiedError.title,
-        description: llm.classifiedError.message,
-        variant: 'destructive',
-      });
-    }
-  }, [llm.classifiedError, toast]);
-
-  // BUG FIX #1: Validate future date - must be today or later
-  const futureDateError = useMemo(() => {
-    if (!futureForm.date) return '';
-    if (futureForm.date < today) {
-      return 'Date must be today or in the future for task-based actions.';
-    }
-    return '';
-  }, [futureForm.date, today]);
-
-  const nowDateWarning = useMemo(() => {
-    if (!nowForm.date) return '';
-    if (nowForm.date !== today) {
-      return `This date differs from today. Actions recorded for past or future dates may need additional context.`;
-    }
-    return '';
-  }, [nowForm.date, today]);
-
-  const validateNow = useCallback((): boolean => {
-    return !!(
-      nowForm.date &&
-      nowForm.forename.trim() &&
-      nowForm.barrier.trim() &&
-      nowForm.action.trim() &&
-      nowForm.responsible &&
-      nowForm.help.trim() &&
-      nowForm.timescale
-    );
-  }, [nowForm]);
-
-  // BUG FIX #1: Add date validation to validateFuture
-  const validateFuture = useCallback((): boolean => {
-    return !!(
-      futureForm.date &&
-      futureForm.date >= today && // Must be today or future
-      futureForm.forename.trim() &&
-      futureForm.task.trim() &&
-      futureForm.outcome.trim() &&
-      futureForm.timescale
-    );
-  }, [futureForm, today]);
-
-  const generateOutput = useCallback((force = false) => {
-    if (force) setShowValidation(true);
-    
-    const isValid = mode === 'now' ? validateNow() : validateFuture();
-    
-    if (!isValid) {
-      if (force) {
-        setOutput('Please complete all fields to generate an action.');
-        toast({ title: 'Missing fields', description: 'Please complete all required fields.', variant: 'destructive' });
-      } else {
-        setOutput('');
-      }
-      return;
-    }
-
-    if (mode === 'now') {
-      const text = buildNowOutput(
-        nowForm.date,
-        nowForm.forename.trim(),
-        nowForm.barrier.trim(),
-        nowForm.action.trim(),
-        nowForm.responsible,
-        nowForm.help.trim(),
-        nowForm.timescale
-      );
-      setOutput(text);
-    } else {
-      const text = buildFutureOutput(
-        futureForm.date,
-        futureForm.forename.trim(),
-        futureForm.task.trim(),
-        futureForm.responsible,
-        futureForm.outcome.trim(),
-        futureForm.timescale
-      );
-      setOutput(text);
-    }
-  }, [mode, nowForm, futureForm, validateNow, validateFuture, toast]);
-
-  // Auto-generate on form changes (skip when output was set by AI fix)
-  useEffect(() => {
-    // Only regenerate if output came from form, not from AI fix or manual edit
-    if (outputSource === 'ai') {
-      // Delay reset to 'form' until after debounce settles, so smartCheck
-      // uses the AI-fixed output long enough for the UI to update properly
-      const timer = setTimeout(() => {
-        setOutputSource('form');
-      }, 200); // Slightly longer than debounce (150ms) to ensure check completes
-      return () => clearTimeout(timer);
-    }
-    if (outputSource === 'manual') {
-      return; // Don't overwrite manual edits until form changes
-    }
-    generateOutput(false);
-  }, [nowForm, futureForm, mode, outputSource, generateOutput]);
-
-  // Clear stale translation when the English output changes
-  useEffect(() => {
-    if (hasTranslation && output !== translatedForOutputRef.current) {
-      setTranslatedOutput(null);
-    }
-  }, [output, hasTranslation]);
-
-  const handleCopy = useCallback(async () => {
-    if (!output.trim()) {
-      toast({ title: 'Nothing to copy', description: 'Generate an action first.', variant: 'destructive' });
-      return;
-    }
-    try {
-      // Build combined text with translation if available
-      let textToCopy = output;
-      if (hasTranslation && storage.participantLanguage !== 'none') {
-        const langInfo = SUPPORTED_LANGUAGES[storage.participantLanguage];
-        textToCopy = `=== ENGLISH ===\n${output}\n\n=== ${langInfo?.nativeName?.toUpperCase() || storage.participantLanguage.toUpperCase()} ===\n${translatedOutput}`;
-      }
-      await navigator.clipboard.writeText(textToCopy);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 400);
-      toast({ title: 'Copied!', description: hasTranslation ? 'Both versions copied to clipboard.' : 'Action copied to clipboard.' });
-    } catch {
-      toast({ title: 'Copy failed', description: 'Please copy manually.', variant: 'destructive' });
-    }
-  }, [output, translatedOutput, hasTranslation, storage.participantLanguage, toast]);
-
-  const handleDownload = useCallback(() => {
-    if (!output.trim()) {
-      toast({ title: 'Nothing to download', description: 'Generate an action first.', variant: 'destructive' });
-      return;
-    }
-    // Build combined text with translation if available
-    let textToDownload = output;
-    if (hasTranslation && storage.participantLanguage !== 'none') {
-      const langInfo = SUPPORTED_LANGUAGES[storage.participantLanguage];
-      textToDownload = `=== ENGLISH ===\n${output}\n\n=== ${langInfo?.nativeName?.toUpperCase() || storage.participantLanguage.toUpperCase()} ===\n${translatedOutput}`;
-    }
-    const blob = new Blob([textToDownload], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `smart-action-${mode}-${new Date().toISOString().slice(0, 10)}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }, [output, translatedOutput, hasTranslation, storage.participantLanguage, mode, toast]);
-
   const handleClear = useCallback(() => {
-    if (mode === 'now') {
-      setNowForm({ date: today, time: '', forename: '', barrier: '', action: '', responsible: 'Participant', help: '', timescale: '' });
-    } else {
-      setFutureForm({ date: today, forename: '', task: '', responsible: 'Participant', outcome: '', timescale: '' });
-    }
-    setOutput('');
-    setOutputSource('form');
-    setTranslatedOutput(null);
-    translation.clearTranslation();
-    // Reset language to English only when clearing - ensure this happens
-    storage.updateParticipantLanguage('none');
-    setShowValidation(false);
-    setSuggestQuery('');
+    form.resetForm();
+    clearOutput();
     resetFeedbackState();
-  }, [mode, today, translation, storage.updateParticipantLanguage, resetFeedbackState]);
-
-  // Handle translation
-  const handleTranslate = useCallback(async () => {
-    if (!output.trim()) return;
-    if (storage.participantLanguage === 'none') {
-      setTranslatedOutput(null);
-      return;
-    }
-    
-    if (!translation.canTranslate) {
-      toast({
-        title: 'Translation unavailable',
-        description: 'Translation is currently disabled.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const result = await translation.translate(output, storage.participantLanguage);
-    if (result) {
-      translatedForOutputRef.current = output; // Track the source text
-      setTranslatedOutput(result.translated);
-      toast({
-        title: 'Translated!',
-        description: `Action translated to ${result.languageName}.`
-      });
-    }
-  }, [output, storage.participantLanguage, translation, toast]);
-
-  // Handle language change — always clear stale translation since it was for a different language
-  const handleLanguageChange = useCallback((language: string) => {
-    storage.updateParticipantLanguage(language);
-    setTranslatedOutput(null);
-    translation.clearTranslation();
-  }, [storage, translation]);
-
-  // Debounce output for SMART checking to avoid running on every keystroke
-  const debouncedOutput = useDebounce(output, 150);
-  
-  // Use immediate output when from AI fix to avoid delay in updating checklist
-  const checkableOutput = outputSource === 'ai' ? output : debouncedOutput;
-  
-  // SMART Check - auto-detect elements with debounced input for performance
-  const smartCheck = useMemo((): SmartCheck => {
-    if (!checkableOutput.trim()) {
-      return {
-        specific: { met: false, confidence: 'low', reason: 'Generate an action first' },
-        measurable: { met: false, confidence: 'low', reason: 'Add dates or quantities' },
-        achievable: { met: false, confidence: 'low', reason: 'Show agreement' },
-        relevant: { met: false, confidence: 'low', reason: 'Link to barrier' },
-        timeBound: { met: false, confidence: 'low', reason: 'Add review date' },
-        overallScore: 0,
-        warnings: [],
-      };
-    }
-    
-    const meta = mode === 'now' 
-      ? { forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, date: nowForm.date }
-      : { forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, date: futureForm.date };
-    
-    return checkSmart(checkableOutput, meta);
-  }, [checkableOutput, mode, nowForm.forename, nowForm.barrier, nowForm.timescale, nowForm.date, futureForm.forename, futureForm.task, futureForm.timescale, futureForm.date]);
+  }, [form, clearOutput, resetFeedbackState]);
 
   const handleSave = useCallback(async () => {
     if (!output.trim()) {
@@ -540,8 +207,8 @@ export function SmartActionTool() {
 
     // Check minimum score enforcement
     if (storage.minScoreEnabled && smartCheck.overallScore < storage.minScoreThreshold) {
-      toast({ 
-        title: 'SMART score too low', 
+      toast({
+        title: 'SMART score too low',
         description: `This action scores ${smartCheck.overallScore}/5 but the minimum is ${storage.minScoreThreshold}/5. Improve the action or disable score enforcement in Settings.`,
         variant: 'destructive'
       });
@@ -551,11 +218,10 @@ export function SmartActionTool() {
     const forename = mode === 'now' ? nowForm.forename : futureForm.forename;
     storage.addRecentName(forename);
 
-    const baseMeta = mode === 'now' 
+    const baseMeta = mode === 'now'
       ? { date: nowForm.date, time: nowForm.time, forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
       : { date: futureForm.date, forename: futureForm.forename, barrier: futureForm.task, timescale: futureForm.timescale, responsible: futureForm.responsible, reason: futureForm.outcome };
 
-    // Include translation in history if available
     const item: HistoryItem = {
       id: crypto.randomUUID(),
       mode,
@@ -588,23 +254,23 @@ export function SmartActionTool() {
       try {
         const success = await localSync.writeAction(item);
         if (success) {
-          toast({ 
-            title: 'Saved & Synced!', 
-            description: hasTranslation 
-              ? 'Action with translation saved and synced to folder.' 
-              : 'Action saved and synced to folder.' 
+          toast({
+            title: 'Saved & Synced!',
+            description: hasTranslation
+              ? 'Action with translation saved and synced to folder.'
+              : 'Action saved and synced to folder.'
           });
         } else {
-          toast({ 
-            title: 'Saved locally', 
+          toast({
+            title: 'Saved locally',
             description: 'Action saved but folder sync failed. Check connection in Settings.',
             variant: 'default'
           });
         }
       } catch (err) {
         console.error('Folder sync error:', err);
-        toast({ 
-          title: 'Saved locally', 
+        toast({
+          title: 'Saved locally',
           description: 'Action saved but folder sync failed.',
           variant: 'default'
         });
@@ -612,237 +278,7 @@ export function SmartActionTool() {
     } else {
       toast({ title: 'Saved!', description: hasTranslation ? 'Action with translation saved to history.' : 'Action saved to history.' });
     }
-  }, [output, storage, smartCheck.overallScore, mode, nowForm, futureForm, translatedOutput, hasTranslation, toast, localSync, currentFeedbackId, showFeedbackUI, resetFeedbackState]);
-
-  // Template-based fallback for AI Draft
-  const templateDraftNow = useCallback(() => {
-    let timescale = nowForm.timescale;
-    if (!timescale) {
-      timescale = '2 weeks';
-      setNowForm(prev => ({ ...prev, timescale }));
-    }
-    const { action, help } = aiDraftNow(
-      nowForm.barrier, 
-      nowForm.forename, 
-      nowForm.responsible, 
-      timescale, 
-      nowForm.date,
-      suggestQuery
-    );
-    setNowForm(prev => ({ ...prev, action, help }));
-    toast({ title: 'Draft inserted', description: 'Template draft added. Edit as needed.' });
-  }, [nowForm, suggestQuery, toast]);
-
-  const templateDraftFuture = useCallback(() => {
-    const outcome = aiDraftFuture(futureForm.task, futureForm.forename);
-    setFutureForm(prev => ({ ...prev, outcome }));
-    toast({ title: 'Draft inserted', description: 'Template draft added. Edit as needed.' });
-  }, [futureForm, toast]);
-
-  // Handle feedback rating from the ActionFeedback component
-  const handleFeedbackRate = useCallback((rating: FeedbackRating) => {
-    setFeedbackRating(rating);
-    if (currentFeedbackId && rating) {
-      storage.updateFeedback(currentFeedbackId, { rating });
-    }
-  }, [currentFeedbackId, storage]);
-
-  // Map a selected SMARTAction from the plan picker to form fields
-  const handleSelectPlanAction = useCallback((action: SMARTAction, selectedIndex?: number) => {
-    if (mode === 'now') {
-      setNowForm(prev => ({
-        ...prev,
-        action: action.action,
-        help: action.first_step || action.rationale,
-        timescale: prev.timescale || '2 weeks',
-      }));
-    } else {
-      setFutureForm(prev => ({
-        ...prev,
-        outcome: action.action,
-      }));
-    }
-
-    // Track AI-generated text for feedback
-    aiGeneratedActionRef.current = action.action;
-    setFeedbackRating(null);
-    setCurrentFeedbackId(null);
-    setShowFeedbackUI(true);
-
-    // Create a pending feedback record
-    const barrier = mode === 'now' ? nowForm.barrier : (futureForm.task || '');
-    const feedbackRecord = storage.addFeedback({
-      barrier,
-      category: classifyBarrier(barrier),
-      generatedAction: action.action,
-      rating: null,
-      acceptedAsIs: false,
-      source: 'ai',
-      forename: mode === 'now' ? nowForm.forename : futureForm.forename,
-      timescale: mode === 'now' ? (nowForm.timescale || '2 weeks') : (futureForm.timescale || '4 weeks'),
-    });
-    setCurrentFeedbackId(feedbackRecord.id);
-
-    // Log analytics: action selected from plan
-    logDraftAnalytics({
-      timestamp: new Date().toISOString(),
-      signal: "selected",
-      barrier: mode === 'now' ? nowForm.barrier : undefined,
-      selected_index: selectedIndex,
-      generated_text: action.action,
-      source: "ai",
-    });
-
-    setShowPlanPicker(false);
-    setPlanResult(null);
-    toast({ title: 'Action applied', description: 'SMART action added to form. Edit as needed.' });
-  }, [mode, nowForm.barrier, nowForm.forename, nowForm.timescale, futureForm.task, futureForm.forename, futureForm.timescale, storage, toast]);
-
-  const handleAIDraft = useCallback(async () => {
-    if (mode === 'now') {
-      if (!nowForm.forename.trim() || !nowForm.barrier.trim()) {
-        toast({ title: 'Missing info', description: 'Add a forename and barrier first.', variant: 'destructive' });
-        return;
-      }
-    } else {
-      if (!futureForm.forename.trim() || !futureForm.task.trim()) {
-        toast({ title: 'Missing info', description: 'Add a forename and task first.', variant: 'destructive' });
-        return;
-      }
-    }
-
-    // User preference: templates - use templates directly
-    if (storage.aiDraftMode === 'template') {
-      if (mode === 'now') templateDraftNow();
-      else templateDraftFuture();
-      return;
-    }
-
-    // On mobile/iPad, use templates unless Experimental Local AI is enabled
-    if (llm.isMobile && !llm.canUseLocalAI) {
-      if (mode === 'now') templateDraftNow();
-      else templateDraftFuture();
-      toast({
-        title: 'Smart templates applied',
-        description: 'Local AI is disabled on mobile/iPad by default. Enable it in Settings (Experimental) to use Local AI.',
-      });
-      return;
-    }
-
-    // If AI not ready, show model picker and mark draft as pending
-    if (!llm.isReady) {
-      pendingAIDraftRef.current = true;
-      setShowLLMPicker(true);
-      return;
-    }
-
-    // Use SmartPlanner for plan generation
-    setAIDrafting(true);
-    try {
-      // Retrieve similar exemplars for context (RAG-style)
-      const barrier = mode === 'now' ? nowForm.barrier : (futureForm.task || '');
-      const barrierCategory = classifyBarrier(barrier);
-      const exemplars = retrieveExemplars(barrier, storage.actionFeedback, 3);
-      const timescale = mode === 'now' ? (nowForm.timescale || '2 weeks') : (futureForm.timescale || '4 weeks');
-      const targetDate = formatDDMMMYY(parseTimescaleToTargetISO(
-        mode === 'now' ? nowForm.date : futureForm.date,
-        timescale,
-      ));
-      const exemplarContext = formatExemplarsForPrompt(
-        exemplars,
-        mode === 'now' ? nowForm.forename : futureForm.forename,
-        targetDate,
-      );
-
-      // Build RawUserInput with enriched context
-      const input: RawUserInput = mode === 'now'
-        ? {
-            goal: `Address ${nowForm.barrier} barrier (category: ${barrierCategory}) for ${nowForm.forename}`,
-            barriers: nowForm.barrier,
-            timeframe: timescale,
-            situation: `Employment advisor helping ${nowForm.forename} with ${nowForm.barrier}.${exemplarContext ? '\n\n' + exemplarContext : ''}`,
-            participant_name: nowForm.forename,
-            supporter: nowForm.responsible,
-            selected_barrier_id: nowForm.barrier,
-            selected_barrier_label: nowForm.barrier,
-          }
-        : {
-            goal: futureForm.task,
-            timeframe: timescale,
-            situation: `Employment advisor helping ${futureForm.forename} plan ahead.${exemplarContext ? '\n\n' + exemplarContext : ''}`,
-            participant_name: futureForm.forename,
-            supporter: futureForm.responsible,
-          };
-
-      const plan = await llm.generatePlan(input);
-
-      // Log analytics: plan generated
-      logDraftAnalytics({
-        timestamp: new Date().toISOString(),
-        signal: "generated",
-        barrier: mode === 'now' ? nowForm.barrier : undefined,
-        barrier_id: input.selected_barrier_id,
-        actions_count: plan.actions.length,
-        source: "ai",
-      });
-
-      // Phase 2: Rank actions by relevance before presenting to user
-      const rankedActions = rankActionsByRelevance(
-        plan.actions,
-        barrier,
-        mode === 'now' ? nowForm.forename : futureForm.forename,
-        timescale,
-      );
-      const rankedPlan = { ...plan, actions: rankedActions };
-
-      if (rankedPlan.actions.length === 1) {
-        // Single action — apply directly
-        handleSelectPlanAction(rankedPlan.actions[0]);
-      } else if (rankedPlan.actions.length > 1) {
-        // Multiple actions — show picker (best action is first)
-        setPlanResult(rankedPlan);
-        setShowPlanPicker(true);
-      } else {
-        throw new Error('Plan generation returned no actions.');
-      }
-
-      scheduleSafariModelUnload();
-    } catch (err) {
-      console.warn('SmartPlanner draft failed, falling back to templates:', err);
-      if (mode === 'now') {
-        let timescale = nowForm.timescale;
-        if (!timescale) timescale = '2 weeks';
-        const { action, help } = aiDraftNow(
-          nowForm.barrier, nowForm.forename, nowForm.responsible,
-          timescale, nowForm.date, suggestQuery,
-        );
-        setNowForm(prev => ({ ...prev, action, help, timescale }));
-      } else {
-        const outcome = aiDraftFuture(futureForm.task, futureForm.forename);
-        setFutureForm(prev => ({ ...prev, outcome }));
-      }
-      // Clear persisted error state so the UI doesn't keep showing the AI
-      // error after templates have been successfully applied.
-      llm.clearError();
-      toast({
-        title: 'Using smart templates',
-        description: 'AI plan generation failed. Applied templates instead.',
-        variant: 'destructive',
-      });
-      scheduleSafariModelUnload(0);
-    } finally {
-      setAIDrafting(false);
-    }
-  }, [mode, nowForm, futureForm, llm, templateDraftNow, templateDraftFuture, toast, storage.aiDraftMode, storage.actionFeedback, scheduleSafariModelUnload, suggestQuery, handleSelectPlanAction]);
-
-  // Auto-trigger AI draft after model finishes loading (when user originally
-  // clicked "AI Draft" which opened the model picker).
-  useEffect(() => {
-    if (llm.isReady && pendingAIDraftRef.current) {
-      pendingAIDraftRef.current = false;
-      handleAIDraft();
-    }
-  }, [llm.isReady, handleAIDraft]);
+  }, [output, storage, smartCheck.overallScore, mode, nowForm, futureForm, translatedOutput, hasTranslation, toast, localSync, currentFeedbackId, showFeedbackUI, aiGeneratedActionRef, resetFeedbackState]);
 
   const handleEditHistory = (item: HistoryItem) => {
     setMode(item.mode);
@@ -868,8 +304,7 @@ export function SmartActionTool() {
       });
     }
     setOutput(item.text || '');
-    setOutputSource('manual'); // Prevent auto-regeneration from overwriting loaded output
-    // Restore translation if the history item had one
+    setOutputSource('manual');
     if (item.meta.translatedText && item.meta.translationLanguage) {
       translatedForOutputRef.current = item.text || '';
       setTranslatedOutput(item.meta.translatedText);
@@ -953,35 +388,7 @@ export function SmartActionTool() {
         outcome: template.outcome || prev.outcome,
       }));
     }
-  }, []);
-
-  // Build context for LLM chat based on current form inputs
-  const buildLLMContext = useCallback(() => {
-    if (mode === 'now') {
-      const parts: string[] = [];
-      if (nowForm.forename) parts.push(`Participant: ${nowForm.forename}`);
-      if (nowForm.barrier) parts.push(`Barrier to work: ${nowForm.barrier}`);
-      if (nowForm.action) parts.push(`Current action: ${nowForm.action}`);
-      if (nowForm.responsible) parts.push(`Responsible person: ${nowForm.responsible}`);
-      if (nowForm.help) parts.push(`Help/support: ${nowForm.help}`);
-      if (nowForm.timescale) parts.push(`Review in: ${nowForm.timescale}`);
-      return parts.length > 0 
-        ? `Help me improve this SMART action for employment support:\n\n${parts.join('\n')}\n\nHow can I make this more specific, measurable, and actionable?`
-        : 'Help me create a SMART action for employment support. The action should address a barrier to work.';
-    } else {
-      const parts: string[] = [];
-      if (futureForm.forename) parts.push(`Participant: ${futureForm.forename}`);
-      if (futureForm.task) parts.push(`Activity/event: ${futureForm.task}`);
-      if (futureForm.responsible) parts.push(`Who is responsible: ${futureForm.responsible}`);
-      if (futureForm.outcome) parts.push(`Expected outcome: ${futureForm.outcome}`);
-      if (futureForm.timescale) parts.push(`Review in: ${futureForm.timescale}`);
-      return parts.length > 0 
-        ? `Help me improve this task-based SMART action:\n\n${parts.join('\n')}\n\nHow can I make this more specific and measurable?`
-        : 'Help me create a task-based SMART action for a future activity or event.';
-    }
-  }, [mode, nowForm, futureForm]);
-
-  // Backend-taught prompt pack (cached locally). This is NOT user-learned.
+  }, [setNowForm, setFutureForm]);
 
   const handleExport = () => {
     // Use the same format as exportAllData for consistency and full round-trip support
@@ -1022,63 +429,9 @@ export function SmartActionTool() {
     }
     setWizardMode(false);
     toast({ title: 'Wizard complete', description: 'Form populated. Review and generate your action.' });
-  }, [mode, toast]);
-
-  // Handle wizard AI draft — uses SmartPlanner plan generation with template fallback
-  const handleWizardAIDraft = useCallback(async (field: string, context: Record<string, string>): Promise<string> => {
-    if (storage.aiDraftMode === 'ai' && !llm.isReady) {
-      if (llm.canUseLocalAI) {
-        setShowLLMPicker(true);
-        toast({ title: 'Load Local AI', description: 'Pick a model to enable AI drafting.' });
-      } else {
-        toast({ title: 'Local AI not available', description: 'Enable Local AI in Settings or use Smart Templates.', variant: 'destructive' });
-      }
-      return '';
-    }
-
-    // If AI is ready, use SmartPlanner
-    if (llm.isReady) {
-      try {
-        const input: RawUserInput = {
-          goal: context.barrier || context.task || 'Employment support',
-          barriers: context.barrier,
-          timeframe: context.timescale || '2 weeks',
-          situation: `Helping ${context.forename || 'participant'}`,
-          participant_name: context.forename,
-          supporter: context.responsible,
-          selected_barrier_id: context.barrier,
-          selected_barrier_label: context.barrier,
-        };
-        const plan = await llm.generatePlan(input);
-        if (plan.actions.length > 0) {
-          const action = plan.actions[0];
-          if (field === 'action') return action.action;
-          if (field === 'help') return action.first_step || action.rationale;
-          if (field === 'outcome') return action.action;
-        }
-        scheduleSafariModelUnload();
-      } catch (err) {
-        console.warn('SmartPlanner wizard draft failed, falling back to templates:', err);
-        toast({ title: 'Using smart templates', description: 'AI generation failed. Applied templates instead.', variant: 'destructive' });
-        scheduleSafariModelUnload(0);
-      }
-    }
-
-    // Template fallback
-    if (mode === 'now') {
-      const timescale = context.timescale || '2 weeks';
-      if (field === 'action' || field === 'help') {
-        const { action, help } = aiDraftNow(context.barrier || '', context.forename || '', context.responsible || 'Advisor', timescale, nowForm.date);
-        return field === 'action' ? action : help;
-      }
-    } else {
-      if (field === 'outcome') return aiDraftFuture(context.task || '', context.forename || '');
-    }
-    return '';
-  }, [mode, nowForm.date, llm, storage.aiDraftMode, toast, scheduleSafariModelUnload]);
+  }, [mode, setNowForm, setFutureForm, setWizardMode, toast]);
 
   // Keyboard shortcuts configuration
-  // Note: 'id' values must match the action IDs used in FloatingToolbar for shortcut hints to work
   const shortcuts: ShortcutConfig[] = useMemo(() => [
     { ...SMART_TOOL_SHORTCUTS.saveToHistory, action: handleSave },
     { ...SMART_TOOL_SHORTCUTS.aiDraft, action: handleAIDraft },
@@ -1087,9 +440,8 @@ export function SmartActionTool() {
     { ...SMART_TOOL_SHORTCUTS.switchToNow, action: () => { setMode('now'); setShowValidation(false); } },
     { ...SMART_TOOL_SHORTCUTS.switchToFuture, action: () => { setMode('future'); setShowValidation(false); } },
     { ...SMART_TOOL_SHORTCUTS.showShortcutsHelp, action: () => setShortcutsHelpOpen(true) },
-  ], [handleSave, handleAIDraft, handleCopy, handleClear]);
+  ], [handleSave, handleAIDraft, handleCopy, handleClear, setMode, setShowValidation]);
 
-  // Create a map of shortcut IDs to formatted shortcut strings for UI components
   const shortcutMap = useMemo(() => createShortcutMap(shortcuts), [shortcuts]);
 
   useKeyboardShortcuts(shortcuts, true);
@@ -1133,11 +485,6 @@ export function SmartActionTool() {
     };
     reader.readAsText(file);
     e.target.value = '';
-  };
-
-  const getFieldClass = (isValid: boolean) => {
-    if (!showValidation) return '';
-    return isValid ? 'border-green-500/50' : 'border-destructive/60 shadow-[0_0_0_2px_rgba(239,68,68,0.15)]';
   };
 
   return (
