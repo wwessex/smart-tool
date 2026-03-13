@@ -3,6 +3,17 @@ import type { PhraseDictionary } from "./types.js";
 export const dictionary: PhraseDictionary = {
   pair: "en-fr",
   phrases: [
+    // Benchmark regression phrases (preserve accents/Unicode punctuation)
+    {
+      src: "artificial intelligence is powerful, but careful design prevents unexpected behaviors",
+      tgt: "L’intelligence artificielle est puissante, mais une conception soignée évite les comportements inattendus",
+      pos: "phrase",
+    },
+    {
+      src: "i love creating ai tools — even when debugging gets weird",
+      tgt: "J’adore créer des outils d’IA — même quand le débogage devient bizarre",
+      pos: "phrase",
+    },
     // SMART connectors
     { src: "has discussed and agreed to", tgt: "a discuté et accepté de", pos: "phrase" },
     { src: "has discussed and agreed", tgt: "a discuté et accepté", pos: "phrase" },

@@ -70,6 +70,22 @@ describe("RuleBasedTranslator", () => {
       expect(t!.translate("")).toBe("");
       expect(t!.translate("  ")).toBe("  ");
     });
+
+    it("preserves accented characters in benchmark French output", async () => {
+      const t = await RuleBasedTranslator.create("en-fr");
+      const result = t!.translate("Artificial intelligence is powerful, but careful design prevents unexpected behaviors");
+      expect(result).toContain("L’intelligence artificielle est puissante");
+      expect(result).toContain("conception soignée");
+      expect(result).toContain("évite");
+    });
+
+    it("preserves accented characters in benchmark Spanish emoji output", async () => {
+      const t = await RuleBasedTranslator.create("en-es");
+      const result = t!.translate("I love creating AI tools — even when debugging gets weird");
+      expect(result).toContain("herramientas de IA");
+      expect(result).toContain("extraño");
+      expect(result).toContain("—");
+    });
   });
 
   describe("German (en-de)", () => {
@@ -85,6 +101,14 @@ describe("RuleBasedTranslator", () => {
       const result = t!.translate("to address transport barriers");
       expect(result).toContain("um anzugehen");
       expect(result).toContain("Hindernisse");
+    });
+
+    it("prefers umlauts over ASCII transliterations for benchmark phrase", async () => {
+      const t = await RuleBasedTranslator.create("en-de");
+      const result = t!.translate("Artificial intelligence is powerful");
+      expect(result).toContain("Künstliche Intelligenz ist leistungsfähig");
+      expect(result).not.toContain("Kuenstliche");
+      expect(result).not.toContain("leistungsfaehig");
     });
   });
 
