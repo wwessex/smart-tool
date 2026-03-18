@@ -126,7 +126,7 @@ async function handleGenerate(
       top_p: configOverrides.top_p,
       repetition_penalty: configOverrides.repetition_penalty,
       signal: abortController.signal,
-      stop_sequences: ["<|/json|>", "<|end|>"],
+      stop_sequences: ["<|im_end|>"],
       on_token: (token, done) => {
         postMessage({
           type: "token",

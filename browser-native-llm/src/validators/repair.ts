@@ -33,7 +33,7 @@ export function buildRetryInstructionBlock(
   const strictnessLabel = attempt <= 1 ? "SOFT RETRY CONSTRAINTS" : "HARD RETRY CONSTRAINTS";
   const lines = [
     "",
-    "<|begin|>user",
+    "<|im_start|>user",
     `REPAIR INSTRUCTIONS (${strictnessLabel}):`,
     `- Previous output failed because: ${summary.compact}.`,
     "- Must satisfy all SMART checks and output valid JSON only.",
@@ -49,7 +49,9 @@ export function buildRetryInstructionBlock(
     lines.push("- HARD REQUIREMENT: first action must directly reduce the stated barrier.");
   }
 
-  lines.push("<|end|>");
+  lines.push("<|im_end|>");
+  lines.push("<|im_start|>assistant");
+  lines.push("[");
   return lines.join("\n");
 }
 
