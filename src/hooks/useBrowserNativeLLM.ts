@@ -425,9 +425,13 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
         throw new Error("Planner not initialized. Call initialize() first.");
       }
 
-      // Merge in debug log callback to capture pipeline trace
+      // Merge in debug log callback to capture pipeline trace.
+      // Check isDebugEnabled() at generation time so toggling the flag
+      // in localStorage works without reloading the page.
+      const debugNow = isDebugEnabled();
       const mergedCallbacks: PlannerCallbacks = {
         ...callbacks,
+        debug: debugNow || callbacks?.debug,
         onDebugLog: (log) => {
           setState((prev) => ({ ...prev, lastDebugLog: log }));
           callbacks?.onDebugLog?.(log);
