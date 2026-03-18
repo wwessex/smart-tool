@@ -16,6 +16,7 @@ import type {
   BrowserCapabilities,
   DownloadProgress,
   PlannerCallbacks,
+  PipelineDebugLog,
 } from "@smart-tool/browser-native-llm";
 
 // ---------------------------------------------------------------------------
@@ -62,7 +63,7 @@ export interface UseBrowserNativeLLMOptions {
 }
 
 // Re-export types for consumers
-export type { SMARTAction, SMARTPlan, RawUserInput, PlannerCallbacks };
+export type { SMARTAction, SMARTPlan, RawUserInput, PlannerCallbacks, PipelineDebugLog };
 
 // ---------------------------------------------------------------------------
 // Browser / device detection
@@ -135,6 +136,8 @@ interface HookState {
   activeBackend: InferenceBackend | null;
   /** Whether the model is cached in the browser (checked on mount). */
   isCached: boolean | null;
+  /** Last pipeline debug log (only populated when debug mode is enabled). */
+  lastDebugLog: PipelineDebugLog | null;
 }
 
 /** Maximum time (ms) to wait for plan generation before timing out. */
@@ -152,7 +155,17 @@ const INITIAL_STATE: HookState = {
   capabilities: null,
   activeBackend: null,
   isCached: null,
+  lastDebugLog: null,
 };
+
+/** Check if debug mode is enabled via localStorage. */
+function isDebugEnabled(): boolean {
+  try {
+    return localStorage.getItem("smartTool.debug") === "true";
+  } catch {
+    return false;
+  }
+}
 
 /** Map progress phase to user-facing status text. */
 function progressPhaseToStatus(phase: string): string {
@@ -307,6 +320,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
           template_only: false,
           max_repair_attempts: 2,
           min_validation_score: 60,
+          debug: isDebugEnabled(),
         });
 
         // Step 3: initialize planner (loads retrieval pack + model via worker)
@@ -411,9 +425,18 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
         throw new Error("Planner not initialized. Call initialize() first.");
       }
 
+      // Merge in debug log callback to capture pipeline trace
+      const mergedCallbacks: PlannerCallbacks = {
+        ...callbacks,
+        onDebugLog: (log) => {
+          setState((prev) => ({ ...prev, lastDebugLog: log }));
+          callbacks?.onDebugLog?.(log);
+        },
+      };
+
       const runWithTimeout = async (): Promise<SMARTPlan> => {
         return Promise.race([
-          planner.generatePlan(input, callbacks),
+          planner.generatePlan(input, mergedCallbacks),
           new Promise<never>((_, reject) => {
             setTimeout(
               () => reject(new Error("Plan generation timed out")),
@@ -646,5 +669,8 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
     isModelAvailable,
     checkCached,
     preloadIfCached,
+
+    // Debug
+    lastDebugLog: state.lastDebugLog,
   };
 }

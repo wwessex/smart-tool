@@ -32,6 +32,7 @@ import { OutputPanel } from './OutputPanel';
 import { PanelErrorBoundary } from './PanelErrorBoundary';
 import { LLMPickerDialog } from './LLMPickerDialog';
 import { PlanPickerDialog } from './PlanPickerDialog';
+import { DebugPanel } from './DebugPanel';
 import { GUIDANCE } from '@/lib/smart-data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -1225,6 +1226,9 @@ export function SmartActionTool() {
         barrier={mode === 'now' ? nowForm.barrier : taskBasedForm.task}
         onSelectAction={handleSelectPlanAction}
       />
+
+      {/* LLM Pipeline Debug Panel (enable via localStorage.setItem("smartTool.debug", "true")) */}
+      <DebugPanel log={llm.lastDebugLog} />
 
       {/* LLM Model Picker Dialog */}
       <LLMPickerDialog
