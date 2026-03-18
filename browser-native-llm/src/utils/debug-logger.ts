@@ -7,10 +7,21 @@
  *
  * Activated via `debug: true` in PlannerConfig. All methods are
  * no-ops when disabled — zero overhead in production.
+ *
+ * Console output uses indirect references so that esbuild's
+ * `drop: ['console']` (used in production builds) does not strip
+ * debug logging — the user has explicitly opted in via localStorage.
  */
 
 import type { UserProfile, SMARTCriteriaResult } from "../types.js";
 import type { AssembledPrompt } from "../planner/prompt-assembler.js";
+
+// Indirect console references survive esbuild `drop: ['console']`.
+// Only resolved when debug mode is active, so zero cost otherwise.
+const _console = /* @__PURE__ */ (() => globalThis.console)();
+const _log = _console.log.bind(_console);
+const _group = (_console.groupCollapsed ?? _console.log).bind(_console);
+const _groupEnd = (_console.groupEnd ?? (() => {})).bind(_console);
 
 /** Per-action validation detail captured during pipeline execution. */
 export interface ActionValidationEntry {
@@ -175,50 +186,50 @@ export class PipelineDebugLogger {
     if (!this.enabled) return null;
 
     try {
-      console.groupCollapsed("[smart-planner] Pipeline Debug");
+      _group("[smart-planner] Pipeline Debug");
 
-      console.debug("Profile:", this.log.normalizedProfile);
-      console.debug(
+      _log("Profile:", this.log.normalizedProfile);
+      _log(
         "Retrieval:",
         this.log.retrievalSummary,
         `(${this.log.templatesRetrieved} templates, ${this.log.skillsRetrieved} skills)`,
       );
 
-      console.groupCollapsed("Assembled Prompt");
-      console.debug(this.log.assembledPrompt);
-      console.debug("Estimated tokens:", this.log.promptEstimatedTokens);
-      console.debug("Dropped sections:", this.log.promptDroppedSections);
-      console.debug(
+      _group("Assembled Prompt");
+      _log(this.log.assembledPrompt);
+      _log("Estimated tokens:", this.log.promptEstimatedTokens);
+      _log("Dropped sections:", this.log.promptDroppedSections);
+      _log(
         `Templates: ${this.log.promptTemplatesIncluded} included, ${this.log.promptTemplatesDropped} dropped`,
       );
-      console.groupEnd();
+      _groupEnd();
 
-      console.groupCollapsed("Raw Model Output");
-      console.debug(this.log.rawModelOutput);
-      console.debug(`Inference time: ${this.log.inferenceTimeMs.toFixed(0)}ms`);
-      console.groupEnd();
+      _group("Raw Model Output");
+      _log(this.log.rawModelOutput);
+      _log(`Inference time: ${this.log.inferenceTimeMs.toFixed(0)}ms`);
+      _groupEnd();
 
-      console.debug(
+      _log(
         "JSON Parse:",
         this.log.jsonParseSuccess ? "OK" : "FAILED",
         `(${this.log.parsedActionCount} actions)`,
       );
 
       if (this.log.actionValidations.length > 0) {
-        console.groupCollapsed(`Action Validations (${this.log.actionValidations.length})`);
+        _group(`Action Validations (${this.log.actionValidations.length})`);
         for (const v of this.log.actionValidations) {
           const status = v.passed ? "PASS" : v.repaired ? "REPAIRED" : "FAIL";
-          console.debug(
+          _log(
             `[${status}] score=${v.score}`,
             truncate(v.actionText, 80),
             v.criteria,
           );
         }
-        console.groupEnd();
+        _groupEnd();
       }
 
       if (this.log.planValidation) {
-        console.debug(
+        _log(
           "Plan Validation:",
           `score=${this.log.planValidation.score}`,
           this.log.planValidation.issues,
@@ -226,28 +237,28 @@ export class PipelineDebugLogger {
       }
 
       if (this.log.repairAttempts.length > 0) {
-        console.groupCollapsed(`Repair Attempts (${this.log.repairAttempts.length})`);
+        _group(`Repair Attempts (${this.log.repairAttempts.length})`);
         for (const r of this.log.repairAttempts) {
-          console.debug(
+          _log(
             `Attempt ${r.attempt}: temp=${r.temperature}`,
             `json=${r.jsonParseSuccess ? "OK" : "FAIL"}`,
             `actions=${r.parsedActionCount}`,
             `time=${r.timeMs.toFixed(0)}ms`,
             r.validationOutcome,
           );
-          console.debug("Raw output:", r.rawOutput);
+          _log("Raw output:", r.rawOutput);
         }
-        console.groupEnd();
+        _groupEnd();
       }
 
-      console.debug(
+      _log(
         "Outcome:",
         this.log.outcome,
         `| ${this.log.finalActionCount} actions`,
         `| ${this.log.totalTimeMs.toFixed(0)}ms total`,
       );
 
-      console.groupEnd();
+      _groupEnd();
     } catch {
       // Never let debug logging break the pipeline
     }
