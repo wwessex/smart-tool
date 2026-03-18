@@ -128,7 +128,7 @@ export const DEFAULT_INFERENCE_CONFIG = {
   model_base_url: "./models/smart-planner-150m-q4/",
   max_seq_length: 1024,
   max_new_tokens: 512,
-  temperature: 0,
-  top_p: 1.0,
-  repetition_penalty: 1.1,
+  temperature: 0.5,
+  top_p: 0.85,
+  repetition_penalty: 1.3,
 } as const;

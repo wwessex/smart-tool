@@ -203,25 +203,21 @@ function tryParseArray(text: string): unknown[] | null {
 function cleanJsonString(text: string): string {
   let cleaned = text;
 
+  // Fix unescaped newlines inside JSON strings FIRST (common model error).
+  // Must happen before quote normalization so string boundary detection
+  // in normalizeAndEscapeQuotes works correctly on single-line strings.
+  cleaned = fixNewlinesInStrings(cleaned);
+
   // Normalise typographic quotes and repair unescaped quotes inside strings.
   cleaned = normalizeAndEscapeQuotes(cleaned);
 
   // Remove trailing commas before ] or } (manual scan to avoid ReDoS)
   cleaned = removeTrailingCommas(cleaned);
 
-  // Fix unescaped newlines inside JSON strings (common model error)
-  // Uses character-by-character scan instead of regex lookbehind to avoid ReDoS
-  cleaned = fixNewlinesInStrings(cleaned);
-
-  // Remove any trailing incomplete JSON (model ran out of tokens)
-  // Find the last complete object in the array
-  const lastBrace = cleaned.lastIndexOf("}");
-  const lastBracket = cleaned.lastIndexOf("]");
-
-  if (lastBrace > lastBracket && lastBracket !== -1) {
-    // Array was not closed; close it after the last complete object
-    cleaned = cleaned.slice(0, lastBrace + 1) + "]";
-  }
+  // Remove any trailing incomplete JSON (model ran out of tokens).
+  // Use bracket-depth tracking to find the last complete object,
+  // avoiding false matches on "}" inside string values.
+  cleaned = truncateToLastCompleteObject(cleaned);
 
   return cleaned;
 }
@@ -322,6 +318,65 @@ function removeTrailingCommas(text: string): string {
   }
 
   return result;
+}
+
+/**
+ * Truncate JSON to the last complete object in an array.
+ * Uses bracket-depth tracking to avoid false matches on "}" inside strings.
+ */
+function truncateToLastCompleteObject(text: string): string {
+  let inString = false;
+  let escaped = false;
+  let depth = 0;
+  let lastCompleteObjectEnd = -1;
+  let arrayOpened = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (char === "[") {
+      if (!arrayOpened) arrayOpened = true;
+      depth++;
+    } else if (char === "]") {
+      depth--;
+      if (depth === 0) {
+        // Array is properly closed — no truncation needed
+        return text;
+      }
+    } else if (char === "{") {
+      depth++;
+    } else if (char === "}") {
+      depth--;
+      if (depth === 1) {
+        // Just closed a top-level object inside the array
+        lastCompleteObjectEnd = i;
+      }
+    }
+  }
+
+  // Array was not closed; truncate after the last complete object
+  if (lastCompleteObjectEnd > 0) {
+    return text.slice(0, lastCompleteObjectEnd + 1) + "]";
+  }
+
+  return text;
 }
 
 function fixNewlinesInStrings(text: string): string {

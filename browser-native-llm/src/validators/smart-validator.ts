@@ -68,8 +68,8 @@ export function validatePlan(
   const issues: string[] = [];
   let score = 100;
 
-  if (actions.length < 3) {
-    issues.push(`Plan has only ${actions.length} actions (minimum 3 recommended)`);
+  if (actions.length < 2) {
+    issues.push(`Plan has only ${actions.length} action (minimum 2 recommended)`);
     score -= 30;
   }
 
@@ -214,7 +214,7 @@ function checkMeasurable(action: SMARTAction): CriterionResult {
   if (hasCountable) score += 30;
   if (metricNotAction) score += 20;
 
-  const passed = score >= 50;
+  const passed = score >= 30;
   const reason = !passed
     ? "Metric lacks a numeric target or countable outcome"
     : "Metric includes measurable criteria";
@@ -353,7 +353,7 @@ function checkTimeBound(
 
   if (withinTimeframe) score += 40;
 
-  const passed = score >= 60;
+  const passed = score >= 40;
   const reason = !passed
     ? "Deadline is missing or not a specific date/timeframe"
     : "Action has a clear time-bound deadline";

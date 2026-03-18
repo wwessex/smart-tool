@@ -108,17 +108,17 @@ async function handleGenerate(
     return;
   }
 
+  const abortController = new AbortController();
+
+  // Listen for abort messages for this generation ID
+  const abortHandler = (event: MessageEvent<WorkerMessage>) => {
+    if (event.data.type === "abort" && event.data.id === id) {
+      abortController.abort();
+    }
+  };
+  self.addEventListener("message", abortHandler as EventListener);
+
   try {
-    const abortController = new AbortController();
-
-    // Listen for abort messages for this generation ID
-    const abortHandler = (event: MessageEvent<WorkerMessage>) => {
-      if (event.data.type === "abort" && event.data.id === id) {
-        abortController.abort();
-      }
-    };
-    self.addEventListener("message", abortHandler as EventListener);
-
     const result: GenerateResult = await engine.generate({
       prompt,
       max_new_tokens: configOverrides.max_new_tokens,
@@ -137,8 +137,6 @@ async function handleGenerate(
       },
     });
 
-    self.removeEventListener("message", abortHandler as EventListener);
-
     postMessage({
       type: "generate_complete",
       id,
@@ -152,5 +150,8 @@ async function handleGenerate(
       id,
       error: error instanceof Error ? error.message : String(error),
     } satisfies WorkerMessage);
+  } finally {
+    // Always remove the abort listener to prevent memory leaks on repeated failures
+    self.removeEventListener("message", abortHandler as EventListener);
   }
 }

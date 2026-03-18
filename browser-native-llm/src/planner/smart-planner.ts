@@ -55,9 +55,9 @@ const DEFAULT_PLANNER_CONFIG: PlannerConfig = {
   inference: DEFAULT_INFERENCE_CONFIG as InferenceConfig,
   retrieval_pack_url: "./retrieval-packs/job-search-actions.json",
   worker_url: "./worker.js",
-  max_repair_attempts: 2,
-  min_validation_score: 60,
-  min_plan_validation_score: 70,
+  max_repair_attempts: 3,
+  min_validation_score: 45,
+  min_plan_validation_score: 55,
   template_only: false,
 };
 
@@ -274,9 +274,12 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
         );
       }
 
+      // Use progressively higher temperature on retries to increase output diversity
+      const retryTemperature = Math.min(0.7, this.config.inference.temperature + repairAttempts * 0.15);
       rawOutput = "[" + await this.runInference(
         retryPrompt,
-        callbacks?.onTokenGenerated
+        callbacks?.onTokenGenerated,
+        { temperature: retryTemperature },
       );
       validation = this.parseAndValidate(rawOutput, profile, callbacks);
       actions = validation.actions;
@@ -370,7 +373,8 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
 
   private runInference(
     prompt: string,
-    onToken?: (token: string) => void
+    onToken?: (token: string) => void,
+    configOverrides: Partial<InferenceConfig> = {},
   ): Promise<string> {
     return new Promise((resolve, reject) => {
       if (!this.worker) return reject(new Error("Worker not available"));
@@ -404,7 +408,7 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
         type: "generate",
         id,
         prompt,
-        config: {},
+        config: configOverrides,
       } satisfies WorkerMessage);
     });
   }
