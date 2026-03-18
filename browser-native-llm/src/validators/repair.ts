@@ -36,15 +36,33 @@ export function buildRetryInstructionBlock(
     "<|im_start|>user",
     `REPAIR INSTRUCTIONS (${strictnessLabel}):`,
     `- Previous output failed because: ${summary.compact}.`,
-    "- Must satisfy all SMART checks and output valid JSON only.",
-    "- Must keep barrier-first ordering when barriers are present.",
-    "- Must keep action difficulty aligned with stated confidence level.",
   ];
+
+  // Include specific SMART criteria failures so the model knows what to fix
+  const failedCriteria = Object.entries(summary.smartCriteriaFailures)
+    .filter(([, count]) => count > 0)
+    .map(([criterion, count]) => `${criterion} (${count} actions failed)`);
+  if (failedCriteria.length > 0) {
+    lines.push(`- Failed SMART criteria: ${failedCriteria.join(", ")}.`);
+    lines.push("- Fix these specifically: use concrete verbs for specific, add numbers for measurable, include ISO dates (YYYY-MM-DD) for time_bound.");
+  }
+
+  if (summary.barrierFitFailures.length > 0) {
+    lines.push(`- Barrier issues: ${summary.barrierFitFailures.join("; ")}.`);
+  }
+
+  if (summary.planLevelIssues.length > 0) {
+    lines.push(`- Plan issues: ${summary.planLevelIssues.join("; ")}.`);
+  }
+
+  lines.push("- Must output valid JSON only — an array of action objects.");
+  lines.push("- Must keep barrier-first ordering when barriers are present.");
 
   if (attempt <= 1) {
     lines.push("- Prefer concise, concrete actions with measurable numeric targets and realistic effort.");
   } else {
-    lines.push("- HARD REQUIREMENT: every action must pass all SMART criteria.");
+    lines.push("- HARD REQUIREMENT: every action must include a deadline in YYYY-MM-DD format.");
+    lines.push("- HARD REQUIREMENT: every metric must include a number.");
     lines.push("- HARD REQUIREMENT: output exactly 3 actions only, prioritised and non-duplicated.");
     lines.push("- HARD REQUIREMENT: first action must directly reduce the stated barrier.");
   }

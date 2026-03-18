@@ -16,6 +16,8 @@ export type AIErrorCategory =
   | "memory"        // OOM, tab crash, memory pressure
   | "device"        // WebGPU / WASM / SharedArrayBuffer issues
   | "parse"         // response parsing (JSON / format) issues
+  | "validation"    // actions generated but failed SMART criteria scoring
+  | "plan_rejected" // plan-level rejection (barrier fit, action count, effort)
   | "consent"       // AI consent not granted
   | "unknown";
 
@@ -113,6 +115,22 @@ const ERROR_PATTERNS: ErrorPattern[] = [
     category: "model_load",
     title: "Model failed to load",
     message: "The AI model could not initialize. Try reloading the page or clearing browser storage in Settings.",
+    retryable: true,
+  },
+  // Validation failures (actions exist but scored too low)
+  {
+    test: (m) => /No actions passed.*validation|validation score.*below|failed.*SMART criteria/i.test(m),
+    category: "validation",
+    title: "Actions didn't meet quality threshold",
+    message: "The AI generated actions but they didn't meet SMART criteria. Regenerating with adjusted parameters.",
+    retryable: true,
+  },
+  // Plan-level rejection (barrier fit, action count, effort mismatch)
+  {
+    test: (m) => /Plan score.*below|No actions directly address|barrier|plan.*rejected/i.test(m),
+    category: "plan_rejected",
+    title: "Plan doesn't fit your needs",
+    message: "The generated plan didn't address your barrier well enough. Try regenerating or use Smart Templates.",
     retryable: true,
   },
   // Parse / response format
