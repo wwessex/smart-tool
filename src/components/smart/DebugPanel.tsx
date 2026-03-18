@@ -8,6 +8,7 @@
  * scores, repair attempt details, and stage timing.
  */
 
+import { useRef, useEffect } from "react";
 import type { PipelineDebugLog } from "@/hooks/useBrowserNativeLLM";
 
 interface DebugPanelProps {
@@ -15,6 +16,20 @@ interface DebugPanelProps {
 }
 
 export function DebugPanel({ log }: DebugPanelProps) {
+  const panelRef = useRef<HTMLDetailsElement>(null);
+  const prevTimestampRef = useRef<string | null>(null);
+
+  // Auto-scroll into view when a new debug log arrives
+  useEffect(() => {
+    if (log && log.timestamp !== prevTimestampRef.current) {
+      prevTimestampRef.current = log.timestamp;
+      // Small delay so the DOM has rendered the panel
+      requestAnimationFrame(() => {
+        panelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
+    }
+  }, [log]);
+
   if (!log) return null;
 
   const outcomeColors: Record<string, string> = {
@@ -24,7 +39,7 @@ export function DebugPanel({ log }: DebugPanelProps) {
   };
 
   return (
-    <details className="mt-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-xs">
+    <details ref={panelRef} open className="mt-4 rounded-lg border-2 border-amber-400 dark:border-amber-500 bg-gray-50 dark:bg-gray-900 text-xs">
       <summary className="cursor-pointer px-3 py-2 font-mono font-semibold text-gray-600 dark:text-gray-400 select-none">
         LLM Pipeline Debug
         <span className={`ml-2 ${outcomeColors[log.outcome] ?? ""}`}>
