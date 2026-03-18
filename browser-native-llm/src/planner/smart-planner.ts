@@ -30,6 +30,7 @@ import {
 import { SMART_ACTION_SCHEMA, parseJsonOutput } from "../validators/schema.js";
 import { DEFAULT_INFERENCE_CONFIG } from "../model/config.js";
 import { sanitizeForLog } from "../utils/sanitize.js";
+import { PipelineDebugLogger, type PipelineDebugLog } from "../utils/debug-logger.js";
 
 /** Configuration for the SMART planner. */
 export interface PlannerConfig {
@@ -49,6 +50,8 @@ export interface PlannerConfig {
   min_plan_validation_score: number;
   /** Skip model worker init and run in retrieval/template-only mode. */
   template_only?: boolean;
+  /** Enable detailed pipeline debug logging to console. Default: false. */
+  debug?: boolean;
 }
 
 const DEFAULT_PLANNER_CONFIG: PlannerConfig = {
@@ -59,6 +62,7 @@ const DEFAULT_PLANNER_CONFIG: PlannerConfig = {
   min_validation_score: 45,
   min_plan_validation_score: 55,
   template_only: false,
+  debug: false,
 };
 
 /** Events emitted by the planner during plan generation. */
@@ -69,6 +73,8 @@ export interface PlannerCallbacks {
   onValidationResult?: (score: number, issues: string[]) => void;
   onRepairAttempt?: (attempt: number, issues: string[]) => void;
   onPlanRejected?: (reason: string, score: number, issues: string[]) => void;
+  /** Called with the complete pipeline debug log when debug mode is enabled. */
+  onDebugLog?: (log: PipelineDebugLog) => void;
 }
 
 interface ParseValidationOutcome {
@@ -225,31 +231,42 @@ export class SmartPlanner {
       return this.generateTemplatePlan(input);
     }
 
+    const debugLog = new PipelineDebugLogger(this.config.debug ?? false);
     const startTime = performance.now();
 
     // Step 1: Normalise user profile
     const profile = normalizeProfile(input);
+    debugLog.logProfile(profile);
 
     // Step 2: Retrieve relevant templates and skills
     const retrieval = this.retriever.retrieve(profile);
+    debugLog.logRetrieval(
+      retrieval.retrieval_summary,
+      retrieval.templates.length,
+      retrieval.skills.length,
+    );
 
     // Step 3: Assemble prompt
     const prompt = assemblePrompt(profile, retrieval);
     const basePrompt = prompt.text;
+    debugLog.logPrompt(prompt);
 
     // Step 4: Generate with the LLM
     // The prompt primes the assistant with "[" so we prepend it to the output.
+    const inferStart = performance.now();
     let rawOutput = "[" + await this.runInference(
       basePrompt,
       callbacks?.onTokenGenerated
     );
+    debugLog.logRawOutput(rawOutput, performance.now() - inferStart);
 
     // Step 5: Parse and validate output
-    let validation = this.parseAndValidate(rawOutput, profile, callbacks);
+    let validation = this.parseAndValidate(rawOutput, profile, callbacks, debugLog);
     let actions = validation.actions;
 
     // Step 6: Repair loop if needed
     let repairAttempts = 0;
+    let usedRepair = false;
     while (
       actions === null &&
       repairAttempts < this.config.max_repair_attempts
@@ -276,17 +293,33 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
 
       // Use progressively higher temperature on retries to increase output diversity
       const retryTemperature = Math.min(0.7, this.config.inference.temperature + repairAttempts * 0.15);
+      const repairInferStart = performance.now();
       rawOutput = "[" + await this.runInference(
         retryPrompt,
         callbacks?.onTokenGenerated,
         { temperature: retryTemperature },
       );
-      validation = this.parseAndValidate(rawOutput, profile, callbacks);
+      const repairInferTime = performance.now() - repairInferStart;
+
+      validation = this.parseAndValidate(rawOutput, profile, callbacks, debugLog);
       actions = validation.actions;
+
+      debugLog.logRepairAttempt({
+        attempt: repairAttempts,
+        temperature: retryTemperature,
+        rawOutput,
+        jsonParseSuccess: validation.actions !== null || validation.rejectionReason !== "Model output was not valid JSON",
+        parsedActionCount: validation.actions?.length ?? 0,
+        validationOutcome: validation.actions ? "passed" : (validation.rejectionReason ?? "failed"),
+        timeMs: repairInferTime,
+      });
+
+      if (actions !== null) usedRepair = true;
     }
 
     // Step 7: Fallback to template-based actions if repair loop exhausted
-    if (actions === null) {
+    const isFallback = actions === null;
+    if (isFallback) {
       actions = createFallbackActions(
         profile,
         retrieval.templates
@@ -294,6 +327,17 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
     }
 
     const endTime = performance.now();
+
+    // Log outcome
+    debugLog.logOutcome(
+      isFallback ? "fallback_templates" : usedRepair ? "repair_success" : "llm_success",
+      endTime - startTime,
+      actions.length,
+    );
+    const debugResult = debugLog.flush();
+    if (debugResult) {
+      callbacks?.onDebugLog?.(debugResult);
+    }
 
     return {
       actions,
@@ -416,11 +460,13 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
   private parseAndValidate(
     rawOutput: string,
     profile: UserProfile,
-    callbacks?: PlannerCallbacks
+    callbacks?: PlannerCallbacks,
+    debugLog?: PipelineDebugLogger,
   ): ParseValidationOutcome {
     // Parse JSON from model output
     const parsed = parseJsonOutput(rawOutput);
     if (!parsed) {
+      debugLog?.logJsonParse(false, 0);
       const rejectionReason = "Model output was not valid JSON";
       const failureSummary: RetryFailureSummary = {
         smartCriteriaFailures: {
@@ -439,6 +485,8 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
       return { actions: null, rejectionReason, failureSummary };
     }
 
+    debugLog?.logJsonParse(true, parsed.length);
+
     // Validate each action
     const validatedActions: SMARTAction[] = [];
     const allIssues: string[] = [];
@@ -454,6 +502,13 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
       // Check schema compliance
       if (!SMART_ACTION_SCHEMA.validate(rawAction)) {
         allIssues.push(`Schema validation failed for action: ${sanitizeForLog(JSON.stringify(rawAction))}`);
+        debugLog?.logActionValidation({
+          actionText: sanitizeForLog(JSON.stringify(rawAction), 100),
+          score: 0,
+          criteria: {},
+          passed: false,
+          repaired: false,
+        });
         continue;
       }
 
@@ -462,11 +517,25 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
 
       if (result.score >= this.config.min_validation_score) {
         validatedActions.push(action);
+        debugLog?.logActionValidation({
+          actionText: action.action,
+          score: result.score,
+          criteria: result.criteria,
+          passed: true,
+          repaired: false,
+        });
       } else {
         // Attempt repair
         const repaired = repairAction(action, result, profile);
         if (repaired) {
           validatedActions.push(repaired);
+          debugLog?.logActionValidation({
+            actionText: action.action,
+            score: result.score,
+            criteria: result.criteria,
+            passed: false,
+            repaired: true,
+          });
         } else {
           allIssues.push(...result.issues);
           for (const criterion of Object.keys(result.criteria) as Array<keyof typeof smartCriteriaFailures>) {
@@ -474,11 +543,20 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
               smartCriteriaFailures[criterion]++;
             }
           }
+          debugLog?.logActionValidation({
+            actionText: action.action,
+            score: result.score,
+            criteria: result.criteria,
+            passed: false,
+            repaired: false,
+          });
         }
       }
     }
 
     const planResult = validatePlan(validatedActions, profile);
+    debugLog?.logPlanValidation(planResult.score, planResult.issues);
+
     const barrierFitFailures = planResult.issues.filter((issue) =>
       issue.includes("No actions directly address") || issue.includes("First action should address")
     );

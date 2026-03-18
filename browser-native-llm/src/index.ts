@@ -73,6 +73,10 @@ export { validateAction, validatePlan } from "./validators/smart-validator.js";
 export { repairAction, createFallbackActions } from "./validators/repair.js";
 export { SMART_ACTION_SCHEMA, parseJsonOutput } from "./validators/schema.js";
 
+// ---- Debug logging ----
+export { PipelineDebugLogger } from "./utils/debug-logger.js";
+export type { PipelineDebugLog, ActionValidationEntry, RepairAttemptEntry } from "./utils/debug-logger.js";
+
 // ---- Model configuration ----
 export { MODEL_CONFIGS, DEFAULT_INFERENCE_CONFIG, estimateKVCacheBytes, estimateWeightBytes } from "./model/config.js";
 export type { ModelArchitectureConfig } from "./model/config.js";
