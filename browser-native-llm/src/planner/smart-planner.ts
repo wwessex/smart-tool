@@ -75,6 +75,8 @@ export interface PlannerCallbacks {
   onPlanRejected?: (reason: string, score: number, issues: string[]) => void;
   /** Called with the complete pipeline debug log when debug mode is enabled. */
   onDebugLog?: (log: PipelineDebugLog) => void;
+  /** Enable debug logging for this generation call (overrides config.debug). */
+  debug?: boolean;
 }
 
 interface ParseValidationOutcome {
@@ -231,7 +233,9 @@ export class SmartPlanner {
       return this.generateTemplatePlan(input);
     }
 
-    const debugLog = new PipelineDebugLogger(this.config.debug ?? false);
+    // Check debug at generation time so it can be toggled without re-creating the planner
+    const debugEnabled = callbacks?.debug ?? this.config.debug ?? false;
+    const debugLog = new PipelineDebugLogger(debugEnabled);
     const startTime = performance.now();
 
     // Step 1: Normalise user profile
