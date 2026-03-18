@@ -150,11 +150,11 @@ export function assemblePrompt(
 }
 
 function buildSystemInstructions(): string {
- return `<|begin|>system
+ return `<|im_start|>system
 You are a SMART action planner for job seekers. Generate a JSON array of SMART actions.
 
 RULES:
-1. Output ONLY valid JSON inside <|json|> and <|/json|> tags. No other text.
+1. Output ONLY a valid JSON array. No other text before or after the JSON.
    - Use ASCII double quotes (") as JSON delimiters for ALL keys and string values.
    - Never use typographic quotes (e.g., “ ” ‘ ’) as JSON delimiters.
 2. Each action MUST have ALL required fields: action, metric, baseline, target, deadline, rationale, effort_estimate, first_step.
@@ -171,12 +171,12 @@ RULES:
 13. If a barrier is provided, prioritise barrier-reduction actions before generic job applications.
 14. For confidence <=2, ensure the first action is low-friction and completable in under 30 minutes.
 15. Preserve natural spelling and Unicode characters in user-facing text values (names, places, and accents/diacritics).
-<|end|>`;
+<|im_end|>`;
 }
 
 function buildProfileSection(profile: UserProfile): string {
   const lines = [
-    "<|begin|>user",
+    "<|im_start|>user",
     "PROFILE:",
     `- Goal: ${profile.job_goal}`,
   ];
@@ -259,9 +259,9 @@ function buildOutputInstruction(profile: UserProfile): string {
     : "";
 
   return `Generate ${getActionCount(profile)} SMART actions${nameContext}${barrierContext}. All deadlines must be between ${formatDate(today)} and ${formatDate(deadlineDate)}.
-<|end|>
-<|begin|>assistant
-<|json|>`;
+<|im_end|>
+<|im_start|>assistant
+[`;
 }
 
 function buildBarrierGuidanceSection(barrier: ResolvedBarrier): string {

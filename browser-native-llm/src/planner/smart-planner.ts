@@ -238,7 +238,8 @@ export class SmartPlanner {
     const basePrompt = prompt.text;
 
     // Step 4: Generate with the LLM
-    let rawOutput = await this.runInference(
+    // The prompt primes the assistant with "[" so we prepend it to the output.
+    let rawOutput = "[" + await this.runInference(
       basePrompt,
       callbacks?.onTokenGenerated
     );
@@ -273,7 +274,7 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
         );
       }
 
-      rawOutput = await this.runInference(
+      rawOutput = "[" + await this.runInference(
         retryPrompt,
         callbacks?.onTokenGenerated
       );
