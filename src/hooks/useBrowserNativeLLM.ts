@@ -522,6 +522,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
       selectedModel: null,
       loadingProgress: 0,
       loadingStatus: "",
+      lastDebugLog: null,
     }));
   }, []);
 

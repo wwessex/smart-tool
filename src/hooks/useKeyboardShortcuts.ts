@@ -36,7 +36,7 @@ export function useKeyboardShortcuts(shortcuts: ShortcutConfig[], enabled: boole
                        target.closest('[data-radix-popper-content-wrapper]') !== null;
     
     for (const shortcut of shortcuts) {
-      if (!event.key) continue;
+      if (!event.key || !shortcut.key) continue;
       const isQuestionMark = shortcut.key === '?' && !shortcut.ctrl && !shortcut.alt;
       const keyMatches = isQuestionMark
         ? event.key === '?' || event.key === '/'
@@ -79,7 +79,7 @@ export function formatShortcut(shortcut: ShortcutLike): string {
   if (shortcut.alt) parts.push(isMac ? '⌥' : 'Alt');
   
   // Format special keys
-  let key = shortcut.key;
+  let key = shortcut.key || '';
   if (key === 'Enter') key = '↵';
   else if (key === ' ') key = 'Space';
   else key = key.toUpperCase();
@@ -90,6 +90,7 @@ export function formatShortcut(shortcut: ShortcutLike): string {
 }
 
 export function toAriaKeyShortcuts(shortcut: ShortcutLike): string | undefined {
+  if (!shortcut.key) return undefined;
   const normalizeKey = (key: string) => {
     if (key === ' ') return 'Space';
     if (key.length === 1) return key.toUpperCase();
