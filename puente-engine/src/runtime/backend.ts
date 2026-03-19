@@ -21,6 +21,12 @@ export function configureBackend(
   backend: InferenceBackend,
   options: BackendOptions = {}
 ): void {
+  // Suppress ONNX Runtime warnings (e.g. "Unknown CPU vendor",
+  // "Some nodes were not assigned to the preferred execution providers")
+  // that are informational and cannot be acted upon by application code.
+  // Severity levels: 0=Verbose, 1=Info, 2=Warning, 3=Error, 4=Fatal
+  ort.env.logSeverityLevel = 3;
+
   // Always ensure WASM paths are set — even the WebGPU execution
   // provider may fall back to WASM internally, and ort.InferenceSession
   // calls initWasm() regardless of the selected provider.
