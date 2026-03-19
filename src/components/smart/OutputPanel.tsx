@@ -189,7 +189,7 @@ export const OutputPanel = memo(function OutputPanel({
       />
 
       {/* SMART Checklist */}
-      <SmartChecklist check={smartCheck} />
+      <SmartChecklist check={smartCheck} actionText={output} />
     </>
   );
 });
