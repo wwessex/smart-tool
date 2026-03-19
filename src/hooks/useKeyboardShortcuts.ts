@@ -36,6 +36,7 @@ export function useKeyboardShortcuts(shortcuts: ShortcutConfig[], enabled: boole
                        target.closest('[data-radix-popper-content-wrapper]') !== null;
     
     for (const shortcut of shortcuts) {
+      if (!event.key) continue;
       const isQuestionMark = shortcut.key === '?' && !shortcut.ctrl && !shortcut.alt;
       const keyMatches = isQuestionMark
         ? event.key === '?' || event.key === '/'
