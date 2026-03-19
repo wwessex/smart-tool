@@ -101,25 +101,33 @@ export const SmartChecklist = memo(function SmartChecklist({ check, className, a
           <h3 id="smart-checklist-heading" className="font-semibold text-sm flex items-center gap-2">
             <span className="text-primary">SMART</span> Checklist
           </h3>
-          <motion.button
-            type="button"
-            className={cn(
-              "px-3 py-1 rounded-full text-sm font-bold cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all focus:outline-none focus:ring-2 focus:ring-primary",
-              check.overallScore >= 4 ? "bg-green-500/10 text-green-600" :
-              check.overallScore >= 3 ? "bg-amber-500/10 text-amber-600" :
-              "bg-destructive/10 text-destructive"
-            )}
-            key={check.overallScore}
-            initial={{ scale: 0.8 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 400, damping: 20 }}
-            onClick={() => setDetailsOpen(true)}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            aria-label={`SMART score: ${check.overallScore} out of 5, ${getSmartLabel(check.overallScore)}. Click for detailed analysis`}
-          >
-            {check.overallScore}/5 {getSmartLabel(check.overallScore)}
-          </motion.button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <motion.button
+                type="button"
+                className={cn(
+                  "px-3 py-1 rounded-full text-sm font-bold cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all focus:outline-none focus:ring-2 focus:ring-primary",
+                  check.overallScore >= 4 ? "bg-green-500/10 text-green-600" :
+                  check.overallScore >= 3 ? "bg-amber-500/10 text-amber-600" :
+                  "bg-destructive/10 text-destructive"
+                )}
+                key={check.overallScore}
+                initial={{ scale: 0.8 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                onClick={() => setDetailsOpen(true)}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                aria-label={`SMART score: ${check.overallScore} out of 5, ${getSmartLabel(check.overallScore)}. Click for detailed analysis`}
+              >
+                {check.overallScore}/5 {getSmartLabel(check.overallScore)}
+                <Info className="w-3 h-3 inline-block ml-1 opacity-50" aria-hidden="true" />
+              </motion.button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p className="text-xs">View detailed analysis</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Progress bar */}
