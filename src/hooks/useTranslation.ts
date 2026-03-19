@@ -180,6 +180,18 @@ function getEngine(): TranslationEngine {
 }
 
 /**
+ * Evict all loaded translation models to free memory.
+ * Safe to call at any time — the engine will re-load models on next translate().
+ */
+export function disposeTranslationEngine(): void {
+  if (engineInstance) {
+    engineInstance.evictAll();
+  }
+  engineInstance = null;
+  initPromise = null;
+}
+
+/**
  * @internal Test-only helper — resets the singleton engine so each test
  * starts with a clean slate. Guarded to prevent accidental use in
  * production builds.

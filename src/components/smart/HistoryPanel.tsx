@@ -139,9 +139,9 @@ export const HistoryPanel = memo(function HistoryPanel({
                   <motion.li
                     key={h.id}
                     className="p-4 rounded-xl border border-border/50 bg-muted/30 space-y-3 hover:border-primary/30 hover:bg-muted/50 hover:shadow-sm mb-3 last:mb-0 transition-[border-color,background-color,box-shadow] duration-200 ease-spring"
-                    initial={{ opacity: 0, y: 10 }}
+                    initial={index < 20 ? { opacity: 0, y: 10 } : false}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.04, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                    transition={index < 20 ? { delay: index * 0.04, duration: 0.3, ease: [0.22, 1, 0.36, 1] } : { duration: 0 }}
                   >
                     <div className="flex flex-wrap gap-2 text-xs">
                       <span className={cn(

@@ -24,9 +24,10 @@ export function DebugPanel({ log }: DebugPanelProps) {
     if (log && log.timestamp !== prevTimestampRef.current) {
       prevTimestampRef.current = log.timestamp;
       // Small delay so the DOM has rendered the panel
-      requestAnimationFrame(() => {
+      const rafId = requestAnimationFrame(() => {
         panelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       });
+      return () => cancelAnimationFrame(rafId);
     }
   }, [log]);
 
