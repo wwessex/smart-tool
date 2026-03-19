@@ -33,6 +33,18 @@ interface LoadedPipeline {
   loadedAt: number;
 }
 
+/** Cached failure entry to avoid repeated failing network requests. */
+interface FailedLoad {
+  error: string;
+  failedAt: number;
+}
+
+/**
+ * How long (ms) a failed model load is cached before retrying.
+ * Prevents repeated 404/401 console errors from the browser's network layer.
+ */
+const FAILED_LOAD_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+
 /**
  * Manages translation pipelines with LRU eviction.
  *
@@ -44,6 +56,7 @@ interface LoadedPipeline {
 export class PipelineManager {
   private readonly pipelines = new Map<string, LoadedPipeline>();
   private readonly loading = new Map<string, Promise<TranslationPipeline>>();
+  private readonly failedLoads = new Map<string, FailedLoad>();
   private readonly config: TranslationEngineConfig;
   private onProgress?: (progress: ModelLoadProgress) => void;
 
@@ -79,6 +92,13 @@ export class PipelineManager {
       return cached.pipeline;
     }
 
+    // If this model recently failed to load, reject immediately to avoid
+    // repeated 404/401 network errors in the browser console.
+    const failed = this.failedLoads.get(cacheKey);
+    if (failed && Date.now() - failed.failedAt < FAILED_LOAD_COOLDOWN_MS) {
+      throw new Error(failed.error);
+    }
+
     // Deduplicate concurrent loads
     const existing = this.loading.get(cacheKey);
     if (existing) {
@@ -89,7 +109,17 @@ export class PipelineManager {
     this.loading.set(cacheKey, loadPromise);
 
     try {
-      return await loadPromise;
+      const pipeline = await loadPromise;
+      // Clear any previous failure record on success
+      this.failedLoads.delete(cacheKey);
+      return pipeline;
+    } catch (err) {
+      // Cache the failure to avoid repeated network requests
+      this.failedLoads.set(cacheKey, {
+        error: err instanceof Error ? err.message : String(err),
+        failedAt: Date.now(),
+      });
+      throw err;
     } finally {
       this.loading.delete(cacheKey);
     }
@@ -125,6 +155,7 @@ export class PipelineManager {
       entry.pipeline.dispose();
     }
     this.pipelines.clear();
+    this.failedLoads.clear();
   }
 
   /** Get the number of currently loaded pipelines. */
