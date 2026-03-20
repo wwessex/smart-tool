@@ -4,12 +4,13 @@ import { useBrowserNativeLLM } from '@/hooks/useBrowserNativeLLM';
 import type { SMARTAction, SMARTPlan, RawUserInput } from '@/hooks/useBrowserNativeLLM';
 import { usePromptPack } from '@/hooks/usePromptPack';
 import { classifyBarrier } from '@/lib/smart-data';
-import { retrieveExemplars, formatExemplarsForPrompt } from '@/lib/smart-retrieval';
+import { retrieveExemplars, formatExemplarsForPrompt, formatTaskExemplarsForPrompt } from '@/lib/smart-retrieval';
 import { rankActionsByRelevance } from '@/lib/relevance-checker';
 import { logDraftAnalytics } from '@/lib/draft-analytics';
 import {
   aiDraftNow,
   aiDraftFuture,
+  getTaskSuggestions,
   parseTimescaleToTargetISO,
   formatDDMMMYY,
 } from '@/lib/smart-utils';
@@ -245,17 +246,21 @@ export function useAIDrafting({
       // Retrieve similar exemplars for context (RAG-style)
       const barrier = mode === 'now' ? nowForm.barrier : (taskBasedForm.task || '');
       const barrierCategory = classifyBarrier(barrier);
-      const exemplars = retrieveExemplars(barrier, storage.actionFeedback, 3);
       const timescale = mode === 'now' ? (nowForm.timescale || '2 weeks') : (taskBasedForm.timescale || '4 weeks');
       const targetDate = formatDDMMMYY(parseTimescaleToTargetISO(
         mode === 'now' ? nowForm.date : taskBasedForm.date,
         timescale,
       ));
-      const exemplarContext = formatExemplarsForPrompt(
-        exemplars,
-        mode === 'now' ? nowForm.forename : taskBasedForm.forename,
-        targetDate,
-      );
+
+      // For task-based mode, use task-specific outcome exemplars instead of barrier exemplars
+      let exemplarContext: string;
+      if (mode === 'now') {
+        const exemplars = retrieveExemplars(barrier, storage.actionFeedback, 3);
+        exemplarContext = formatExemplarsForPrompt(exemplars, nowForm.forename, targetDate);
+      } else {
+        const taskSuggestions = getTaskSuggestions(taskBasedForm.task);
+        exemplarContext = formatTaskExemplarsForPrompt(taskSuggestions, taskBasedForm.forename);
+      }
 
       // Build RawUserInput with enriched context
       const input: RawUserInput = mode === 'now'

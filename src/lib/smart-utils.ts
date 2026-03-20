@@ -483,7 +483,7 @@ export function buildHistoryItem(opts: BuildHistoryItemOptions): HistoryItem {
 
   const baseMeta = mode === 'now'
     ? { date: nowForm.date, time: nowForm.time, forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
-    : { date: taskBasedForm.date, forename: taskBasedForm.forename, barrier: taskBasedForm.task, timescale: taskBasedForm.timescale, responsible: taskBasedForm.responsible, reason: taskBasedForm.outcome };
+    : { date: taskBasedForm.date, time: taskBasedForm.time, forename: taskBasedForm.forename, barrier: taskBasedForm.task, timescale: taskBasedForm.timescale, responsible: taskBasedForm.responsible, reason: taskBasedForm.outcome };
 
   return {
     id: createHistoryId(),
