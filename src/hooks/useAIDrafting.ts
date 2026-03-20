@@ -260,7 +260,7 @@ export function useAIDrafting({
       // Build RawUserInput with enriched context
       const input: RawUserInput = mode === 'now'
         ? {
-            goal: `Help ${nowForm.forename} overcome ${nowForm.barrier} to find employment`,
+            goal: 'Find suitable employment',
             barriers: nowForm.barrier,
             timeframe: timescale,
             situation: `Employment advisor helping ${nowForm.forename} with ${nowForm.barrier}.${exemplarContext ? '\n\n' + exemplarContext : ''}`,
@@ -402,7 +402,7 @@ export function useAIDrafting({
       try {
         const input: RawUserInput = {
           goal: context.barrier
-            ? `Help ${context.forename || 'participant'} overcome ${context.barrier} to find employment`
+            ? 'Find suitable employment'
             : (context.task || 'Employment support'),
           barriers: context.barrier,
           timeframe: context.timescale || '2 weeks',
