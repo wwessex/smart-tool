@@ -66,20 +66,21 @@ export function useHistory() {
     const cutoffDate = new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000);
 
     const deletedItems: HistoryItem[] = [];
-    const remainingItems: HistoryItem[] = [];
 
     history.forEach(item => {
       const itemDate = new Date(item.createdAt);
       if (itemDate < cutoffDate) {
         deletedItems.push(item);
-      } else {
-        remainingItems.push(item);
       }
     });
 
     if (deletedItems.length > 0) {
-      setHistory(remainingItems);
-      safeSetItem(STORAGE_KEYS.history, JSON.stringify(remainingItems));
+      // Use functional update to avoid overwriting pending state changes (e.g. from addToHistory)
+      setHistory(prev => {
+        const remaining = prev.filter(item => new Date(item.createdAt) >= cutoffDate);
+        safeSetItem(STORAGE_KEYS.history, JSON.stringify(remaining));
+        return remaining;
+      });
     }
 
     safeSetItem(STORAGE_KEYS.lastRetentionCheck, now.toISOString());

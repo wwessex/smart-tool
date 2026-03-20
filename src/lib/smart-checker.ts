@@ -62,7 +62,7 @@ function getFromCache(key: string): SmartCheck | null {
 
 function setInCache(key: string, result: SmartCheck): void {
   // Evict oldest entries if cache is full
-  if (smartCheckCache.size >= CACHE_MAX_SIZE) {
+  if (smartCheckCache.size > CACHE_MAX_SIZE) {
     const oldestKey = smartCheckCache.keys().next().value;
     if (oldestKey) smartCheckCache.delete(oldestKey);
   }
@@ -239,9 +239,14 @@ export function checkSmart(text: string, meta?: {
   const hasQuantity = MEASURABLE_PATTERNS.quantity.test(text);
   const hasOutcome = MEASURABLE_PATTERNS.outcome.test(text);
   
+  const measurableMet = measurableMatches >= 2 || (hasDate && (hasQuantity || hasOutcome));
+  const measurableConfidenceRaw = calculateConfidence(measurableMatches, { high: 3, medium: 2 });
+  // If met via date+quantity/outcome combination, confidence should be at least 'medium'
+  const measurableConfidence: 'high' | 'medium' | 'low' = measurableMet && measurableConfidenceRaw === 'low' ? 'medium' : measurableConfidenceRaw;
+
   const measurable: SmartCriterion = {
-    met: measurableMatches >= 2 || (hasDate && (hasQuantity || hasOutcome)),
-    confidence: calculateConfidence(measurableMatches, { high: 3, medium: 2 }),
+    met: measurableMet,
+    confidence: measurableConfidence,
     reason: measurableMatches >= 2 || (hasDate && (hasQuantity || hasOutcome))
       ? [hasDate && 'date', hasQuantity && 'quantity', hasOutcome && !hasQuantity && 'outcome'].filter(Boolean).join(' and ') || 'Has measurable elements'
       : 'Add a specific date or quantity',
