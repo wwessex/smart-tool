@@ -175,9 +175,9 @@ RULES:
 4. NEVER mention money, prizes, awards, or guaranteed job offers.
 5. Only describe what happens DURING or AFTER the activity, NOT preparation before it.
 
-WRONG: "complete the project", "learn new technologies", "be awarded £5000", "write a cover letter", "update LinkedIn profile", "prepare interview answers"
+WRONG: "complete the project", "learn new technologies", "be awarded £5000", "write a cover letter", "update LinkedIn profile", "prepare interview answers", "practise networking", "hand out CVs", "gain exposure"
 RIGHT: "{forename} will gain interview skills and feel more confident meeting employers."
-RIGHT: "{forename} will speak with employers about available roles and collect contact details."
+RIGHT: "{forename} will speak to at least 3 employers and note down roles discussed and any next steps."
 
 OUTPUT: One sentence, no quotes.`;
 

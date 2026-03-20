@@ -606,9 +606,10 @@ export const FALLBACK_SUGGESTIONS = [
 // Task-based suggestions for scheduling future activities
 export const TASK_SUGGESTIONS: Record<string, Array<{title: string; outcome: string}>> = {
   "job fair": [
-    {"title": "Job fair attendance", "outcome": "[Name] will speak with employers about available roles, collect contact details, and identify potential opportunities to follow up on."},
-    {"title": "Networking practice", "outcome": "[Name] will practise introducing themselves to employers and talking about their skills and experience."},
-    {"title": "CV handout", "outcome": "[Name] will hand out copies of their CV to employers and ask about current vacancies."}
+    {"title": "Employer conversations", "outcome": "[Name] will speak to at least 3 employers at the event and note down the roles discussed and any next steps."},
+    {"title": "Sector exploration", "outcome": "[Name] will find out about roles and entry requirements in at least one sector of interest and identify whether any match their skills."},
+    {"title": "Follow-up contacts", "outcome": "[Name] will collect contact details or application links from employers they are interested in and follow up within one week."},
+    {"title": "Application insight", "outcome": "[Name] will ask employers about their application process and what makes a strong candidate, and share what they learned at the next appointment."}
   ],
   "workshop": [
     {"title": "Skills workshop", "outcome": "[Name] will participate fully in the session and apply what they learn to their job search."},
