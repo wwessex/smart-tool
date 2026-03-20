@@ -119,7 +119,11 @@ export class SmartPlanner {
   >();
 
   constructor(config: Partial<PlannerConfig> = {}) {
-    this.config = { ...DEFAULT_PLANNER_CONFIG, ...config };
+    this.config = {
+      ...DEFAULT_PLANNER_CONFIG,
+      ...config,
+      inference: { ...DEFAULT_PLANNER_CONFIG.inference, ...config.inference },
+    };
     this.library = new ActionLibrary();
   }
 

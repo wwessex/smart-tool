@@ -308,18 +308,11 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
             model_id: BUILTIN_MODEL_ID,
             model_base_url: effectiveModelBaseUrl,
             preferred_backend: backend,
-            max_seq_length: 1024,
-            max_new_tokens: 512,
-            temperature: 0,
-            top_p: 1.0,
-            repetition_penalty: 1.1,
           },
           retrieval_pack_url: retrievalPackUrl,
           worker_url: "",
           worker,
           template_only: false,
-          max_repair_attempts: 2,
-          min_validation_score: 60,
           debug: isDebugEnabled(),
         });
 
