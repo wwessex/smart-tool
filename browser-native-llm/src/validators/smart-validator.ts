@@ -69,8 +69,10 @@ export function validatePlan(
   let score = 100;
 
   if (actions.length < 2) {
+    // Reduced penalty when generating barrier-focused plans (1-2 actions expected)
+    const penalty = profile.resolved_barrier ? 10 : 30;
     issues.push(`Plan has only ${actions.length} action (minimum 2 recommended)`);
-    score -= 30;
+    score -= penalty;
   }
 
   if (actions.length > 8) {
