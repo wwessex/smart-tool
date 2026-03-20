@@ -138,6 +138,49 @@ function checkBarrierFit(
 }
 
 // ---------------------------------------------------------------------------
+// Coherence helpers
+// ---------------------------------------------------------------------------
+
+/** Common stop words to exclude from coherence checks. */
+const STOP_WORDS = new Set([
+  "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for",
+  "of", "with", "by", "from", "is", "are", "was", "were", "be", "been",
+  "has", "have", "had", "do", "does", "did", "will", "would", "could",
+  "should", "may", "might", "shall", "can", "not", "no", "this", "that",
+  "it", "its", "their", "they", "them", "he", "she", "his", "her",
+  "i", "me", "my", "we", "our", "you", "your", "up", "out", "about",
+]);
+
+/** Tokenize text into meaningful words (lowercase, >2 chars, no stop words). */
+function meaningfulTokens(text: string): Set<string> {
+  const words = text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !STOP_WORDS.has(w));
+  return new Set(words);
+}
+
+/** Count overlapping tokens between two sets. */
+function tokenOverlap(a: Set<string>, b: Set<string>): number {
+  let count = 0;
+  for (const token of a) {
+    if (b.has(token)) count++;
+  }
+  return count;
+}
+
+/**
+ * Check whether a field (first_step or rationale) is coherent with the action text.
+ * Returns true if there is at least 1 shared meaningful keyword.
+ */
+export function isFieldCoherent(actionText: string, fieldText: string): boolean {
+  const actionTokens = meaningfulTokens(actionText);
+  const fieldTokens = meaningfulTokens(fieldText);
+  return tokenOverlap(actionTokens, fieldTokens) >= 1;
+}
+
+// ---------------------------------------------------------------------------
 // Criterion checks
 // ---------------------------------------------------------------------------
 
@@ -173,14 +216,18 @@ function checkSpecific(action: SMARTAction): CriterionResult {
   // Check action length (too short = too vague)
   const hasDetail = action.action.length >= 20;
 
-  // Check first_step is concrete
+  // Check first_step is concrete and coherent with action
   const hasConcreteFirstStep = action.first_step.length >= 10;
+  const firstStepCoherent = hasConcreteFirstStep
+    ? isFieldCoherent(action.action, action.first_step)
+    : true; // Don't penalise if first_step is too short (already penalised)
 
   let score = 0;
   if (hasVerb) score += 40;
   if (!hasVague) score += 20;
   if (hasDetail) score += 20;
-  if (hasConcreteFirstStep) score += 20;
+  if (hasConcreteFirstStep && firstStepCoherent) score += 20;
+  else if (hasConcreteFirstStep) score += 10; // Partial credit: concrete but incoherent
 
   const passed = score >= 60;
   const reason = !passed
@@ -294,6 +341,9 @@ function checkRelevant(
     action.rationale.toLowerCase().includes(term)
   );
 
+  // Check that rationale is coherent with the action (not a random unrelated statement)
+  const rationaleCoherent = isFieldCoherent(action.action, action.rationale);
+
   // Job-search relevance (even if not goal-specific)
   const jobSearchTerms = [
     "cv", "resume", "application", "interview", "network",
@@ -307,7 +357,8 @@ function checkRelevant(
   let score = 0;
   if (goalOverlap > 0) score += Math.min(goalOverlap * 15, 40);
   if (industryMentioned) score += 20;
-  if (rationaleReferencesGoal) score += 20;
+  if (rationaleReferencesGoal && rationaleCoherent) score += 20;
+  else if (rationaleReferencesGoal) score += 10; // References goal but incoherent with action
   if (isJobSearchRelated) score += 20;
 
   const passed = score >= 40;
