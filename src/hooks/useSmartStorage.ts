@@ -103,12 +103,11 @@ export function useSmartStorage() {
         safeSetItem(STORAGE_KEYS.minScoreThreshold, String(clamped));
       }
       if (typeof data.settings.retentionEnabled === 'boolean') {
-        historyHook.setHistory(prev => prev); // trigger re-render
-        safeSetItem(STORAGE_KEYS.retentionEnabled, String(data.settings.retentionEnabled));
+        historyHook.updateRetentionEnabled(data.settings.retentionEnabled);
       }
       if (typeof data.settings.retentionDays === 'number') {
         const clamped = Math.max(7, Math.min(365, Math.round(data.settings.retentionDays)));
-        safeSetItem(STORAGE_KEYS.retentionDays, String(clamped));
+        historyHook.updateRetentionDays(clamped);
       }
       if (typeof data.settings.participantLanguage === 'string') {
         settingsHook.setParticipantLanguage(data.settings.participantLanguage);
