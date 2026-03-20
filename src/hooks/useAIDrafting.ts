@@ -157,7 +157,7 @@ export function useAIDrafting({
       setNowForm(prev => ({
         ...prev,
         action: action.action,
-        help: action.first_step || action.rationale,
+        help: action.rationale || action.first_step,
         timescale: prev.timescale || '2 weeks',
       }));
     } else {

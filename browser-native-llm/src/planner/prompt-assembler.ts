@@ -169,6 +169,8 @@ RULES:
 9. The "rationale" field should explain how this outcome helps their job search.
 10. Preserve natural spelling and Unicode characters in user-facing text values (names, places, and accents/diacritics).
 11. WRONG (preparation before): "Write a cover letter", "Update LinkedIn profile", "Prepare interview answers", "Research companies online". RIGHT (during/after): "Will speak with 3 employers about roles", "Will collect contact details from recruiters", "Will gain confidence introducing themselves".
+12. The "rationale" field MUST explain how THIS SPECIFIC outcome helps the participant — it must relate directly to the action text.
+13. The "first_step" field MUST relate to THIS SPECIFIC action — not an unrelated employment task.
 <|im_end|>`;
   }
 
@@ -193,6 +195,8 @@ RULES:
 13. If a barrier is provided, prioritise barrier-reduction actions before generic job applications.
 14. For confidence <=2, ensure the first action is low-friction and completable in under 30 minutes.
 15. Preserve natural spelling and Unicode characters in user-facing text values (names, places, and accents/diacritics).
+16. The "rationale" field MUST explain how THIS SPECIFIC action helps the participant — it must relate directly to the action text, not be a generic statement.
+17. The "first_step" field MUST be the first concrete step toward completing THIS SPECIFIC action — not an unrelated employment task.
 <|im_end|>`;
 }
 

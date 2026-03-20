@@ -20,7 +20,7 @@ import { normalizeProfile } from "./profile-normalizer.js";
 import { assemblePrompt } from "./prompt-assembler.js";
 import { ActionLibrary } from "../retrieval/action-library.js";
 import { LocalRetriever } from "../retrieval/retriever.js";
-import { validateAction, validatePlan } from "../validators/smart-validator.js";
+import { validateAction, validatePlan, isFieldCoherent } from "../validators/smart-validator.js";
 import {
   repairAction,
   createFallbackActions,
@@ -585,6 +585,21 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
         }
         if (!record.deadline || (typeof record.deadline === "string" && record.deadline.trim().length < 4)) {
           record.deadline = defaultDeadline;
+        }
+
+        // Coherence post-check: replace incoherent first_step and rationale
+        if (typeof record.action === "string" && typeof record.first_step === "string") {
+          if (!isFieldCoherent(record.action, record.first_step)) {
+            record.first_step = record.action;
+          }
+        }
+        if (typeof record.action === "string" && typeof record.rationale === "string") {
+          if (!isFieldCoherent(record.action, record.rationale)) {
+            const barrierLabel = profile.resolved_barrier?.label;
+            record.rationale = barrierLabel
+              ? `Helps address ${barrierLabel} to support employment goal`
+              : "Supports employment goal";
+          }
         }
       }
 
