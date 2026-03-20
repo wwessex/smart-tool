@@ -56,7 +56,7 @@ export function assemblePrompt(
 ): AssembledPrompt {
   const cfg = { ...DEFAULT_CONFIG, ...config };
   const mustKeepSections = {
-    system: buildSystemInstructions(profile.generation_mode),
+    system: buildSystemInstructions(profile.generation_mode, !!profile.resolved_barrier),
     profile: buildProfileSection(profile),
     barrier_guidance: profile.resolved_barrier
       ? buildBarrierGuidanceSection(profile.resolved_barrier)
@@ -77,16 +77,17 @@ export function assemblePrompt(
       mustKeepSections.profile,
     ];
 
+    // Barrier guidance BEFORE templates so the LLM has context when reading examples
+    if (mustKeepSections.barrier_guidance) {
+      parts.push(mustKeepSections.barrier_guidance);
+    }
+
     if (templatesIncludedCount > 0 && profile.generation_mode !== 'outcome') {
       parts.push(buildTemplateSection(templatePool.slice(0, templatesIncludedCount), profile));
     }
 
     if (skillsIncludedCount > 0) {
       parts.push(buildSkillsSection(skillsPool.slice(0, skillsIncludedCount)));
-    }
-
-    if (mustKeepSections.barrier_guidance) {
-      parts.push(mustKeepSections.barrier_guidance);
     }
 
     parts.push(mustKeepSections.output_format);
@@ -149,7 +150,7 @@ export function assemblePrompt(
   };
 }
 
-function buildSystemInstructions(generationMode: 'action' | 'outcome' = 'action'): string {
+function buildSystemInstructions(generationMode: 'action' | 'outcome' = 'action', hasBarrier: boolean = false): string {
   if (generationMode === 'outcome') {
     return `<|im_start|>system
 You are an employment outcomes specialist for job seekers. Generate a JSON array of realistic employment outcomes from a given activity or event.
@@ -184,7 +185,7 @@ RULES:
 5. ACHIEVABLE: Actions must fit within the stated hours/week and respect barriers.
 6. RELEVANT: Actions must connect to the stated job goal and industry.
 7. TIME-BOUND: Each deadline must be a specific date or timeframe window.
-8. Generate 3-8 actions covering different job-search stages.
+8. ${hasBarrier ? "Focus actions on addressing the stated barrier. Quality over quantity." : "Generate 3-8 actions covering different job-search stages."}
 9. Order actions by priority (most impactful first).
 10. For low-confidence users, start with small, low-friction first steps.
 11. NEVER provide medical, legal, or financial advice.
@@ -244,6 +245,11 @@ function buildTemplateSection(
 ): string {
   const lines = ["REFERENCE ACTIONS (adapt and personalise these):"];
 
+  const barrierTerms = profile.resolved_barrier
+    ? [profile.resolved_barrier.id, ...profile.resolved_barrier.retrieval_tags]
+        .map((t) => t.toLowerCase())
+    : [];
+
   for (const template of templates) {
     // Substitute placeholders in template
     const action = substitutePlaceholders(template.action_template, profile);
@@ -253,7 +259,18 @@ function buildTemplateSection(
     const supportLevel = template.support_level ? `, support: ${template.support_level}` : "";
     const prereqNote = prerequisites ? `, prerequisites: ${prerequisites}` : "";
     const avoidNote = contraindications ? `, avoid_for: ${contraindications}` : "";
-    lines.push(`- [${template.id}] ${action} (measure: ${metric}, effort: ${template.effort_hint}${supportLevel}${prereqNote}${avoidNote})`);
+
+    // Mark templates that match the resolved barrier
+    const isBarrierMatch = barrierTerms.length > 0 && (
+      template.relevant_barriers.some((b) =>
+        barrierTerms.some((t) => b.toLowerCase().includes(t) || t.includes(b.toLowerCase()))
+      ) || template.tags.some((tag) =>
+        barrierTerms.some((t) => tag.toLowerCase().includes(t))
+      )
+    );
+    const prefix = isBarrierMatch ? "[BARRIER-MATCH] " : "";
+
+    lines.push(`- ${prefix}[${template.id}] ${action} (measure: ${metric}, effort: ${template.effort_hint}${supportLevel}${prereqNote}${avoidNote})`);
   }
 
   return lines.join("\n");
@@ -286,7 +303,11 @@ function buildOutputInstruction(profile: UserProfile): string {
 [`;
   }
 
-  return `Generate ${getActionCount(profile)} SMART actions${nameContext}${barrierContext}. All deadlines must be between ${formatDate(today)} and ${formatDate(deadlineDate)}.
+  const barrierInstruction = profile.resolved_barrier
+    ? ` The FIRST action MUST directly address the "${profile.resolved_barrier.label}" barrier. Prefer barrier-matched templates and barrier-first starter actions from the guidance above.`
+    : "";
+
+  return `Generate ${getActionCount(profile)} SMART actions${nameContext}${barrierContext}.${barrierInstruction} All deadlines must be between ${formatDate(today)} and ${formatDate(deadlineDate)}.
 <|im_end|>
 <|im_start|>assistant
 [`;
@@ -319,6 +340,10 @@ function buildBarrierGuidanceSection(barrier: ResolvedBarrier): string {
 }
 
 function getActionCount(profile: UserProfile): string {
+  // When generating for a specific barrier, focus on 1-2 high-quality actions
+  if (profile.resolved_barrier && profile.generation_mode === 'action') {
+    return "1-2";
+  }
   // Fewer actions for users with less time or lower confidence
   if (profile.hours_per_week <= 4 || profile.confidence_level <= 1) return "3-4";
   if (profile.hours_per_week <= 8 || profile.confidence_level <= 2) return "4-5";

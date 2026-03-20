@@ -488,6 +488,11 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
         planLevelIssues: [rejectionReason],
         categories: ["json_parse"],
         compact: rejectionReason,
+        barrierContext: profile.resolved_barrier ? {
+          label: profile.resolved_barrier.label,
+          starterActions: profile.resolved_barrier.starter_actions ?? [],
+          promptHints: profile.resolved_barrier.prompt_hints,
+        } : undefined,
       };
       callbacks?.onPlanRejected?.(rejectionReason, 0, [rejectionReason]);
       return { actions: null, rejectionReason, failureSummary };
@@ -607,6 +612,11 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
       planLevelIssues,
       categories: Array.from(failureCategories),
       compact: summaryParts.join(" | ") || "Validation failed",
+      barrierContext: profile.resolved_barrier ? {
+        label: profile.resolved_barrier.label,
+        starterActions: profile.resolved_barrier.starter_actions ?? [],
+        promptHints: profile.resolved_barrier.prompt_hints,
+      } : undefined,
     };
 
     callbacks?.onValidationResult?.(planResult.score, planResult.issues);
@@ -621,7 +631,9 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
     }
 
     const criticalPlanIssues = planResult.issues.filter((issue) =>
-      issue.includes("No actions directly address") ||
+      // Only treat "No actions directly address" as critical for larger plans;
+      // for 1-2 action barrier-focused plans, the plan score penalty is sufficient
+      (issue.includes("No actions directly address") && validatedActions.length >= 3) ||
       issue.includes("duplicate or very similar actions") ||
       issue.includes("Estimated total effort")
     );

@@ -21,6 +21,12 @@ export interface RetryFailureSummary {
   planLevelIssues: string[];
   categories: string[];
   compact: string;
+  /** Barrier context for retry prompting (starter actions and guidance). */
+  barrierContext?: {
+    label: string;
+    starterActions: string[];
+    promptHints: string[];
+  };
 }
 
 /**
@@ -49,6 +55,16 @@ export function buildRetryInstructionBlock(
 
   if (summary.barrierFitFailures.length > 0) {
     lines.push(`- Barrier issues: ${summary.barrierFitFailures.join("; ")}.`);
+    // Include barrier starter actions and prompt hints so the model knows HOW to address the barrier
+    if (summary.barrierContext) {
+      const { label, starterActions, promptHints } = summary.barrierContext;
+      if (starterActions.length > 0) {
+        lines.push(`- Use these starter actions for the "${label}" barrier: ${starterActions.join("; ")}.`);
+      }
+      if (promptHints.length > 0) {
+        lines.push(`- Barrier guidance: ${promptHints.slice(0, 2).join("; ")}.`);
+      }
+    }
   }
 
   if (summary.planLevelIssues.length > 0) {
