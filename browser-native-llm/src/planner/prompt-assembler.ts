@@ -40,7 +40,7 @@ export interface PromptAssemblerConfig {
 }
 
 const DEFAULT_CONFIG: PromptAssemblerConfig = {
-  max_prompt_chars: 3000,
+  max_prompt_chars: 3200,
   num_examples: 2,
   include_templates: true,
   max_skills_context: 3,
@@ -254,11 +254,6 @@ function buildTemplateSection(
     // Substitute placeholders in template
     const action = substitutePlaceholders(template.action_template, profile);
     const metric = substitutePlaceholders(template.metric_template, profile);
-    const prerequisites = (template.required_prerequisites ?? []).join("; ");
-    const contraindications = (template.contraindicated_barriers ?? []).join(", ");
-    const supportLevel = template.support_level ? `, support: ${template.support_level}` : "";
-    const prereqNote = prerequisites ? `, prerequisites: ${prerequisites}` : "";
-    const avoidNote = contraindications ? `, avoid_for: ${contraindications}` : "";
 
     // Mark templates that match the resolved barrier
     const isBarrierMatch = barrierTerms.length > 0 && (
@@ -270,7 +265,8 @@ function buildTemplateSection(
     );
     const prefix = isBarrierMatch ? "[BARRIER-MATCH] " : "";
 
-    lines.push(`- ${prefix}[${template.id}] ${action} (measure: ${metric}, effort: ${template.effort_hint}${supportLevel}${prereqNote}${avoidNote})`);
+    // Compact format: drop id, prerequisites, and avoid_for to save prompt budget
+    lines.push(`- ${prefix}${action} (measure: ${metric}, effort: ${template.effort_hint})`);
   }
 
   return lines.join("\n");
