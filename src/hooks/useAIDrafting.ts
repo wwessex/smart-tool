@@ -272,7 +272,7 @@ export function useAIDrafting({
         : {
             goal: taskBasedForm.task,
             timeframe: timescale,
-            situation: `Employment advisor helping ${taskBasedForm.forename} plan for a future activity. Describe what ${taskBasedForm.forename} will realistically gain from this activity for their job search.${exemplarContext ? '\n\n' + exemplarContext : ''}`,
+            situation: `Employment advisor helping ${taskBasedForm.forename} attend a future activity. Describe what ${taskBasedForm.forename} will realistically gain DURING or AFTER this activity — not preparation done beforehand.${exemplarContext ? '\n\n' + exemplarContext : ''}`,
             participant_name: taskBasedForm.forename,
             supporter: taskBasedForm.responsible,
             generation_mode: 'outcome',
