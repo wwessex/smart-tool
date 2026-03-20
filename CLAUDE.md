@@ -15,7 +15,7 @@
 | Category | Technology |
 |----------|------------|
 | Framework | React 18 with TypeScript |
-| Build Tool | Vite 5.x |
+| Build Tool | Vite 8.x |
 | Package Manager | Bun (preferred) or npm |
 | UI Components | shadcn/ui + Radix UI primitives |
 | Styling | Tailwind CSS with CSS variables |
@@ -85,12 +85,8 @@ bun run lint
 # Fetch AI models for local hosting (requires Python)
 bun run fetch-models
 
-# Fetch translation models for offline Lengua Materna (requires Python + huggingface_hub)
-bun run fetch-translation-models          # All 30 models (~3.15 GB)
-bun run fetch-translation-models:priority # 12 priority models (~1.26 GB)
-
-# Fetch both AI and translation models
-bun run fetch-all-models
+# Validate translation models
+bun run validate:translation-models
 ```
 
 ## Code Conventions
@@ -152,7 +148,7 @@ VITE_BASE_PATH=./  # Relative paths for portable builds
 ### Main UI
 | File | Purpose |
 |------|---------|
-| `src/components/smart/SmartActionTool.tsx` | Main application component (~1000 lines) |
+| `src/components/smart/SmartActionTool.tsx` | Main application component (~1250 lines) |
 | `src/App.tsx` | Router setup, providers, error boundaries |
 
 ## Testing
