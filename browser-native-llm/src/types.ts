@@ -98,6 +98,8 @@ export interface UserProfile {
   supporter: string;
   /** Structured barrier metadata resolved from the barrier catalog (if available). */
   resolved_barrier?: ResolvedBarrier;
+  /** Generation mode: 'action' or 'outcome'. */
+  generation_mode: 'action' | 'outcome';
 }
 
 /** Raw user input before normalisation. */
@@ -119,6 +121,8 @@ export interface RawUserInput {
   selected_barrier_id?: string;
   /** Human-readable barrier label as shown in the UI dropdown. */
   selected_barrier_label?: string;
+  /** 'action' (default) generates SMART actions; 'outcome' generates employment outcomes from a task. */
+  generation_mode?: 'action' | 'outcome';
 }
 
 // ---------------------------------------------------------------------------
