@@ -201,6 +201,7 @@ export function normalizeProfile(input: RawUserInput): UserProfile {
     participant_name: input.participant_name?.trim() || "",
     supporter: input.supporter?.trim() || "",
     resolved_barrier: resolvedBarrier ?? undefined,
+    generation_mode: input.generation_mode || 'action',
   };
 }
 

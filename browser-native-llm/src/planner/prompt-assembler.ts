@@ -56,7 +56,7 @@ export function assemblePrompt(
 ): AssembledPrompt {
   const cfg = { ...DEFAULT_CONFIG, ...config };
   const mustKeepSections = {
-    system: buildSystemInstructions(),
+    system: buildSystemInstructions(profile.generation_mode),
     profile: buildProfileSection(profile),
     barrier_guidance: profile.resolved_barrier
       ? buildBarrierGuidanceSection(profile.resolved_barrier)
@@ -149,14 +149,34 @@ export function assemblePrompt(
   };
 }
 
-function buildSystemInstructions(): string {
+function buildSystemInstructions(generationMode: 'action' | 'outcome' = 'action'): string {
+  if (generationMode === 'outcome') {
+    return `<|im_start|>system
+You are an employment outcomes specialist for job seekers. Generate a JSON array of realistic employment outcomes from a given activity or event.
+
+RULES:
+1. Output ONLY a valid JSON array. No other text before or after the JSON.
+   - Use ASCII double quotes (") as JSON delimiters for ALL keys and string values.
+   - Never use typographic quotes (e.g., " " ' ') as JSON delimiters.
+2. Each outcome MUST have ALL required fields: action, metric, baseline, target, deadline, rationale, effort_estimate, first_step.
+3. The "action" field must describe what the participant will GAIN from the activity (skills, confidence, knowledge, contacts), NOT what they will DO.
+4. Start each "action" with the participant's name + "will" (e.g., "John will gain confidence speaking to employers").
+5. Focus on realistic employment benefits: interview skills, confidence, industry knowledge, professional contacts, job leads.
+6. NEVER mention money, prizes, awards, certificates, or guaranteed job offers.
+7. NEVER provide medical, legal, or financial advice.
+8. The "first_step" field should describe a practical way to prepare for or make the most of the activity.
+9. The "rationale" field should explain how this outcome helps their job search.
+10. Preserve natural spelling and Unicode characters in user-facing text values (names, places, and accents/diacritics).
+<|im_end|>`;
+  }
+
  return `<|im_start|>system
 You are a SMART action planner for job seekers. Generate a JSON array of SMART actions.
 
 RULES:
 1. Output ONLY a valid JSON array. No other text before or after the JSON.
    - Use ASCII double quotes (") as JSON delimiters for ALL keys and string values.
-   - Never use typographic quotes (e.g., “ ” ‘ ’) as JSON delimiters.
+   - Never use typographic quotes (e.g., " " ' ') as JSON delimiters.
 2. Each action MUST have ALL required fields: action, metric, baseline, target, deadline, rationale, effort_estimate, first_step.
 3. SPECIFIC: Each action must contain a concrete verb and specific artefact (e.g., "rewrite CV bullet points", not "improve CV").
 4. MEASURABLE: Each metric must include a numeric target or countable outcome.
@@ -257,6 +277,13 @@ function buildOutputInstruction(profile: UserProfile): string {
   const barrierContext = profile.barriers.length > 0
     ? ` that specifically address their ${profile.barriers.map(b => b.replace(/_/g, " ")).join(" and ")} barrier(s)`
     : "";
+
+  if (profile.generation_mode === 'outcome') {
+    return `Generate ${getActionCount(profile)} realistic employment outcomes${nameContext} from completing this activity. Focus on job-search benefits like skills, confidence, contacts, and knowledge. All deadlines must be between ${formatDate(today)} and ${formatDate(deadlineDate)}.
+<|im_end|>
+<|im_start|>assistant
+[`;
+  }
 
   return `Generate ${getActionCount(profile)} SMART actions${nameContext}${barrierContext}. All deadlines must be between ${formatDate(today)} and ${formatDate(deadlineDate)}.
 <|im_end|>

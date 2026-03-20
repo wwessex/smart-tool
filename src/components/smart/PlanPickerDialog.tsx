@@ -30,12 +30,12 @@ export function PlanPickerDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5" />
-            Choose a SMART Action
+            {mode === 'future' ? 'Choose an Outcome' : 'Choose a SMART Action'}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            The AI generated {planResult?.actions.length || 0} SMART actions. Select one to use.
+            The AI generated {planResult?.actions.length || 0} {mode === 'future' ? 'outcomes' : 'SMART actions'}. Select one to use.
           </p>
           {planResult?.actions.map((action, idx) => (
             <button

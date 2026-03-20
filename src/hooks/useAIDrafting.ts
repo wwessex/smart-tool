@@ -260,7 +260,7 @@ export function useAIDrafting({
       // Build RawUserInput with enriched context
       const input: RawUserInput = mode === 'now'
         ? {
-            goal: `Address ${nowForm.barrier} barrier (category: ${barrierCategory}) for ${nowForm.forename}`,
+            goal: `Help ${nowForm.forename} overcome ${nowForm.barrier} to find employment`,
             barriers: nowForm.barrier,
             timeframe: timescale,
             situation: `Employment advisor helping ${nowForm.forename} with ${nowForm.barrier}.${exemplarContext ? '\n\n' + exemplarContext : ''}`,
@@ -272,9 +272,10 @@ export function useAIDrafting({
         : {
             goal: taskBasedForm.task,
             timeframe: timescale,
-            situation: `Employment advisor helping ${taskBasedForm.forename} plan ahead.${exemplarContext ? '\n\n' + exemplarContext : ''}`,
+            situation: `Employment advisor helping ${taskBasedForm.forename} plan for a future activity. Describe what ${taskBasedForm.forename} will realistically gain from this activity for their job search.${exemplarContext ? '\n\n' + exemplarContext : ''}`,
             participant_name: taskBasedForm.forename,
             supporter: taskBasedForm.responsible,
+            generation_mode: 'outcome',
           };
 
       const plan = await llm.generatePlan(input);
@@ -400,7 +401,9 @@ export function useAIDrafting({
     if (llm.isReady) {
       try {
         const input: RawUserInput = {
-          goal: context.barrier || context.task || 'Employment support',
+          goal: context.barrier
+            ? `Help ${context.forename || 'participant'} overcome ${context.barrier} to find employment`
+            : (context.task || 'Employment support'),
           barriers: context.barrier,
           timeframe: context.timescale || '2 weeks',
           situation: `Helping ${context.forename || 'participant'}`,
@@ -408,6 +411,7 @@ export function useAIDrafting({
           supporter: context.responsible,
           selected_barrier_id: context.barrier,
           selected_barrier_label: context.barrier,
+          ...(field === 'outcome' ? { generation_mode: 'outcome' as const } : {}),
         };
         const plan = await llm.generatePlan(input);
         if (plan.actions.length > 0) {
