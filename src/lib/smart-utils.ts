@@ -230,7 +230,7 @@ export function pickTaskKey(taskDesc: string): string {
   const t = (taskDesc || "").trim().toLowerCase();
   if (!t) return "default";
   
-  if (/job\s*fair|careers?\s*fair|recruitment\s*(event|fair)/i.test(t)) return "job fair";
+  if (/job\s*fair|careers?\s*fair|recruitment\s*(event|fair|day)|hiring\s*(event|fair|day)|employer\s*event|open\s*day/i.test(t)) return "job fair";
   if (/workshop|session|group|course|training/i.test(t)) return "workshop";
   if (/interview|mock/i.test(t)) return "interview";
   if (/cv|resume|curriculum/i.test(t)) return "cv";

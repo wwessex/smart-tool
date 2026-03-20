@@ -317,6 +317,10 @@ describe("smart-utils", () => {
       expect(pickTaskKey("Job Fair at Town Hall")).toBe("job fair");
       expect(pickTaskKey("careers fair")).toBe("job fair");
       expect(pickTaskKey("recruitment event")).toBe("job fair");
+      expect(pickTaskKey("hiring event")).toBe("job fair");
+      expect(pickTaskKey("employer event")).toBe("job fair");
+      expect(pickTaskKey("open day")).toBe("job fair");
+      expect(pickTaskKey("recruitment day")).toBe("job fair");
     });
 
     it("identifies workshop tasks", () => {
@@ -408,6 +412,11 @@ describe("smart-utils", () => {
     it("returns array of suggestions for known task type", () => {
       const result = getTaskSuggestions("workshop");
       expect(Array.isArray(result)).toBe(true);
+    });
+
+    it("returns 4 suggestions for job fair", () => {
+      const result = getTaskSuggestions("job fair");
+      expect(result).toHaveLength(4);
     });
 
     it("returns default suggestions for unknown task", () => {
