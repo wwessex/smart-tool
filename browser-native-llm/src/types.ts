@@ -46,6 +46,8 @@ export interface PlanMetadata {
   generated_at: string;
   generation_time_ms: number;
   tokens_generated: number;
+  /** How the plan was produced: "llm", "repair", or "template_fallback". */
+  source?: "llm" | "repair" | "template_fallback";
 }
 
 // ---------------------------------------------------------------------------

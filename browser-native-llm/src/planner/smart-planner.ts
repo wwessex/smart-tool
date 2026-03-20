@@ -58,7 +58,7 @@ const DEFAULT_PLANNER_CONFIG: PlannerConfig = {
   inference: DEFAULT_INFERENCE_CONFIG as InferenceConfig,
   retrieval_pack_url: "./retrieval-packs/job-search-actions.json",
   worker_url: "./worker.js",
-  max_repair_attempts: 3,
+  max_repair_attempts: 1,
   min_validation_score: 45,
   min_plan_validation_score: 55,
   template_only: false,
@@ -262,10 +262,36 @@ export class SmartPlanner {
     // Step 4: Generate with the LLM
     // The prompt primes the assistant with "[" so we prepend it to the output.
     const inferStart = performance.now();
-    let rawOutput = "[" + await this.runInference(
-      basePrompt,
-      callbacks?.onTokenGenerated
-    );
+    let rawOutput: string;
+    try {
+      rawOutput = "[" + await this.runInference(
+        basePrompt,
+        callbacks?.onTokenGenerated
+      );
+    } catch (inferenceError) {
+      // Inference failed (timeout, worker crash, etc.) — fall back to templates
+      // instead of throwing and letting the hook apply inferior aiDraftNow() templates.
+      console.warn("[smart-planner] Initial inference failed, using template fallback:", inferenceError);
+      debugLog.logRawOutput("", 0);
+      const fallbackActions = createFallbackActions(profile, retrieval.templates);
+      const endTime = performance.now();
+      debugLog.logOutcome("fallback_templates", endTime - startTime, fallbackActions.length);
+      const debugResult = debugLog.flush();
+      if (debugResult) callbacks?.onDebugLog?.(debugResult);
+      return {
+        actions: fallbackActions,
+        metadata: {
+          model_id: this.config.inference.model_id,
+          model_version: "0.1.0",
+          backend: this.activeBackend,
+          retrieval_pack_version: this.library.packVersion,
+          generated_at: new Date().toISOString(),
+          generation_time_ms: endTime - startTime,
+          tokens_generated: 0,
+          source: "template_fallback" as const,
+        },
+      };
+    }
     debugLog.logRawOutput(rawOutput, performance.now() - inferStart);
 
     // Step 5: Parse and validate output
@@ -302,11 +328,25 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
       // Use progressively higher temperature on retries to increase output diversity
       const retryTemperature = Math.min(0.7, this.config.inference.temperature + repairAttempts * 0.15);
       const repairInferStart = performance.now();
-      rawOutput = "[" + await this.runInference(
-        retryPrompt,
-        callbacks?.onTokenGenerated,
-        { temperature: retryTemperature },
-      );
+      try {
+        rawOutput = "[" + await this.runInference(
+          retryPrompt,
+          callbacks?.onTokenGenerated,
+          { temperature: retryTemperature },
+        );
+      } catch (repairInferenceError) {
+        console.warn(`[smart-planner] Repair attempt ${repairAttempts} inference failed:`, repairInferenceError);
+        debugLog.logRepairAttempt({
+          attempt: repairAttempts,
+          temperature: retryTemperature,
+          rawOutput: "",
+          jsonParseSuccess: false,
+          parsedActionCount: 0,
+          validationOutcome: "inference_error",
+          timeMs: performance.now() - repairInferStart,
+        });
+        break; // Fall through to Step 7 template fallback
+      }
       const repairInferTime = performance.now() - repairInferStart;
 
       validation = this.parseAndValidate(rawOutput, profile, callbacks, debugLog);
@@ -357,6 +397,7 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
         generated_at: new Date().toISOString(),
         generation_time_ms: endTime - startTime,
         tokens_generated: Math.ceil(rawOutput.length / 4),
+        source: isFallback ? "template_fallback" as const : usedRepair ? "repair" as const : "llm" as const,
       },
     };
   }
@@ -386,6 +427,7 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
         generated_at: new Date().toISOString(),
         generation_time_ms: performance.now() - startTime,
         tokens_generated: 0,
+        source: "template_fallback" as const,
       },
     };
   }
@@ -512,6 +554,40 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
     };
 
     for (const rawAction of parsed) {
+      // Fill reasonable defaults for missing non-critical fields so that
+      // partially-complete LLM output has a chance to pass schema validation.
+      if (rawAction && typeof rawAction === "object") {
+        const record = rawAction as Record<string, unknown>;
+        const defaultDeadline = (() => {
+          const d = new Date();
+          d.setDate(d.getDate() + Math.round(profile.timeframe_weeks * 7 * 0.75));
+          return d.toISOString().split("T")[0];
+        })();
+        if (!record.baseline || (typeof record.baseline === "string" && record.baseline.trim().length < 1)) {
+          record.baseline = "Not yet started";
+        }
+        if (!record.target || (typeof record.target === "string" && record.target.trim().length < 1)) {
+          record.target = "Completed";
+        }
+        if (!record.effort_estimate || (typeof record.effort_estimate === "string" && record.effort_estimate.trim().length < 3)) {
+          record.effort_estimate = "1-2 hours";
+        }
+        if (!record.rationale || (typeof record.rationale === "string" && record.rationale.trim().length < 5)) {
+          record.rationale = "Supports employment goal";
+        }
+        if (!record.first_step || (typeof record.first_step === "string" && record.first_step.trim().length < 5)) {
+          record.first_step = typeof record.action === "string" ? record.action : "Begin this action";
+        }
+        if (!record.metric || (typeof record.metric === "string" && record.metric.trim().length < 5)) {
+          record.metric = typeof record.action === "string"
+            ? `Completion of: ${(record.action as string).slice(0, 50)}`
+            : "Task completed";
+        }
+        if (!record.deadline || (typeof record.deadline === "string" && record.deadline.trim().length < 4)) {
+          record.deadline = defaultDeadline;
+        }
+      }
+
       // Check schema compliance
       if (!SMART_ACTION_SCHEMA.validate(rawAction)) {
         allIssues.push(`Schema validation failed for action: ${sanitizeForLog(JSON.stringify(rawAction))}`);

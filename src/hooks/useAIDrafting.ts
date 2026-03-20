@@ -284,6 +284,7 @@ export function useAIDrafting({
           };
 
       const plan = await llm.generatePlan(input);
+      const isTemplateFallback = plan.metadata.source === 'template_fallback';
 
       // Log analytics: plan generated
       logDraftAnalytics({
@@ -292,7 +293,7 @@ export function useAIDrafting({
         barrier: mode === 'now' ? nowForm.barrier : undefined,
         barrier_id: input.selected_barrier_id,
         actions_count: plan.actions.length,
-        source: "ai",
+        source: isTemplateFallback ? "template" : "ai",
       });
 
       // Phase 2: Rank actions by relevance before presenting to user
@@ -307,6 +308,10 @@ export function useAIDrafting({
       if (rankedPlan.actions.length === 1) {
         // Single action — apply directly
         handleSelectPlanAction(rankedPlan.actions[0]);
+        if (isTemplateFallback) {
+          // Override the default "Action applied" toast with a template-specific one
+          toast({ title: 'Smart template applied', description: 'AI generation used smart templates. Edit as needed.' });
+        }
       } else if (rankedPlan.actions.length > 1) {
         // Multiple actions — show picker (best action is first)
         setPlanResult(rankedPlan);
@@ -317,18 +322,9 @@ export function useAIDrafting({
 
       scheduleSafariModelUnload();
     } catch (err) {
-      const isTimeoutError = err instanceof Error && /timed out/i.test(err.message);
-      if (isTimeoutError) {
-        console.warn('SmartPlanner draft timed out; keeping AI mode enabled for retry:', err);
-        toast({
-          title: 'AI draft timed out',
-          description: 'The built-in model is still warming up. Try drafting again to use Local AI.',
-          variant: 'destructive',
-        });
-        scheduleSafariModelUnload(0);
-        return;
-      }
-
+      // The planner now catches inference errors internally and falls back
+      // to retrieval-based templates. Errors reaching here are rare
+      // (initialization errors, iOS memory crashes).
       console.warn('SmartPlanner draft failed, falling back to templates:', err);
       if (mode === 'now') {
         let timescale = nowForm.timescale;
