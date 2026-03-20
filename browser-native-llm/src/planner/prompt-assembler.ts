@@ -77,7 +77,7 @@ export function assemblePrompt(
       mustKeepSections.profile,
     ];
 
-    if (templatesIncludedCount > 0) {
+    if (templatesIncludedCount > 0 && profile.generation_mode !== 'outcome') {
       parts.push(buildTemplateSection(templatePool.slice(0, templatesIncludedCount), profile));
     }
 
@@ -159,14 +159,15 @@ RULES:
    - Use ASCII double quotes (") as JSON delimiters for ALL keys and string values.
    - Never use typographic quotes (e.g., " " ' ') as JSON delimiters.
 2. Each outcome MUST have ALL required fields: action, metric, baseline, target, deadline, rationale, effort_estimate, first_step.
-3. The "action" field must describe what the participant will GAIN from the activity (skills, confidence, knowledge, contacts), NOT what they will DO.
+3. The "action" field must describe what happens DURING or as a DIRECT RESULT of the activity. NEVER describe preparation done BEFORE the activity (e.g., writing CVs, updating LinkedIn, researching companies).
 4. Start each "action" with the participant's name + "will" (e.g., "John will gain confidence speaking to employers").
-5. Focus on realistic employment benefits: interview skills, confidence, industry knowledge, professional contacts, job leads.
+5. Focus on realistic employment benefits gained AT the activity: confidence, professional contacts, job leads, industry knowledge, practical experience.
 6. NEVER mention money, prizes, awards, certificates, or guaranteed job offers.
 7. NEVER provide medical, legal, or financial advice.
-8. The "first_step" field should describe a practical way to prepare for or make the most of the activity.
+8. The "first_step" field should describe how to make the most of the activity while attending.
 9. The "rationale" field should explain how this outcome helps their job search.
 10. Preserve natural spelling and Unicode characters in user-facing text values (names, places, and accents/diacritics).
+11. WRONG (preparation before): "Write a cover letter", "Update LinkedIn profile", "Prepare interview answers", "Research companies online". RIGHT (during/after): "Will speak with 3 employers about roles", "Will collect contact details from recruiters", "Will gain confidence introducing themselves".
 <|im_end|>`;
   }
 
@@ -279,7 +280,7 @@ function buildOutputInstruction(profile: UserProfile): string {
     : "";
 
   if (profile.generation_mode === 'outcome') {
-    return `Generate ${getActionCount(profile)} realistic employment outcomes${nameContext} from completing this activity. Focus on job-search benefits like skills, confidence, contacts, and knowledge. All deadlines must be between ${formatDate(today)} and ${formatDate(deadlineDate)}.
+    return `Generate ${getActionCount(profile)} realistic employment outcomes${nameContext} that happen DURING or AFTER this activity. Focus on benefits gained AT the activity: confidence, contacts, job leads, and knowledge. Do NOT include preparation actions done before the activity (e.g., writing CVs, cover letters, updating profiles). All deadlines must be between ${formatDate(today)} and ${formatDate(deadlineDate)}.
 <|im_end|>
 <|im_start|>assistant
 [`;
