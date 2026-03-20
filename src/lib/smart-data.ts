@@ -31,7 +31,7 @@ export const BARRIER_CATEGORIES: Record<string, string> = Object.fromEntries(
   ])
 );
 
-// "English Language (ESOL)" exists in the frontend but not the LLM catalog
+// "English Language (ESOL)" fallback — now in BARRIER_CATALOG, but kept for safety
 if (!BARRIER_CATEGORIES["English Language (ESOL)"]) {
   BARRIER_CATEGORIES["English Language (ESOL)"] = "skills";
 }
@@ -87,12 +87,9 @@ export const DEFAULT_TIMESCALES = [
 
 /**
  * Default barrier list, derived from BARRIER_CATALOG keys.
- * "English Language (ESOL)" is added separately as it exists in the frontend
- * but not in the LLM catalog.
  */
 export const DEFAULT_BARRIERS: string[] = [
   ...Object.keys(BARRIER_CATALOG),
-  "English Language (ESOL)",
 ];
 
 // Builder phrases (DATA sheet) - SMART format for Restart Advisors
@@ -880,6 +877,245 @@ export const EXEMPLAR_LIBRARY: ActionExemplar[] = [
     action: "{forename} has agreed to apply for a provisional driving licence online at gov.uk by {targetDate} to provide valid photo ID for employment.",
     help: "obtain official photo ID required by most employers.",
     tags: ["photo id", "provisional licence", "gov.uk", "identity", "document"],
+    rating: 5,
+  },
+  {
+    barrier: "Photo ID",
+    category: "practical",
+    action: "{forename} will gather supporting documents (birth certificate, proof of address) needed for ID application with advisor support by {targetDate}.",
+    help: "prepare everything needed to apply for photo ID without delays.",
+    tags: ["photo id", "documents", "birth certificate", "proof of address"],
+    rating: 5,
+  },
+  // ---- Learning Difficulties ----
+  {
+    barrier: "Learning Difficulties",
+    category: "neurodiversity",
+    action: "{forename} will attend a learning support assessment by {targetDate} to identify reasonable adjustments needed for training and employment.",
+    help: "understand specific support needs and access appropriate services.",
+    tags: ["learning difficulties", "assessment", "reasonable adjustments", "support"],
+    rating: 5,
+  },
+  {
+    barrier: "Learning Difficulties",
+    category: "neurodiversity",
+    action: "{forename} and advisor will break job search tasks into small steps with visual checklists, completing one item per day by {targetDate}.",
+    help: "make progress manageable through clear, structured task breakdowns.",
+    tags: ["learning difficulties", "checklists", "small steps", "visual support"],
+    rating: 5,
+  },
+  // ---- Health Condition ----
+  {
+    barrier: "Health Condition",
+    category: "wellbeing",
+    action: "{forename} will explore Access to Work support and begin an application if eligible by {targetDate}.",
+    help: "access funding for workplace adjustments that accommodate health needs.",
+    tags: ["health", "access to work", "adjustments", "funding", "support"],
+    rating: 5,
+  },
+  {
+    barrier: "Health Condition",
+    category: "wellbeing",
+    action: "{forename} has agreed to research and shortlist three roles offering flexible or part-time working that accommodates health needs by {targetDate}.",
+    help: "find sustainable employment options that work around health limitations.",
+    tags: ["health", "flexible working", "part time", "adjustments", "applications"],
+    rating: 5,
+  },
+  // ---- Disability ----
+  {
+    barrier: "Disability",
+    category: "wellbeing",
+    action: "{forename} will identify reasonable adjustments needed for work and prepare a brief disclosure statement with advisor support by {targetDate}.",
+    help: "prepare for communicating workplace needs clearly to potential employers.",
+    tags: ["disability", "reasonable adjustments", "disclosure", "workplace"],
+    rating: 5,
+  },
+  {
+    barrier: "Disability",
+    category: "wellbeing",
+    action: "{forename} has agreed to research and target Disability Confident employers in the local area, applying to at least two suitable roles by {targetDate}.",
+    help: "focus on inclusive employers who guarantee interviews for disabled applicants meeting minimum criteria.",
+    tags: ["disability", "disability confident", "inclusive employers", "applications"],
+    rating: 5,
+  },
+  // ---- Previous Work History ----
+  {
+    barrier: "Previous Work History",
+    category: "experience",
+    action: "{forename} will complete an employment history timeline with advisor support by {targetDate}, identifying transferable skills from each period.",
+    help: "build a clear picture of experience and address employment gaps positively.",
+    tags: ["work history", "employment gaps", "timeline", "transferable skills"],
+    rating: 5,
+  },
+  {
+    barrier: "Previous Work History",
+    category: "experience",
+    action: "{forename} has agreed to apply for volunteering with two organisations by {targetDate} to build recent work experience and references.",
+    help: "gain recent references and demonstrate current reliability to employers.",
+    tags: ["work history", "volunteering", "references", "experience", "recent"],
+    rating: 5,
+  },
+  // ---- English Language (ESOL) ----
+  {
+    barrier: "English Language (ESOL)",
+    category: "skills",
+    action: "{forename} will attend an ESOL assessment at a local provider by {targetDate} to determine current English level and appropriate course.",
+    help: "identify the right level of English language support for employment.",
+    tags: ["esol", "english language", "assessment", "course", "level"],
+    rating: 5,
+  },
+  {
+    barrier: "English Language (ESOL)",
+    category: "skills",
+    action: "{forename} has agreed to learn and practise ten key workplace vocabulary words for their target sector each week until {targetDate}.",
+    help: "build workplace-specific English skills relevant to target roles.",
+    tags: ["esol", "english language", "vocabulary", "workplace", "practice"],
+    rating: 5,
+  },
+  // ---- Social & Support Networks ----
+  {
+    barrier: "Social & Support Networks",
+    category: "experience",
+    action: "{forename} has agreed to research and attend a local community group or job club by {targetDate} to build social connections and peer support.",
+    help: "reduce isolation and build a support network that aids job search.",
+    tags: ["social", "community", "job club", "peer support", "networking"],
+    rating: 5,
+  },
+  {
+    barrier: "Social & Support Networks",
+    category: "experience",
+    action: "{forename} will explore and apply for volunteering opportunities that build both social connections and work experience by {targetDate}.",
+    help: "build social confidence and recent experience simultaneously.",
+    tags: ["social", "volunteering", "connections", "work experience"],
+    rating: 5,
+  },
+  // ---- Learning Capability ----
+  {
+    barrier: "Learning Capability",
+    category: "neurodiversity",
+    action: "{forename} has agreed to complete a learning styles assessment by {targetDate} to understand preferred learning methods for training.",
+    help: "identify the most effective learning approaches for skills development.",
+    tags: ["learning capability", "learning styles", "assessment", "training"],
+    rating: 5,
+  },
+  {
+    barrier: "Learning Capability",
+    category: "neurodiversity",
+    action: "{forename} will create a visual step-by-step checklist for key job search tasks with advisor support by {targetDate}.",
+    help: "make job search activities clear and manageable through structured visual guides.",
+    tags: ["learning capability", "visual support", "checklists", "structured tasks"],
+    rating: 5,
+  },
+  // ---- Transferable Skills ----
+  {
+    barrier: "Transferable Skills",
+    category: "skills",
+    action: "{forename} will complete the National Careers Service Skills Health Check and discuss results with advisor by {targetDate}.",
+    help: "identify transferable skills from all previous experience including volunteering.",
+    tags: ["transferable skills", "skills audit", "health check", "career change"],
+    rating: 5,
+  },
+  {
+    barrier: "Transferable Skills",
+    category: "skills",
+    action: "{forename} has agreed to update their CV to highlight transferable skills relevant to target roles by {targetDate}.",
+    help: "present existing skills in a way that matches target role requirements.",
+    tags: ["transferable skills", "cv", "update", "target roles"],
+    rating: 5,
+  },
+  // ---- Substance Misuse ----
+  {
+    barrier: "Substance Misuse",
+    category: "wellbeing",
+    action: "{forename} has agreed to contact the agreed support service to arrange an initial appointment and confirm the date by {targetDate}.",
+    help: "access specialist support and begin stabilising routines for employment readiness.",
+    tags: ["substance misuse", "recovery", "support service", "appointment"],
+    rating: 5,
+  },
+  {
+    barrier: "Substance Misuse",
+    category: "wellbeing",
+    action: "{forename} will build a simple structured daily routine including one small employment-related task and review progress by {targetDate}.",
+    help: "develop consistency and structure that supports both recovery and job search.",
+    tags: ["substance misuse", "routine", "recovery", "structure", "employment"],
+    rating: 5,
+  },
+  // ---- Digital Hardware & Connectivity ----
+  {
+    barrier: "Digital Hardware & Connectivity",
+    category: "practical",
+    action: "{forename} will register for free computer access at the local library by {targetDate} to enable regular job searching and applications.",
+    help: "secure reliable digital access for online job search activities.",
+    tags: ["digital access", "library", "computer", "internet", "job search"],
+    rating: 5,
+  },
+  {
+    barrier: "Digital Hardware & Connectivity",
+    category: "practical",
+    action: "{forename} has agreed to set up a free email address with advisor support and test login for key job search accounts by {targetDate}.",
+    help: "establish digital presence needed for job applications and employer communication.",
+    tags: ["digital access", "email", "setup", "accounts", "connectivity"],
+    rating: 5,
+  },
+  // ---- Literacy and/or Numeracy ----
+  {
+    barrier: "Literacy and/or Numeracy",
+    category: "skills",
+    action: "{forename} has agreed to complete an initial literacy and numeracy assessment by {targetDate} to identify support needs.",
+    help: "understand current level and access appropriate skills support.",
+    tags: ["literacy", "numeracy", "assessment", "functional skills", "support"],
+    rating: 5,
+  },
+  {
+    barrier: "Literacy and/or Numeracy",
+    category: "skills",
+    action: "{forename} will enrol in a free Functional Skills course at a local provider by {targetDate} to improve confidence with reading, writing, or maths.",
+    help: "build core skills needed for employment applications and workplace tasks.",
+    tags: ["literacy", "numeracy", "functional skills", "course", "enrolment"],
+    rating: 5,
+  },
+  // ---- Job Goal ----
+  {
+    barrier: "Job Goal",
+    category: "job-search",
+    action: "{forename} will research three potential career paths matching current skills and interests, noting entry requirements, by {targetDate}.",
+    help: "clarify career direction before committing to specific job applications.",
+    tags: ["job goal", "career direction", "research", "skills", "discovery"],
+    rating: 5,
+  },
+  {
+    barrier: "Job Goal",
+    category: "job-search",
+    action: "{forename} has agreed to complete a skills and interests audit with advisor support and write down target role preferences by {targetDate}.",
+    help: "focus job search on realistic and achievable goals based on strengths.",
+    tags: ["job goal", "skills audit", "interests", "target role", "discovery"],
+    rating: 5,
+  },
+  // ---- Job Applications (additional) ----
+  {
+    barrier: "Job Applications",
+    category: "job-search",
+    action: "{forename} has agreed to start an application tracker recording company, role, date applied, and follow-up dates, and update it after every application until {targetDate}.",
+    help: "stay organised and follow up effectively on all applications.",
+    tags: ["applications", "tracker", "organisation", "follow-up"],
+    rating: 5,
+  },
+  // ---- Housing (additional) ----
+  {
+    barrier: "Housing",
+    category: "practical",
+    action: "{forename} will gather key housing documents (tenancy agreement, ID, recent correspondence) and bring them to our next appointment on {targetDate}.",
+    help: "enable referrals and evidence the housing situation quickly.",
+    tags: ["housing", "documents", "tenancy", "evidence", "referral"],
+    rating: 5,
+  },
+  // ---- Caring Responsibilities (additional) ----
+  {
+    barrier: "Caring Responsibilities",
+    category: "practical",
+    action: "{forename} has agreed to create a childcare availability map for the next four weeks and shortlist flexible roles matching those time windows by {targetDate}.",
+    help: "identify realistic employment options that fit around caring commitments.",
+    tags: ["childcare", "caring", "flexible", "availability", "time windows"],
     rating: 5,
   },
 ];
