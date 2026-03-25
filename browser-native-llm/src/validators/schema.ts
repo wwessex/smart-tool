@@ -158,6 +158,14 @@ export function parseJsonOutput(rawOutput: string): unknown[] | null {
     return tryParseArray(text.slice(arrayStart, arrayEnd + 1));
   }
 
+  // Array opened but never closed (model ran out of tokens) —
+  // tryParseArray → cleanJsonString → truncateToLastCompleteObject
+  // will recover any complete objects.
+  if (arrayStart !== -1) {
+    const recovered = tryParseArray(text.slice(arrayStart));
+    if (recovered) return recovered;
+  }
+
   // Try finding a single JSON object and wrapping it
   const objStart = text.indexOf("{");
   const objEnd = text.lastIndexOf("}");
