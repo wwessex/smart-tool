@@ -14,6 +14,7 @@ import {
   buildNowOutput,
   buildFutureOutput,
   buildHistoryItem,
+  capitalizeForename,
 } from "@/lib/smart-utils";
 
 describe("smart-utils", () => {
@@ -633,6 +634,32 @@ describe("smart-utils", () => {
 
       expect(item.id).toMatch(/^hist-/);
       globalThis.crypto.randomUUID = original;
+    });
+  });
+
+  describe("capitalizeForename", () => {
+    it("capitalizes lowercase forename", () => {
+      expect(capitalizeForename("john")).toBe("John");
+    });
+
+    it("preserves already capitalized forename", () => {
+      expect(capitalizeForename("John")).toBe("John");
+    });
+
+    it("preserves rest of casing", () => {
+      expect(capitalizeForename("JOHN")).toBe("JOHN");
+    });
+
+    it("returns empty string for empty input", () => {
+      expect(capitalizeForename("")).toBe("");
+    });
+
+    it("trims whitespace and capitalizes", () => {
+      expect(capitalizeForename("  john  ")).toBe("John");
+    });
+
+    it("handles single character", () => {
+      expect(capitalizeForename("j")).toBe("J");
     });
   });
 

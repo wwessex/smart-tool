@@ -186,6 +186,13 @@ export function resolvePlaceholders(str: string, ctx: { targetPretty: string; n?
   return result;
 }
 
+/** Capitalize the first letter of a forename (e.g., "john" → "John"). */
+export function capitalizeForename(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return trimmed;
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+}
+
 function lowerFirstLetter(s: string): string {
   if (!s) return s;
   return s.charAt(0).toLowerCase() + s.slice(1);

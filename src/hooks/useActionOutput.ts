@@ -3,7 +3,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation, SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
 import { checkSmart, SmartCheck } from '@/lib/smart-checker';
-import { buildNowOutput, buildFutureOutput } from '@/lib/smart-utils';
+import { buildNowOutput, buildFutureOutput, capitalizeForename } from '@/lib/smart-utils';
 import type { Mode, NowForm, TaskBasedForm, OutputSource } from '@/types/smart-tool';
 
 // Re-export for backward compatibility
@@ -56,7 +56,7 @@ export function useActionOutput({
     if (mode === 'now') {
       const text = buildNowOutput(
         nowForm.date,
-        nowForm.forename.trim(),
+        capitalizeForename(nowForm.forename),
         nowForm.barrier.trim(),
         nowForm.action.trim(),
         nowForm.responsible,
@@ -68,7 +68,7 @@ export function useActionOutput({
     } else {
       const text = buildFutureOutput(
         taskBasedForm.date,
-        taskBasedForm.forename.trim(),
+        capitalizeForename(taskBasedForm.forename),
         taskBasedForm.task.trim(),
         taskBasedForm.responsible,
         taskBasedForm.outcome.trim(),
