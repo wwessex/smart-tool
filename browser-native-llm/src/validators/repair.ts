@@ -141,7 +141,7 @@ export function repairAction(
 
   // Fix relevance: add rationale connecting to goal
   if (!validationResult.criteria.relevant.passed) {
-    repaired.rationale = `This supports the goal of securing a ${profile.job_goal} role by ${repaired.rationale.toLowerCase()}`;
+    repaired.rationale = `support the goal of securing a ${profile.job_goal.toLowerCase()} role by ${repaired.rationale.toLowerCase()}`;
     changed = true;
   }
 
@@ -229,8 +229,8 @@ export function createFallbackActions(
       target: "All key sections reviewed and updated",
       deadline: deadline.toISOString().split("T")[0],
       rationale: profile.resolved_barrier
-        ? `Addresses ${profile.resolved_barrier.label} by taking a concrete first step toward employment.`
-        : "Takes a concrete first step toward the goal of finding suitable employment.",
+        ? `address ${profile.resolved_barrier.label} by taking a concrete first step toward employment`
+        : "take a concrete first step toward the goal of finding suitable employment",
       effort_estimate: "2 hours one-off",
       first_step: `Review current CV and identify 3 sections to improve for ${profile.job_goal || "target"} roles`,
       template_id: "__hardcoded_fallback__",
@@ -452,8 +452,8 @@ function templateToAction(
     target: inferTarget(template, profile),
     deadline: deadline.toISOString().split("T")[0],
     rationale: profile.resolved_barrier
-      ? `Helps address ${profile.resolved_barrier.label} to support the goal of finding a ${profile.job_goal} role.`
-      : `Supports the goal of finding a ${profile.job_goal} role.`,
+      ? `address ${profile.resolved_barrier.label} to support the goal of finding a ${profile.job_goal.toLowerCase()} role`
+      : `support the goal of finding a ${profile.job_goal.toLowerCase()} role`,
     effort_estimate: template.effort_hint,
     first_step: inferFirstStep(template, profile),
     template_id: template.id,

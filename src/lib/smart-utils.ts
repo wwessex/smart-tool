@@ -385,8 +385,15 @@ export function buildNowOutput(
   }
   const safeAction = formattedAction || "take agreed next steps";
   
-  // Strip trailing punctuation from help text too
-  const cleanHelp = stripTrailingPunctuation(help);
+  // Strip trailing punctuation from help text and normalise for template concatenation.
+  // The template reads "This action will help <help>." so the help text must:
+  //  - not start with a redundant verb like "Helps" / "Supports"
+  //  - start with a lowercase letter
+  let cleanHelp = stripTrailingPunctuation(help);
+  cleanHelp = cleanHelp.replace(/^\s*(helps?|supports?|will help|this will help|this action will help)\s+/i, '');
+  if (cleanHelp) {
+    cleanHelp = cleanHelp.charAt(0).toLowerCase() + cleanHelp.slice(1);
+  }
   const cleanBarrier = stripTrailingPunctuation(barrier);
   const cleanTimescale = stripTrailingPunctuation(timescale);
 
