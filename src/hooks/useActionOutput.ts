@@ -64,6 +64,7 @@ export function useActionOutput({
         nowForm.timescale,
       );
       setOutput(text);
+      setOutputSource('form');
     } else {
       const text = buildFutureOutput(
         taskBasedForm.date,
@@ -74,6 +75,7 @@ export function useActionOutput({
         taskBasedForm.timescale,
       );
       setOutput(text);
+      setOutputSource('form');
     }
   }, [mode, nowForm, taskBasedForm, validateNow, validateTaskBased, toast]);
 
