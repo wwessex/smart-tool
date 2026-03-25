@@ -452,7 +452,7 @@ function templateToAction(
     target: inferTarget(template, profile),
     deadline: deadline.toISOString().split("T")[0],
     rationale: profile.resolved_barrier
-      ? `address ${profile.resolved_barrier.label} to support the goal of finding a ${profile.job_goal.toLowerCase()} role`
+      ? `address ${profile.resolved_barrier.label} and support the goal of finding a ${profile.job_goal.toLowerCase()} role`
       : `support the goal of finding a ${profile.job_goal.toLowerCase()} role`,
     effort_estimate: template.effort_hint,
     first_step: inferFirstStep(template, profile),
