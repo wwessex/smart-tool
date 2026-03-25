@@ -63,6 +63,7 @@ export function useSmartStorage() {
     recentNames?: string[];
     templates?: ActionTemplate[];
     settings?: SmartToolSettings;
+    actionFeedback?: ActionFeedback[];
   }) => {
     if (Array.isArray(data.history)) {
       historyHook.setHistory(data.history);
@@ -91,6 +92,10 @@ export function useSmartStorage() {
     if (Array.isArray(data.templates)) {
       templatesHook.setTemplates(data.templates);
       saveList(STORAGE_KEYS.templates, data.templates);
+    }
+    if (Array.isArray(data.actionFeedback)) {
+      feedbackHook.setActionFeedback(data.actionFeedback);
+      safeSetItem(STORAGE_KEYS.actionFeedback, JSON.stringify(data.actionFeedback));
     }
     if (data.settings && typeof data.settings === 'object') {
       if (typeof data.settings.minScoreEnabled === 'boolean') {

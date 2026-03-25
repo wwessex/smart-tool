@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 const HistoryItemMetaSchema = z.object({
   date: z.string().max(50),
+  time: z.string().max(20).optional(),
   forename: z.string().max(100),
   barrier: z.string().max(200),
   timescale: z.string().max(50),
@@ -47,6 +48,20 @@ const SettingsSchema = z.object({
   participantLanguage: z.string().max(20).optional(),
 });
 
+const ActionFeedbackSchema = z.object({
+  id: z.string().max(100),
+  createdAt: z.string().max(50),
+  barrier: z.string().max(200),
+  category: z.string().max(100),
+  generatedAction: z.string().max(5000),
+  editedAction: z.string().max(5000).optional(),
+  rating: z.enum(['relevant', 'not-relevant']).nullable(),
+  acceptedAsIs: z.boolean(),
+  source: z.enum(['ai', 'template']),
+  forename: z.string().max(100),
+  timescale: z.string().max(50),
+});
+
 export const SmartToolImportPayloadSchema = z.object({
   history: z.array(HistoryItemSchema).max(100).optional(),
   barriers: z.array(z.string().max(200)).max(50).optional(),
@@ -54,6 +69,7 @@ export const SmartToolImportPayloadSchema = z.object({
   recentNames: z.array(z.string().max(100)).max(10).optional(),
   templates: z.array(ActionTemplateSchema).max(50).optional(),
   settings: SettingsSchema.optional(),
+  actionFeedback: z.array(ActionFeedbackSchema).max(500).optional(),
 });
 
 // Outer file schema: allows either payload at top level, OR payload nested under `data`.
