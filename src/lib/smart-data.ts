@@ -370,7 +370,7 @@ export const ACTION_LIBRARY: Record<string, Array<{title: string; action: string
     {
       "title": "Digital skills assessment",
       "action": "{forename} has agreed to complete a basic digital skills assessment with advisor support by {targetDate} to identify training needs.",
-      "help": "Helps identify specific areas for development."
+      "help": "identify specific areas for development"
     },
     {
       "title": "Smartphone support",
@@ -416,7 +416,7 @@ export const ACTION_LIBRARY: Record<string, Array<{title: string; action: string
     {
       "title": "Learning style assessment",
       "action": "{forename} has agreed to complete a learning styles assessment by {targetDate} to understand preferred learning methods.",
-      "help": "Helps identify most effective training approaches."
+      "help": "identify most effective training approaches"
     },
     {
       "title": "Arrange learning support",
