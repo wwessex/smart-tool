@@ -418,13 +418,24 @@ export function useAIDrafting({
           ...(field === 'outcome' ? { generation_mode: 'outcome' as const } : {}),
         };
         const plan = await llm.generatePlan(input);
+        const isTemplateFallback = plan.metadata.source === 'template_fallback';
+
         if (plan.actions.length > 0) {
           const action = plan.actions[0];
+          scheduleSafariModelUnload();
+
+          if (isTemplateFallback) {
+            toast({ title: 'Smart template applied', description: 'AI used smart templates for this field.' });
+          }
+
           if (field === 'action') return action.action;
           if (field === 'help') return action.first_step || action.rationale;
           if (field === 'outcome') return action.action;
         }
+
+        // Empty plan — fall through to template with notification
         scheduleSafariModelUnload();
+        toast({ title: 'Using smart templates', description: 'AI returned no actions. Using templates instead.' });
       } catch (err) {
         console.warn('SmartPlanner wizard draft failed, falling back to templates:', err);
         toast({ title: 'Using smart templates', description: 'AI generation failed. Applied templates instead.', variant: 'destructive' });
