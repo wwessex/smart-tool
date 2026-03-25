@@ -621,4 +621,50 @@ describe("useSmartStorage", () => {
       expect(result.current.safariWebGPUEnabled).toBe(true);
     });
   });
+
+  describe("error resilience", () => {
+    it("handles corrupt JSON in history gracefully", () => {
+      localStorage.setItem("smartTool.history", "not valid json{{{");
+
+      const { result } = renderHook(() => useSmartStorage());
+
+      // Should fall back to empty array rather than crashing
+      expect(result.current.history).toEqual([]);
+    });
+
+    it("handles corrupt JSON in templates gracefully", () => {
+      localStorage.setItem("smartTool.templates", "{{bad json}}");
+
+      const { result } = renderHook(() => useSmartStorage());
+
+      expect(result.current.templates).toEqual([]);
+    });
+
+    it("handles corrupt JSON in barriers gracefully", () => {
+      localStorage.setItem("smartTool.barriers", "[invalid");
+
+      const { result } = renderHook(() => useSmartStorage());
+
+      // Should fall back to defaults
+      expect(Array.isArray(result.current.barriers)).toBe(true);
+      expect(result.current.barriers.length).toBeGreaterThan(0);
+    });
+
+    it("handles non-array JSON in history gracefully", () => {
+      localStorage.setItem("smartTool.history", JSON.stringify({ not: "an array" }));
+
+      const { result } = renderHook(() => useSmartStorage());
+
+      expect(result.current.history).toEqual([]);
+    });
+
+    it("handles non-numeric threshold value gracefully", () => {
+      localStorage.setItem("smartTool.minScoreThreshold", "abc");
+
+      const { result } = renderHook(() => useSmartStorage());
+
+      // Should fall back to default (5)
+      expect(typeof result.current.minScoreThreshold).toBe("number");
+    });
+  });
 });
