@@ -392,10 +392,13 @@ export function useAIDrafting({
       if (llm.canUseLocalAI) {
         setShowLLMPicker(true);
         toast({ title: 'Load Local AI', description: 'Pick a model to enable AI drafting.' });
-      } else {
-        toast({ title: 'Local AI not available', description: 'Enable Local AI in Settings or use Smart Templates.', variant: 'destructive' });
+        return '';
       }
-      return '';
+      // AI not available on this device — fall through to template fallback below
+      toast({
+        title: 'Using smart templates',
+        description: 'Local AI is not available on this device. Using templates instead.',
+      });
     }
 
     // If AI is ready, use SmartPlanner
