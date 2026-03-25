@@ -69,7 +69,7 @@ ALL_MODELS = [
 ]
 
 # High-demand languages for UK employment services (both directions)
-PRIORITY_LANGS = {"pl", "ar", "ur", "cy", "bn", "so"}
+PRIORITY_LANGS = {"pl", "ar", "ur", "cy", "bn", "so", "de", "fr", "es", "it", "pt", "hi", "pa", "ps", "ti"}
 
 # Files needed by Puente Engine — skip large fp32/fp16/alternative weights
 ALLOW_PATTERNS = [
