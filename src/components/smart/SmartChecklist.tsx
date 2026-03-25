@@ -106,7 +106,7 @@ export const SmartChecklist = memo(function SmartChecklist({ check, className, a
               <motion.button
                 type="button"
                 className={cn(
-                  "px-3 py-1 rounded-full text-sm font-bold cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all focus:outline-none focus:ring-2 focus:ring-primary",
+                  "inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all focus:outline-none focus:ring-2 focus:ring-primary",
                   check.overallScore >= 4 ? "bg-green-500/10 text-green-600" :
                   check.overallScore >= 3 ? "bg-amber-500/10 text-amber-600" :
                   "bg-destructive/10 text-destructive"
@@ -121,7 +121,7 @@ export const SmartChecklist = memo(function SmartChecklist({ check, className, a
                 aria-label={`SMART score: ${check.overallScore} out of 5, ${getSmartLabel(check.overallScore)}. Click for detailed analysis`}
               >
                 {check.overallScore}/5 {getSmartLabel(check.overallScore)}
-                <Info className="w-3 h-3 inline-block ml-1 opacity-50" aria-hidden="true" />
+                <Info className="w-3.5 h-3.5 opacity-60 shrink-0" aria-hidden="true" />
               </motion.button>
             </TooltipTrigger>
             <TooltipContent side="bottom">

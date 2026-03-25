@@ -218,6 +218,25 @@ export function createFallbackActions(
     }
   }
 
+  // Guarantee at least one action even if no templates matched
+  if (actions.length === 0) {
+    const deadline = new Date();
+    deadline.setDate(deadline.getDate() + profile.timeframe_weeks * 7);
+    actions.push({
+      action: `Update and tailor CV to highlight skills relevant to ${profile.job_goal || "target"} roles`,
+      metric: "Number of CV sections updated",
+      baseline: "Not yet started",
+      target: "All key sections reviewed and updated",
+      deadline: deadline.toISOString().split("T")[0],
+      rationale: profile.resolved_barrier
+        ? `Addresses ${profile.resolved_barrier.label} by taking a concrete first step toward employment.`
+        : "Takes a concrete first step toward the goal of finding suitable employment.",
+      effort_estimate: "2 hours one-off",
+      first_step: `Review current CV and identify 3 sections to improve for ${profile.job_goal || "target"} roles`,
+      template_id: "__hardcoded_fallback__",
+    });
+  }
+
   return actions;
 }
 
