@@ -597,7 +597,7 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
           if (!isFieldCoherent(record.action, record.rationale)) {
             const barrierLabel = profile.resolved_barrier?.label;
             record.rationale = barrierLabel
-              ? `Helps address ${barrierLabel} to support employment goal`
+              ? `Helps address ${barrierLabel} and supports the employment goal`
               : "Supports employment goal";
           }
         }
