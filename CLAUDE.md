@@ -11,34 +11,39 @@
 - **Timescales**: Review periods for action plans
 - **Participants**: Job seekers working with advisors
 - **Prompt Packs**: Curated templates + few-shot examples for AI drafting (`public/prompt-pack.json`)
+- **Retrieval Packs**: Language-specific example packs for retrieval-augmented generation (`public/retrieval-packs/`)
 
 ## Tech Stack
 
 | Category | Technology |
 |----------|------------|
-| Framework | React 18 + TypeScript |
+| Framework | React 18.3 + TypeScript 5.8 |
 | Build | Vite 5, Bun (preferred) or npm |
-| UI | shadcn/ui + Radix UI + Tailwind CSS 3 |
-| Animations | Framer Motion |
-| State | React hooks + TanStack Query |
+| UI | shadcn/ui + Radix UI (21 primitives) + Tailwind CSS 3 |
+| Animations | Framer Motion 12 |
+| State | React hooks + TanStack Query 5 |
+| Routing | React Router 6 (HashRouter) |
+| Validation | Zod 3 |
 | Local AI | `@smart-tool/browser-native-llm` (Amor inteligente) via Puente Engine |
 | Translation | `@smart-tool/lengua-materna` (Lengua Materna) via Puente Engine |
-| Inference | ONNX Runtime Web |
-| Testing | Vitest + Testing Library |
-| Linting | ESLint (flat config) |
-| Auth | Supabase, @azure/msal-browser |
+| Inference | ONNX Runtime Web 1.21 |
+| Testing | Vitest 3 + Testing Library |
+| Linting | ESLint 9 (flat config) |
+| Auth | Supabase 2, @azure/msal-browser 5 |
 
 ## Commands
 
 ```bash
-bun install              # Install dependencies
-bun run dev              # Dev server on port 8080
-bun run build            # Production build
-bun run build:dev        # Dev build (sourcemaps, keeps console)
-bun run test             # Run tests (vitest run)
-bun run test:watch       # Tests in watch mode
-bun run lint             # ESLint
-bun run tsc --noEmit     # Type check (not a script — run directly)
+bun install                        # Install dependencies
+bun run dev                        # Dev server on port 8080
+bun run build                      # Production build
+bun run build:dev                  # Dev build (sourcemaps, keeps console)
+bun run test                       # Run tests (vitest run)
+bun run test:watch                 # Tests in watch mode
+bun run lint                       # ESLint
+bun run tsc --noEmit               # Type check (not a script — run directly)
+bun run fetch-models               # Download OPUS-MT translation models
+bun run validate:translation-models # Validate downloaded models
 ```
 
 ## Directory Structure
@@ -46,12 +51,14 @@ bun run tsc --noEmit     # Type check (not a script — run directly)
 ```
 src/
 ├── components/
-│   ├── smart/           # Domain components (SmartActionTool.tsx is the main ~1250 LOC component)
+│   ├── smart/           # Domain components (20 files, ~6200 LOC)
 │   └── ui/              # shadcn/ui — DO NOT edit manually, use: npx shadcn@latest add [name]
-├── hooks/               # Custom hooks (useSmartStorage, useBrowserNativeLLM, useTranslation, etc.)
-├── lib/                 # Domain logic (smart-checker, smart-prompts, smart-data, etc.)
+├── hooks/               # Custom hooks (21 files, ~3900 LOC)
+├── lib/                 # Domain logic (16 files, ~4200 LOC)
 ├── pages/               # Route components (Index, Privacy, Terms, AdminPromptPack, NotFound)
+├── integrations/        # Supabase client integration
 ├── types/smart-tool.ts  # Shared TypeScript interfaces
+├── assets/              # Static images and assets
 └── test/                # Tests mirror source structure (components/, hooks/, lib/)
 
 puente-engine/           # @smart-tool/puente-engine — ONNX inference engine
@@ -98,27 +105,99 @@ VITE_BASE_PATH=./
 VITE_HF_TOKEN  (optional, for model downloads)
 ```
 
+### TypeScript Configuration
+
+- App code (`tsconfig.app.json`): Target ES2020, `strict: false`, Vitest globals enabled
+- Node config (`tsconfig.node.json`): Target ES2022, `strict: true`, for vite.config.ts
+- Path aliases configured in both tsconfig and vite.config.ts
+
 ## Key Files
+
+### Domain Logic (`src/lib/`)
 
 | File | What it does |
 |------|-------------|
-| `src/lib/smart-checker.ts` | SMART criteria analysis — patterns, scoring, suggestions. Entry: `checkSmart()` |
-| `src/lib/smart-data.ts` | `DEFAULT_BARRIERS` and `DEFAULT_TIMESCALES` |
-| `src/lib/smart-prompts.ts` | AI prompt templates |
-| `src/lib/smart-patterns.ts` | Pattern matching for SMART criteria detection |
-| `src/lib/smart-portability.ts` | GDPR export/import (`exportAllData`, `importData`, `deleteAllData`) |
-| `src/lib/prompt-pack.ts` | Prompt pack loading and validation |
-| `src/hooks/useAIDrafting.ts` | Orchestrates LLM + prompt packs + retrieval |
-| `src/hooks/useBrowserNativeLLM.ts` | Local LLM integration |
-| `src/hooks/useTranslation.ts` | Translation integration |
-| `src/hooks/useSmartStorage.ts` | localStorage CRUD for all app data |
-| `src/components/smart/SmartActionTool.tsx` | Main application component |
-| `src/App.tsx` | Router, providers, error boundaries |
-| `src/types/smart-tool.ts` | Shared TypeScript interfaces |
+| `smart-checker.ts` | SMART criteria analysis — patterns, scoring, suggestions. Entry: `checkSmart()` |
+| `smart-patterns.ts` | Pattern matching for SMART criteria detection |
+| `smart-data.ts` | `DEFAULT_BARRIERS`, `DEFAULT_TIMESCALES`, and constants (~1100 LOC) |
+| `smart-prompts.ts` | AI prompt templates for LLM drafting |
+| `smart-utils.ts` | Shared utility functions (~515 LOC) |
+| `smart-retrieval.ts` | Retrieval-augmented generation for AI drafting (~340 LOC) |
+| `smart-highlighter.ts` | SMART criteria text highlighting |
+| `smart-portability.ts` | GDPR export/import (`exportAllData`, `importData`, `deleteAllData`) |
+| `smart-tool-shortcuts.ts` | Keyboard shortcut definitions |
+| `prompt-pack.ts` | Prompt pack loading and validation (~510 LOC) |
+| `relevance-checker.ts` | Action relevance checking against barriers |
+| `custom-knowledge-base.ts` | Custom knowledge base for retrieval |
+| `draft-analytics.ts` | AI drafting analytics tracking |
+| `error-handling.ts` | Error handling utilities (~224 LOC) |
+| `gdpr-consent.ts` | GDPR consent tracking |
+| `animation-variants.ts` | Framer Motion animation definitions |
+
+### Hooks (`src/hooks/`)
+
+| File | What it does |
+|------|-------------|
+| `useAIDrafting.ts` | Orchestrates LLM + prompt packs + retrieval (~484 LOC) |
+| `useBrowserNativeLLM.ts` | Local LLM integration via Puente Engine (~651 LOC) |
+| `useTranslation.ts` | Translation via Lengua Materna (~330 LOC) |
+| `useSmartStorage.ts` | localStorage CRUD for all app data (~294 LOC) |
+| `useLocalSync.ts` | Local data sync with Supabase (~455 LOC) |
+| `useActionOutput.ts` | Output formatting and export (~232 LOC) |
+| `useActionAnalytics.ts` | Action analytics tracking (~184 LOC) |
+| `useHistory.ts` | Action history management |
+| `useSmartForm.ts` | Form state and validation |
+| `useSettings.ts` | Settings management |
+| `useKeyboardShortcuts.ts` | Keyboard shortcut binding (~144 LOC) |
+| `usePWA.ts` | PWA install prompt and lifecycle |
+| `useDebounce.ts` | Debounce hook |
+| `useFeedback.ts` | Feedback collection |
+| `useOnboarding.ts` | Onboarding state |
+| `usePromptPack.ts` | Prompt pack selection |
+| `useWebGPUSupport.ts` | WebGPU capability detection |
+| `useAIConsent.ts` | AI consent tracking |
+| `use-toast.ts` | Sonner toast notifications |
+| `use-mobile.tsx` | Mobile detection hook |
+| `storage-utils.ts` | Storage helper utilities |
+
+### Components (`src/components/smart/`)
+
+| File | What it does |
+|------|-------------|
+| `SmartActionTool.tsx` | Main application component (~1264 LOC) |
+| `SettingsPanel.tsx` | Settings UI (~754 LOC) |
+| `SmartChecklist.tsx` | SMART criteria checklist display (~430 LOC) |
+| `ActionWizard.tsx` | Multi-step action creation form (~413 LOC) |
+| `OnboardingTutorial.tsx` | First-run onboarding flow (~413 LOC) |
+| `TemplateLibrary.tsx` | Action template library (~313 LOC) |
+| `HistoryInsights.tsx` | History analytics and insights (~265 LOC) |
+| `HistoryPanel.tsx` | Action history display (~212 LOC) |
+| `OutputPanel.tsx` | Output formatting and export |
+| `SmartScoreDetails.tsx` | SMART score breakdown (~200 LOC) |
+| `LLMPickerDialog.tsx` | LLM model selection dialog |
+| `WarningBox.tsx` | Warning UI component |
+| `FloatingToolbar.tsx` | Floating toolbar UI |
+| `ActionFeedback.tsx` | Feedback collection UI |
+| `WebGPUCheck.tsx` | WebGPU capability check |
+| `EmptyState.tsx` | Empty state UI |
+| `Footer.tsx` | Footer component |
+| `PlanPickerDialog.tsx` | Plan selection dialog |
+| `LanguageSelector.tsx` | Language selection UI |
+| `ShortcutsHelp.tsx` | Keyboard shortcuts help |
+| `PanelErrorBoundary.tsx` | Error boundary wrapper |
+
+### Other Key Files
+
+| File | What it does |
+|------|-------------|
+| `src/App.tsx` | HashRouter, QueryClient, ThemeProvider, TooltipProvider, LazyErrorBoundary (~266 LOC) |
+| `src/types/smart-tool.ts` | Shared interfaces: `Mode`, `NowForm`, `TaskBasedForm`, `HistoryItem`, `ActionTemplate`, `SmartToolSettings`, `AIDraftMode`, `OutputSource`, etc. |
+| `src/integrations/supabase/` | Supabase client configuration |
 
 ## Testing
 
 - **Framework**: Vitest + jsdom + Testing Library
+- **Config**: `vitest.config.ts` — jsdom environment, globals enabled, setup file
 - **Setup**: `src/test/setup.ts` mocks localStorage, crypto.randomUUID, ResizeObserver, scrollIntoView, matchMedia
 - **Pattern**:
 ```typescript
@@ -127,12 +206,59 @@ import { renderHook, act } from "@testing-library/react";
 ```
 - Tests live in `src/test/{components,hooks,lib}/` mirroring `src/`
 
+### Test Coverage
+
+- **Component tests** (8): ActionFeedback, ActionWizard, ComboboxInput, HistoryPanel, OutputPanel, SmartActionTool, SmartChecklist, TemplateLibrary
+- **Hook tests** (8): useActionAnalytics, useBrowserNativeLLM, useDebounce, useFeedback, useKeyboardShortcuts, useSmartForm, useSmartStorage, useTranslation
+- **Lib tests** (12): draft-analytics, error-handling, prompt-pack, relevance-checker, smart-checker, smart-highlighter, smart-patterns, smart-prompts, smart-retrieval, smart-utils, barrier-relevance-consistency, custom-knowledge-base
+- **Other**: smartPortability.test.ts (GDPR export/import)
+
 ## CI Pipeline
 
-`.github/workflows/build-static.yml` runs on push/PR to `main`:
+### `.github/workflows/build-static.yml` — Main CI (push/PR to `main`)
+
 1. **Lint**: `bun run lint` + `bun run tsc --noEmit` (includes Tailwind glass opacity CI guard)
 2. **Test**: `bun run test`
-3. **Build**: Vite production build + translation model fetch + prompt pack validation
+3. **Build**: Verify prompt-pack.json + fetch OPUS-MT models + Vite production build + verify output
+
+### Other Workflows
+
+- `static.yml` — GitHub Pages deployment (push to `main`)
+- `apply-zip.yml` — Apply zip file changes
+- `merge-cursor-to-main.yml` — Merge cursor branch to main
+- `delete-all-branches.yml` — Branch cleanup
+
+## Workspace Packages
+
+### `puente-engine/` — @smart-tool/puente-engine
+
+Custom ONNX inference engine for browser-native LLM and translation. Internal structure:
+- `src/generation/` — causal & seq2seq generators, sampler, KV cache, stopping criteria, logits processor
+- `src/model/` — model loader, cache, config
+- `src/runtime/` — device & backend selection (WebGPU/WASM)
+- `src/pipelines/` — text-generation, translation pipelines
+- `src/tokenizer/` — BPE tokenizer, decoder, normalizer, pre-tokenizer
+- `src/core/` — tensor, session management
+
+### `browser-native-llm/` — @smart-tool/browser-native-llm
+
+Offline-first, privacy-preserving LLM for SMART action drafting. Internal structure:
+- `src/model/` — tokenizer, inference, config
+- `src/runtime/` — worker, backend selector
+- `src/delivery/` — cache manager, chunk loader, service worker
+- `src/planner/` — SMART planner, profile normalizer, prompt assembler
+- `src/retrieval/` — action library, retriever, barrier catalog
+- `src/validators/` — SMART validator, schema, repair
+- Exports: `./` (main), `./worker` (web worker), `./sw` (service worker)
+
+### `browser-translation/` — @smart-tool/lengua-materna
+
+Offline-first in-browser translation using OPUS-MT models. Internal structure:
+- `src/runtime/` — worker, worker client, backend selector
+- `src/cache/` — model cache, translation cache
+- `src/engine/` — text chunker, translator, pipeline manager, rule translator
+- `src/dictionaries/` — language-specific dictionaries (en-pa, en-ps, en-ur, en-pt, en-pl, en-es, en-ti, en-ar, etc.)
+- Exports: `./` (main), `./worker` (web worker)
 
 ## Do's and Don'ts
 
@@ -181,3 +307,11 @@ Service worker at `public/sw.js`, offline fallback at `public/offline.html`, ins
 | Safari | WASM only |
 | Firefox | WASM (single-threaded) |
 | Android | Not supported |
+
+### Build Configuration
+
+- Base path: `./` (relative, for portable static builds)
+- Dev server: port 8080, IPv6 host, HMR overlay disabled
+- Build splits: vendor-llm and vendor chunks for optimal caching
+- Worker format: ES modules
+- OptimizeDeps: React/Router/Framer/Query included; ML/translation packages excluded
