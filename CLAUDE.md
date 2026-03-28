@@ -51,10 +51,10 @@ bun run validate:translation-models # Validate downloaded models
 ```
 src/
 ├── components/
-│   ├── smart/           # Domain components (20 files, ~6200 LOC)
+│   ├── smart/           # Domain components (25 files, ~7200 LOC)
 │   └── ui/              # shadcn/ui — DO NOT edit manually, use: npx shadcn@latest add [name]
-├── hooks/               # Custom hooks (21 files, ~3900 LOC)
-├── lib/                 # Domain logic (16 files, ~4200 LOC)
+├── hooks/               # Custom hooks (22 files, ~4000 LOC)
+├── lib/                 # Domain logic (17 files, ~4200 LOC)
 ├── pages/               # Route components (Index, Privacy, Terms, AdminPromptPack, NotFound)
 ├── integrations/        # Supabase client integration
 ├── types/smart-tool.ts  # Shared TypeScript interfaces
@@ -133,6 +133,7 @@ VITE_HF_TOKEN  (optional, for model downloads)
 | `error-handling.ts` | Error handling utilities (~224 LOC) |
 | `gdpr-consent.ts` | GDPR consent tracking |
 | `animation-variants.ts` | Framer Motion animation definitions |
+| `utils.ts` | shadcn/ui utility — `cn()` function (clsx + tailwind-merge) |
 
 ### Hooks (`src/hooks/`)
 
@@ -154,6 +155,7 @@ VITE_HF_TOKEN  (optional, for model downloads)
 | `useFeedback.ts` | Feedback collection |
 | `useOnboarding.ts` | Onboarding state |
 | `usePromptPack.ts` | Prompt pack selection |
+| `useTemplates.ts` | Action template CRUD with localStorage persistence (~100 LOC) |
 | `useWebGPUSupport.ts` | WebGPU capability detection |
 | `useAIConsent.ts` | AI consent tracking |
 | `use-toast.ts` | Sonner toast notifications |
@@ -171,9 +173,13 @@ VITE_HF_TOKEN  (optional, for model downloads)
 | `OnboardingTutorial.tsx` | First-run onboarding flow (~413 LOC) |
 | `TemplateLibrary.tsx` | Action template library (~313 LOC) |
 | `HistoryInsights.tsx` | History analytics and insights (~265 LOC) |
+| `ComboboxInput.tsx` | Searchable combobox dropdown with popover UI (~250 LOC) |
+| `DebugPanel.tsx` | LLM pipeline trace display (prompt, output, scores, timing) (~250 LOC) |
 | `HistoryPanel.tsx` | Action history display (~212 LOC) |
 | `OutputPanel.tsx` | Output formatting and export |
 | `SmartScoreDetails.tsx` | SMART score breakdown (~200 LOC) |
+| `DelightfulError.tsx` | User-friendly error component with variants (network, ai, generic) (~200 LOC) |
+| `CookieConsent.tsx` | GDPR cookie consent dialog and settings (~150 LOC) |
 | `LLMPickerDialog.tsx` | LLM model selection dialog |
 | `WarningBox.tsx` | Warning UI component |
 | `FloatingToolbar.tsx` | Floating toolbar UI |
@@ -209,9 +215,9 @@ import { renderHook, act } from "@testing-library/react";
 ### Test Coverage
 
 - **Component tests** (8): ActionFeedback, ActionWizard, ComboboxInput, HistoryPanel, OutputPanel, SmartActionTool, SmartChecklist, TemplateLibrary
-- **Hook tests** (8): useActionAnalytics, useBrowserNativeLLM, useDebounce, useFeedback, useKeyboardShortcuts, useSmartForm, useSmartStorage, useTranslation
-- **Lib tests** (12): draft-analytics, error-handling, prompt-pack, relevance-checker, smart-checker, smart-highlighter, smart-patterns, smart-prompts, smart-retrieval, smart-utils, barrier-relevance-consistency, custom-knowledge-base
-- **Other**: smartPortability.test.ts (GDPR export/import)
+- **Hook tests** (11): storage-utils, useActionAnalytics, useBrowserNativeLLM, useDebounce, useFeedback, useHistory, useKeyboardShortcuts, useSettings, useSmartForm, useSmartStorage, useTranslation
+- **Lib tests** (14): barrier-relevance-consistency, custom-knowledge-base, draft-analytics, error-handling, gdpr-consent, prompt-pack, relevance-checker, smart-checker, smart-data, smart-highlighter, smart-patterns, smart-prompts, smart-retrieval, smart-utils
+- **Other**: smartPortability.test.ts, smart-portability-extended.test.ts (GDPR export/import)
 
 ## CI Pipeline
 
