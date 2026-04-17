@@ -20,6 +20,7 @@
 
 const STORAGE_KEY = "smartTool.draftAnalytics";
 const MAX_ENTRIES = 500;
+export type DraftRuntime = "browser" | "desktop-helper" | "template";
 
 export interface DraftAnalyticsEntry {
   /** ISO timestamp. */
@@ -61,6 +62,10 @@ export interface DraftAnalyticsEntry {
   draft_mode?: "primary" | "alternates";
   /** Whether the AI backend was used ("ai") or template fallback ("template"). */
   source?: "ai" | "template";
+  /** Which draft runtime actually produced the result. */
+  runtime?: DraftRuntime;
+  /** Concrete backend used inside the selected runtime. */
+  runtime_backend?: string;
 }
 
 /**

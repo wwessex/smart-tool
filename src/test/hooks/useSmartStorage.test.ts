@@ -61,6 +61,7 @@ describe("useSmartStorage", () => {
       expect(result.current.minScoreThreshold).toBe(5);
       expect(result.current.retentionEnabled).toBe(true);
       expect(result.current.retentionDays).toBe(90);
+      expect(result.current.aiDraftRuntime).toBe("auto");
       expect(result.current.safariWebGPUEnabled).toBe(false);
     });
   });
@@ -459,6 +460,7 @@ describe("useSmartStorage", () => {
       expect(exported.recentNames).toContain("John");
       expect(exported.templates.length).toBe(1);
       expect(exported.settings).toBeDefined();
+      expect(exported.settings.aiDraftRuntime).toBe("auto");
       expect(exported.barriers).toBeDefined();
       expect(exported.timescales).toBeDefined();
     });
@@ -495,6 +497,7 @@ describe("useSmartStorage", () => {
       expect(result.current.templates.length).toBe(0);
       expect(result.current.minScoreEnabled).toBe(false);
       expect(result.current.minScoreThreshold).toBe(5);
+      expect(result.current.aiDraftRuntime).toBe("auto");
     });
   });
 
@@ -579,6 +582,32 @@ describe("useSmartStorage", () => {
       });
 
       expect(result.current.aiDraftMode).toBe("ai");
+    });
+
+    it("updates AI draft runtime", () => {
+      const { result } = renderHook(() => useSmartStorage());
+
+      act(() => {
+        result.current.updateAIDraftRuntime("desktop-helper");
+      });
+
+      expect(result.current.aiDraftRuntime).toBe("desktop-helper");
+      expect(localStorage.getItem("smartTool.aiDraftRuntime")).toBe("desktop-helper");
+    });
+
+    it("imports AI draft runtime from settings payload", () => {
+      const { result } = renderHook(() => useSmartStorage());
+
+      act(() => {
+        result.current.importData({
+          settings: {
+            aiDraftRuntime: "browser",
+          },
+        });
+      });
+
+      expect(result.current.aiDraftRuntime).toBe("browser");
+      expect(localStorage.getItem("smartTool.aiDraftRuntime")).toBe("browser");
     });
 
     it("updates preferred LLM model", () => {

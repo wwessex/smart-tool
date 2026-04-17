@@ -88,6 +88,7 @@ export const STORAGE_KEYS = {
   lastRetentionCheck: "smartTool.lastRetentionCheck",
   participantLanguage: "smartTool.participantLanguage",
   aiDraftMode: "smartTool.aiDraftMode",
+  aiDraftRuntime: "smartTool.aiDraftRuntime",
   preferredLLMModel: "smartTool.preferredLLMModel",
   allowMobileLLM: "smartTool.allowMobileLLM",
   safariWebGPUEnabled: "smartTool.safariWebGPUEnabled",

@@ -43,10 +43,12 @@ export type GenerationProfile =
   | "primary_draft"
   | "alternate_drafts";
 
+export type PlanRuntime = "browser" | "desktop-helper" | "template";
+
 export interface PlanMetadata {
   model_id: string;
   model_version: string;
-  backend: InferenceBackend;
+  backend: string;
   retrieval_pack_version: string;
   generated_at: string;
   generation_time_ms: number;
@@ -55,6 +57,8 @@ export interface PlanMetadata {
   source?: "llm" | "repair" | "template_fallback";
   generation_profile: GenerationProfile;
   repair_attempts: number;
+  runtime: PlanRuntime;
+  runtime_backend: string;
 }
 
 // ---------------------------------------------------------------------------

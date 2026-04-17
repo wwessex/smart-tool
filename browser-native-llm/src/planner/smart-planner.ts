@@ -12,10 +12,10 @@ import type {
   RawUserInput,
   UserProfile,
   InferenceConfig,
-  InferenceBackend,
   WorkerMessage,
   DownloadProgress,
   GenerationProfile,
+  PlanRuntime,
 } from "../types.js";
 import { normalizeProfile } from "./profile-normalizer.js";
 import { assemblePrompt } from "./prompt-assembler.js";
@@ -58,6 +58,20 @@ export interface PlannerConfig {
   template_only?: boolean;
   /** Enable detailed pipeline debug logging to console. Default: false. */
   debug?: boolean;
+  /** Label used in metadata to identify the active runtime. */
+  runtime_label?: Exclude<PlanRuntime, "template">;
+  /** Optional non-worker inference transport, used by the desktop helper path. */
+  inference_transport?: InferenceTransport;
+}
+
+export interface InferenceTransport {
+  initialize?: (callbacks?: PlannerCallbacks) => Promise<{ backend: string } | void>;
+  generate: (
+    prompt: string,
+    config: Partial<InferenceConfig>,
+    onToken?: (token: string) => void,
+  ) => Promise<{ text: string; tokens_generated?: number; time_ms?: number; backend?: string }>;
+  dispose?: () => void | Promise<void>;
 }
 
 const DEFAULT_PLANNER_CONFIG: PlannerConfig = {
@@ -69,12 +83,13 @@ const DEFAULT_PLANNER_CONFIG: PlannerConfig = {
   min_plan_validation_score: 55,
   template_only: false,
   debug: false,
+  runtime_label: "browser",
 };
 
 /** Events emitted by the planner during plan generation. */
 export interface PlannerCallbacks {
   onProgress?: (progress: DownloadProgress) => void;
-  onBackendSelected?: (backend: InferenceBackend) => void;
+  onBackendSelected?: (backend: string) => void;
   onTokenGenerated?: (token: string) => void;
   onValidationResult?: (score: number, issues: string[]) => void;
   onRepairAttempt?: (attempt: number, issues: string[]) => void;
@@ -123,6 +138,7 @@ const PROFILE_DEFAULTS: Record<GenerationProfile, Omit<ResolvedPlannerGenerateOp
     maxRepairAttempts: 1,
     planValidation: {
       minimumRecommendedActions: 1,
+      requireFirstActionBarrierFit: true,
     },
   },
   alternate_drafts: {
@@ -160,8 +176,9 @@ export class SmartPlanner {
   private library: ActionLibrary;
   private retriever: LocalRetriever | null = null;
   private worker: Worker | null = null;
+  private inferenceTransport: InferenceTransport | null = null;
   private initialized = false;
-  private activeBackend: InferenceBackend = "wasm-basic";
+  private activeBackend = "wasm-basic";
   private pendingGenerations = new Map<
     string,
     {
@@ -193,6 +210,17 @@ export class SmartPlanner {
       this.activeBackend = "wasm-basic";
       this.initialized = true;
       callbacks?.onBackendSelected?.(this.activeBackend);
+      return;
+    }
+
+    if (this.config.inference_transport) {
+      this.inferenceTransport = this.config.inference_transport;
+      const initResult = await this.inferenceTransport.initialize?.(callbacks);
+      if (initResult?.backend) {
+        this.activeBackend = initResult.backend;
+      }
+      callbacks?.onBackendSelected?.(this.activeBackend);
+      this.initialized = true;
       return;
     }
 
@@ -294,7 +322,7 @@ export class SmartPlanner {
     );
     const generation = this.resolveGenerateOptions(options);
 
-    if (!this.worker) {
+    if (!this.worker && !this.inferenceTransport) {
       return this.generateTemplatePlan(input, generation.profile);
     }
 
@@ -356,6 +384,8 @@ export class SmartPlanner {
           source: "template_fallback" as const,
           generation_profile: generation.profile,
           repair_attempts: 0,
+          runtime: "template",
+          runtime_backend: "template-fallback",
         },
       };
     }
@@ -483,6 +513,8 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
         source: isFallback ? "template_fallback" as const : usedRepair ? "repair" as const : "llm" as const,
         generation_profile: generation.profile,
         repair_attempts: repairAttempts,
+        runtime: isFallback ? "template" : (this.config.runtime_label ?? "browser"),
+        runtime_backend: isFallback ? "template-fallback" : this.activeBackend,
       },
     };
   }
@@ -518,12 +550,16 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
         source: "template_fallback" as const,
         generation_profile: generationProfile,
         repair_attempts: 0,
+        runtime: "template",
+        runtime_backend: "template-only",
       },
     };
   }
 
   /** Release all resources. */
   dispose(): void {
+    void this.inferenceTransport?.dispose?.();
+    this.inferenceTransport = null;
     if (this.worker) {
       this.worker.terminate();
       this.worker = null;
@@ -536,7 +572,7 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
     return this.initialized;
   }
 
-  get backend(): InferenceBackend {
+  get backend(): string {
     return this.activeBackend;
   }
 
@@ -560,6 +596,15 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
     onToken?: (token: string) => void,
     configOverrides: Partial<InferenceConfig> = {},
   ): Promise<string> {
+    if (this.inferenceTransport) {
+      return this.inferenceTransport.generate(prompt, configOverrides, onToken).then((result) => {
+        if (result.backend) {
+          this.activeBackend = result.backend;
+        }
+        return result.text;
+      });
+    }
+
     return new Promise((resolve, reject) => {
       if (!this.worker) return reject(new Error("Worker not available"));
 
@@ -866,6 +911,8 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
       // Only treat "No actions directly address" as critical for larger plans;
       // for 1-2 action barrier-focused plans, the plan score penalty is sufficient
       (issue.includes("No actions directly address") && validatedActions.length >= 3) ||
+      (planValidationOptions.requireFirstActionBarrierFit === true &&
+        issue.includes("First action should address")) ||
       issue.includes("duplicate or very similar actions") ||
       issue.includes("Estimated total effort")
     );

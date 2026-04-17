@@ -22,6 +22,7 @@ import { evaluateActionBarrierRelevance } from "../relevance/barrier-relevance.j
 
 export interface PlanValidationOptions {
   minimumRecommendedActions?: number;
+  requireFirstActionBarrierFit?: boolean;
 }
 
 /**
@@ -120,7 +121,7 @@ export function validatePlan(
     }
     if (!barrierFit.firstActionRelevant) {
       issues.push(`First action should address the "${profile.resolved_barrier.label}" barrier`);
-      score -= 5;
+      score -= options.requireFirstActionBarrierFit ? 15 : 5;
     }
   }
 

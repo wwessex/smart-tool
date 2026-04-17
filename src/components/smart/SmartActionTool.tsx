@@ -97,6 +97,7 @@ export function SmartActionTool() {
     suggestQuery,
     storage: {
       aiDraftMode: storage.aiDraftMode,
+      aiDraftRuntime: storage.aiDraftRuntime,
       keepSafariModelLoaded: storage.keepSafariModelLoaded,
       allowMobileLLM: storage.allowMobileLLM,
       safariWebGPUEnabled: storage.safariWebGPUEnabled,
@@ -117,6 +118,28 @@ export function SmartActionTool() {
     handleFeedbackRate, handleSelectPlanAction, handleAIDraft, handleMoreLikeThis,
     buildLLMContext, handleWizardAIDraft, promptPack, promptPackSource,
   } = aiDraft;
+
+  const aiDraftButtonLabel = aiDrafting || llm.isGenerating
+    ? 'Drafting...'
+    : llm.isLoading
+      ? llm.loadingStatus || 'Preparing AI...'
+      : 'AI Draft';
+
+  const aiDraftRuntimeStatus = storage.aiDraftMode !== 'ai'
+    ? 'Smart Templates active.'
+    : llm.isLoading
+      ? llm.loadingStatus || 'Preparing AI...'
+      : llm.activeRuntime === 'desktop-helper'
+        ? llm.helperStatus === 'using-browser-fallback'
+          ? 'Using browser fallback.'
+          : 'Desktop Accelerator ready.'
+        : llm.isReady
+          ? 'Browser AI ready.'
+          : storage.aiDraftRuntime === 'auto'
+            ? 'Auto will use Desktop Accelerator when available.'
+            : storage.aiDraftRuntime === 'desktop-helper'
+              ? 'Desktop Accelerator not ready. Browser fallback will be used when available.'
+              : 'Browser AI will warm up when needed.';
 
   // --- UI panel state (consolidated reducer) ---
   type PanelState = {
@@ -817,12 +840,14 @@ export function SmartActionTool() {
                           </>
                         ) : (
                           <>
-                            <Sparkles className="w-3 h-3 mr-1" /> {llm.isReady ? 'AI Draft' : 'AI draft'}
+                            {llm.isLoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                            {aiDraftButtonLabel}
                           </>
                         )}
                       </Button>
                     </div>
                   </div>
+                  <p className="text-xs text-muted-foreground">{aiDraftRuntimeStatus}</p>
                   <Input
                     value={suggestQuery}
                     onChange={e => setSuggestQuery(e.target.value)}
@@ -1045,12 +1070,14 @@ export function SmartActionTool() {
                           </>
                         ) : (
                           <>
-                            <Sparkles className="w-3 h-3 mr-1" /> {llm.isReady ? 'AI Draft' : 'AI draft'}
+                            {llm.isLoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                            {aiDraftButtonLabel}
                           </>
                         )}
                       </Button>
                     </div>
                   </div>
+                  <p className="text-xs text-muted-foreground">{aiDraftRuntimeStatus}</p>
                   {/* BUG FIX #3: Added proper styling for task-based suggestion buttons */}
                   <div className="flex flex-wrap gap-2">
                     {suggestions.map((s, i) => (
@@ -1293,6 +1320,7 @@ export function SmartActionTool() {
           preferredLLMModel: storage.preferredLLMModel,
           updatePreferredLLMModel: storage.updatePreferredLLMModel,
           updateAIDraftMode: storage.updateAIDraftMode,
+          updateAIDraftRuntime: storage.updateAIDraftRuntime,
         }}
       />
     </>

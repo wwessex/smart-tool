@@ -46,7 +46,7 @@
 
 // ---- Core planner (primary public API) ----
 export { SmartPlanner } from "./planner/smart-planner.js";
-export type { PlannerConfig, PlannerCallbacks, PlannerGenerateOptions } from "./planner/smart-planner.js";
+export type { PlannerConfig, PlannerCallbacks, PlannerGenerateOptions, InferenceTransport } from "./planner/smart-planner.js";
 
 // ---- Profile handling ----
 export { normalizeProfile } from "./planner/profile-normalizer.js";
@@ -101,6 +101,7 @@ export type {
   SMARTAction,
   SMARTPlan,
   PlanMetadata,
+  PlanRuntime,
   UserProfile,
   RawUserInput,
   ActionTemplate,

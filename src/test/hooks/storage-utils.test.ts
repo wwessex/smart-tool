@@ -200,6 +200,7 @@ describe("storage-utils", () => {
       expect(STORAGE_KEYS.gdprConsent).toBe("smartTool.gdprConsent");
       expect(STORAGE_KEYS.retentionDays).toBe("smartTool.retentionDays");
       expect(STORAGE_KEYS.aiDraftMode).toBe("smartTool.aiDraftMode");
+      expect(STORAGE_KEYS.aiDraftRuntime).toBe("smartTool.aiDraftRuntime");
     });
 
     it("all keys are prefixed with smartTool.", () => {
