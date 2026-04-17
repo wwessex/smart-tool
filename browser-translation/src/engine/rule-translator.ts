@@ -23,6 +23,8 @@ import type { LanguagePairId } from "../types.js";
 // Sentinel token for protected entities (distinct from \uFFF0 used in text-chunker)
 const ENTITY_START = "\uFFF1";
 const ENTITY_END = "\uFFF1";
+const PHRASE_START = "\uFFF2";
+const PHRASE_END = "\uFFF2";
 
 // Unicode bidi marks
 const RLM = "\u200F"; // Right-to-Left Mark
@@ -138,6 +140,7 @@ function applyTimePatterns(text: string, dictionary: PhraseDictionary): string {
  */
 function applyDictionary(text: string, dictionary: PhraseDictionary): string {
   let result = text;
+  const protectedPhrases: string[] = [];
 
   // Apply phrase substitutions (longest first)
   const sortedPhrases = [...dictionary.phrases].sort(
@@ -145,7 +148,11 @@ function applyDictionary(text: string, dictionary: PhraseDictionary): string {
   );
   for (const entry of sortedPhrases) {
     const pattern = new RegExp(`\\b${escapeRegex(entry.src)}\\b`, "gi");
-    result = result.replace(pattern, entry.tgt);
+    result = result.replace(pattern, () => {
+      const idx = protectedPhrases.length;
+      protectedPhrases.push(entry.tgt);
+      return `${PHRASE_START}${idx}${PHRASE_END}`;
+    });
   }
 
   // Apply word substitutions (longest first)
@@ -156,6 +163,11 @@ function applyDictionary(text: string, dictionary: PhraseDictionary): string {
     const pattern = new RegExp(`\\b${escapeRegex(entry.src)}\\b`, "gi");
     result = result.replace(pattern, entry.tgt);
   }
+
+  result = result.replace(
+    new RegExp(`${escapeRegex(PHRASE_START)}(\\d+)${escapeRegex(PHRASE_END)}`, "g"),
+    (_, idxStr: string) => protectedPhrases[Number.parseInt(idxStr, 10)] ?? ""
+  );
 
   return result;
 }
