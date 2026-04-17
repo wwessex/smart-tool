@@ -2,6 +2,8 @@
   "name": "vite_react_shadcn_ts",
   "private": true,
   "version": "0.0.0",
+  "description": "Privacy-first SMART action planner for employment advisors and coaches.",
+  "author": "SMART Tool contributors",
   "main": "electron/main.cjs",
   "type": "module",
   "workspaces": [
@@ -16,7 +18,9 @@
     "build:dev": "vite build --mode development",
     "desktop:dev": "npx -y concurrently@9.2.1 -k \"vite\" \"npx -y wait-on@8.0.5 tcp:8080 && npx -y electron@37.2.4 .\"",
     "desktop:build": "vite build && npx -y electron-builder@26.0.12 --dir",
-    "dist:win": "vite build && npx -y electron-builder@26.0.12 --win nsis portable",
+    "desktop:dist": "npm run desktop:dist:win",
+    "desktop:dist:win": "vite build && npx -y electron-builder@26.0.12 --win nsis portable",
+    "dist:win": "npm run desktop:dist:win",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
@@ -129,6 +133,7 @@
       "main": "electron/main.cjs"
     },
     "win": {
+      "icon": "public/favicon.ico",
       "target": [
         "nsis",
         "portable"
