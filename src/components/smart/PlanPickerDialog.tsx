@@ -13,6 +13,10 @@ export interface PlanPickerDialogProps {
   mode: Mode;
   barrier: string;
   onSelectAction: (action: SMARTAction, selectedIndex?: number) => void;
+  title?: string;
+  description?: string;
+  draftMode?: 'primary' | 'alternates';
+  barrierType?: string | null;
 }
 
 export function PlanPickerDialog({
@@ -23,19 +27,28 @@ export function PlanPickerDialog({
   mode,
   barrier,
   onSelectAction,
+  title,
+  description,
+  draftMode = 'primary',
+  barrierType,
 }: PlanPickerDialogProps) {
+  const draftSource =
+    (planResult?.metadata as { source?: string } | undefined)?.source === 'template_fallback'
+      ? 'template'
+      : 'ai';
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5" />
-            {mode === 'future' ? 'Choose an Outcome' : 'Choose a SMART Action'}
+            {title || (mode === 'future' ? 'Choose an Outcome' : 'Choose a SMART Action')}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            The AI generated {planResult?.actions.length || 0} {mode === 'future' ? 'outcomes' : 'SMART actions'}. Select one to use.
+            {description || `The AI generated ${planResult?.actions.length || 0} ${mode === 'future' ? 'outcomes' : 'SMART actions'}. Select one to use.`}
           </p>
           {planResult?.actions.map((action, idx) => (
             <button
@@ -67,8 +80,10 @@ export function PlanPickerDialog({
                 timestamp: new Date().toISOString(),
                 signal: "rejected",
                 barrier: mode === 'now' ? barrier : undefined,
+                barrier_type: barrierType || undefined,
                 actions_count: planResult?.actions.length,
-                source: "ai",
+                draft_mode: draftMode,
+                source: draftSource,
               });
               onOpenChange(false);
               setPlanResult(null);

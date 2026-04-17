@@ -34,6 +34,7 @@ import { LLMPickerDialog } from './LLMPickerDialog';
 import { PlanPickerDialog } from './PlanPickerDialog';
 import { DebugPanel } from './DebugPanel';
 import { GUIDANCE } from '@/lib/smart-data';
+import { formatBarrierTypeLabel } from '@/lib/barrier-draft';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -109,10 +110,11 @@ export function SmartActionTool() {
     llm, aiDrafting,
     showLLMPicker, setShowLLMPicker, pendingAIDraftRef,
     planResult, setPlanResult, showPlanPicker, setShowPlanPicker,
+    barrierDraftResult, moreLikeThisLoading, canShowMoreLikeThis,
     feedbackRating, currentFeedbackId, aiGeneratedActionRef,
     showFeedbackUI, resetFeedbackState,
     templateDraftNow, templateDraftTaskBased,
-    handleFeedbackRate, handleSelectPlanAction, handleAIDraft,
+    handleFeedbackRate, handleSelectPlanAction, handleAIDraft, handleMoreLikeThis,
     buildLLMContext, handleWizardAIDraft, promptPack, promptPackSource,
   } = aiDraft;
 
@@ -847,6 +849,34 @@ export function SmartActionTool() {
                       </motion.button>
                     ))}
                   </div>
+                  {canShowMoreLikeThis && barrierDraftResult && (
+                    <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                      <div className="space-y-1">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-primary/80">
+                          Best-fit focus: {formatBarrierTypeLabel(barrierDraftResult.barrierType)}
+                        </p>
+                        <p className="text-sm leading-relaxed">
+                          {barrierDraftResult.whyItFits}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={handleMoreLikeThis}
+                        disabled={aiDrafting || llm.isGenerating || moreLikeThisLoading}
+                        className="shrink-0"
+                      >
+                        {moreLikeThisLoading ? (
+                          <>
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" /> Loading...
+                          </>
+                        ) : (
+                          'More like this'
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -1239,6 +1269,12 @@ export function SmartActionTool() {
         mode={mode}
         barrier={mode === 'now' ? nowForm.barrier : taskBasedForm.task}
         onSelectAction={handleSelectPlanAction}
+        title={mode === 'now' ? 'More Like This' : 'Choose a SMART Action'}
+        description={mode === 'now' && barrierDraftResult
+          ? `Alternative actions that stay focused on "${barrierDraftResult.barrierSummary}".`
+          : undefined}
+        draftMode={mode === 'now' ? 'alternates' : 'primary'}
+        barrierType={barrierDraftResult?.barrierType || null}
       />
 
       {/* LLM Pipeline Debug Panel (enable via localStorage.setItem("smartTool.debug", "true")) */}
