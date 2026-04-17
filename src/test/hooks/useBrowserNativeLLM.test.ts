@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, waitFor } from "@testing-library/react";
 
 /**
  * Integration tests for the useBrowserNativeLLM hook.
@@ -33,15 +33,29 @@ const mockGeneratePlan = vi.fn().mockResolvedValue({
     generated_at: new Date().toISOString(),
     generation_time_ms: 150,
     tokens_generated: 200,
+    generation_profile: "default_plan" as const,
+    repair_attempts: 0,
   },
 });
 const mockGenerateTemplatePlan = vi.fn().mockReturnValue({
   actions: [{ action: "Template action", metric: "1", baseline: "0", target: "1", deadline: "2026-03-07", rationale: "Template", effort_estimate: "1h", first_step: "Start" }],
-  metadata: { model_id: "template-only", model_version: "0.1.0", backend: "wasm-basic", retrieval_pack_version: "1.0.0", generated_at: new Date().toISOString(), generation_time_ms: 5, tokens_generated: 0 },
+  metadata: { model_id: "template-only", model_version: "0.1.0", backend: "wasm-basic", retrieval_pack_version: "1.0.0", generated_at: new Date().toISOString(), generation_time_ms: 5, tokens_generated: 0, generation_profile: "default_plan", repair_attempts: 0 },
 });
 const mockDispose = vi.fn();
-
-vi.mock("@smart-tool/browser-native-llm", () => ({
+const mockCacheHas = vi.fn().mockResolvedValue(false);
+const mockCacheMatch = vi.fn().mockResolvedValue(undefined);
+const mockCachesOpen = vi.fn().mockResolvedValue({
+  match: mockCacheMatch,
+  put: vi.fn(),
+  delete: vi.fn(),
+});
+const mockPuenteEngineModule = {
+  ModelCache: vi.fn().mockImplementation(() => ({
+    isAvailable: () => true,
+    has: mockCacheHas,
+  })),
+};
+const mockBrowserNativeLLMModule = {
   SmartPlanner: vi.fn().mockImplementation(() => ({
     initialize: mockInitialize,
     generatePlan: mockGeneratePlan,
@@ -57,7 +71,13 @@ vi.mock("@smart-tool/browser-native-llm", () => ({
   }),
   selectBackend: vi.fn().mockReturnValue("wasm-simd"),
   describeBackend: vi.fn().mockReturnValue("WebAssembly SIMD (multi-threaded)"),
-}));
+};
+
+vi.mock("@smart-tool/browser-native-llm", () => mockBrowserNativeLLMModule);
+vi.mock("../../../browser-native-llm/src/index.ts", () => mockBrowserNativeLLMModule);
+
+vi.mock("@smart-tool/puente-engine", () => mockPuenteEngineModule);
+vi.mock("../../../puente-engine/src/index.ts", () => mockPuenteEngineModule);
 
 // Mock the Vite worker import
 vi.mock("../../browser-native-llm/src/runtime/worker.ts?worker", () => ({
@@ -76,6 +96,15 @@ import { useBrowserNativeLLM, RECOMMENDED_MODELS } from "@/hooks/useBrowserNativ
 describe("useBrowserNativeLLM", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCacheHas.mockResolvedValue(false);
+    mockCacheMatch.mockResolvedValue(undefined);
+    Object.defineProperty(globalThis, "caches", {
+      configurable: true,
+      value: {
+        open: mockCachesOpen,
+        delete: vi.fn(),
+      },
+    });
   });
 
   describe("initial state", () => {
@@ -156,6 +185,7 @@ describe("useBrowserNativeLLM", () => {
       expect(typeof result.current.clearError).toBe("function");
       expect(typeof result.current.checkDevice).toBe("function");
       expect(typeof result.current.isModelAvailable).toBe("function");
+      expect(typeof result.current.preloadIfCached).toBe("function");
     });
 
     it("exposes browser and device info", () => {
@@ -171,6 +201,7 @@ describe("useBrowserNativeLLM", () => {
   describe("error handling", () => {
     it("generatePlan throws when not initialized", async () => {
       const { result } = renderHook(() => useBrowserNativeLLM());
+      await act(async () => {});
 
       await expect(
         result.current.generatePlan({ goal: "Test" })
@@ -208,6 +239,31 @@ describe("useBrowserNativeLLM", () => {
       expect(result.current.isReady).toBe(false);
       expect(result.current.isGenerating).toBe(false);
       expect(result.current.selectedModel).toBeNull();
+    });
+  });
+
+  describe("cached prewarm", () => {
+    it("detects when the planner model is already cached", async () => {
+      mockCacheHas.mockResolvedValue(true);
+      mockCacheMatch.mockResolvedValue(new Response("cached"));
+      const { result } = renderHook(() => useBrowserNativeLLM());
+
+      await waitFor(() => {
+        expect(result.current.isCached).toBe(true);
+      });
+    });
+
+    it("skips preload when the planner model is not cached", async () => {
+      mockCacheHas.mockResolvedValue(false);
+      const { result } = renderHook(() => useBrowserNativeLLM());
+
+      let didPreload = true;
+      await act(async () => {
+        didPreload = await result.current.preloadIfCached();
+      });
+
+      expect(didPreload).toBe(false);
+      expect(mockInitialize).not.toHaveBeenCalled();
     });
   });
 });

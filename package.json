@@ -17,6 +17,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "fetch-models": "python scripts/fetch-models.py",
+    "fetch-models:planner": "python scripts/fetch-models.py --planner-only",
+    "verify:planner-model": "python scripts/verify-local-models.py",
     "validate:translation-models": "python scripts/validate-local-translation-models.py",
     "validate:translation-models:offline": "LOCAL_ONLY_MODELS=1 python scripts/validate-local-translation-models.py --offline-only"
   },

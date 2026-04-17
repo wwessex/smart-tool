@@ -20,6 +20,10 @@ import type {
 import { sanitizeForLog, splitOnWhitespace } from "../utils/sanitize.js";
 import { evaluateActionBarrierRelevance } from "../relevance/barrier-relevance.js";
 
+export interface PlanValidationOptions {
+  minimumRecommendedActions?: number;
+}
+
 /**
  * Validate a single SMART action against criteria and user profile.
  */
@@ -63,15 +67,18 @@ export function validateAction(
  */
 export function validatePlan(
   actions: SMARTAction[],
-  profile: UserProfile
+  profile: UserProfile,
+  options: PlanValidationOptions = {},
 ): { score: number; issues: string[] } {
   const issues: string[] = [];
   let score = 100;
+  const minimumRecommendedActions = options.minimumRecommendedActions ?? 2;
 
-  if (actions.length < 2) {
-    // Reduced penalty when generating barrier-focused plans (1-2 actions expected)
+  if (minimumRecommendedActions > 1 && actions.length < minimumRecommendedActions) {
+    const plural = actions.length === 1 ? "" : "s";
+    issues.push(`Plan has only ${actions.length} action${plural} (minimum ${minimumRecommendedActions} recommended)`);
+    // Reduced penalty when generating barrier-focused plans (1-2 actions expected).
     const penalty = profile.resolved_barrier ? 10 : 30;
-    issues.push(`Plan has only ${actions.length} action (minimum 2 recommended)`);
     score -= penalty;
   }
 

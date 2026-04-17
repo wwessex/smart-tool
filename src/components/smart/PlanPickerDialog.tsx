@@ -71,6 +71,8 @@ export function PlanPickerDialog({
           {planResult?.metadata && (
             <p className="text-xs text-muted-foreground pt-2 border-t">
               Generated in {Math.round(planResult.metadata.generation_time_ms)}ms
+              {planResult.metadata.generation_profile && ` · ${planResult.metadata.generation_profile}`}
+              {planResult.metadata.repair_attempts > 0 && ` · ${planResult.metadata.repair_attempts} planner repair${planResult.metadata.repair_attempts === 1 ? '' : 's'}`}
               {planResult.metadata.model_id === 'template-only' && ' (template fallback)'}
             </p>
           )}

@@ -6,7 +6,13 @@
  * and includes SMART criteria rules as system instructions.
  */
 
-import type { UserProfile, ActionTemplate, SkillEntry, ResolvedBarrier } from "../types.js";
+import type {
+  UserProfile,
+  ActionTemplate,
+  SkillEntry,
+  ResolvedBarrier,
+  GenerationProfile,
+} from "../types.js";
 import type { RetrievalResult } from "../retrieval/retriever.js";
 
 /** Assembled prompt ready for the inference engine. */
@@ -37,6 +43,8 @@ export interface PromptAssemblerConfig {
   include_templates: boolean;
   /** Maximum number of skills to include before any truncation drops all skills. */
   max_skills_context: number;
+  /** Which generation profile is being assembled. */
+  generation_profile: GenerationProfile;
 }
 
 const DEFAULT_CONFIG: PromptAssemblerConfig = {
@@ -44,6 +52,7 @@ const DEFAULT_CONFIG: PromptAssemblerConfig = {
   num_examples: 2,
   include_templates: true,
   max_skills_context: 3,
+  generation_profile: "default_plan",
 };
 
 /**
@@ -52,16 +61,20 @@ const DEFAULT_CONFIG: PromptAssemblerConfig = {
 export function assemblePrompt(
   profile: UserProfile,
   retrieval: RetrievalResult,
-  config: Partial<PromptAssemblerConfig> = {}
+  config: Partial<PromptAssemblerConfig> = {},
 ): AssembledPrompt {
   const cfg = { ...DEFAULT_CONFIG, ...config };
   const mustKeepSections = {
-    system: buildSystemInstructions(profile.generation_mode, !!profile.resolved_barrier),
+    system: buildSystemInstructions(
+      profile.generation_mode,
+      cfg.generation_profile,
+      !!profile.resolved_barrier,
+    ),
     profile: buildProfileSection(profile),
     barrier_guidance: profile.resolved_barrier
       ? buildBarrierGuidanceSection(profile.resolved_barrier)
       : "",
-    output_format: buildOutputInstruction(profile),
+    output_format: buildOutputInstruction(profile, cfg.generation_profile),
   };
 
   const templatePool = cfg.include_templates
@@ -77,12 +90,12 @@ export function assemblePrompt(
       mustKeepSections.profile,
     ];
 
-    // Barrier guidance BEFORE templates so the LLM has context when reading examples
+    // Barrier guidance BEFORE templates so the LLM has context when reading examples.
     if (mustKeepSections.barrier_guidance) {
       parts.push(mustKeepSections.barrier_guidance);
     }
 
-    if (templatesIncludedCount > 0 && profile.generation_mode !== 'outcome') {
+    if (templatesIncludedCount > 0 && profile.generation_mode !== "outcome") {
       parts.push(buildTemplateSection(templatePool.slice(0, templatesIncludedCount), profile));
     }
 
@@ -133,7 +146,7 @@ export function assemblePrompt(
     dropped_sections.push("skills_partial");
   }
 
-  // Rough token estimate: ~4 chars per token for English
+  // Rough token estimate: ~4 chars per token for English.
   const estimated_tokens = Math.ceil(text.length / 4);
 
   return {
@@ -150,8 +163,18 @@ export function assemblePrompt(
   };
 }
 
-function buildSystemInstructions(generationMode: 'action' | 'outcome' = 'action', hasBarrier: boolean = false): string {
-  if (generationMode === 'outcome') {
+function buildSystemInstructions(
+  generationMode: "action" | "outcome" = "action",
+  generationProfile: GenerationProfile = "default_plan",
+  hasBarrier = false,
+): string {
+  if (generationMode === "outcome") {
+    const outcomeRule = generationProfile === "primary_draft"
+      ? "Generate exactly 1 realistic employment outcome."
+      : generationProfile === "alternate_drafts"
+        ? "Generate exactly 3 realistic employment outcomes that are genuinely distinct alternatives."
+        : "Generate 3-8 realistic employment outcomes covering different benefits from the activity.";
+
     return `<|im_start|>system
 You are an employment outcomes specialist for job seekers. Generate a JSON array of realistic employment outcomes from a given activity or event.
 
@@ -160,21 +183,30 @@ RULES:
    - Use ASCII double quotes (") as JSON delimiters for ALL keys and string values.
    - Never use typographic quotes (e.g., " " ' ') as JSON delimiters.
 2. Each outcome MUST have ALL required fields: action, metric, baseline, target, deadline, rationale, effort_estimate, first_step.
-3. The "action" field must describe what happens DURING or as a DIRECT RESULT of the activity. NEVER describe preparation done BEFORE the activity (e.g., writing CVs, updating LinkedIn, researching companies).
-4. Start each "action" with the participant's name + "will" (e.g., "John will gain confidence speaking to employers").
-5. Focus on realistic employment benefits gained AT the activity: confidence, professional contacts, job leads, industry knowledge, practical experience.
-6. NEVER mention money, prizes, awards, certificates, or guaranteed job offers.
-7. NEVER provide medical, legal, or financial advice.
-8. The "first_step" field should describe how to make the most of the activity while attending.
-9. The "rationale" field should explain how this outcome helps their job search.
-10. Preserve natural spelling and Unicode characters in user-facing text values (names, places, and accents/diacritics).
-11. WRONG (preparation before): "Write a cover letter", "Update LinkedIn profile", "Prepare interview answers", "Research companies online". RIGHT (during/after): "Will speak with 3 employers about roles", "Will collect contact details from recruiters", "Will gain confidence introducing themselves".
-12. The "rationale" field MUST explain how THIS SPECIFIC outcome helps the participant — it must relate directly to the action text.
-13. The "first_step" field MUST relate to THIS SPECIFIC action — not an unrelated employment task.
+3. ${outcomeRule}
+4. The "action" field must describe what happens DURING or as a DIRECT RESULT of the activity. NEVER describe preparation done BEFORE the activity (e.g., writing CVs, updating LinkedIn, researching companies).
+5. Start each "action" with the participant's name + "will" (e.g., "John will gain confidence speaking to employers").
+6. Focus on realistic employment benefits gained AT the activity: confidence, professional contacts, job leads, industry knowledge, practical experience.
+7. NEVER mention money, prizes, awards, certificates, or guaranteed job offers.
+8. NEVER provide medical, legal, or financial advice.
+9. The "first_step" field should describe how to make the most of the activity while attending.
+10. The "rationale" field should explain how this outcome helps their job search.
+11. Preserve natural spelling and Unicode characters in user-facing text values (names, places, and accents/diacritics).
+12. WRONG (preparation before): "Write a cover letter", "Update LinkedIn profile", "Prepare interview answers", "Research companies online". RIGHT (during/after): "Will speak with 3 employers about roles", "Will collect contact details from recruiters", "Will gain confidence introducing themselves".
+13. The "rationale" field MUST explain how THIS SPECIFIC outcome helps the participant — it must relate directly to the action text.
+14. The "first_step" field MUST relate to THIS SPECIFIC action — not an unrelated employment task.
 <|im_end|>`;
   }
 
- return `<|im_start|>system
+  const actionRule = generationProfile === "primary_draft"
+    ? "Generate exactly 1 SMART action."
+    : generationProfile === "alternate_drafts"
+      ? "Generate exactly 3 SMART actions that are genuinely distinct alternatives."
+      : hasBarrier
+        ? "Focus actions on addressing the stated barrier. Quality over quantity."
+        : "Generate 3-8 actions covering different job-search stages.";
+
+  return `<|im_start|>system
 You are a SMART action planner for job seekers. Generate a JSON array of SMART actions.
 
 RULES:
@@ -187,7 +219,7 @@ RULES:
 5. ACHIEVABLE: Actions must fit within the stated hours/week and respect barriers.
 6. RELEVANT: Actions must connect to the stated job goal and industry.
 7. TIME-BOUND: Each deadline must be a specific date or timeframe window.
-8. ${hasBarrier ? "Focus actions on addressing the stated barrier. Quality over quantity." : "Generate 3-8 actions covering different job-search stages."}
+8. ${actionRule}
 9. Order actions by priority (most impactful first).
 10. For low-confidence users, start with small, low-friction first steps.
 11. NEVER provide medical, legal, or financial advice.
@@ -227,7 +259,7 @@ function buildProfileSection(profile: UserProfile): string {
   }
 
   if (profile.barriers.length > 0) {
-    lines.push(`- Key barrier(s): ${profile.barriers.map(b => b.replace(/_/g, " ")).join(", ")}`);
+    lines.push(`- Key barrier(s): ${profile.barriers.map((b) => b.replace(/_/g, " ")).join(", ")}`);
   }
 
   lines.push(`- Confidence level: ${profile.confidence_level}/5`);
@@ -245,31 +277,29 @@ function buildProfileSection(profile: UserProfile): string {
 
 function buildTemplateSection(
   templates: ActionTemplate[],
-  profile: UserProfile
+  profile: UserProfile,
 ): string {
   const lines = ["REFERENCE ACTIONS (adapt and personalise these):"];
 
   const barrierTerms = profile.resolved_barrier
     ? [profile.resolved_barrier.id, ...profile.resolved_barrier.retrieval_tags]
-        .map((t) => t.toLowerCase())
+        .map((term) => term.toLowerCase())
     : [];
 
   for (const template of templates) {
-    // Substitute placeholders in template
     const action = substitutePlaceholders(template.action_template, profile);
     const metric = substitutePlaceholders(template.metric_template, profile);
 
-    // Mark templates that match the resolved barrier
     const isBarrierMatch = barrierTerms.length > 0 && (
-      template.relevant_barriers.some((b) =>
-        barrierTerms.some((t) => b.toLowerCase().includes(t) || t.includes(b.toLowerCase()))
+      template.relevant_barriers.some((barrier) =>
+        barrierTerms.some((term) => barrier.toLowerCase().includes(term) || term.includes(barrier.toLowerCase()))
       ) || template.tags.some((tag) =>
-        barrierTerms.some((t) => tag.toLowerCase().includes(t))
+        barrierTerms.some((term) => tag.toLowerCase().includes(term))
       )
     );
     const prefix = isBarrierMatch ? "[BARRIER-MATCH] " : "";
 
-    // Compact format: drop id, prerequisites, and avoid_for to save prompt budget
+    // Compact format: drop id, prerequisites, and avoid_for to save prompt budget.
     lines.push(`- ${prefix}${action} (measure: ${metric}, effort: ${template.effort_hint})`);
   }
 
@@ -284,7 +314,7 @@ function buildSkillsSection(skills: SkillEntry[]): string {
   return lines.join("\n");
 }
 
-function buildOutputInstruction(profile: UserProfile): string {
+function buildOutputInstruction(profile: UserProfile, generationProfile: GenerationProfile): string {
   const today = new Date();
   const deadlineDate = new Date(today);
   deadlineDate.setDate(today.getDate() + profile.timeframe_weeks * 7);
@@ -293,11 +323,16 @@ function buildOutputInstruction(profile: UserProfile): string {
     ? ` for ${profile.participant_name}`
     : " for this person";
   const barrierContext = profile.barriers.length > 0
-    ? ` that specifically address their ${profile.barriers.map(b => b.replace(/_/g, " ")).join(" and ")} barrier(s)`
+    ? ` that specifically address their ${profile.barriers.map((b) => b.replace(/_/g, " ")).join(" and ")} barrier(s)`
     : "";
+  const countInstruction = generationProfile === "primary_draft"
+    ? "exactly 1"
+    : generationProfile === "alternate_drafts"
+      ? "exactly 3 distinct"
+      : getActionCount(profile);
 
-  if (profile.generation_mode === 'outcome') {
-    return `Generate ${getActionCount(profile)} realistic employment outcomes${nameContext} that happen DURING or AFTER this activity. Focus on benefits gained AT the activity: confidence, contacts, job leads, and knowledge. Do NOT include preparation actions done before the activity (e.g., writing CVs, cover letters, updating profiles). All deadlines must be between ${formatDate(today)} and ${formatDate(deadlineDate)}.
+  if (profile.generation_mode === "outcome") {
+    return `Generate ${countInstruction} realistic employment outcome${countInstruction === "exactly 1" ? "" : "s"}${nameContext} that happen DURING or AFTER this activity. Focus on benefits gained AT the activity: confidence, contacts, job leads, and knowledge. Do NOT include preparation actions done before the activity (e.g., writing CVs, cover letters, updating profiles). All deadlines must be between ${formatDate(today)} and ${formatDate(deadlineDate)}.
 <|im_end|>
 <|im_start|>assistant
 [`;
@@ -307,7 +342,7 @@ function buildOutputInstruction(profile: UserProfile): string {
     ? ` The FIRST action MUST directly address the "${profile.resolved_barrier.label}" barrier. Prefer barrier-matched templates and barrier-first starter actions from the guidance above.`
     : "";
 
-  return `Generate ${getActionCount(profile)} SMART actions${nameContext}${barrierContext}.${barrierInstruction} All deadlines must be between ${formatDate(today)} and ${formatDate(deadlineDate)}.
+  return `Generate ${countInstruction} SMART action${countInstruction === "exactly 1" ? "" : "s"}${nameContext}${barrierContext}.${barrierInstruction} All deadlines must be between ${formatDate(today)} and ${formatDate(deadlineDate)}.
 <|im_end|>
 <|im_start|>assistant
 [`;
@@ -340,11 +375,11 @@ function buildBarrierGuidanceSection(barrier: ResolvedBarrier): string {
 }
 
 function getActionCount(profile: UserProfile): string {
-  // When generating for a specific barrier, focus on 1-2 high-quality actions
-  if (profile.resolved_barrier && profile.generation_mode === 'action') {
+  // When generating for a specific barrier, focus on 1-2 high-quality actions.
+  if (profile.resolved_barrier && profile.generation_mode === "action") {
     return "1-2";
   }
-  // Fewer actions for users with less time or lower confidence
+  // Fewer actions for users with less time or lower confidence.
   if (profile.hours_per_week <= 4 || profile.confidence_level <= 1) return "3-4";
   if (profile.hours_per_week <= 8 || profile.confidence_level <= 2) return "4-5";
   return "5-7";

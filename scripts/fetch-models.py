@@ -11,6 +11,7 @@ Usage:
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
@@ -82,24 +83,47 @@ def write_translation_manifest(model_ids: Iterable[str], destination: Path) -> N
   destination.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
+def parse_args() -> argparse.Namespace:
+  parser = argparse.ArgumentParser(
+    description="Download local planner and translation model artifacts into public/models."
+  )
+  parser.add_argument(
+    "--planner-only",
+    action="store_true",
+    help="Download only planner model assets.",
+  )
+  parser.add_argument(
+    "--translations-only",
+    action="store_true",
+    help="Download only translation model assets.",
+  )
+  args = parser.parse_args()
+  if args.planner_only and args.translations_only:
+    parser.error("--planner-only and --translations-only are mutually exclusive")
+  return args
+
+
 def main() -> None:
+  args = parse_args()
   PUBLIC_MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
-  for repo_id, local_name in PLANNER_MODELS.items():
-    destination = PUBLIC_MODELS_DIR / local_name
-    print(f"Downloading planner model {repo_id} -> {destination}")
-    download_planner_model(repo_id, destination)
+  if not args.translations_only:
+    for repo_id, local_name in PLANNER_MODELS.items():
+      destination = PUBLIC_MODELS_DIR / local_name
+      print(f"Downloading planner model {repo_id} -> {destination}")
+      download_planner_model(repo_id, destination)
 
-  translation_model_ids = parse_translation_model_ids(TRANSLATION_REGISTRY_PATH)
-  for model_id in translation_model_ids:
-    model_root = PUBLIC_MODELS_DIR / model_id
-    print(f"Provisioning translation model assets for {model_id}")
-    for relative_file in TRANSLATION_REQUIRED_FILES:
-      download_translation_file(model_id, relative_file, model_root)
+  if not args.planner_only:
+    translation_model_ids = parse_translation_model_ids(TRANSLATION_REGISTRY_PATH)
+    for model_id in translation_model_ids:
+      model_root = PUBLIC_MODELS_DIR / model_id
+      print(f"Provisioning translation model assets for {model_id}")
+      for relative_file in TRANSLATION_REQUIRED_FILES:
+        download_translation_file(model_id, relative_file, model_root)
 
-  manifest_path = PUBLIC_MODELS_DIR / "translation-models.manifest.json"
-  write_translation_manifest(translation_model_ids, manifest_path)
-  print(f"Wrote translation manifest: {manifest_path}")
+    manifest_path = PUBLIC_MODELS_DIR / "translation-models.manifest.json"
+    write_translation_manifest(translation_model_ids, manifest_path)
+    print(f"Wrote translation manifest: {manifest_path}")
 
   if os.path.isdir(HF_CACHE):
     try:

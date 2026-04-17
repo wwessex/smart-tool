@@ -15,12 +15,18 @@ import type {
   InferenceBackend,
   WorkerMessage,
   DownloadProgress,
+  GenerationProfile,
 } from "../types.js";
 import { normalizeProfile } from "./profile-normalizer.js";
 import { assemblePrompt } from "./prompt-assembler.js";
 import { ActionLibrary } from "../retrieval/action-library.js";
 import { LocalRetriever } from "../retrieval/retriever.js";
-import { validateAction, validatePlan, isFieldCoherent } from "../validators/smart-validator.js";
+import {
+  validateAction,
+  validatePlan,
+  isFieldCoherent,
+  type PlanValidationOptions,
+} from "../validators/smart-validator.js";
 import {
   repairAction,
   createFallbackActions,
@@ -79,11 +85,59 @@ export interface PlannerCallbacks {
   debug?: boolean;
 }
 
+export interface PlannerGenerateOptions {
+  profile?: GenerationProfile;
+  inference?: Partial<InferenceConfig>;
+  max_repair_attempts?: number;
+}
+
 interface ParseValidationOutcome {
   actions: SMARTAction[] | null;
   rejectionReason?: string;
   failureSummary?: RetryFailureSummary;
 }
+
+interface ResolvedPlannerGenerateOptions {
+  profile: GenerationProfile;
+  inference: Partial<InferenceConfig>;
+  maxRepairAttempts: number;
+  planValidation: PlanValidationOptions;
+  temperatureLocked: boolean;
+}
+
+const DEFAULT_GENERATION_PROFILE: GenerationProfile = "default_plan";
+const PROFILE_DEFAULTS: Record<GenerationProfile, Omit<ResolvedPlannerGenerateOptions, "temperatureLocked">> = {
+  default_plan: {
+    profile: "default_plan",
+    inference: {},
+    maxRepairAttempts: DEFAULT_PLANNER_CONFIG.max_repair_attempts,
+    planValidation: {},
+  },
+  primary_draft: {
+    profile: "primary_draft",
+    inference: {
+      temperature: 0,
+      top_p: 1,
+      max_new_tokens: 220,
+    },
+    maxRepairAttempts: 1,
+    planValidation: {
+      minimumRecommendedActions: 1,
+    },
+  },
+  alternate_drafts: {
+    profile: "alternate_drafts",
+    inference: {
+      temperature: 0,
+      top_p: 1,
+      max_new_tokens: 320,
+    },
+    maxRepairAttempts: 1,
+    planValidation: {
+      minimumRecommendedActions: 1,
+    },
+  },
+};
 
 /**
  * The SMART action planner.
@@ -227,14 +281,21 @@ export class SmartPlanner {
    */
   async generatePlan(
     input: RawUserInput,
-    callbacks?: PlannerCallbacks
+    optionsOrCallbacks?: PlannerGenerateOptions | PlannerCallbacks,
+    maybeCallbacks?: PlannerCallbacks,
   ): Promise<SMARTPlan> {
     if (!this.initialized || !this.retriever) {
       throw new Error("Planner not initialized. Call initialize() first.");
     }
 
+    const { options, callbacks } = this.resolveGeneratePlanArgs(
+      optionsOrCallbacks,
+      maybeCallbacks,
+    );
+    const generation = this.resolveGenerateOptions(options);
+
     if (!this.worker) {
-      return this.generateTemplatePlan(input);
+      return this.generateTemplatePlan(input, generation.profile);
     }
 
     // Check debug at generation time so it can be toggled without re-creating the planner
@@ -244,6 +305,7 @@ export class SmartPlanner {
 
     // Step 1: Normalise user profile
     const profile = normalizeProfile(input);
+    debugLog.logGenerationProfile(generation.profile);
     debugLog.logProfile(profile);
 
     // Step 2: Retrieve relevant templates and skills
@@ -255,7 +317,9 @@ export class SmartPlanner {
     );
 
     // Step 3: Assemble prompt
-    const prompt = assemblePrompt(profile, retrieval);
+    const prompt = assemblePrompt(profile, retrieval, {
+      generation_profile: generation.profile,
+    });
     const basePrompt = prompt.text;
     debugLog.logPrompt(prompt);
 
@@ -266,7 +330,8 @@ export class SmartPlanner {
     try {
       rawOutput = "[" + await this.runInference(
         basePrompt,
-        callbacks?.onTokenGenerated
+        callbacks?.onTokenGenerated,
+        generation.inference,
       );
     } catch (inferenceError) {
       // Inference failed (timeout, worker crash, etc.) — fall back to templates
@@ -275,7 +340,7 @@ export class SmartPlanner {
       debugLog.logRawOutput("", 0);
       const fallbackActions = createFallbackActions(profile, retrieval.templates);
       const endTime = performance.now();
-      debugLog.logOutcome("fallback_templates", endTime - startTime, fallbackActions.length);
+      debugLog.logOutcome("fallback_templates", endTime - startTime, fallbackActions.length, 0);
       const debugResult = debugLog.flush();
       if (debugResult) callbacks?.onDebugLog?.(debugResult);
       return {
@@ -289,13 +354,21 @@ export class SmartPlanner {
           generation_time_ms: endTime - startTime,
           tokens_generated: 0,
           source: "template_fallback" as const,
+          generation_profile: generation.profile,
+          repair_attempts: 0,
         },
       };
     }
     debugLog.logRawOutput(rawOutput, performance.now() - inferStart);
 
     // Step 5: Parse and validate output
-    let validation = this.parseAndValidate(rawOutput, profile, callbacks, debugLog);
+    let validation = this.parseAndValidate(
+      rawOutput,
+      profile,
+      generation.planValidation,
+      callbacks,
+      debugLog,
+    );
     let actions = validation.actions;
 
     // Step 6: Repair loop if needed
@@ -303,7 +376,7 @@ export class SmartPlanner {
     let usedRepair = false;
     while (
       actions === null &&
-      repairAttempts < this.config.max_repair_attempts
+      repairAttempts < generation.maxRepairAttempts
     ) {
       repairAttempts++;
       const retryPrompt = validation.failureSummary
@@ -326,13 +399,18 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
       }
 
       // Use progressively higher temperature on retries to increase output diversity
-      const retryTemperature = Math.min(0.7, this.config.inference.temperature + repairAttempts * 0.15);
+      const retryTemperature = generation.temperatureLocked
+        ? generation.inference.temperature
+        : Math.min(0.7, this.config.inference.temperature + repairAttempts * 0.15);
       const repairInferStart = performance.now();
       try {
         rawOutput = "[" + await this.runInference(
           retryPrompt,
           callbacks?.onTokenGenerated,
-          { temperature: retryTemperature },
+          {
+            ...generation.inference,
+            temperature: retryTemperature,
+          },
         );
       } catch (repairInferenceError) {
         console.warn(`[smart-planner] Repair attempt ${repairAttempts} inference failed:`, repairInferenceError);
@@ -349,7 +427,13 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
       }
       const repairInferTime = performance.now() - repairInferStart;
 
-      validation = this.parseAndValidate(rawOutput, profile, callbacks, debugLog);
+      validation = this.parseAndValidate(
+        rawOutput,
+        profile,
+        generation.planValidation,
+        callbacks,
+        debugLog,
+      );
       actions = validation.actions;
 
       debugLog.logRepairAttempt({
@@ -379,6 +463,7 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
       isFallback ? "fallback_templates" : usedRepair ? "repair_success" : "llm_success",
       endTime - startTime,
       finalActions.length,
+      repairAttempts,
     );
     const debugResult = debugLog.flush();
     if (debugResult) {
@@ -396,6 +481,8 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
         generation_time_ms: endTime - startTime,
         tokens_generated: Math.ceil(rawOutput.length / 4),
         source: isFallback ? "template_fallback" as const : usedRepair ? "repair" as const : "llm" as const,
+        generation_profile: generation.profile,
+        repair_attempts: repairAttempts,
       },
     };
   }
@@ -404,7 +491,10 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
    * Generate a plan using only the retrieval pack (no LLM inference).
    * Useful as a zero-download fallback.
    */
-  generateTemplatePlan(input: RawUserInput): SMARTPlan {
+  generateTemplatePlan(
+    input: RawUserInput,
+    generationProfile: GenerationProfile = DEFAULT_GENERATION_PROFILE,
+  ): SMARTPlan {
     if (!this.retriever) {
       throw new Error("Retrieval pack not loaded.");
     }
@@ -426,6 +516,8 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
         generation_time_ms: performance.now() - startTime,
         tokens_generated: 0,
         source: "template_fallback" as const,
+        generation_profile: generationProfile,
+        repair_attempts: 0,
       },
     };
   }
@@ -505,9 +597,60 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
     });
   }
 
+  private resolveGeneratePlanArgs(
+    optionsOrCallbacks?: PlannerGenerateOptions | PlannerCallbacks,
+    maybeCallbacks?: PlannerCallbacks,
+  ): {
+    options: PlannerGenerateOptions;
+    callbacks?: PlannerCallbacks;
+  } {
+    if (maybeCallbacks) {
+      return {
+        options: (optionsOrCallbacks as PlannerGenerateOptions) ?? {},
+        callbacks: maybeCallbacks,
+      };
+    }
+
+    if (looksLikePlannerCallbacks(optionsOrCallbacks)) {
+      return {
+        options: {},
+        callbacks: optionsOrCallbacks,
+      };
+    }
+
+    return {
+      options: optionsOrCallbacks ?? {},
+    };
+  }
+
+  private resolveGenerateOptions(
+    options?: PlannerGenerateOptions,
+  ): ResolvedPlannerGenerateOptions {
+    const profile = options?.profile ?? DEFAULT_GENERATION_PROFILE;
+    const profileDefaults = PROFILE_DEFAULTS[profile];
+    const inference = {
+      ...profileDefaults.inference,
+      ...(options?.inference ?? {}),
+    };
+    const explicitTemperature =
+      profileDefaults.inference.temperature !== undefined ||
+      options?.inference?.temperature !== undefined;
+
+    return {
+      profile,
+      inference,
+      maxRepairAttempts: options?.max_repair_attempts ?? profileDefaults.maxRepairAttempts,
+      planValidation: {
+        ...profileDefaults.planValidation,
+      },
+      temperatureLocked: explicitTemperature,
+    };
+  }
+
   private parseAndValidate(
     rawOutput: string,
     profile: UserProfile,
+    planValidationOptions: PlanValidationOptions,
     callbacks?: PlannerCallbacks,
     debugLog?: PipelineDebugLogger,
   ): ParseValidationOutcome {
@@ -656,7 +799,7 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
       }
     }
 
-    const planResult = validatePlan(validatedActions, profile);
+    const planResult = validatePlan(validatedActions, profile, planValidationOptions);
     debugLog?.logPlanValidation(planResult.score, planResult.issues);
 
     const barrierFitFailures = planResult.issues.filter((issue) =>
@@ -748,4 +891,21 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
 
     return { actions: validatedActions };
   }
+}
+
+function looksLikePlannerCallbacks(
+  value: PlannerGenerateOptions | PlannerCallbacks | undefined,
+): value is PlannerCallbacks {
+  if (!value || typeof value !== "object") return false;
+
+  return (
+    "onProgress" in value ||
+    "onBackendSelected" in value ||
+    "onTokenGenerated" in value ||
+    "onValidationResult" in value ||
+    "onRepairAttempt" in value ||
+    "onPlanRejected" in value ||
+    "onDebugLog" in value ||
+    "debug" in value
+  );
 }
