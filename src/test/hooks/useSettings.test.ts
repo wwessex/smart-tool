@@ -17,6 +17,7 @@ describe("useSettings", () => {
       expect(result.current.minScoreThreshold).toBe(5);
       expect(result.current.participantLanguage).toBe("none");
       expect(result.current.aiDraftMode).toBe("ai");
+      expect(result.current.aiDraftRuntime).toBe("auto");
       expect(result.current.preferredLLMModel).toBeNull();
       expect(result.current.allowMobileLLM).toBe(false);
       expect(result.current.safariWebGPUEnabled).toBe(false);
@@ -147,6 +148,22 @@ describe("useSettings", () => {
     });
   });
 
+  describe("updateAIDraftRuntime", () => {
+    it("defaults to auto and persists browser/helper runtime changes", () => {
+      const { result } = renderHook(() => useSettings());
+
+      expect(result.current.aiDraftRuntime).toBe("auto");
+
+      act(() => result.current.updateAIDraftRuntime("browser"));
+      expect(result.current.aiDraftRuntime).toBe("browser");
+      expect(localStorage.getItem("smartTool.aiDraftRuntime")).toBe("browser");
+
+      act(() => result.current.updateAIDraftRuntime("desktop-helper"));
+      expect(result.current.aiDraftRuntime).toBe("desktop-helper");
+      expect(localStorage.getItem("smartTool.aiDraftRuntime")).toBe("desktop-helper");
+    });
+  });
+
   // ==================== preferredLLMModel ====================
 
   describe("updatePreferredLLMModel", () => {
@@ -214,6 +231,14 @@ describe("useSettings", () => {
       const { result } = renderHook(() => useSettings());
 
       expect(result.current.aiDraftMode).toBe("template");
+    });
+
+    it("loads aiDraftRuntime from localStorage", () => {
+      localStorage.setItem("smartTool.aiDraftRuntime", "desktop-helper");
+
+      const { result } = renderHook(() => useSettings());
+
+      expect(result.current.aiDraftRuntime).toBe("desktop-helper");
     });
 
     it("defaults aiDraftMode to ai for unknown stored value", () => {

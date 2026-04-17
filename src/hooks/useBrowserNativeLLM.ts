@@ -1,24 +1,35 @@
 /**
- * React hook wrapping the Amor inteligente AI Engine (browser-native-llm).
+ * React hook wrapping the SMART planner runtime selector.
  *
- * Provides the full SmartPlanner pipeline:
- * profile normalisation → retrieval → prompt assembly → inference →
- * JSON schema validation → repair loop → template fallback.
+ * Routes plan generation to either:
+ * - the existing browser-local worker-backed planner, or
+ * - the optional desktop helper running on 127.0.0.1.
+ *
+ * Retrieval, prompt assembly, validation, repair, and template fallback remain
+ * in-browser through SmartPlanner. The desktop helper is inference-only.
  */
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { classifyAIError, type ClassifiedError } from "@/lib/error-handling";
+import {
+  generateWithDesktopHelper,
+  getDesktopHelperHealth,
+  loadDesktopHelper,
+  unloadDesktopHelper,
+  type DesktopHelperStatus,
+} from "@/lib/desktop-helper-client";
+import type { AIDraftRuntime } from "@/types/smart-tool";
 import type {
   SMARTAction,
   SMARTPlan,
   RawUserInput,
-  InferenceBackend,
   BrowserCapabilities,
   DownloadProgress,
   PlannerCallbacks,
   PlannerGenerateOptions,
   PipelineDebugLog,
   GenerationProfile,
+  InferenceTransport,
 } from "@smart-tool/browser-native-llm";
 
 // ---------------------------------------------------------------------------
@@ -52,16 +63,21 @@ const MOBILE_RECOMMENDED_MODELS: ModelInfo[] = [
 
 const LEGACY_MODEL_ID = "smart-planner-150m-q4";
 const BUILTIN_MODEL_ID = "amor-inteligente-built-in";
+const DESKTOP_HELPER_MODEL_ID = "smart-tool-planner-gguf-v1";
 
 /** HuggingFace CDN fallback when local model files are not deployed. */
 const REMOTE_MODEL_BASE_URL =
   "https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct/resolve/main/";
+
+export type ActiveDraftRuntime = "browser" | "desktop-helper" | "template";
 
 export interface UseBrowserNativeLLMOptions {
   /** Allow local LLM on iPhone/iPad (experimental). Android remains blocked. */
   allowMobileLLM?: boolean;
   /** Enable Safari WebGPU (experimental). */
   safariWebGPUEnabled?: boolean;
+  /** Preferred draft runtime. */
+  runtimePreference?: AIDraftRuntime;
 }
 
 // Re-export types for consumers
@@ -143,13 +159,17 @@ interface HookState {
   classifiedError: ClassifiedError | null;
   selectedModel: string | null;
   capabilities: BrowserCapabilities | null;
-  activeBackend: InferenceBackend | null;
-  /** Whether the model is cached in the browser (checked on mount). */
+  activeBackend: string | null;
+  activeRuntime: ActiveDraftRuntime | null;
+  /** Whether the browser model is cached locally. */
   isCached: boolean | null;
   /** Last pipeline debug log (only populated when debug mode is enabled). */
   lastDebugLog: PipelineDebugLog | null;
+  helperStatus: DesktopHelperStatus;
+  helperMessage: string | null;
+  helperBackend: string | null;
+  helperModelId: string | null;
 }
-
 
 const INITIAL_STATE: HookState = {
   isLoading: false,
@@ -162,8 +182,13 @@ const INITIAL_STATE: HookState = {
   selectedModel: null,
   capabilities: null,
   activeBackend: null,
+  activeRuntime: null,
   isCached: null,
   lastDebugLog: null,
+  helperStatus: "checking",
+  helperMessage: null,
+  helperBackend: null,
+  helperModelId: null,
 };
 
 /** Check if debug mode is enabled via localStorage. */
@@ -210,12 +235,33 @@ function isPlannerCallbacks(
   );
 }
 
+function mapHelperStatus(ready: boolean, status?: string | null): DesktopHelperStatus {
+  if (ready) return "ready";
+  switch (status) {
+    case "downloading-model":
+      return "downloading-model";
+    case "warming-up":
+      return "warming-up";
+    case "ready":
+      return "ready";
+    case "error":
+      return "error";
+    case "not-installed":
+    default:
+      return "not-installed";
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
 
 export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
-  const { allowMobileLLM = false, safariWebGPUEnabled = false } = options;
+  const {
+    allowMobileLLM = false,
+    safariWebGPUEnabled = false,
+    runtimePreference = "auto",
+  } = options;
 
   const [state, setState] = useState<HookState>(INITIAL_STATE);
 
@@ -228,6 +274,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
   const deviceInfo = useMemo(() => detectDevice(), []);
 
   const isMobile = deviceInfo.isMobile;
+  const supportsDesktopHelper = !isMobile;
   // Android is always blocked; iOS is blocked unless explicitly enabled
   const isMobileBlocked = deviceInfo.isAndroid || (deviceInfo.isIOS && !allowMobileLLM);
   const canUseLocalAI = !isMobileBlocked;
@@ -259,11 +306,96 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
     }));
   }, []);
 
-  // ---------------------------------------------------------------------------
-  // initialize — load model & retrieval pack via SmartPlanner
-  // ---------------------------------------------------------------------------
+  const disposePlanner = useCallback((resetReady: boolean = true) => {
+    if (plannerRef.current) {
+      plannerRef.current.dispose();
+      plannerRef.current = null;
+    }
+    if (resetReady) {
+      setState((prev) => ({
+        ...prev,
+        isReady: false,
+        isGenerating: false,
+        isLoading: false,
+        selectedModel: null,
+        loadingProgress: 0,
+        loadingStatus: "",
+        lastDebugLog: null,
+        activeBackend: null,
+        activeRuntime: null,
+      }));
+    }
+  }, []);
 
-  const initialize = useCallback(
+  const checkHelperHealth = useCallback(async () => {
+    if (!supportsDesktopHelper) {
+      setState((prev) => ({
+        ...prev,
+        helperStatus: "not-installed",
+        helperMessage: "Desktop accelerator is only available on desktop browsers.",
+        helperBackend: null,
+        helperModelId: null,
+      }));
+      return null;
+    }
+
+    try {
+      const health = await getDesktopHelperHealth();
+      setState((prev) => ({
+        ...prev,
+        helperStatus: mapHelperStatus(health.ready, health.status),
+        helperMessage: health.message ?? null,
+        helperBackend: health.backend ?? null,
+        helperModelId: health.model_id ?? null,
+      }));
+      return health;
+    } catch {
+      setState((prev) => ({
+        ...prev,
+        helperStatus: "not-installed",
+        helperMessage: "Desktop accelerator not installed or not running.",
+        helperBackend: null,
+        helperModelId: null,
+      }));
+      return null;
+    }
+  }, [supportsDesktopHelper]);
+
+  const createDesktopHelperTransport = useCallback((): InferenceTransport => ({
+    initialize: async () => {
+      setState((prev) => ({
+        ...prev,
+        helperStatus: "warming-up",
+        helperMessage: "Connecting to desktop accelerator…",
+      }));
+      const loadResult = await loadDesktopHelper(DESKTOP_HELPER_MODEL_ID);
+      setState((prev) => ({
+        ...prev,
+        helperStatus: mapHelperStatus(loadResult.ready, loadResult.status),
+        helperMessage: loadResult.message ?? null,
+        helperBackend: loadResult.backend ?? prev.helperBackend,
+        helperModelId: loadResult.model_id ?? DESKTOP_HELPER_MODEL_ID,
+      }));
+      return {
+        backend: loadResult.backend ?? "desktop-helper",
+      };
+    },
+    generate: async (prompt, config) => {
+      const result = await generateWithDesktopHelper(prompt, config);
+      setState((prev) => ({
+        ...prev,
+        helperStatus: "ready",
+        helperBackend: result.backend,
+        helperModelId: prev.helperModelId ?? DESKTOP_HELPER_MODEL_ID,
+      }));
+      return result;
+    },
+    dispose: () => {
+      void unloadDesktopHelper().catch(() => undefined);
+    },
+  }), []);
+
+  const initializeBrowser = useCallback(
     async (modelId?: string, overrideModelBaseUrl?: string): Promise<boolean> => {
       if (!canUseLocalAI) {
         setError("Local AI is not available on this device.");
@@ -278,11 +410,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
         return false;
       }
 
-      // Dispose previous planner (and its worker) before re-initializing
-      if (plannerRef.current) {
-        plannerRef.current.dispose();
-        plannerRef.current = null;
-      }
+      disposePlanner(false);
 
       const effectiveModelBaseUrl =
         overrideModelBaseUrl || `${modelBaseRoot}${LEGACY_MODEL_ID}/`;
@@ -298,18 +426,16 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
       }));
 
       try {
-        // Step 1: detect capabilities
-        const { detectCapabilities, selectBackend } = await import(
+        const { detectCapabilities, selectBackend, SmartPlanner } = await import(
           "@smart-tool/browser-native-llm"
         );
         const capabilities = await detectCapabilities();
 
-        // Choose backend (respect Safari WebGPU preference)
-        let preferredBackend: InferenceBackend | undefined;
+        let preferredBackend: string | undefined;
         if (safariWebGPUEnabled && browserInfo.isSafari && capabilities.webgpu) {
           preferredBackend = "webgpu";
         }
-        const backend = selectBackend(capabilities, preferredBackend);
+        const backend = selectBackend(capabilities, preferredBackend as never);
 
         setState((prev) => ({
           ...prev,
@@ -317,12 +443,9 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
           loadingStatus: "Initializing AI engine…",
           capabilities,
           activeBackend: backend,
+          activeRuntime: "browser",
         }));
 
-        // Step 2: create SmartPlanner
-        const { SmartPlanner } = await import("@smart-tool/browser-native-llm");
-
-        // Create worker via inline Blob URL so Vite bundles all dependencies
         const workerModule = await import(
           "../../browser-native-llm/src/runtime/worker.ts?worker"
         );
@@ -332,29 +455,28 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
           inference: {
             model_id: BUILTIN_MODEL_ID,
             model_base_url: effectiveModelBaseUrl,
-            preferred_backend: backend,
+            preferred_backend: backend as never,
           },
           retrieval_pack_url: retrievalPackUrl,
           worker_url: "",
           worker,
           template_only: false,
           debug: isDebugEnabled(),
+          runtime_label: "browser",
         });
 
-        // Step 3: initialize planner (loads retrieval pack + model via worker)
         setState((prev) => ({
           ...prev,
           loadingProgress: 10,
           loadingStatus: isRemote
-            ? "Downloading AI model…"
+            ? "Downloading browser AI model…"
             : effectiveModelId === BUILTIN_MODEL_ID
-              ? "Loading built-in AI planner…"
-              : "Downloading AI model…",
+              ? "Loading browser AI planner…"
+              : "Downloading browser AI model…",
         }));
 
         await planner.initialize({
           onProgress: (progress: DownloadProgress) => {
-            // Phase-only progress (no byte counts) — e.g. initializing, session_creating
             if (progress.total_bytes === 0 && progress.loaded_bytes === 0 && progress.phase) {
               const phaseProgress =
                 progress.phase === "initializing" ? 8
@@ -369,7 +491,6 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
               }
               return;
             }
-            // Byte-based progress (download / caching phases)
             if (progress.total_bytes > 0) {
               const pct = Math.round((progress.loaded_bytes / progress.total_bytes) * 80) + 10;
               setState((prev) => ({
@@ -379,8 +500,8 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
               }));
             }
           },
-          onBackendSelected: (b: InferenceBackend) => {
-            setState((prev) => ({ ...prev, activeBackend: b }));
+          onBackendSelected: (selectedBackend: string) => {
+            setState((prev) => ({ ...prev, activeBackend: selectedBackend }));
           },
         });
 
@@ -393,6 +514,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
           loadingStatus: "Ready",
           isReady: true,
           selectedModel: effectiveModelId,
+          activeRuntime: "browser",
         }));
 
         return true;
@@ -400,17 +522,14 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
         const errMsg = err instanceof Error ? err.message : String(err);
         const isModelNotFound = /404|not found|model.*config/i.test(errMsg);
 
-        // If local model files returned 404, fall back to HuggingFace CDN
         if (isModelNotFound && !isRemote) {
           console.warn(
-            `[useBrowserNativeLLM] Local model files not found, falling back to remote HuggingFace CDN.`
+            `[useBrowserNativeLLM] Local model files not found, falling back to remote HuggingFace CDN.`,
           );
           plannerRef.current = null;
-          return initialize(effectiveModelId, REMOTE_MODEL_BASE_URL);
+          return initializeBrowser(effectiveModelId, REMOTE_MODEL_BASE_URL);
         }
 
-        // Detect iOS memory-related crashes — the worker may die with a
-        // generic message or the WASM heap may throw during session creation.
         const isMemoryError = /memory|OOM|allocation|crash|Worker error|Worker crashed/i.test(errMsg);
         if (isMemoryError && deviceInfo.isIOS) {
           plannerRef.current = null;
@@ -418,8 +537,8 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
             new Error(
               "Not enough memory to run the AI model on this device. " +
               "Try closing other browser tabs and apps, then try again. " +
-              "If the issue persists, use Smart Templates instead."
-            )
+              "If the issue persists, use Smart Templates instead.",
+            ),
           );
           return false;
         }
@@ -429,7 +548,133 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
         return false;
       }
     },
-    [canUseLocalAI, supportedModels, safariWebGPUEnabled, browserInfo.isSafari, deviceInfo.isIOS, setError, modelBaseRoot, retrievalPackUrl],
+    [
+      browserInfo.isSafari,
+      canUseLocalAI,
+      deviceInfo.isIOS,
+      disposePlanner,
+      modelBaseRoot,
+      retrievalPackUrl,
+      safariWebGPUEnabled,
+      setError,
+      supportedModels,
+    ],
+  );
+
+  const initializeDesktopHelper = useCallback(async (): Promise<boolean> => {
+    disposePlanner(false);
+
+    setState((prev) => ({
+      ...prev,
+      isLoading: true,
+      loadingProgress: 15,
+      loadingStatus: "Connecting to desktop accelerator…",
+      error: null,
+      classifiedError: null,
+      helperStatus: "warming-up",
+      activeRuntime: "desktop-helper",
+    }));
+
+    try {
+      const { SmartPlanner, DEFAULT_INFERENCE_CONFIG } = await import("@smart-tool/browser-native-llm");
+
+      const planner = new SmartPlanner({
+        inference: {
+          ...DEFAULT_INFERENCE_CONFIG,
+          model_id: DESKTOP_HELPER_MODEL_ID,
+          model_base_url: "desktop-helper://local/",
+        },
+        retrieval_pack_url: retrievalPackUrl,
+        worker_url: "",
+        template_only: false,
+        debug: isDebugEnabled(),
+        runtime_label: "desktop-helper",
+        inference_transport: createDesktopHelperTransport(),
+      });
+
+      setState((prev) => ({
+        ...prev,
+        loadingProgress: 45,
+        loadingStatus: "Warming up desktop accelerator…",
+      }));
+
+      await planner.initialize({
+        onBackendSelected: (selectedBackend: string) => {
+          setState((prev) => ({
+            ...prev,
+            activeBackend: selectedBackend,
+            helperBackend: selectedBackend,
+          }));
+        },
+      });
+
+      plannerRef.current = planner;
+
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        loadingProgress: 100,
+        loadingStatus: "Ready",
+        isReady: true,
+        selectedModel: DESKTOP_HELPER_MODEL_ID,
+        activeRuntime: "desktop-helper",
+        helperStatus: "ready",
+      }));
+
+      return true;
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (canUseLocalAI) {
+        setState((prev) => ({
+          ...prev,
+          helperStatus: "using-browser-fallback",
+          helperMessage: errMsg,
+        }));
+        return initializeBrowser();
+      }
+      setError(err);
+      return false;
+    }
+  }, [canUseLocalAI, createDesktopHelperTransport, disposePlanner, initializeBrowser, retrievalPackUrl, setError]);
+
+  const resolveDesiredRuntime = useCallback(async (): Promise<ActiveDraftRuntime> => {
+    if (runtimePreference === "browser") {
+      return canUseLocalAI ? "browser" : "template";
+    }
+
+    if (supportsDesktopHelper) {
+      const health = await checkHelperHealth();
+      if (health?.ok || health?.ready || health?.status === "ready") {
+        return "desktop-helper";
+      }
+    }
+
+    if (runtimePreference === "desktop-helper") {
+      return canUseLocalAI ? "browser" : "template";
+    }
+
+    return canUseLocalAI ? "browser" : "template";
+  }, [canUseLocalAI, checkHelperHealth, runtimePreference, supportsDesktopHelper]);
+
+  // ---------------------------------------------------------------------------
+  // initialize — load preferred runtime via SmartPlanner
+  // ---------------------------------------------------------------------------
+
+  const initialize = useCallback(
+    async (modelId?: string): Promise<boolean> => {
+      const desiredRuntime = await resolveDesiredRuntime();
+
+      if (desiredRuntime === "desktop-helper") {
+        return initializeDesktopHelper();
+      }
+      if (desiredRuntime === "browser") {
+        return initializeBrowser(modelId);
+      }
+
+      setError("Local AI is not available on this device.");
+      return false;
+    },
+    [initializeBrowser, initializeDesktopHelper, resolveDesiredRuntime, setError],
   );
 
   // ---------------------------------------------------------------------------
@@ -458,9 +703,6 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
           ? optionsOrCallbacks
           : undefined;
 
-      // Merge in debug log callback to capture pipeline trace.
-      // Check isDebugEnabled() at generation time so toggling the flag
-      // in localStorage works without reloading the page.
       const debugNow = isDebugEnabled();
       const mergedCallbacks: PlannerCallbacks = {
         ...callbacks,
@@ -475,20 +717,14 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
       abortRef.current = false;
 
       try {
-        // The planner now catches inference errors internally and falls back
-        // to retrieval-based templates, so it should always return a valid plan.
-        // Only initialization errors (programmer mistakes) should throw here.
         return await planner.generatePlan(input, options, mergedCallbacks);
       } catch (err) {
-        // On iOS, a worker crash during generation often manifests as a
-        // generic "Worker error" or the promise hanging until timeout.
-        // Provide a clear memory-related message for iOS devices.
         const errMsg = err instanceof Error ? err.message : String(err);
         const isWorkerCrash = /Worker error|Worker crashed|memory|OOM/i.test(errMsg);
         if (isWorkerCrash && deviceInfo.isIOS) {
           const iosErr = new Error(
             "The AI model ran out of memory on this device. " +
-            "Close other tabs and apps, then reload and try again."
+            "Close other tabs and apps, then reload and try again.",
           );
           setError(iosErr);
           throw iosErr;
@@ -499,7 +735,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
         setState((prev) => ({ ...prev, isGenerating: false }));
       }
     },
-    [state.isReady, deviceInfo.isIOS, setError],
+    [deviceInfo.isIOS, setError, state.isReady],
   );
 
   // ---------------------------------------------------------------------------
@@ -522,21 +758,12 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
   // ---------------------------------------------------------------------------
 
   const dispose = useCallback(() => {
-    if (plannerRef.current) {
-      plannerRef.current.dispose();
-      plannerRef.current = null;
-    }
+    disposePlanner();
     setState((prev) => ({
       ...prev,
-      isReady: false,
-      isGenerating: false,
-      isLoading: false,
-      selectedModel: null,
-      loadingProgress: 0,
-      loadingStatus: "",
-      lastDebugLog: null,
+      helperStatus: prev.activeRuntime === "desktop-helper" ? "warming-up" : prev.helperStatus,
     }));
-  }, []);
+  }, [disposePlanner]);
 
   // ---------------------------------------------------------------------------
   // abort
@@ -565,7 +792,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
   }> => {
     try {
       const { detectCapabilities, describeBackend, selectBackend } = await import(
-        "@smart-tool/browser-native-llm"
+        "@smart-tool/browser-native-llm",
       );
       const caps = await detectCapabilities();
       const backend = selectBackend(caps);
@@ -603,7 +830,6 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
       const { ModelCache } = await import("@smart-tool/puente-engine");
       const cache = new ModelCache();
       if (!cache.isAvailable()) return false;
-      // Check for the main model ONNX file in cache (local or remote URL)
       const localUrl = `${modelBaseRoot}${LEGACY_MODEL_ID}/onnx/model_q4.onnx`;
       const remoteUrl = `${REMOTE_MODEL_BASE_URL}onnx/model_q4.onnx`;
       return (await cache.has(localUrl)) || (await cache.has(remoteUrl));
@@ -613,37 +839,42 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
   }, [canUseLocalAI, modelBaseRoot]);
 
   // ---------------------------------------------------------------------------
-  // preloadIfCached — silently load model if already cached (background warm-start)
+  // preloadIfCached — silently load browser model if already cached
   // ---------------------------------------------------------------------------
 
   const preloadingRef = useRef(false);
   const preloadIfCached = useCallback(async (): Promise<boolean> => {
-    // Skip if already loading, ready, or preloading
     if (state.isLoading || state.isReady || preloadingRef.current) return false;
-    // Only preload if model is cached (never auto-download)
+    if (runtimePreference === "desktop-helper") return false;
     const cached = state.isCached === true ? true : await checkCached();
     if (!cached) return false;
 
     preloadingRef.current = true;
     try {
-      const result = await initialize();
+      const result = await initializeBrowser();
       return result;
     } finally {
       preloadingRef.current = false;
     }
-  }, [state.isCached, state.isLoading, state.isReady, checkCached, initialize]);
+  }, [checkCached, initializeBrowser, runtimePreference, state.isCached, state.isLoading, state.isReady]);
 
   // ---------------------------------------------------------------------------
-  // Check cache status on mount
+  // Mount-time checks
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
     if (canUseLocalAI) {
-      checkCached().then((cached) => {
+      void checkCached().then((cached) => {
         setState((prev) => ({ ...prev, isCached: cached }));
       });
     }
   }, [canUseLocalAI, checkCached]);
+
+  useEffect(() => {
+    if (runtimePreference !== "browser") {
+      void checkHelperHealth();
+    }
+  }, [checkHelperHealth, runtimePreference]);
 
   // ---------------------------------------------------------------------------
   // Cleanup on unmount
@@ -663,8 +894,10 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
   // ---------------------------------------------------------------------------
 
   return {
-    // State
     ...state,
+
+    runtimePreference,
+    supportsDesktopHelper,
 
     // Device / browser info
     isMobile,
@@ -675,7 +908,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
     deviceInfo,
     supportedModels,
 
-    // Actions — plan-based API
+    // Actions — runtime selector API
     loadModel: initialize,
     generatePlan,
     generateTemplatePlan,
@@ -686,6 +919,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
     isModelAvailable,
     checkCached,
     preloadIfCached,
+    refreshHelperHealth: checkHelperHealth,
 
     // Debug
     lastDebugLog: state.lastDebugLog,

@@ -1,6 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 
+const {
+  mockGetDesktopHelperHealth,
+  mockLoadDesktopHelper,
+  mockGenerateWithDesktopHelper,
+  mockUnloadDesktopHelper,
+} = vi.hoisted(() => ({
+  mockGetDesktopHelperHealth: vi.fn(),
+  mockLoadDesktopHelper: vi.fn(),
+  mockGenerateWithDesktopHelper: vi.fn(),
+  mockUnloadDesktopHelper: vi.fn(),
+}));
+
 /**
  * Integration tests for the useBrowserNativeLLM hook.
  *
@@ -56,8 +68,25 @@ const mockPuenteEngineModule = {
   })),
 };
 const mockBrowserNativeLLMModule = {
-  SmartPlanner: vi.fn().mockImplementation(() => ({
-    initialize: mockInitialize,
+  DEFAULT_INFERENCE_CONFIG: {
+    model_id: "test-model",
+    model_base_url: "./models/test/",
+    max_seq_length: 1024,
+    max_new_tokens: 512,
+    temperature: 0.5,
+    top_p: 0.85,
+    repetition_penalty: 1.3,
+  },
+  SmartPlanner: vi.fn().mockImplementation((config) => ({
+    initialize: vi.fn(async (callbacks = {}) => {
+      mockInitialize(config, callbacks);
+      if (config?.inference_transport?.initialize) {
+        const result = await config.inference_transport.initialize(callbacks);
+        if (result?.backend && callbacks?.onBackendSelected) {
+          callbacks.onBackendSelected(result.backend);
+        }
+      }
+    }),
     generatePlan: mockGeneratePlan,
     generateTemplatePlan: mockGenerateTemplatePlan,
     dispose: mockDispose,
@@ -78,6 +107,12 @@ vi.mock("../../../browser-native-llm/src/index.ts", () => mockBrowserNativeLLMMo
 
 vi.mock("@smart-tool/puente-engine", () => mockPuenteEngineModule);
 vi.mock("../../../puente-engine/src/index.ts", () => mockPuenteEngineModule);
+vi.mock("@/lib/desktop-helper-client", () => ({
+  getDesktopHelperHealth: mockGetDesktopHelperHealth,
+  loadDesktopHelper: mockLoadDesktopHelper,
+  generateWithDesktopHelper: mockGenerateWithDesktopHelper,
+  unloadDesktopHelper: mockUnloadDesktopHelper,
+}));
 
 // Mock the Vite worker import
 vi.mock("../../browser-native-llm/src/runtime/worker.ts?worker", () => ({
@@ -98,6 +133,29 @@ describe("useBrowserNativeLLM", () => {
     vi.clearAllMocks();
     mockCacheHas.mockResolvedValue(false);
     mockCacheMatch.mockResolvedValue(undefined);
+    mockGetDesktopHelperHealth.mockResolvedValue({
+      ok: false,
+      ready: false,
+      status: "not-installed",
+      backend: null,
+      model_id: null,
+      message: "Desktop helper not installed",
+    });
+    mockLoadDesktopHelper.mockResolvedValue({
+      ok: true,
+      ready: true,
+      status: "ready",
+      backend: "llama.cpp-cpu",
+      model_id: "smart-tool-planner-gguf-v1",
+      message: "Ready",
+    });
+    mockGenerateWithDesktopHelper.mockResolvedValue({
+      text: "Generated locally",
+      tokens_generated: 42,
+      time_ms: 12,
+      backend: "llama.cpp-cpu",
+    });
+    mockUnloadDesktopHelper.mockResolvedValue({ ok: true });
     Object.defineProperty(globalThis, "caches", {
       configurable: true,
       value: {
@@ -186,6 +244,7 @@ describe("useBrowserNativeLLM", () => {
       expect(typeof result.current.checkDevice).toBe("function");
       expect(typeof result.current.isModelAvailable).toBe("function");
       expect(typeof result.current.preloadIfCached).toBe("function");
+      expect(typeof result.current.refreshHelperHealth).toBe("function");
     });
 
     it("exposes browser and device info", () => {
@@ -264,6 +323,49 @@ describe("useBrowserNativeLLM", () => {
 
       expect(didPreload).toBe(false);
       expect(mockInitialize).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("runtime selection", () => {
+    it("selects desktop-helper when preferred and healthy", async () => {
+      mockGetDesktopHelperHealth.mockResolvedValue({
+        ok: true,
+        ready: true,
+        status: "ready",
+        backend: "llama.cpp-cpu",
+        model_id: "smart-tool-planner-gguf-v1",
+        message: "Ready",
+      });
+
+      const { result } = renderHook(() => useBrowserNativeLLM({ runtimePreference: "desktop-helper" }));
+
+      await act(async () => {
+        await result.current.loadModel();
+      });
+
+      expect(result.current.activeRuntime).toBe("desktop-helper");
+      expect(result.current.helperStatus).toBe("ready");
+      expect(mockLoadDesktopHelper).toHaveBeenCalledWith("smart-tool-planner-gguf-v1");
+    });
+
+    it("falls back to browser runtime when desktop-helper preference is unavailable", async () => {
+      mockGetDesktopHelperHealth.mockResolvedValue({
+        ok: false,
+        ready: false,
+        status: "not-installed",
+        backend: null,
+        model_id: null,
+        message: "Desktop helper not installed",
+      });
+
+      const { result } = renderHook(() => useBrowserNativeLLM({ runtimePreference: "desktop-helper" }));
+
+      await act(async () => {
+        await result.current.loadModel(RECOMMENDED_MODELS[0].id);
+      });
+
+      expect(result.current.activeRuntime).toBe("browser");
+      expect(mockLoadDesktopHelper).not.toHaveBeenCalled();
     });
   });
 });

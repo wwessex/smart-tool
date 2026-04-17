@@ -40,6 +40,7 @@ export interface UseAIDraftingOptions {
   suggestQuery: string;
   storage: {
     aiDraftMode: string;
+    aiDraftRuntime: 'auto' | 'browser' | 'desktop-helper';
     keepSafariModelLoaded: boolean;
     allowMobileLLM: boolean;
     safariWebGPUEnabled: boolean;
@@ -92,11 +93,11 @@ export function useAIDrafting({
   const llm = useBrowserNativeLLM({
     allowMobileLLM: storage.allowMobileLLM,
     safariWebGPUEnabled: storage.safariWebGPUEnabled,
+    runtimePreference: storage.aiDraftRuntime,
   });
 
   const { pack: promptPack, source: promptPackSource } = usePromptPack();
   const {
-    canUseLocalAI,
     isCached: isModelCached,
     isLoading: isLLMLoading,
     isReady: isLLMReady,
@@ -117,6 +118,7 @@ export function useAIDrafting({
   const [currentFeedbackId, setCurrentFeedbackId] = useState<string | null>(null);
   const aiGeneratedActionRef = useRef<string>('');
   const [showFeedbackUI, setShowFeedbackUI] = useState(false);
+  const autoLoadInFlightRef = useRef(false);
 
   const resetFeedbackState = useCallback(() => {
     setShowFeedbackUI(false);
@@ -132,6 +134,12 @@ export function useAIDrafting({
     setMoreLikeThisLoading(false);
     lastPlanMetadataRef.current = null;
   }, []);
+
+  const getPlanRuntimeMeta = useCallback((plan?: SMARTPlan | null) => {
+    const runtime = plan?.metadata.runtime || (storage.aiDraftMode === 'template' ? 'template' : llm.activeRuntime || 'browser');
+    const runtimeBackend = plan?.metadata.runtime_backend || plan?.metadata.backend || llm.activeBackend || runtime;
+    return { runtime, runtimeBackend };
+  }, [llm.activeBackend, llm.activeRuntime, storage.aiDraftMode]);
 
   const safariAutoUnloadTimer = useRef<number | null>(null);
   const scheduleSafariModelUnload = useCallback((delayMs?: number) => {
@@ -173,53 +181,77 @@ export function useAIDrafting({
     }
   }, [llm.classifiedError, toast]);
 
+  const autoLoadPreferredRuntime = useCallback(async () => {
+    if (
+      autoLoadInFlightRef.current ||
+      storage.aiDraftMode !== 'ai' ||
+      llm.isLoading ||
+      llm.isReady ||
+      llm.isGenerating ||
+      llm.isMobile
+    ) {
+      return;
+    }
+
+    autoLoadInFlightRef.current = true;
+    try {
+      await llm.loadModel(storage.preferredLLMModel);
+    } catch {
+      // Best-effort warmup only.
+    } finally {
+      autoLoadInFlightRef.current = false;
+    }
+  }, [llm, storage.aiDraftMode, storage.preferredLLMModel]);
+
   useEffect(() => {
     if (
       storage.aiDraftMode !== 'ai' ||
-      !canUseLocalAI ||
+      llm.isMobile ||
       isLLMReady ||
-      isLLMLoading ||
-      isModelCached !== true
+      isLLMLoading
     ) {
       return;
     }
 
     let cancelled = false;
-    let timeoutId: number | null = null;
-    let idleCallbackId: number | null = null;
-
-    const runPrewarm = () => {
-      void preloadIfCached().catch(() => {
-        // Best-effort warmup only.
-      });
-    };
-
-    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      idleCallbackId = window.requestIdleCallback(() => {
-        if (!cancelled) runPrewarm();
-      }, { timeout: 1200 });
-    } else if (typeof window !== 'undefined') {
-      timeoutId = window.setTimeout(() => {
-        if (!cancelled) runPrewarm();
-      }, 400);
-    }
+    const timeoutId = window.setTimeout(() => {
+      if (cancelled) return;
+      if (storage.aiDraftRuntime === 'browser' && isModelCached === true) {
+        void preloadIfCached().catch(() => undefined);
+        return;
+      }
+      void autoLoadPreferredRuntime();
+    }, 400);
 
     return () => {
       cancelled = true;
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId);
-      }
-      if (idleCallbackId !== null && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
-        window.cancelIdleCallback(idleCallbackId);
-      }
+      window.clearTimeout(timeoutId);
     };
   }, [
-    canUseLocalAI,
+    autoLoadPreferredRuntime,
     isLLMLoading,
     isLLMReady,
     isModelCached,
+    llm.isMobile,
     preloadIfCached,
     storage.aiDraftMode,
+    storage.aiDraftRuntime,
+  ]);
+
+  useEffect(() => {
+    const draftable = mode === 'now'
+      ? Boolean(nowForm.forename.trim() && nowForm.barrier.trim())
+      : Boolean(taskBasedForm.forename.trim() && taskBasedForm.task.trim());
+
+    if (!draftable) return;
+    void autoLoadPreferredRuntime();
+  }, [
+    autoLoadPreferredRuntime,
+    mode,
+    nowForm.barrier,
+    nowForm.forename,
+    taskBasedForm.forename,
+    taskBasedForm.task,
   ]);
 
   useEffect(() => {
@@ -273,10 +305,13 @@ export function useAIDrafting({
       generated_text: aiGeneratedActionRef.current || (mode === 'now' ? nowForm.action : taskBasedForm.outcome) || undefined,
       feedback_rating: rating,
       source: 'ai',
+      runtime: lastPlanMetadataRef.current?.runtime,
+      runtime_backend: lastPlanMetadataRef.current?.runtime_backend,
     });
   }, [
     barrierDraftResult?.barrierType,
     currentFeedbackId,
+    lastPlanMetadataRef,
     mode,
     nowForm.action,
     nowForm.barrier,
@@ -484,6 +519,8 @@ export function useAIDrafting({
       relevance_score: options.draftMeta?.relevanceScore,
       draft_mode: options.draftMode,
       source: options.source || 'ai',
+      runtime: lastPlanMetadataRef.current?.runtime,
+      runtime_backend: lastPlanMetadataRef.current?.runtime_backend,
     });
 
     setShowPlanPicker(false);
@@ -535,35 +572,17 @@ export function useAIDrafting({
     plan: SMARTPlan;
     selection: BarrierDraftSelection;
   }> => {
-    let request = buildNowDraftRequest({ draftMode: 'primary', ...feedback });
-    let plan = await llm.generatePlan(request.input, { profile: 'primary_draft' });
-    let candidateActions = filterRegeneratedActions(plan.actions, request, feedback);
-    let selection = selectPrimaryBarrierDraft(candidateActions, request.barrier, request.forename, request.timescale);
+    const request = buildNowDraftRequest({ draftMode: 'primary', ...feedback });
+    const plan = await llm.generatePlan(request.input, { profile: 'primary_draft' });
+    const candidateActions = filterRegeneratedActions(plan.actions, request, feedback);
+    const selection = selectPrimaryBarrierDraft(candidateActions, request.barrier, request.forename, request.timescale);
 
     if (!selection) {
       throw new Error('Plan generation returned no actions.');
     }
 
-    const needsRetry = !selection.relevance.isRelevant || selection.relevanceScore < PRIMARY_RELEVANCE_THRESHOLD;
-    if (needsRetry) {
-      const retryReason = selection.relevance.reason ||
-        `The first action must directly reduce "${selection.barrierSummary}" before general job-search steps.`;
-      request = buildNowDraftRequest({
-        draftMode: 'primary',
-        retryReason,
-        primaryActionText: selection.primaryAction.action,
-        ...feedback,
-      });
-      plan = await llm.generatePlan(request.input, { profile: 'primary_draft' });
-      candidateActions = filterRegeneratedActions(plan.actions, request, feedback);
-      const retriedSelection = selectPrimaryBarrierDraft(candidateActions, request.barrier, request.forename, request.timescale);
-      if (retriedSelection) {
-        selection = retriedSelection;
-      }
-    }
-
     if (!selection.relevance.isRelevant || selection.relevanceScore < PRIMARY_RELEVANCE_THRESHOLD) {
-      throw new Error(selection.relevance.reason || 'Generated action was not relevant enough after retry.');
+      throw new Error(selection.relevance.reason || 'Generated action was not relevant enough.');
     }
 
     return { request, plan, selection };
@@ -579,6 +598,8 @@ export function useAIDrafting({
       barrier_type: barrierDraftResult.barrierType,
       draft_mode: 'alternates',
       source: 'ai',
+      runtime: lastPlanMetadataRef.current?.runtime,
+      runtime_backend: lastPlanMetadataRef.current?.runtime_backend,
     });
 
     const cachedAlternates = barrierDraftResult.alternates;
@@ -592,7 +613,7 @@ export function useAIDrafting({
     }
 
     if (!llm.isReady) {
-      setShowLLMPicker(true);
+      void autoLoadPreferredRuntime();
       return;
     }
 
@@ -637,6 +658,8 @@ export function useAIDrafting({
         actions_count: alternates.length,
         draft_mode: 'alternates',
         source: isTemplateFallback ? 'template' : 'ai',
+        runtime: plan.metadata.runtime,
+        runtime_backend: plan.metadata.runtime_backend,
       });
 
       scheduleSafariModelUnload();
@@ -690,7 +713,7 @@ export function useAIDrafting({
 
     if (!llm.isReady) {
       pendingAIDraftRef.current = true;
-      setShowLLMPicker(true);
+      void autoLoadPreferredRuntime();
       return;
     }
 
@@ -711,6 +734,8 @@ export function useAIDrafting({
         feedback_rating: feedbackContext.currentRating ?? null,
         draft_mode: 'primary',
         source: 'ai',
+        runtime: lastPlanMetadataRef.current?.runtime,
+        runtime_backend: lastPlanMetadataRef.current?.runtime_backend,
       });
     }
 
@@ -720,6 +745,7 @@ export function useAIDrafting({
         const { request, plan, selection } = await resolvePrimaryBarrierDraft(feedbackContext);
         const isTemplateFallback =
           (plan.metadata as { source?: string } | undefined)?.source === 'template_fallback';
+        const runtimeMeta = getPlanRuntimeMeta(plan);
         lastPlanMetadataRef.current = plan.metadata;
         setBarrierDraftResult(selection);
 
@@ -734,6 +760,8 @@ export function useAIDrafting({
           relevance_score: selection.relevanceScore,
           draft_mode: 'primary',
           source: isTemplateFallback ? 'template' : 'ai',
+          runtime: runtimeMeta.runtime,
+          runtime_backend: runtimeMeta.runtimeBackend,
         });
 
         applyDraftAction(selection.primaryAction, {
@@ -753,6 +781,8 @@ export function useAIDrafting({
       const plan = await llm.generatePlan(request.input, { profile: 'primary_draft' });
       const isTemplateFallback =
         (plan.metadata as { source?: string } | undefined)?.source === 'template_fallback';
+      const runtimeMeta = getPlanRuntimeMeta(plan);
+      lastPlanMetadataRef.current = plan.metadata;
 
       logDraftAnalytics({
         timestamp: new Date().toISOString(),
@@ -760,6 +790,8 @@ export function useAIDrafting({
         actions_count: plan.actions.length,
         draft_mode: 'primary',
         source: isTemplateFallback ? 'template' : 'ai',
+        runtime: runtimeMeta.runtime,
+        runtime_backend: runtimeMeta.runtimeBackend,
       });
 
       const candidateActions = filterRegeneratedActions(plan.actions, request, feedbackContext);
@@ -831,11 +863,13 @@ export function useAIDrafting({
   }, [
     aiGeneratedActionRef,
     applyDraftAction,
+    autoLoadPreferredRuntime,
     barrierDraftResult,
     buildFutureDraftRequest,
     clearBarrierDraftState,
     feedbackRating,
     filterRegeneratedActions,
+    getPlanRuntimeMeta,
     llm,
     mode,
     nowForm,
@@ -886,8 +920,9 @@ export function useAIDrafting({
   const handleWizardAIDraft = useCallback(async (field: string, context: Record<string, string>): Promise<string> => {
     if (storage.aiDraftMode === 'ai' && !llm.isReady) {
       if (llm.canUseLocalAI) {
-        setShowLLMPicker(true);
-        toast({ title: 'Load Local AI', description: 'Pick a model to enable AI drafting.' });
+        pendingAIDraftRef.current = true;
+        void autoLoadPreferredRuntime();
+        toast({ title: 'Preparing AI draft', description: 'Local AI is warming up in the background.' });
         return '';
       }
       toast({
@@ -912,6 +947,7 @@ export function useAIDrafting({
         const plan = await llm.generatePlan(input, { profile: 'primary_draft' });
         const isTemplateFallback =
           (plan.metadata as { source?: string } | undefined)?.source === 'template_fallback';
+        lastPlanMetadataRef.current = plan.metadata;
         const selected = context.barrier
           ? selectPrimaryBarrierDraft(plan.actions, context.barrier, context.forename, context.timescale || '2 weeks')?.primaryAction
           : plan.actions[0];
@@ -953,7 +989,7 @@ export function useAIDrafting({
       return aiDraftFuture(context.task || '', context.forename || '');
     }
     return '';
-  }, [mode, nowForm.date, llm, storage.aiDraftMode, toast, scheduleSafariModelUnload]);
+  }, [autoLoadPreferredRuntime, mode, nowForm.date, llm, scheduleSafariModelUnload, storage.aiDraftMode, toast]);
 
   return {
     llm,

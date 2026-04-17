@@ -29,6 +29,7 @@ export interface LLMPickerDialogProps {
     preferredLLMModel?: string;
     updatePreferredLLMModel?: (id: string) => void;
     updateAIDraftMode?: (mode: string) => void;
+    updateAIDraftRuntime?: (runtime: 'auto' | 'browser' | 'desktop-helper') => void;
   };
 }
 
@@ -116,6 +117,7 @@ export function LLMPickerDialog({
                 <button
                   key={model.id}
                   onClick={async () => {
+                    storage.updateAIDraftRuntime?.('browser');
                     const success = await llm.loadModel(model.id);
                     if (success) {
                       if (storage.updatePreferredLLMModel) {

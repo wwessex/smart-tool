@@ -39,14 +39,20 @@ export interface SettingsPanelProps {
     loadingStatus: string;
     loadingProgress: number;
     selectedModel: string | null;
+    activeRuntime: 'browser' | 'desktop-helper' | 'template' | null;
     supportedModels: Array<{ id: string; name: string; size: string; description: string }>;
     canUseLocalAI: boolean;
     isMobile: boolean;
+    supportsDesktopHelper: boolean;
     browserInfo: { isSafari: boolean };
     deviceInfo: { isIOS: boolean } | null;
+    helperStatus: 'checking' | 'not-installed' | 'downloading-model' | 'warming-up' | 'ready' | 'using-browser-fallback' | 'error';
+    helperMessage: string | null;
+    helperBackend: string | null;
     loadModel: (id: string) => Promise<boolean>;
     unload: () => void;
     clearError: () => void;
+    refreshHelperHealth: () => Promise<unknown>;
   };
   promptPack: PromptPack | null;
   promptPackSource: string | null;
@@ -73,6 +79,26 @@ export const SettingsPanel = memo(function SettingsPanel({
   const [settingsTimescales, setSettingsTimescales] = useState('');
 
   const effectivePromptPack = promptPack || DEFAULT_PROMPT_PACK;
+  const helperStatusCopy = llm.helperStatus === 'ready'
+    ? { label: 'Ready', description: llm.helperBackend ? `Desktop Accelerator is ready via ${llm.helperBackend}.` : 'Desktop Accelerator is ready.' }
+    : llm.helperStatus === 'downloading-model'
+      ? { label: 'Downloading model', description: llm.helperMessage || 'Desktop Accelerator is downloading its local model.' }
+      : llm.helperStatus === 'warming-up'
+        ? { label: 'Warming up', description: llm.helperMessage || 'Desktop Accelerator is starting and preloading the planner.' }
+        : llm.helperStatus === 'using-browser-fallback'
+          ? { label: 'Using browser fallback', description: llm.helperMessage || 'Desktop Accelerator was unavailable, so Browser AI will be used instead.' }
+          : llm.helperStatus === 'checking'
+            ? { label: 'Checking...', description: 'Looking for a running Desktop Accelerator on this computer.' }
+            : llm.helperStatus === 'error'
+              ? { label: 'Unavailable', description: llm.helperMessage || 'Desktop Accelerator returned an error.' }
+              : { label: 'Not installed', description: llm.helperMessage || 'Desktop Accelerator is not installed or not running.' };
+  const activeRuntimeLabel = llm.activeRuntime === 'desktop-helper'
+    ? 'Desktop Accelerator'
+    : llm.activeRuntime === 'browser'
+      ? 'Browser AI'
+      : llm.activeRuntime === 'template'
+        ? 'Smart Templates'
+        : 'Not loaded';
 
   const handleOpen = (isOpen: boolean) => {
     onOpenChange(isOpen);
@@ -215,8 +241,8 @@ export const SettingsPanel = memo(function SettingsPanel({
               <h3 className="font-bold">AI Draft</h3>
             </div>
             <p className="text-xs text-muted-foreground">
-              AI drafting runs locally in your browser by default. If local AI is unavailable, switch
-              to Smart Templates for instant built-in suggestions.
+              AI drafting stays local. Auto prefers Desktop Accelerator on supported desktops and falls
+              back to Browser AI, while Smart Templates remain the no-download option.
             </p>
 
             {/* Mode Toggle */}
@@ -253,6 +279,58 @@ export const SettingsPanel = memo(function SettingsPanel({
                 </div>
               </label>
             </div>
+
+            {storage.aiDraftMode === 'ai' && !llm.isMobile && (
+              <div className="pt-4 border-t space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-sm font-medium">Runtime</h4>
+                    <p className="text-xs text-muted-foreground">
+                      Current runtime: {activeRuntimeLabel}
+                    </p>
+                  </div>
+                  {llm.supportsDesktopHelper && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => { void llm.refreshHelperHealth(); }}
+                    >
+                      <RefreshCw className="w-3 h-3 mr-1" />
+                      Refresh
+                    </Button>
+                  )}
+                </div>
+
+                <Select
+                  value={storage.aiDraftRuntime}
+                  onValueChange={(value) => storage.updateAIDraftRuntime(value as 'auto' | 'browser' | 'desktop-helper')}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto</SelectItem>
+                    <SelectItem value="browser">Browser AI</SelectItem>
+                    <SelectItem value="desktop-helper">Desktop Accelerator</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <p className="text-xs text-muted-foreground">
+                  Auto prefers Desktop Accelerator when it is available on this computer. Browser AI keeps everything in-browser. Desktop Accelerator uses the optional local loopback helper.
+                </p>
+
+                {llm.supportsDesktopHelper && (
+                  <div className="rounded-lg border bg-muted/40 px-3 py-3 space-y-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-medium">Desktop Accelerator</span>
+                      <span className="text-xs text-muted-foreground">{helperStatusCopy.label}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{helperStatusCopy.description}</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* iOS / mobile enable (experimental) */}
             {storage.aiDraftMode === 'ai' && llm.deviceInfo?.isIOS && llm.isMobile && (
@@ -315,19 +393,19 @@ export const SettingsPanel = memo(function SettingsPanel({
               </div>
             )}
 
-            {/* Model Selection (shown when AI mode is enabled and device is allowed) */}
+            {/* Browser AI controls */}
             {storage.aiDraftMode === 'ai' && llm.canUseLocalAI && (
               <div className="pt-4 border-t space-y-3">
-                <h4 className="text-sm font-medium">AI Model</h4>
+                <h4 className="text-sm font-medium">Browser AI</h4>
                 <p className="text-xs text-muted-foreground">
                   AI playbook v{effectivePromptPack.version} ({promptPackSource || 'default'})
                 </p>
 
-                {llm.isReady && (
+                {llm.isReady && llm.activeRuntime === 'browser' && (
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
                       <Check className="w-4 h-4" />
-                      {llm.supportedModels.find(m => m.id === llm.selectedModel)?.name || 'Model'} loaded
+                      {llm.supportedModels.find(m => m.id === llm.selectedModel)?.name || 'Browser AI'} loaded
                     </div>
                     <div className="flex items-center gap-1">
                       <Button
@@ -336,6 +414,7 @@ export const SettingsPanel = memo(function SettingsPanel({
                         onClick={async () => {
                           const modelId = llm.selectedModel;
                           if (modelId) {
+                            storage.updateAIDraftRuntime('browser');
                             llm.unload();
                             await llm.loadModel(modelId);
                           }
@@ -357,7 +436,7 @@ export const SettingsPanel = memo(function SettingsPanel({
                   </div>
                 )}
 
-                {llm.isLoading && (
+                {llm.isLoading && (storage.aiDraftRuntime === 'browser' || llm.activeRuntime === 'browser' || llm.helperStatus === 'using-browser-fallback') && (
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -372,29 +451,33 @@ export const SettingsPanel = memo(function SettingsPanel({
                   </div>
                 )}
 
-                {!llm.isReady && !llm.isLoading && (
+                {(!llm.isReady || llm.activeRuntime !== 'browser') && !llm.isLoading && (
                   <div className="space-y-2">
                     {llm.supportedModels.map((model) => (
                       <button
                         key={model.id}
                         onClick={async () => {
+                          storage.updateAIDraftRuntime('browser');
                           const success = await llm.loadModel(model.id);
                           if (success) {
                             if (storage.updatePreferredLLMModel) {
                               storage.updatePreferredLLMModel(model.id);
-                            }
-                            if (storage.updateAIDraftMode) {
-                              storage.updateAIDraftMode('ai');
                             }
                           }
                         }}
                         className="w-full p-3 rounded-lg border hover:border-primary/50 hover:bg-primary/5 transition-colors text-left"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="font-medium text-sm">{model.name}</span>
+                          <span className="font-medium text-sm">
+                            {storage.aiDraftRuntime === 'browser' ? 'Load Browser AI' : 'Switch to Browser AI'}
+                          </span>
                           <span className="text-xs text-muted-foreground">{model.size}</span>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">{model.description}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {storage.aiDraftRuntime === 'browser'
+                            ? model.description
+                            : `${model.description}. This also changes the preferred runtime to Browser AI.`}
+                        </p>
                       </button>
                     ))}
                   </div>
@@ -421,6 +504,7 @@ export const SettingsPanel = memo(function SettingsPanel({
                             llm.clearError();
                             const modelId = llm.selectedModel || storage.preferredLLMModel || llm.supportedModels[0]?.id;
                             if (modelId) {
+                              storage.updateAIDraftRuntime('browser');
                               llm.unload();
                               await llm.loadModel(modelId);
                             }

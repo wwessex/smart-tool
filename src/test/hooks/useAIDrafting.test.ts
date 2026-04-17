@@ -8,17 +8,23 @@ const {
   mockGeneratePlan,
   mockLogDraftAnalytics,
   mockPreloadIfCached,
+  mockLoadModel,
   llmReadyRef,
   llmLoadingRef,
   llmCachedRef,
+  activeRuntimeRef,
+  activeBackendRef,
 } = vi.hoisted(() => ({
   mockToast: vi.fn(),
   mockGeneratePlan: vi.fn(),
   mockLogDraftAnalytics: vi.fn(),
   mockPreloadIfCached: vi.fn(),
+  mockLoadModel: vi.fn(),
   llmReadyRef: { value: true },
   llmLoadingRef: { value: false },
   llmCachedRef: { value: false },
+  activeRuntimeRef: { value: "browser" as "browser" | "desktop-helper" | "template" },
+  activeBackendRef: { value: "wasm-basic" },
 }));
 
 vi.mock("@/hooks/use-toast", () => ({
@@ -37,11 +43,17 @@ vi.mock("@/hooks/useBrowserNativeLLM", () => ({
     isCached: llmCachedRef.value,
     isMobile: false,
     canUseLocalAI: true,
+    activeRuntime: activeRuntimeRef.value,
+    activeBackend: activeBackendRef.value,
+    helperStatus: "ready",
+    helperMessage: null,
+    helperBackend: null,
     browserInfo: { isSafari: false },
     deviceInfo: { isIOS: false },
     classifiedError: null,
     clearError: vi.fn(),
     unload: vi.fn(),
+    loadModel: mockLoadModel,
     preloadIfCached: mockPreloadIfCached,
     generatePlan: mockGeneratePlan,
     lastDebugLog: null,
@@ -86,6 +98,8 @@ const primaryPlan = {
     model_id: "test-model",
     model_version: "0.1.0",
     backend: "wasm-basic" as const,
+    runtime: "browser" as const,
+    runtime_backend: "wasm-basic",
     retrieval_pack_version: "1.0.0",
     generated_at: new Date().toISOString(),
     generation_time_ms: 120,
@@ -132,6 +146,8 @@ const alternatePlan = {
     model_id: "test-model",
     model_version: "0.1.0",
     backend: "wasm-basic" as const,
+    runtime: "browser" as const,
+    runtime_backend: "wasm-basic",
     retrieval_pack_version: "1.0.0",
     generated_at: new Date().toISOString(),
     generation_time_ms: 160,
@@ -158,11 +174,21 @@ const retryPlan = {
     model_id: "test-model",
     model_version: "0.1.0",
     backend: "wasm-basic" as const,
+    runtime: "browser" as const,
+    runtime_backend: "wasm-basic",
     retrieval_pack_version: "1.0.0",
     generated_at: new Date().toISOString(),
     generation_time_ms: 140,
     tokens_generated: 190,
     generation_profile: "primary_draft" as const,
+    repair_attempts: 1,
+  },
+};
+
+const repairedPrimaryPlan = {
+  ...primaryPlan,
+  metadata: {
+    ...primaryPlan.metadata,
     repair_attempts: 1,
   },
 };
@@ -196,6 +222,7 @@ function createHook() {
     suggestQuery: "",
     storage: {
       aiDraftMode: "ai",
+      aiDraftRuntime: "auto",
       keepSafariModelLoaded: false,
       allowMobileLLM: true,
       safariWebGPUEnabled: true,
@@ -212,6 +239,7 @@ function createHook() {
 function createStatefulHook(storageOverrides: Partial<Parameters<typeof useAIDrafting>[0]["storage"]> = {}) {
   const storage = {
     aiDraftMode: "ai" as const,
+    aiDraftRuntime: "auto" as const,
     keepSafariModelLoaded: false,
     allowMobileLLM: true,
     safariWebGPUEnabled: true,
@@ -263,6 +291,9 @@ describe("useAIDrafting", () => {
     llmReadyRef.value = true;
     llmLoadingRef.value = false;
     llmCachedRef.value = false;
+    activeRuntimeRef.value = "browser";
+    activeBackendRef.value = "wasm-basic";
+    mockLoadModel.mockResolvedValue(true);
   });
 
   it("auto-applies the best-fit primary action and exposes alternates", async () => {
@@ -310,10 +341,8 @@ describe("useAIDrafting", () => {
     expect(mockGeneratePlan).toHaveBeenCalledTimes(2);
   });
 
-  it("retries once when the first primary draft is not relevant enough", async () => {
-    mockGeneratePlan
-      .mockResolvedValueOnce(retryPlan)
-      .mockResolvedValueOnce(primaryPlan);
+  it("uses planner repair without a second top-level generatePlan call", async () => {
+    mockGeneratePlan.mockResolvedValueOnce(repairedPrimaryPlan);
 
     const { result, setNowForm } = createHook();
 
@@ -321,9 +350,8 @@ describe("useAIDrafting", () => {
       await result.current.handleAIDraft();
     });
 
-    expect(mockGeneratePlan).toHaveBeenCalledTimes(2);
+    expect(mockGeneratePlan).toHaveBeenCalledTimes(1);
     expect(mockGeneratePlan.mock.calls[0][1]).toEqual({ profile: "primary_draft" });
-    expect(mockGeneratePlan.mock.calls[1][1]).toEqual({ profile: "primary_draft" });
     expect(result.current.barrierDraftResult?.primaryAction.action).toContain("two STAR examples");
 
     const update = setNowForm.mock.calls[0][0];
@@ -340,9 +368,7 @@ describe("useAIDrafting", () => {
   });
 
   it("falls back to templates only after the capped primary retry path", async () => {
-    mockGeneratePlan
-      .mockResolvedValueOnce(retryPlan)
-      .mockResolvedValueOnce(retryPlan);
+    mockGeneratePlan.mockResolvedValueOnce(retryPlan);
 
     const { result, setNowForm } = createHook();
 
@@ -350,7 +376,7 @@ describe("useAIDrafting", () => {
       await result.current.handleAIDraft();
     });
 
-    expect(mockGeneratePlan).toHaveBeenCalledTimes(2);
+    expect(mockGeneratePlan).toHaveBeenCalledTimes(1);
     expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({
       title: "Using smart templates",
       variant: "destructive",
@@ -375,7 +401,7 @@ describe("useAIDrafting", () => {
     llmCachedRef.value = true;
     mockPreloadIfCached.mockResolvedValue(true);
 
-    createHook();
+    createStatefulHook({ aiDraftRuntime: "browser" });
 
     await act(async () => {
       vi.runAllTimers();

@@ -81,6 +81,7 @@ export interface ActionFeedback {
 }
 
 export type AIDraftMode = 'ai' | 'template';
+export type AIDraftRuntime = 'auto' | 'browser' | 'desktop-helper';
 
 export interface SmartToolSettings {
   minScoreEnabled?: boolean;
@@ -89,6 +90,7 @@ export interface SmartToolSettings {
   retentionDays?: number;
   participantLanguage?: string;
   aiDraftMode?: AIDraftMode;
+  aiDraftRuntime?: AIDraftRuntime;
   keepSafariModelLoaded?: boolean;
   allowMobileLLM?: boolean;
   safariWebGPUEnabled?: boolean;

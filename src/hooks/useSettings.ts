@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { safeSetItem, safeRemoveItem, loadBoolean, loadNumber, loadString, STORAGE_KEYS } from './storage-utils';
-import type { AIDraftMode } from './useSmartStorage';
+import type { AIDraftMode, AIDraftRuntime } from './useSmartStorage';
 
 export function useSettings() {
   const [minScoreEnabled, setMinScoreEnabled] = useState<boolean>(() => loadBoolean(STORAGE_KEYS.minScoreEnabled, false));
@@ -12,6 +12,14 @@ export function useSettings() {
       return stored === 'template' ? 'template' : 'ai';
     } catch {
       return 'ai';
+    }
+  });
+  const [aiDraftRuntime, setAIDraftRuntime] = useState<AIDraftRuntime>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.aiDraftRuntime);
+      return stored === 'browser' || stored === 'desktop-helper' ? stored : 'auto';
+    } catch {
+      return 'auto';
     }
   });
   const [preferredLLMModel, setPreferredLLMModel] = useState<string | null>(() => {
@@ -47,6 +55,11 @@ export function useSettings() {
     safeSetItem(STORAGE_KEYS.aiDraftMode, mode);
   }, []);
 
+  const updateAIDraftRuntime = useCallback((runtime: AIDraftRuntime) => {
+    setAIDraftRuntime(runtime);
+    safeSetItem(STORAGE_KEYS.aiDraftRuntime, runtime);
+  }, []);
+
   const updatePreferredLLMModel = useCallback((modelId: string | null) => {
     setPreferredLLMModel(modelId);
     if (modelId) {
@@ -76,6 +89,7 @@ export function useSettings() {
     minScoreThreshold,
     participantLanguage,
     aiDraftMode,
+    aiDraftRuntime,
     preferredLLMModel,
     allowMobileLLM,
     safariWebGPUEnabled,
@@ -84,6 +98,7 @@ export function useSettings() {
     setMinScoreThreshold,
     setParticipantLanguage,
     setAIDraftMode,
+    setAIDraftRuntime,
     setPreferredLLMModel,
     setAllowMobileLLM,
     setSafariWebGPUEnabled,
@@ -92,6 +107,7 @@ export function useSettings() {
     updateMinScoreThreshold,
     updateParticipantLanguage,
     updateAIDraftMode,
+    updateAIDraftRuntime,
     updatePreferredLLMModel,
     updateAllowMobileLLM,
     updateSafariWebGPUEnabled,

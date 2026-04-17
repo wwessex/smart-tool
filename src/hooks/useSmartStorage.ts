@@ -22,7 +22,7 @@ import { useSettings } from './useSettings';
 import { useFeedback } from './useFeedback';
 
 // Re-export shared types for backward compatibility
-export type { ActionTemplate, HistoryItem, ActionFeedback, AIDraftMode, SmartToolSettings } from '@/types/smart-tool';
+export type { ActionTemplate, HistoryItem, ActionFeedback, AIDraftMode, AIDraftRuntime, SmartToolSettings } from '@/types/smart-tool';
 
 export function useSmartStorage() {
   // Compose focused hooks
@@ -122,6 +122,14 @@ export function useSmartStorage() {
         settingsHook.setAIDraftMode(data.settings.aiDraftMode);
         safeSetItem(STORAGE_KEYS.aiDraftMode, data.settings.aiDraftMode);
       }
+      if (
+        data.settings.aiDraftRuntime === 'auto' ||
+        data.settings.aiDraftRuntime === 'browser' ||
+        data.settings.aiDraftRuntime === 'desktop-helper'
+      ) {
+        settingsHook.setAIDraftRuntime(data.settings.aiDraftRuntime);
+        safeSetItem(STORAGE_KEYS.aiDraftRuntime, data.settings.aiDraftRuntime);
+      }
       if (typeof data.settings.preferredLLMModel === 'string') {
         settingsHook.setPreferredLLMModel(data.settings.preferredLLMModel);
         safeSetItem(STORAGE_KEYS.preferredLLMModel, data.settings.preferredLLMModel);
@@ -158,6 +166,7 @@ export function useSmartStorage() {
         retentionDays: historyHook.retentionDays,
         participantLanguage: settingsHook.participantLanguage,
         aiDraftMode: settingsHook.aiDraftMode,
+        aiDraftRuntime: settingsHook.aiDraftRuntime,
         preferredLLMModel: settingsHook.preferredLLMModel,
         allowMobileLLM: settingsHook.allowMobileLLM,
         safariWebGPUEnabled: settingsHook.safariWebGPUEnabled,
@@ -178,6 +187,7 @@ export function useSmartStorage() {
     settingsHook.minScoreThreshold,
     settingsHook.participantLanguage,
     settingsHook.aiDraftMode,
+    settingsHook.aiDraftRuntime,
     settingsHook.preferredLLMModel,
     settingsHook.allowMobileLLM,
     settingsHook.safariWebGPUEnabled,
@@ -226,6 +236,7 @@ export function useSmartStorage() {
     settingsHook.setMinScoreThreshold(5);
     settingsHook.setParticipantLanguage('none');
     settingsHook.setAIDraftMode('ai');
+    settingsHook.setAIDraftRuntime('auto');
     settingsHook.setPreferredLLMModel(null);
     settingsHook.setAllowMobileLLM(false);
     settingsHook.setSafariWebGPUEnabled(false);
@@ -267,6 +278,7 @@ export function useSmartStorage() {
     minScoreThreshold: settingsHook.minScoreThreshold,
     participantLanguage: settingsHook.participantLanguage,
     aiDraftMode: settingsHook.aiDraftMode,
+    aiDraftRuntime: settingsHook.aiDraftRuntime,
     preferredLLMModel: settingsHook.preferredLLMModel,
     allowMobileLLM: settingsHook.allowMobileLLM,
     safariWebGPUEnabled: settingsHook.safariWebGPUEnabled,
@@ -275,6 +287,7 @@ export function useSmartStorage() {
     updateMinScoreThreshold: settingsHook.updateMinScoreThreshold,
     updateParticipantLanguage: settingsHook.updateParticipantLanguage,
     updateAIDraftMode: settingsHook.updateAIDraftMode,
+    updateAIDraftRuntime: settingsHook.updateAIDraftRuntime,
     updatePreferredLLMModel: settingsHook.updatePreferredLLMModel,
     updateAllowMobileLLM: settingsHook.updateAllowMobileLLM,
     updateSafariWebGPUEnabled: settingsHook.updateSafariWebGPUEnabled,
