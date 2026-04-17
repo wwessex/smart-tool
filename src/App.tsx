@@ -7,6 +7,7 @@ import { HashRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { PWAPrompt } from "@/components/PWAPrompt";
 import { CookieConsent } from "@/components/smart/CookieConsent";
+import { isDesktopApp } from "@/lib/desktop-bridge";
 
 // Lazy load pages for better initial load time
 const Index = lazy(() => import("./pages/Index"));
@@ -221,6 +222,8 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
+  const desktopApp = isDesktopApp();
+
   // Ask for persistent storage early so cached local-model files are less likely to be evicted.
   // This helps iOS Safari keep downloaded model shards between reloads.
   useEffect(() => {
@@ -241,7 +244,7 @@ const App = () => {
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <PWAPrompt />
+          {!desktopApp && <PWAPrompt />}
           <CookieConsent />
           <HashRouter>
             <LazyErrorBoundary>

@@ -16,8 +16,8 @@ import {
   getDesktopHelperHealth,
   loadDesktopHelper,
   unloadDesktopHelper,
-  type DesktopHelperStatus,
 } from "@/lib/desktop-helper-client";
+import type { DesktopHelperStatus } from "@/types/desktop";
 import type { AIDraftRuntime } from "@/types/smart-tool";
 import type {
   SMARTAction,

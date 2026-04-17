@@ -1,41 +1,16 @@
+import { getDesktopBridge } from "@/lib/desktop-bridge";
+import type {
+  DesktopHelperGenerateResponse,
+  DesktopHelperHealth,
+  DesktopHelperLoadResponse,
+} from "@/types/desktop";
+
 const DESKTOP_HELPER_ORIGIN = "http://127.0.0.1:43117";
 const JSON_HEADERS = {
   "Content-Type": "application/json",
 };
 
-export type DesktopHelperStatus =
-  | "checking"
-  | "not-installed"
-  | "downloading-model"
-  | "warming-up"
-  | "ready"
-  | "using-browser-fallback"
-  | "error";
-
-export interface DesktopHelperHealth {
-  ok: boolean;
-  status: Exclude<DesktopHelperStatus, "checking" | "using-browser-fallback">;
-  ready: boolean;
-  backend?: string | null;
-  model_id?: string | null;
-  message?: string | null;
-}
-
-export interface DesktopHelperGenerateResponse {
-  text: string;
-  tokens_generated: number;
-  time_ms: number;
-  backend: string;
-}
-
-interface DesktopHelperLoadResponse {
-  ok: boolean;
-  status: "downloading-model" | "warming-up" | "ready" | "error";
-  ready: boolean;
-  backend?: string | null;
-  model_id?: string | null;
-  message?: string | null;
-}
+export type { DesktopHelperGenerateResponse, DesktopHelperHealth, DesktopHelperLoadResponse };
 
 async function readJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -47,10 +22,25 @@ async function readJson<T>(response: Response): Promise<T> {
 }
 
 export function getDesktopHelperOrigin(): string {
+  if (getDesktopBridge()) {
+    return "desktop-helper://ipc";
+  }
   return DESKTOP_HELPER_ORIGIN;
 }
 
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw new DOMException("The operation was aborted.", "AbortError");
+  }
+}
+
 export async function getDesktopHelperHealth(signal?: AbortSignal): Promise<DesktopHelperHealth> {
+  throwIfAborted(signal);
+  const desktopBridge = getDesktopBridge();
+  if (desktopBridge) {
+    return desktopBridge.desktopHelper.health();
+  }
+
   const response = await fetch(`${DESKTOP_HELPER_ORIGIN}/health`, {
     method: "GET",
     signal,
@@ -60,6 +50,12 @@ export async function getDesktopHelperHealth(signal?: AbortSignal): Promise<Desk
 }
 
 export async function loadDesktopHelper(modelId: string, signal?: AbortSignal): Promise<DesktopHelperLoadResponse> {
+  throwIfAborted(signal);
+  const desktopBridge = getDesktopBridge();
+  if (desktopBridge) {
+    return desktopBridge.desktopHelper.load(modelId);
+  }
+
   const response = await fetch(`${DESKTOP_HELPER_ORIGIN}/load`, {
     method: "POST",
     headers: JSON_HEADERS,
@@ -75,6 +71,12 @@ export async function generateWithDesktopHelper(
   config: Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<DesktopHelperGenerateResponse> {
+  throwIfAborted(signal);
+  const desktopBridge = getDesktopBridge();
+  if (desktopBridge) {
+    return desktopBridge.desktopHelper.generate(prompt, config);
+  }
+
   const response = await fetch(`${DESKTOP_HELPER_ORIGIN}/generate`, {
     method: "POST",
     headers: JSON_HEADERS,
@@ -86,6 +88,12 @@ export async function generateWithDesktopHelper(
 }
 
 export async function unloadDesktopHelper(signal?: AbortSignal): Promise<{ ok: boolean }> {
+  throwIfAborted(signal);
+  const desktopBridge = getDesktopBridge();
+  if (desktopBridge) {
+    return desktopBridge.desktopHelper.unload();
+  }
+
   const response = await fetch(`${DESKTOP_HELPER_ORIGIN}/unload`, {
     method: "POST",
     headers: JSON_HEADERS,
