@@ -110,6 +110,39 @@ describe("draft-analytics", () => {
       expect(stored[0]).toEqual(entry);
     });
 
+    it("stores primary acceptance metadata", () => {
+      const entry: DraftAnalyticsEntry = {
+        timestamp: "2026-04-17T10:00:00.000Z",
+        signal: "accepted",
+        barrier: "I keep forgetting",
+        barrier_type: "habit",
+        generated_text: "Set a daily reminder to review saved vacancies by 24-Apr-26.",
+        relevance_score: 0.92,
+        draft_mode: "primary",
+        source: "ai",
+      };
+
+      logDraftAnalytics(entry);
+
+      const stored = loadDraftAnalytics();
+      expect(stored[0]).toEqual(entry);
+    });
+
+    it("stores more like this usage events", () => {
+      const entry: DraftAnalyticsEntry = {
+        timestamp: "2026-04-17T10:05:00.000Z",
+        signal: "more_like_this",
+        barrier: "CV",
+        barrier_type: "clarity",
+        draft_mode: "alternates",
+        source: "ai",
+      };
+
+      logDraftAnalytics(entry);
+
+      expect(loadDraftAnalytics()[0]).toEqual(entry);
+    });
+
     it("silently fails on localStorage errors", () => {
       // Force localStorage to throw
       const originalSetItem = localStorage.setItem;
