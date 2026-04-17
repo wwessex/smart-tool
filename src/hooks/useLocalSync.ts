@@ -9,6 +9,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { HistoryItem } from '@/hooks/useSmartStorage';
 import { SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
+import { getDesktopBridge } from '@/lib/desktop-bridge';
 
 // Type declarations for File System Access API (not in standard TS lib)
 interface FSAPermissionDescriptor {
@@ -183,6 +184,8 @@ const safeGetItem = (key: string): string | null => {
 };
 
 export function useLocalSync() {
+  const desktopBridge = getDesktopBridge();
+  const isDesktop = !!desktopBridge;
   const [state, setState] = useState<LocalSyncState>(() => ({
     isConnected: !!safeGetItem(STORAGE_KEYS.folderName),
     isConnecting: false,
@@ -190,7 +193,7 @@ export function useLocalSync() {
     syncEnabled: safeGetItem(STORAGE_KEYS.syncEnabled) === 'true',
     lastSync: safeGetItem(STORAGE_KEYS.lastSync),
     error: null,
-    isSupported: isFileSystemAccessSupported(),
+    isSupported: isDesktop || isFileSystemAccessSupported(),
   }));
 
   // Internal ref to the folder handle
@@ -206,6 +209,28 @@ export function useLocalSync() {
   // On mount, try to restore folder handle and verify permission
   useEffect(() => {
     async function restoreHandle() {
+      if (isDesktop && desktopBridge) {
+        try {
+          const syncState = await desktopBridge.syncFolder.getState();
+          if (!isMountedRef.current) return;
+
+          if (syncState.folderName) {
+            localStorage.setItem(STORAGE_KEYS.folderName, syncState.folderName);
+          } else {
+            localStorage.removeItem(STORAGE_KEYS.folderName);
+          }
+
+          setState(prev => ({
+            ...prev,
+            isConnected: !!syncState.folderPath,
+            folderName: syncState.folderName,
+          }));
+        } catch (err) {
+          console.warn('Error restoring desktop sync folder:', err);
+        }
+        return;
+      }
+
       if (!isFileSystemAccessSupported()) return;
 
       try {
@@ -234,12 +259,17 @@ export function useLocalSync() {
     }
 
     restoreHandle();
-  }, []);
+  }, [desktopBridge, isDesktop]);
 
   /**
    * Request permission for the stored folder handle
    */
   const requestPermission = useCallback(async (): Promise<boolean> => {
+    if (isDesktop && desktopBridge) {
+      const syncState = await desktopBridge.syncFolder.getState();
+      return !!syncState.folderPath;
+    }
+
     if (!folderHandle) return false;
     
     try {
@@ -248,13 +278,13 @@ export function useLocalSync() {
     } catch {
       return false;
     }
-  }, [folderHandle]);
+  }, [desktopBridge, folderHandle, isDesktop]);
 
   /**
    * Open folder picker and store the selected folder
    */
   const selectFolder = useCallback(async () => {
-    if (!isFileSystemAccessSupported()) {
+    if (!isDesktop && !isFileSystemAccessSupported()) {
       setState(prev => ({ 
         ...prev, 
         error: 'Your browser doesn\'t support folder sync. Use Chrome or Edge on desktop.' 
@@ -265,6 +295,25 @@ export function useLocalSync() {
     setState(prev => ({ ...prev, isConnecting: true, error: null }));
 
     try {
+      if (isDesktop && desktopBridge) {
+        const syncState = await desktopBridge.syncFolder.selectFolder();
+        if (!syncState) {
+          setState(prev => ({ ...prev, isConnecting: false }));
+          return;
+        }
+
+        localStorage.setItem(STORAGE_KEYS.folderName, syncState.folderName || '');
+
+        setState(prev => ({
+          ...prev,
+          isConnected: true,
+          isConnecting: false,
+          folderName: syncState.folderName,
+          error: null,
+        }));
+        return;
+      }
+
       // Open folder picker - use type assertion for non-standard API
       const showDirectoryPicker = (window as unknown as { showDirectoryPicker: (opts: FSADirectoryPickerOptions) => Promise<FSADirectoryHandle> }).showDirectoryPicker;
       const handle = await showDirectoryPicker({
@@ -300,12 +349,16 @@ export function useLocalSync() {
         setState(prev => ({ ...prev, isConnecting: false }));
       }
     }
-  }, []);
+  }, [desktopBridge, isDesktop]);
 
   /**
    * Disconnect from the selected folder
    */
   const disconnect = useCallback(async () => {
+    if (isDesktop && desktopBridge) {
+      await desktopBridge.syncFolder.clearFolder();
+    }
+
     await deleteFolderHandle();
     setFolderHandle(null);
 
@@ -320,17 +373,47 @@ export function useLocalSync() {
       lastSync: null,
       syncEnabled: false,
     }));
-  }, []);
+  }, [desktopBridge, isDesktop]);
 
   /**
    * Write an action to the selected folder
    */
   const writeAction = useCallback(async (item: HistoryItem): Promise<boolean> => {
-    if (!folderHandle || !state.syncEnabled) {
+    if (!state.syncEnabled) {
       return false;
     }
 
     try {
+      const filename = generateFilename(item);
+      const content = formatActionForFile(item);
+
+      if (isDesktop && desktopBridge) {
+        const syncState = await desktopBridge.syncFolder.getState();
+        if (!syncState.folderPath) {
+          if (isMountedRef.current) {
+            setState(prev => ({
+              ...prev,
+              error: 'Choose a sync folder before saving files.'
+            }));
+          }
+          return false;
+        }
+
+        await desktopBridge.syncFolder.writeTextFile(filename, content);
+
+        const now = new Date().toISOString();
+        localStorage.setItem(STORAGE_KEYS.lastSync, now);
+        if (isMountedRef.current) {
+          setState(prev => ({ ...prev, lastSync: now, error: null }));
+        }
+
+        return true;
+      }
+
+      if (!folderHandle) {
+        return false;
+      }
+
       // Check/request permission
       let permission = await folderHandle.queryPermission({ mode: 'readwrite' });
 
@@ -346,9 +429,6 @@ export function useLocalSync() {
           return false;
         }
       }
-
-      const filename = generateFilename(item);
-      const content = formatActionForFile(item);
 
       // Create or overwrite file
       const fileHandle = await folderHandle.getFileHandle(filename, { create: true });
@@ -374,7 +454,7 @@ export function useLocalSync() {
       }
       return false;
     }
-  }, [folderHandle, state.syncEnabled]);
+  }, [desktopBridge, folderHandle, isDesktop, state.syncEnabled]);
 
   /**
    * Toggle sync enabled/disabled

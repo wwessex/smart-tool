@@ -9,6 +9,7 @@ import {
 describe("desktop-helper-client", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    delete window.smartToolDesktop;
   });
 
   it("requests helper health from the loopback origin", async () => {
@@ -83,5 +84,40 @@ describe("desktop-helper-client", () => {
         body: JSON.stringify({}),
       }),
     );
+  });
+
+  it("uses the desktop bridge when running inside the packaged app", async () => {
+    const bridgeHealth = vi.fn().mockResolvedValue({
+      ok: true,
+      ready: true,
+      status: "ready",
+      backend: "llama.cpp-cpu",
+      model_id: "smart-tool-planner-gguf-v1",
+    });
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    window.smartToolDesktop = {
+      isDesktopApp: true,
+      platform: "win32",
+      version: "1.0.0",
+      desktopHelper: {
+        health: bridgeHealth,
+        load: vi.fn(),
+        generate: vi.fn(),
+        unload: vi.fn(),
+      },
+      syncFolder: {
+        getState: vi.fn(),
+        selectFolder: vi.fn(),
+        clearFolder: vi.fn(),
+        writeTextFile: vi.fn(),
+      },
+    };
+
+    const health = await getDesktopHelperHealth();
+
+    expect(bridgeHealth).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(health.status).toBe("ready");
   });
 });

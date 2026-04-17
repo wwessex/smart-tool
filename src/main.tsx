@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { Component, ReactNode } from "react";
 import App from "./App.tsx";
 import "./index.css";
+import { isDesktopApp } from "./lib/desktop-bridge";
 import { installGlobalErrorHandlers } from "./lib/error-handling";
 
 // Install global unhandled-rejection listener early so no async error is lost.
@@ -95,7 +96,7 @@ const initApp = () => {
     );
     
     // Signal to service worker that app has loaded
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    if (!isDesktopApp() && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
       navigator.serviceWorker.controller.postMessage({ type: 'APP_LOADED' });
     }
   } catch (error) {

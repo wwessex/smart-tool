@@ -77,6 +77,35 @@ The Vite dev server runs on port `8080`.
 bun run build
 ```
 
+### Run As A Desktop App
+
+The repo now includes an Electron shell for Windows desktop packaging.
+
+Run it locally in desktop mode:
+
+```bash
+npm run desktop:dev
+```
+
+Create an unpacked desktop bundle:
+
+```bash
+npm run desktop:build
+```
+
+Build Windows installers and portable binaries on Windows:
+
+```bash
+npm run dist:win
+```
+
+Notes:
+
+- the packaged desktop app loads the existing Vite build from `dist/`
+- Electron and Electron Builder are fetched on demand by the desktop scripts via `npx`
+- Desktop Accelerator calls use an Electron preload bridge, so the packaged app does not need a separate loopback helper server
+- folder sync uses the native folder picker and writes directly to the chosen Windows folder, including OneDrive-backed folders
+
 ### Test and lint
 
 ```bash

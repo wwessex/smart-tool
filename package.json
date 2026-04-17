@@ -2,6 +2,7 @@
   "name": "vite_react_shadcn_ts",
   "private": true,
   "version": "0.0.0",
+  "main": "electron/main.cjs",
   "type": "module",
   "workspaces": [
     "browser-native-llm",
@@ -13,6 +14,9 @@
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
+    "desktop:dev": "npx -y concurrently@9.2.1 -k \"vite\" \"npx -y wait-on@8.0.5 tcp:8080 && npx -y electron@37.2.4 .\"",
+    "desktop:build": "vite build && npx -y electron-builder@26.0.12 --dir",
+    "dist:win": "vite build && npx -y electron-builder@26.0.12 --win nsis portable",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
@@ -106,5 +110,30 @@
     "typescript-eslint": "^8.38.0",
     "vite": "^5.4.19",
     "vitest": "^3.2.4"
+  },
+  "build": {
+    "appId": "uk.smarttool.desktop",
+    "productName": "SMART Tool",
+    "electronVersion": "37.2.4",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "desktop-helper/**/*",
+      "src/assets/logo-icon.png",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "electron/main.cjs"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    }
   }
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { isDesktopApp } from '@/lib/desktop-bridge';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -19,13 +20,19 @@ const getSWDisabled = (): boolean => {
 };
 
 export function usePWA() {
+  const desktopApp = isDesktopApp();
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isInstalled, setIsInstalled] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(desktopApp);
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
   useEffect(() => {
+    if (desktopApp) {
+      setIsInstalled(true);
+      return;
+    }
+
     // Check if already installed
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setIsInstalled(true);
@@ -58,11 +65,11 @@ export function usePWA() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [desktopApp]);
 
   useEffect(() => {
     // Skip SW registration if disabled or not supported
-    if (getSWDisabled() || !('serviceWorker' in navigator)) {
+    if (desktopApp || getSWDisabled() || !('serviceWorker' in navigator)) {
       return;
     }
 
@@ -136,9 +143,10 @@ export function usePWA() {
         window.removeEventListener('load', loadHandler);
       }
     };
-  }, []);
+  }, [desktopApp]);
 
   const promptInstall = useCallback(async () => {
+    if (desktopApp) return false;
     if (!installPrompt) return false;
 
     try {
@@ -154,7 +162,7 @@ export function usePWA() {
       console.error('[PWA] Install prompt error:', err);
       return false;
     }
-  }, [installPrompt]);
+  }, [desktopApp, installPrompt]);
 
   const applyUpdate = useCallback(() => {
     if (registration?.waiting) {
