@@ -38,6 +38,11 @@ export interface SMARTPlan {
   metadata: PlanMetadata;
 }
 
+export type GenerationProfile =
+  | "default_plan"
+  | "primary_draft"
+  | "alternate_drafts";
+
 export interface PlanMetadata {
   model_id: string;
   model_version: string;
@@ -48,6 +53,8 @@ export interface PlanMetadata {
   tokens_generated: number;
   /** How the plan was produced: "llm", "repair", or "template_fallback". */
   source?: "llm" | "repair" | "template_fallback";
+  generation_profile: GenerationProfile;
+  repair_attempts: number;
 }
 
 // ---------------------------------------------------------------------------

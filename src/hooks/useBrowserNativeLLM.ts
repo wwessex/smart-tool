@@ -16,7 +16,9 @@ import type {
   BrowserCapabilities,
   DownloadProgress,
   PlannerCallbacks,
+  PlannerGenerateOptions,
   PipelineDebugLog,
+  GenerationProfile,
 } from "@smart-tool/browser-native-llm";
 
 // ---------------------------------------------------------------------------
@@ -63,7 +65,15 @@ export interface UseBrowserNativeLLMOptions {
 }
 
 // Re-export types for consumers
-export type { SMARTAction, SMARTPlan, RawUserInput, PlannerCallbacks, PipelineDebugLog };
+export type {
+  SMARTAction,
+  SMARTPlan,
+  RawUserInput,
+  PlannerCallbacks,
+  PlannerGenerateOptions,
+  PipelineDebugLog,
+  GenerationProfile,
+};
 
 // ---------------------------------------------------------------------------
 // Browser / device detection
@@ -181,6 +191,23 @@ function progressPhaseToStatus(phase: string): string {
     default:
       return "Loading…";
   }
+}
+
+function isPlannerCallbacks(
+  value: PlannerGenerateOptions | PlannerCallbacks | undefined,
+): value is PlannerCallbacks {
+  if (!value || typeof value !== "object") return false;
+
+  return (
+    "onProgress" in value ||
+    "onBackendSelected" in value ||
+    "onTokenGenerated" in value ||
+    "onValidationResult" in value ||
+    "onRepairAttempt" in value ||
+    "onPlanRejected" in value ||
+    "onDebugLog" in value ||
+    "debug" in value
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -410,11 +437,26 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
   // ---------------------------------------------------------------------------
 
   const generatePlan = useCallback(
-    async (input: RawUserInput, callbacks?: PlannerCallbacks): Promise<SMARTPlan> => {
+    async (
+      input: RawUserInput,
+      optionsOrCallbacks?: PlannerGenerateOptions | PlannerCallbacks,
+      maybeCallbacks?: PlannerCallbacks,
+    ): Promise<SMARTPlan> => {
       const planner = plannerRef.current;
       if (!planner || !state.isReady) {
         throw new Error("Planner not initialized. Call initialize() first.");
       }
+
+      const options = maybeCallbacks
+        ? (optionsOrCallbacks as PlannerGenerateOptions | undefined) ?? {}
+        : isPlannerCallbacks(optionsOrCallbacks)
+          ? {}
+          : (optionsOrCallbacks as PlannerGenerateOptions | undefined) ?? {};
+      const callbacks = maybeCallbacks
+        ? maybeCallbacks
+        : isPlannerCallbacks(optionsOrCallbacks)
+          ? optionsOrCallbacks
+          : undefined;
 
       // Merge in debug log callback to capture pipeline trace.
       // Check isDebugEnabled() at generation time so toggling the flag
@@ -436,7 +478,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
         // The planner now catches inference errors internally and falls back
         // to retrieval-based templates, so it should always return a valid plan.
         // Only initialization errors (programmer mistakes) should throw here.
-        return await planner.generatePlan(input, mergedCallbacks);
+        return await planner.generatePlan(input, options, mergedCallbacks);
       } catch (err) {
         // On iOS, a worker crash during generation often manifests as a
         // generic "Worker error" or the promise hanging until timeout.
@@ -579,7 +621,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
     // Skip if already loading, ready, or preloading
     if (state.isLoading || state.isReady || preloadingRef.current) return false;
     // Only preload if model is cached (never auto-download)
-    const cached = await checkCached();
+    const cached = state.isCached === true ? true : await checkCached();
     if (!cached) return false;
 
     preloadingRef.current = true;
@@ -589,7 +631,7 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
     } finally {
       preloadingRef.current = false;
     }
-  }, [state.isLoading, state.isReady, checkCached, initialize]);
+  }, [state.isCached, state.isLoading, state.isReady, checkCached, initialize]);
 
   // ---------------------------------------------------------------------------
   // Check cache status on mount

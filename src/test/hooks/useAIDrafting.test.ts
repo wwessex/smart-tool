@@ -7,10 +7,18 @@ const {
   mockToast,
   mockGeneratePlan,
   mockLogDraftAnalytics,
+  mockPreloadIfCached,
+  llmReadyRef,
+  llmLoadingRef,
+  llmCachedRef,
 } = vi.hoisted(() => ({
   mockToast: vi.fn(),
   mockGeneratePlan: vi.fn(),
   mockLogDraftAnalytics: vi.fn(),
+  mockPreloadIfCached: vi.fn(),
+  llmReadyRef: { value: true },
+  llmLoadingRef: { value: false },
+  llmCachedRef: { value: false },
 }));
 
 vi.mock("@/hooks/use-toast", () => ({
@@ -23,8 +31,10 @@ vi.mock("@/hooks/usePromptPack", () => ({
 
 vi.mock("@/hooks/useBrowserNativeLLM", () => ({
   useBrowserNativeLLM: () => ({
-    isReady: true,
+    isReady: llmReadyRef.value,
     isGenerating: false,
+    isLoading: llmLoadingRef.value,
+    isCached: llmCachedRef.value,
     isMobile: false,
     canUseLocalAI: true,
     browserInfo: { isSafari: false },
@@ -32,6 +42,7 @@ vi.mock("@/hooks/useBrowserNativeLLM", () => ({
     classifiedError: null,
     clearError: vi.fn(),
     unload: vi.fn(),
+    preloadIfCached: mockPreloadIfCached,
     generatePlan: mockGeneratePlan,
     lastDebugLog: null,
   }),
@@ -70,6 +81,22 @@ const primaryPlan = {
       effort_estimate: "45 minutes",
       first_step: "Open current CV and list two recent achievements",
     },
+  ],
+  metadata: {
+    model_id: "test-model",
+    model_version: "0.1.0",
+    backend: "wasm-basic" as const,
+    retrieval_pack_version: "1.0.0",
+    generated_at: new Date().toISOString(),
+    generation_time_ms: 120,
+    tokens_generated: 180,
+    generation_profile: "primary_draft" as const,
+    repair_attempts: 0,
+  },
+};
+
+const alternatePlan = {
+  actions: [
     {
       action: "Mark will tailor his CV to two warehouse vacancies and email the draft to his advisor by 24-Apr-26.",
       metric: "2 tailored CV versions completed",
@@ -90,6 +117,16 @@ const primaryPlan = {
       effort_estimate: "30 minutes",
       first_step: "Highlight three measurable outcomes from recent work",
     },
+    {
+      action: "Mark will rewrite his personal profile for warehouse roles and read it aloud with his advisor by 24-Apr-26.",
+      metric: "1 role-specific profile completed",
+      baseline: "Profile is generic",
+      target: "Profile matches warehouse roles",
+      deadline: "2026-04-24",
+      rationale: "A targeted profile strengthens applications",
+      effort_estimate: "30 minutes",
+      first_step: "List the top three qualities warehouse employers ask for",
+    },
   ],
   metadata: {
     model_id: "test-model",
@@ -97,8 +134,10 @@ const primaryPlan = {
     backend: "wasm-basic" as const,
     retrieval_pack_version: "1.0.0",
     generated_at: new Date().toISOString(),
-    generation_time_ms: 120,
-    tokens_generated: 180,
+    generation_time_ms: 160,
+    tokens_generated: 220,
+    generation_profile: "alternate_drafts" as const,
+    repair_attempts: 0,
   },
 };
 
@@ -123,6 +162,8 @@ const retryPlan = {
     generated_at: new Date().toISOString(),
     generation_time_ms: 140,
     tokens_generated: 190,
+    generation_profile: "primary_draft" as const,
+    repair_attempts: 1,
   },
 };
 
@@ -218,10 +259,16 @@ function createStatefulHook(storageOverrides: Partial<Parameters<typeof useAIDra
 describe("useAIDrafting", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
+    llmReadyRef.value = true;
+    llmLoadingRef.value = false;
+    llmCachedRef.value = false;
   });
 
   it("auto-applies the best-fit primary action and exposes alternates", async () => {
-    mockGeneratePlan.mockResolvedValue(primaryPlan);
+    mockGeneratePlan
+      .mockResolvedValueOnce(primaryPlan)
+      .mockResolvedValueOnce(alternatePlan);
     const { result, setNowForm } = createHook();
 
     await act(async () => {
@@ -229,6 +276,7 @@ describe("useAIDrafting", () => {
     });
 
     expect(mockGeneratePlan).toHaveBeenCalledTimes(1);
+    expect(mockGeneratePlan.mock.calls[0][1]).toEqual({ profile: "primary_draft" });
     expect(result.current.barrierDraftResult?.primaryAction.action).toContain("two STAR examples");
     expect(result.current.canShowMoreLikeThis).toBe(true);
 
@@ -250,8 +298,16 @@ describe("useAIDrafting", () => {
       await result.current.handleMoreLikeThis();
     });
 
+    expect(mockGeneratePlan).toHaveBeenCalledTimes(2);
+    expect(mockGeneratePlan.mock.calls[1][1]).toEqual({ profile: "alternate_drafts" });
     expect(result.current.showPlanPicker).toBe(true);
     expect(result.current.planResult?.actions.length).toBeGreaterThanOrEqual(2);
+
+    await act(async () => {
+      await result.current.handleMoreLikeThis();
+    });
+
+    expect(mockGeneratePlan).toHaveBeenCalledTimes(2);
   });
 
   it("retries once when the first primary draft is not relevant enough", async () => {
@@ -266,6 +322,8 @@ describe("useAIDrafting", () => {
     });
 
     expect(mockGeneratePlan).toHaveBeenCalledTimes(2);
+    expect(mockGeneratePlan.mock.calls[0][1]).toEqual({ profile: "primary_draft" });
+    expect(mockGeneratePlan.mock.calls[1][1]).toEqual({ profile: "primary_draft" });
     expect(result.current.barrierDraftResult?.primaryAction.action).toContain("two STAR examples");
 
     const update = setNowForm.mock.calls[0][0];
@@ -279,6 +337,52 @@ describe("useAIDrafting", () => {
       help: "",
       timescale: "2 weeks",
     }).action).toContain("two STAR examples");
+  });
+
+  it("falls back to templates only after the capped primary retry path", async () => {
+    mockGeneratePlan
+      .mockResolvedValueOnce(retryPlan)
+      .mockResolvedValueOnce(retryPlan);
+
+    const { result, setNowForm } = createHook();
+
+    await act(async () => {
+      await result.current.handleAIDraft();
+    });
+
+    expect(mockGeneratePlan).toHaveBeenCalledTimes(2);
+    expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({
+      title: "Using smart templates",
+      variant: "destructive",
+    }));
+
+    const update = setNowForm.mock.calls[0][0];
+    expect(update({
+      date: "2026-04-17",
+      time: "",
+      forename: "Mark",
+      barrier: "CV",
+      action: "",
+      responsible: "Advisor",
+      help: "",
+      timescale: "2 weeks",
+    }).action).toBeTruthy();
+  });
+
+  it("prewarms cached local AI only when AI mode is enabled", async () => {
+    vi.useFakeTimers();
+    llmReadyRef.value = false;
+    llmCachedRef.value = true;
+    mockPreloadIfCached.mockResolvedValue(true);
+
+    createHook();
+
+    await act(async () => {
+      vi.runAllTimers();
+    });
+
+    expect(mockPreloadIfCached).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
   });
 
   it("persists a null rating when the user untoggles feedback", async () => {

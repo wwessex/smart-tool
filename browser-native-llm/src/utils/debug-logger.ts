@@ -13,7 +13,7 @@
  * debug logging — the user has explicitly opted in via localStorage.
  */
 
-import type { UserProfile, SMARTCriteriaResult } from "../types.js";
+import type { UserProfile, SMARTCriteriaResult, GenerationProfile } from "../types.js";
 import type { AssembledPrompt } from "../planner/prompt-assembler.js";
 
 // Indirect console references survive esbuild `drop: ['console']`.
@@ -46,6 +46,7 @@ export interface RepairAttemptEntry {
 /** Complete pipeline debug log for one `generatePlan` call. */
 export interface PipelineDebugLog {
   timestamp: string;
+  generationProfile: GenerationProfile;
 
   // Stage 1: Profile
   normalizedProfile: UserProfile | null;
@@ -79,11 +80,13 @@ export interface PipelineDebugLog {
   outcome: "llm_success" | "repair_success" | "fallback_templates";
   totalTimeMs: number;
   finalActionCount: number;
+  repairAttemptCount: number;
 }
 
 function emptyLog(): PipelineDebugLog {
   return {
     timestamp: new Date().toISOString(),
+    generationProfile: "default_plan",
     normalizedProfile: null,
     retrievalSummary: "",
     templatesRetrieved: 0,
@@ -103,6 +106,7 @@ function emptyLog(): PipelineDebugLog {
     outcome: "fallback_templates",
     totalTimeMs: 0,
     finalActionCount: 0,
+    repairAttemptCount: 0,
   };
 }
 
@@ -122,6 +126,11 @@ export class PipelineDebugLogger {
   logProfile(profile: UserProfile): void {
     if (!this.enabled) return;
     this.log.normalizedProfile = profile;
+  }
+
+  logGenerationProfile(profile: GenerationProfile): void {
+    if (!this.enabled) return;
+    this.log.generationProfile = profile;
   }
 
   logRetrieval(summary: string, templateCount: number, skillCount: number): void {
@@ -171,11 +180,13 @@ export class PipelineDebugLogger {
     outcome: PipelineDebugLog["outcome"],
     totalTimeMs: number,
     finalActionCount: number,
+    repairAttemptCount: number,
   ): void {
     if (!this.enabled) return;
     this.log.outcome = outcome;
     this.log.totalTimeMs = totalTimeMs;
     this.log.finalActionCount = finalActionCount;
+    this.log.repairAttemptCount = repairAttemptCount;
   }
 
   /**
@@ -188,6 +199,7 @@ export class PipelineDebugLogger {
     try {
       _group("[smart-planner] Pipeline Debug");
 
+      _log("Generation profile:", this.log.generationProfile);
       _log("Profile:", this.log.normalizedProfile);
       _log(
         "Retrieval:",
@@ -254,6 +266,8 @@ export class PipelineDebugLogger {
       _log(
         "Outcome:",
         this.log.outcome,
+        `| profile=${this.log.generationProfile}`,
+        `| repairs=${this.log.repairAttemptCount}`,
         `| ${this.log.finalActionCount} actions`,
         `| ${this.log.totalTimeMs.toFixed(0)}ms total`,
       );

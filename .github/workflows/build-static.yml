@@ -86,6 +86,22 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Cache planner model
+        uses: actions/cache@v4
+        with:
+          path: public/models/smart-planner-150m-q4
+          key: planner-model-smollm2-360m-v1
+
+      - name: Fetch planner model
+        run: |
+          pip install huggingface_hub
+          python scripts/fetch-models.py --planner-only
+        env:
+          HF_HUB_CACHE: /tmp/hf-cache
+
+      - name: Verify planner model assets
+        run: python scripts/verify-local-models.py --root public/models --label "source planner model assets"
+
       - name: Cache translation models
         uses: actions/cache@v4
         with:
@@ -94,7 +110,6 @@ jobs:
 
       - name: Fetch translation models (priority)
         run: |
-          pip install huggingface_hub
           python scripts/fetch-translation-models.py --priority
         env:
           HF_HUB_CACHE: /tmp/hf-cache
@@ -116,6 +131,8 @@ jobs:
           test -f dist/index.html && echo "✓ index.html exists" || exit 1
           echo "=== Checking JS files exist ==="
           ls dist/assets/*.js && echo "✓ JS files exist" || exit 1
+          echo "=== Checking planner model assets exist in artifact ==="
+          python scripts/verify-local-models.py --root dist/models --label "artifact planner model assets"
       
       - name: Upload build artifact
         uses: actions/upload-artifact@v4

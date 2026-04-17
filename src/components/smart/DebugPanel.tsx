@@ -43,11 +43,17 @@ export function DebugPanel({ log }: DebugPanelProps) {
     <details ref={panelRef} open className="mt-4 rounded-lg border-2 border-amber-400 dark:border-amber-500 bg-gray-50 dark:bg-gray-900 text-xs">
       <summary className="cursor-pointer px-3 py-2 font-mono font-semibold text-gray-600 dark:text-gray-400 select-none">
         LLM Pipeline Debug
+        <span className="ml-2 text-gray-400">
+          [{log.generationProfile}]
+        </span>
         <span className={`ml-2 ${outcomeColors[log.outcome] ?? ""}`}>
           [{log.outcome}]
         </span>
         <span className="ml-2 text-gray-400">
           {log.finalActionCount} actions in {Math.round(log.totalTimeMs)}ms
+          {log.repairAttemptCount > 0
+            ? ` · ${log.repairAttemptCount} repair${log.repairAttemptCount === 1 ? '' : 's'}`
+            : ''}
         </span>
       </summary>
 

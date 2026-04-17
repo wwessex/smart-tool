@@ -40,8 +40,32 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache planner model
+        uses: actions/cache@v4
+        with:
+          path: public/models/smart-planner-150m-q4
+          key: planner-model-smollm2-360m-v1
+
+      - name: Fetch planner model
+        run: |
+          pip install huggingface_hub
+          python scripts/fetch-models.py --planner-only
+        env:
+          HF_HUB_CACHE: /tmp/hf-cache
+
+      - name: Verify planner model assets
+        run: python scripts/verify-local-models.py --root public/models --label "source planner model assets"
+
       - name: Build app
         run: bun run build
+
+      - name: Verify planner model assets in build output
+        run: python scripts/verify-local-models.py --root dist/models --label "artifact planner model assets"
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

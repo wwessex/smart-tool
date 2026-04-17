@@ -95,6 +95,13 @@ export function useAIDrafting({
   });
 
   const { pack: promptPack, source: promptPackSource } = usePromptPack();
+  const {
+    canUseLocalAI,
+    isCached: isModelCached,
+    isLoading: isLLMLoading,
+    isReady: isLLMReady,
+    preloadIfCached,
+  } = llm;
 
   const [aiDrafting, setAIDrafting] = useState(false);
   const [showLLMPicker, setShowLLMPicker] = useState(false);
@@ -165,6 +172,55 @@ export function useAIDrafting({
       });
     }
   }, [llm.classifiedError, toast]);
+
+  useEffect(() => {
+    if (
+      storage.aiDraftMode !== 'ai' ||
+      !canUseLocalAI ||
+      isLLMReady ||
+      isLLMLoading ||
+      isModelCached !== true
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    let timeoutId: number | null = null;
+    let idleCallbackId: number | null = null;
+
+    const runPrewarm = () => {
+      void preloadIfCached().catch(() => {
+        // Best-effort warmup only.
+      });
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleCallbackId = window.requestIdleCallback(() => {
+        if (!cancelled) runPrewarm();
+      }, { timeout: 1200 });
+    } else if (typeof window !== 'undefined') {
+      timeoutId = window.setTimeout(() => {
+        if (!cancelled) runPrewarm();
+      }, 400);
+    }
+
+    return () => {
+      cancelled = true;
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+      if (idleCallbackId !== null && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleCallbackId);
+      }
+    };
+  }, [
+    canUseLocalAI,
+    isLLMLoading,
+    isLLMReady,
+    isModelCached,
+    preloadIfCached,
+    storage.aiDraftMode,
+  ]);
 
   useEffect(() => {
     clearBarrierDraftState();
@@ -480,7 +536,7 @@ export function useAIDrafting({
     selection: BarrierDraftSelection;
   }> => {
     let request = buildNowDraftRequest({ draftMode: 'primary', ...feedback });
-    let plan = await llm.generatePlan(request.input);
+    let plan = await llm.generatePlan(request.input, { profile: 'primary_draft' });
     let candidateActions = filterRegeneratedActions(plan.actions, request, feedback);
     let selection = selectPrimaryBarrierDraft(candidateActions, request.barrier, request.forename, request.timescale);
 
@@ -498,7 +554,7 @@ export function useAIDrafting({
         primaryActionText: selection.primaryAction.action,
         ...feedback,
       });
-      plan = await llm.generatePlan(request.input);
+      plan = await llm.generatePlan(request.input, { profile: 'primary_draft' });
       candidateActions = filterRegeneratedActions(plan.actions, request, feedback);
       const retriedSelection = selectPrimaryBarrierDraft(candidateActions, request.barrier, request.forename, request.timescale);
       if (retriedSelection) {
@@ -546,7 +602,7 @@ export function useAIDrafting({
         draftMode: 'alternates',
         primaryActionText: barrierDraftResult.primaryAction.action,
       });
-      const plan = await llm.generatePlan(request.input);
+      const plan = await llm.generatePlan(request.input, { profile: 'alternate_drafts' });
       const isTemplateFallback =
         (plan.metadata as { source?: string } | undefined)?.source === 'template_fallback';
       const alternates = selectAlternateActions(
@@ -684,13 +740,9 @@ export function useAIDrafting({
           draftMode: 'primary',
           draftMeta: selection,
           source: isTemplateFallback ? 'template' : 'ai',
-          toastDescription: selection.alternates.length > 0
-            ? (isTemplateFallback
-                ? 'Best-fit smart template added. Use More like this for alternatives.'
-                : 'Best-fit SMART action added. Use More like this for alternatives.')
-            : (isTemplateFallback
-                ? 'Best-fit smart template added. Edit as needed.'
-                : 'Best-fit SMART action added. Edit as needed.'),
+          toastDescription: isTemplateFallback
+            ? 'Best-fit smart template added. Use More like this for alternatives.'
+            : 'Best-fit SMART action added. Use More like this for alternatives.',
         });
 
         scheduleSafariModelUnload();
@@ -698,7 +750,7 @@ export function useAIDrafting({
       }
 
       const request = buildFutureDraftRequest(feedbackContext);
-      const plan = await llm.generatePlan(request.input);
+      const plan = await llm.generatePlan(request.input, { profile: 'primary_draft' });
       const isTemplateFallback =
         (plan.metadata as { source?: string } | undefined)?.source === 'template_fallback';
 
@@ -857,7 +909,7 @@ export function useAIDrafting({
           selected_barrier_label: context.barrier,
           ...(field === 'outcome' ? { generation_mode: 'outcome' as const } : {}),
         };
-        const plan = await llm.generatePlan(input);
+        const plan = await llm.generatePlan(input, { profile: 'primary_draft' });
         const isTemplateFallback =
           (plan.metadata as { source?: string } | undefined)?.source === 'template_fallback';
         const selected = context.barrier
