@@ -53,6 +53,7 @@ describe("ActionFeedback", () => {
     render(<ActionFeedback {...DEFAULT_PROPS} />);
 
     expect(screen.getByText("Was this relevant?")).toBeInTheDocument();
+    expect(screen.getByText("Votes improve regenerate results and future AI drafts.")).toBeInTheDocument();
     expect(screen.getByLabelText("Mark as relevant")).toBeInTheDocument();
     expect(screen.getByLabelText("Mark as not relevant")).toBeInTheDocument();
     expect(screen.getByLabelText("Regenerate action")).toBeInTheDocument();

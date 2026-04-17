@@ -13,6 +13,9 @@
  * - rejected: advisor dismissed the plan picker without selecting (failure signal)
  * - more_like_this: advisor requested alternate relevant actions
  * - regenerated: advisor asked the AI to try again from the current draft state
+ * - feedback_relevant: advisor marked the current AI draft as relevant
+ * - feedback_not_relevant: advisor marked the current AI draft as not relevant
+ * - feedback_cleared: advisor removed a previous feedback vote
  */
 
 const STORAGE_KEY = "smartTool.draftAnalytics";
@@ -22,7 +25,18 @@ export interface DraftAnalyticsEntry {
   /** ISO timestamp. */
   timestamp: string;
   /** Type of signal. */
-  signal: "generated" | "accepted" | "selected" | "edited" | "saved" | "rejected" | "more_like_this" | "regenerated";
+  signal:
+    | "generated"
+    | "accepted"
+    | "selected"
+    | "edited"
+    | "saved"
+    | "rejected"
+    | "more_like_this"
+    | "regenerated"
+    | "feedback_relevant"
+    | "feedback_not_relevant"
+    | "feedback_cleared";
   /** The barrier selected in the dropdown (if any). */
   barrier?: string;
   /** Canonical barrier ID from the catalog (if resolved). */
@@ -41,6 +55,8 @@ export interface DraftAnalyticsEntry {
   smart_score?: number;
   /** Relevance score for the selected/generated action (0-1). */
   relevance_score?: number;
+  /** Rating currently attached to the feedback record. */
+  feedback_rating?: "relevant" | "not-relevant" | null;
   /** Whether the draft was the primary best-fit action or alternates. */
   draft_mode?: "primary" | "alternates";
   /** Whether the AI backend was used ("ai") or template fallback ("template"). */

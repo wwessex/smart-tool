@@ -4,7 +4,13 @@ import { useBrowserNativeLLM } from '@/hooks/useBrowserNativeLLM';
 import type { SMARTAction, SMARTPlan, RawUserInput } from '@/hooks/useBrowserNativeLLM';
 import { usePromptPack } from '@/hooks/usePromptPack';
 import { classifyBarrier } from '@/lib/smart-data';
-import { retrieveExemplars, formatExemplarsForPrompt, formatTaskExemplarsForPrompt } from '@/lib/smart-retrieval';
+import {
+  retrieveExemplars,
+  formatExemplarsForPrompt,
+  retrieveRejectedExemplars,
+  formatRejectedExemplarsForPrompt,
+  formatTaskExemplarsForPrompt,
+} from '@/lib/smart-retrieval';
 import { rankActionsByRelevance } from '@/lib/relevance-checker';
 import { logDraftAnalytics } from '@/lib/draft-analytics';
 import {
@@ -58,6 +64,19 @@ interface ApplyDraftActionOptions {
   draftMeta?: BarrierDraftSelection | null;
   toastDescription: string;
   source?: 'ai' | 'template';
+}
+
+interface DraftFeedbackContext {
+  currentActionText?: string;
+  currentRating?: FeedbackRating;
+  isRegenerate?: boolean;
+}
+
+function normaliseActionKey(text?: string): string {
+  return (text || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 export function useAIDrafting({
@@ -149,7 +168,8 @@ export function useAIDrafting({
 
   useEffect(() => {
     clearBarrierDraftState();
-  }, [clearBarrierDraftState, mode, nowForm.barrier, nowForm.forename, taskBasedForm.task, taskBasedForm.forename]);
+    resetFeedbackState();
+  }, [clearBarrierDraftState, resetFeedbackState, mode, nowForm.barrier, nowForm.forename, taskBasedForm.task, taskBasedForm.forename]);
 
   const templateDraftNow = useCallback(() => {
     clearBarrierDraftState();
@@ -179,23 +199,113 @@ export function useAIDrafting({
 
   const handleFeedbackRate = useCallback((rating: FeedbackRating) => {
     setFeedbackRating(rating);
-    if (currentFeedbackId && rating) {
-      storage.updateFeedback(currentFeedbackId, { rating });
+    if (!currentFeedbackId) return;
+
+    storage.updateFeedback(currentFeedbackId, { rating });
+
+    const signal = rating === 'relevant'
+      ? 'feedback_relevant'
+      : rating === 'not-relevant'
+        ? 'feedback_not_relevant'
+        : 'feedback_cleared';
+
+    logDraftAnalytics({
+      timestamp: new Date().toISOString(),
+      signal,
+      barrier: mode === 'now' ? nowForm.barrier : taskBasedForm.task || undefined,
+      barrier_type: barrierDraftResult?.barrierType,
+      generated_text: aiGeneratedActionRef.current || (mode === 'now' ? nowForm.action : taskBasedForm.outcome) || undefined,
+      feedback_rating: rating,
+      source: 'ai',
+    });
+  }, [
+    barrierDraftResult?.barrierType,
+    currentFeedbackId,
+    mode,
+    nowForm.action,
+    nowForm.barrier,
+    storage,
+    taskBasedForm.outcome,
+    taskBasedForm.task,
+  ]);
+
+  const buildFeedbackPromptContext = useCallback((
+    barrier: string,
+    forename: string,
+    targetDate: string,
+    feedback?: DraftFeedbackContext,
+  ) => {
+    const currentActionKey = normaliseActionKey(feedback?.currentActionText);
+
+    const exemplars = retrieveExemplars(barrier, storage.actionFeedback, 3)
+      .filter(example => !currentActionKey || normaliseActionKey(example.action) !== currentActionKey);
+    const rejectedExemplars = retrieveRejectedExemplars(barrier, storage.actionFeedback, 3)
+      .filter(example => !currentActionKey || normaliseActionKey(example.action) !== currentActionKey);
+
+    let currentFeedbackInstruction = '';
+    const currentActionText = feedback?.currentActionText?.trim();
+
+    if (feedback?.isRegenerate && currentActionText && feedback.currentRating === 'relevant') {
+      currentFeedbackInstruction = [
+        'CURRENT FEEDBACK:',
+        'The current action was marked relevant.',
+        `Keep the same level of barrier fit and specificity, but produce a genuinely different alternative from this action: "${currentActionText}".`,
+        'Do not lightly rephrase it or repeat the same task, metric, or support step.',
+      ].join('\n');
+    } else if (feedback?.isRegenerate && currentActionText && feedback.currentRating === 'not-relevant') {
+      currentFeedbackInstruction = [
+        'CURRENT FEEDBACK:',
+        'The current action was marked not relevant.',
+        `Do not repeat this action or a close variation: "${currentActionText}".`,
+        'Choose a materially different next step that addresses the barrier more directly.',
+      ].join('\n');
     }
-  }, [currentFeedbackId, storage]);
+
+    return {
+      currentFeedbackInstruction,
+      exemplarContext: formatExemplarsForPrompt(exemplars, forename, targetDate),
+      rejectedContext: formatRejectedExemplarsForPrompt(rejectedExemplars, forename, targetDate),
+    };
+  }, [storage.actionFeedback]);
+
+  const filterRegeneratedActions = useCallback((
+    actions: SMARTAction[],
+    request: DraftRequestContext,
+    feedback?: DraftFeedbackContext,
+  ): SMARTAction[] => {
+    if (!feedback?.isRegenerate || !feedback.currentActionText || !feedback.currentRating) {
+      return actions;
+    }
+
+    const distinctActions = selectAlternateActions(
+      actions,
+      request.barrier,
+      feedback.currentActionText,
+      request.forename,
+      request.timescale,
+    );
+
+    return distinctActions.length > 0 ? distinctActions : actions;
+  }, []);
 
   const buildNowDraftRequest = useCallback((options?: {
     draftMode?: 'primary' | 'alternates';
     retryReason?: string;
     primaryActionText?: string;
+    currentActionText?: string;
+    currentRating?: FeedbackRating;
+    isRegenerate?: boolean;
   }): DraftRequestContext => {
     const barrier = nowForm.barrier;
     const forename = nowForm.forename;
     const timescale = nowForm.timescale || '2 weeks';
     const targetDate = formatDDMMMYY(parseTimescaleToTargetISO(nowForm.date, timescale));
     const barrierContext = createBarrierDraftContext(barrier);
-    const exemplars = retrieveExemplars(barrier, storage.actionFeedback, 3);
-    const exemplarContext = formatExemplarsForPrompt(exemplars, forename, targetDate);
+    const {
+      currentFeedbackInstruction,
+      exemplarContext,
+      rejectedContext,
+    } = buildFeedbackPromptContext(barrier, forename, targetDate, options);
 
     const focusInstruction = options?.draftMode === 'alternates'
       ? `Generate alternate actions that still address the same barrier but avoid repeating this action: ${options.primaryActionText || 'the current action'}.`
@@ -215,7 +325,9 @@ export function useAIDrafting({
         focusInstruction,
         'Keep the first action barrier-specific, small enough to start now, and stronger than generic job-search advice.',
         retryInstruction,
+        currentFeedbackInstruction,
         exemplarContext,
+        rejectedContext,
       ].filter(Boolean).join('\n\n'),
       participant_name: forename,
       supporter: nowForm.responsible,
@@ -230,21 +342,30 @@ export function useAIDrafting({
       forename,
       timescale,
     };
-  }, [nowForm, storage.actionFeedback]);
+  }, [buildFeedbackPromptContext, nowForm]);
 
-  const buildFutureDraftRequest = useCallback((): DraftRequestContext => {
+  const buildFutureDraftRequest = useCallback((options?: DraftFeedbackContext): DraftRequestContext => {
     const barrier = taskBasedForm.task || '';
     const forename = taskBasedForm.forename;
     const timescale = taskBasedForm.timescale || '4 weeks';
+    const targetDate = formatDDMMMYY(parseTimescaleToTargetISO(taskBasedForm.date, timescale));
     const taskSuggestions = getTaskSuggestions(taskBasedForm.task);
-    const exemplarContext = formatTaskExemplarsForPrompt(taskSuggestions, forename);
+    const taskExemplarContext = formatTaskExemplarsForPrompt(taskSuggestions, forename);
+    const {
+      currentFeedbackInstruction,
+      exemplarContext,
+      rejectedContext,
+    } = buildFeedbackPromptContext(barrier, forename, targetDate, options);
 
     const input: RawUserInput = {
       goal: taskBasedForm.task,
       timeframe: timescale,
       situation: [
         `Employment advisor helping ${forename} attend a future activity. Describe what ${forename} will realistically gain DURING or AFTER this activity — not preparation done beforehand.`,
+        currentFeedbackInstruction,
+        taskExemplarContext,
         exemplarContext,
+        rejectedContext,
       ].filter(Boolean).join('\n\n'),
       participant_name: forename,
       supporter: taskBasedForm.responsible,
@@ -258,7 +379,7 @@ export function useAIDrafting({
       forename,
       timescale,
     };
-  }, [taskBasedForm, storage.actionFeedback]);
+  }, [buildFeedbackPromptContext, taskBasedForm]);
 
   const applyDraftAction = useCallback((action: SMARTAction, options: ApplyDraftActionOptions) => {
     if (mode === 'now') {
@@ -353,14 +474,15 @@ export function useAIDrafting({
     }
   }, [applyDraftAction, barrierDraftResult, mode, planResult]);
 
-  const resolvePrimaryBarrierDraft = useCallback(async (): Promise<{
+  const resolvePrimaryBarrierDraft = useCallback(async (feedback?: DraftFeedbackContext): Promise<{
     request: DraftRequestContext;
     plan: SMARTPlan;
     selection: BarrierDraftSelection;
   }> => {
-    let request = buildNowDraftRequest({ draftMode: 'primary' });
+    let request = buildNowDraftRequest({ draftMode: 'primary', ...feedback });
     let plan = await llm.generatePlan(request.input);
-    let selection = selectPrimaryBarrierDraft(plan.actions, request.barrier, request.forename, request.timescale);
+    let candidateActions = filterRegeneratedActions(plan.actions, request, feedback);
+    let selection = selectPrimaryBarrierDraft(candidateActions, request.barrier, request.forename, request.timescale);
 
     if (!selection) {
       throw new Error('Plan generation returned no actions.');
@@ -374,9 +496,11 @@ export function useAIDrafting({
         draftMode: 'primary',
         retryReason,
         primaryActionText: selection.primaryAction.action,
+        ...feedback,
       });
       plan = await llm.generatePlan(request.input);
-      const retriedSelection = selectPrimaryBarrierDraft(plan.actions, request.barrier, request.forename, request.timescale);
+      candidateActions = filterRegeneratedActions(plan.actions, request, feedback);
+      const retriedSelection = selectPrimaryBarrierDraft(candidateActions, request.barrier, request.forename, request.timescale);
       if (retriedSelection) {
         selection = retriedSelection;
       }
@@ -387,7 +511,7 @@ export function useAIDrafting({
     }
 
     return { request, plan, selection };
-  }, [buildNowDraftRequest, llm]);
+  }, [buildNowDraftRequest, filterRegeneratedActions, llm]);
 
   const handleMoreLikeThis = useCallback(async () => {
     if (mode !== 'now' || !barrierDraftResult) return;
@@ -514,12 +638,21 @@ export function useAIDrafting({
       return;
     }
 
-    if ((mode === 'now' && barrierDraftResult) || aiGeneratedActionRef.current) {
+    const feedbackContext: DraftFeedbackContext | undefined = aiGeneratedActionRef.current
+      ? {
+          currentActionText: (mode === 'now' ? nowForm.action : taskBasedForm.outcome) || aiGeneratedActionRef.current,
+          currentRating: feedbackRating,
+          isRegenerate: true,
+        }
+      : undefined;
+
+    if (feedbackContext?.isRegenerate) {
       logDraftAnalytics({
         timestamp: new Date().toISOString(),
         signal: 'regenerated',
         barrier: mode === 'now' ? nowForm.barrier : undefined,
         barrier_type: barrierDraftResult?.barrierType,
+        feedback_rating: feedbackContext.currentRating ?? null,
         draft_mode: 'primary',
         source: 'ai',
       });
@@ -528,7 +661,7 @@ export function useAIDrafting({
     setAIDrafting(true);
     try {
       if (mode === 'now') {
-        const { request, plan, selection } = await resolvePrimaryBarrierDraft();
+        const { request, plan, selection } = await resolvePrimaryBarrierDraft(feedbackContext);
         const isTemplateFallback =
           (plan.metadata as { source?: string } | undefined)?.source === 'template_fallback';
         lastPlanMetadataRef.current = plan.metadata;
@@ -564,7 +697,7 @@ export function useAIDrafting({
         return;
       }
 
-      const request = buildFutureDraftRequest();
+      const request = buildFutureDraftRequest(feedbackContext);
       const plan = await llm.generatePlan(request.input);
       const isTemplateFallback =
         (plan.metadata as { source?: string } | undefined)?.source === 'template_fallback';
@@ -577,8 +710,9 @@ export function useAIDrafting({
         source: isTemplateFallback ? 'template' : 'ai',
       });
 
+      const candidateActions = filterRegeneratedActions(plan.actions, request, feedbackContext);
       const rankedActions = rankActionsByRelevance(
-        plan.actions,
+        candidateActions,
         request.barrier,
         request.forename,
         request.timescale,
@@ -648,6 +782,8 @@ export function useAIDrafting({
     barrierDraftResult,
     buildFutureDraftRequest,
     clearBarrierDraftState,
+    feedbackRating,
+    filterRegeneratedActions,
     llm,
     mode,
     nowForm,

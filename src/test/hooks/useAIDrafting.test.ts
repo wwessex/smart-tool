@@ -1,10 +1,17 @@
+import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useAIDrafting } from "@/hooks/useAIDrafting";
 
-const mockToast = vi.fn();
-const mockGeneratePlan = vi.fn();
-const mockLogDraftAnalytics = vi.fn();
+const {
+  mockToast,
+  mockGeneratePlan,
+  mockLogDraftAnalytics,
+} = vi.hoisted(() => ({
+  mockToast: vi.fn(),
+  mockGeneratePlan: vi.fn(),
+  mockLogDraftAnalytics: vi.fn(),
+}));
 
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: mockToast }),
@@ -33,6 +40,9 @@ vi.mock("@/hooks/useBrowserNativeLLM", () => ({
 vi.mock("@/lib/smart-retrieval", () => ({
   retrieveExemplars: () => [],
   formatExemplarsForPrompt: () => "",
+  retrieveRejectedExemplars: () => [],
+  formatRejectedExemplarsForPrompt: () => "",
+  formatTaskExemplarsForPrompt: () => "",
 }));
 
 vi.mock("@/lib/draft-analytics", () => ({
@@ -158,6 +168,53 @@ function createHook() {
   return { ...hook, setNowForm, setTaskBasedForm };
 }
 
+function createStatefulHook(storageOverrides: Partial<Parameters<typeof useAIDrafting>[0]["storage"]> = {}) {
+  const storage = {
+    aiDraftMode: "ai" as const,
+    keepSafariModelLoaded: false,
+    allowMobileLLM: true,
+    safariWebGPUEnabled: true,
+    preferredLLMModel: "amor-inteligente-built-in",
+    actionFeedback: [],
+    addFeedback: vi.fn().mockReturnValue({ id: "feedback-1" }),
+    updateFeedback: vi.fn(),
+    ...storageOverrides,
+  };
+
+  const hook = renderHook(() => {
+    const [nowForm, setNowForm] = React.useState({
+      date: "2026-04-17",
+      time: "",
+      forename: "Mark",
+      barrier: "CV",
+      action: "",
+      responsible: "Advisor",
+      help: "",
+      timescale: "2 weeks",
+    });
+    const [taskBasedForm, setTaskBasedForm] = React.useState({
+      date: "2026-04-17",
+      forename: "",
+      task: "",
+      responsible: "",
+      outcome: "",
+      timescale: "",
+    });
+
+    return useAIDrafting({
+      mode: "now",
+      nowForm,
+      taskBasedForm,
+      setNowForm,
+      setTaskBasedForm,
+      suggestQuery: "",
+      storage,
+    });
+  });
+
+  return { ...hook, storage };
+}
+
 describe("useAIDrafting", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -222,5 +279,69 @@ describe("useAIDrafting", () => {
       help: "",
       timescale: "2 weeks",
     }).action).toContain("two STAR examples");
+  });
+
+  it("persists a null rating when the user untoggles feedback", async () => {
+    mockGeneratePlan.mockResolvedValue(primaryPlan);
+    const { result, storage } = createStatefulHook();
+
+    await act(async () => {
+      await result.current.handleAIDraft();
+    });
+
+    act(() => {
+      result.current.handleFeedbackRate("relevant");
+    });
+
+    act(() => {
+      result.current.handleFeedbackRate(null);
+    });
+
+    expect(storage.updateFeedback).toHaveBeenNthCalledWith(1, "feedback-1", { rating: "relevant" });
+    expect(storage.updateFeedback).toHaveBeenNthCalledWith(2, "feedback-1", { rating: null });
+  });
+
+  it("passes an explicit avoid instruction on regenerate after thumbs down", async () => {
+    mockGeneratePlan.mockResolvedValue(primaryPlan);
+    const { result } = createStatefulHook();
+
+    await act(async () => {
+      await result.current.handleAIDraft();
+    });
+
+    act(() => {
+      result.current.handleFeedbackRate("not-relevant");
+    });
+
+    await act(async () => {
+      await result.current.handleAIDraft();
+    });
+
+    const secondInput = mockGeneratePlan.mock.calls[1][0];
+    expect(secondInput.situation).toContain("The current action was marked not relevant.");
+    expect(secondInput.situation).toContain("Do not repeat this action or a close variation");
+    expect(secondInput.situation).toContain(primaryPlan.actions[0].action);
+  });
+
+  it("passes a distinct-variant instruction on regenerate after thumbs up", async () => {
+    mockGeneratePlan.mockResolvedValue(primaryPlan);
+    const { result } = createStatefulHook();
+
+    await act(async () => {
+      await result.current.handleAIDraft();
+    });
+
+    act(() => {
+      result.current.handleFeedbackRate("relevant");
+    });
+
+    await act(async () => {
+      await result.current.handleAIDraft();
+    });
+
+    const secondInput = mockGeneratePlan.mock.calls[1][0];
+    expect(secondInput.situation).toContain("The current action was marked relevant.");
+    expect(secondInput.situation).toContain("Do not lightly rephrase it");
+    expect(secondInput.situation).toContain(primaryPlan.actions[0].action);
   });
 });

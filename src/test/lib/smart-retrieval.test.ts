@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   retrieveExemplars,
   formatExemplarsForPrompt,
+  retrieveRejectedExemplars,
+  formatRejectedExemplarsForPrompt,
   computeAcceptanceRates,
   getCategoryAcceptanceRate,
   computeFeedbackQuality,
@@ -192,6 +194,43 @@ describe("smart-retrieval", () => {
     });
   });
 
+  describe("retrieveRejectedExemplars", () => {
+    it("prefers exact-barrier rejected feedback over category-only matches", () => {
+      const exactBarrier = makeFeedback({
+        barrier: "CV",
+        category: "job-search",
+        rating: "not-relevant",
+        generatedAction: "Spend an hour browsing generic career websites by Friday.",
+        createdAt: "2026-04-10T09:00:00.000Z",
+      });
+
+      const categoryOnly = makeFeedback({
+        barrier: "Applications",
+        category: "job-search",
+        rating: "not-relevant",
+        generatedAction: "Research interview tips without tailoring them to your CV barrier.",
+        createdAt: "2026-04-17T09:00:00.000Z",
+      });
+
+      const results = retrieveRejectedExemplars("CV", [categoryOnly, exactBarrier]);
+
+      expect(results).toHaveLength(2);
+      expect(results[0].action).toContain("generic career websites");
+      expect(results[1].action).toContain("Research interview tips");
+    });
+
+    it("uses the saved action text when editedAction exists", () => {
+      const rejected = makeFeedback({
+        rating: "not-relevant",
+        generatedAction: "Original rejected action",
+        editedAction: "Saved rejected variant",
+      });
+
+      const results = retrieveRejectedExemplars("CV", [rejected]);
+      expect(results[0].action).toBe("Saved rejected variant");
+    });
+  });
+
   describe("formatExemplarsForPrompt", () => {
     it("returns empty string for no examples", () => {
       expect(formatExemplarsForPrompt([], "John", "15-Jan-26")).toBe("");
@@ -211,6 +250,26 @@ describe("smart-retrieval", () => {
       const result = formatExemplarsForPrompt(examples, "Sarah", "20-Feb-26");
       expect(result).toContain("Sarah will update CV by 20-Feb-26");
       expect(result).toContain("SIMILAR SUCCESSFUL ACTIONS");
+    });
+  });
+
+  describe("formatRejectedExemplarsForPrompt", () => {
+    it("returns empty string when there are no rejected examples", () => {
+      expect(formatRejectedExemplarsForPrompt([], "John", "15-Jan-26")).toBe("");
+    });
+
+    it("formats rejected examples into an avoid block", () => {
+      const result = formatRejectedExemplarsForPrompt([
+        {
+          action: "{forename} will repeat the same weak CV task by {targetDate}",
+          barrier: "CV",
+          score: 10,
+          createdAt: "2026-04-17T10:00:00.000Z",
+        },
+      ], "Sarah", "20-Feb-26");
+
+      expect(result).toContain("AVOID PREVIOUSLY REJECTED ACTIONS");
+      expect(result).toContain('Avoid repeating "Sarah will repeat the same weak CV task by 20-Feb-26"');
     });
   });
 });

@@ -143,6 +143,37 @@ describe("draft-analytics", () => {
       expect(loadDraftAnalytics()[0]).toEqual(entry);
     });
 
+    it("stores explicit feedback vote events with the selected rating", () => {
+      logDraftAnalytics({
+        timestamp: "2026-04-17T10:10:00.000Z",
+        signal: "feedback_not_relevant",
+        barrier: "CV",
+        generated_text: "Review generic job boards by Friday.",
+        feedback_rating: "not-relevant",
+        source: "ai",
+      });
+
+      logDraftAnalytics({
+        timestamp: "2026-04-17T10:11:00.000Z",
+        signal: "feedback_cleared",
+        barrier: "CV",
+        generated_text: "Review generic job boards by Friday.",
+        feedback_rating: null,
+        source: "ai",
+      });
+
+      expect(loadDraftAnalytics()).toEqual([
+        expect.objectContaining({
+          signal: "feedback_not_relevant",
+          feedback_rating: "not-relevant",
+        }),
+        expect.objectContaining({
+          signal: "feedback_cleared",
+          feedback_rating: null,
+        }),
+      ]);
+    });
+
     it("silently fails on localStorage errors", () => {
       // Force localStorage to throw
       const originalSetItem = localStorage.setItem;
