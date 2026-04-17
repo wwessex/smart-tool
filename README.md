@@ -79,7 +79,9 @@ bun run build
 
 ### Run As A Desktop App
 
-The repo now includes an Electron shell for Windows desktop packaging.
+The repo uses an Electron shell for desktop delivery. Electron is the right fit
+here because the app already depends on a Node-side desktop helper and a narrow
+preload bridge for native folder sync and local AI helper access.
 
 Run it locally in desktop mode:
 
@@ -96,7 +98,9 @@ npm run desktop:build
 Build Windows installers and portable binaries on Windows:
 
 ```bash
-npm run dist:win
+npm run desktop:dist
+# or
+npm run desktop:dist:win
 ```
 
 Notes:
@@ -105,6 +109,10 @@ Notes:
 - Electron and Electron Builder are fetched on demand by the desktop scripts via `npx`
 - Desktop Accelerator calls use an Electron preload bridge, so the packaged app does not need a separate loopback helper server
 - folder sync uses the native folder picker and writes directly to the chosen Windows folder, including OneDrive-backed folders
+- on Windows, `npm run desktop:build` produces an unpacked executable at `release/win-unpacked/SMART Tool.exe`
+- on Windows, `npm run desktop:dist:win` produces installer and portable artifacts under `release/`
+- `script/build_and_run.ps1` is the project-local Windows entrypoint for kill/build/run and verify flows
+- `.github/workflows/windows-desktop.yml` builds the Windows desktop artifacts on `windows-latest`, which is the supported verification path from non-Windows hosts
 
 ### Test and lint
 
