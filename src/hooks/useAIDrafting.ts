@@ -4,9 +4,21 @@ import { useBrowserNativeLLM } from '@/hooks/useBrowserNativeLLM';
 import type { SMARTAction, SMARTPlan, RawUserInput } from '@/hooks/useBrowserNativeLLM';
 import { usePromptPack } from '@/hooks/usePromptPack';
 import { classifyBarrier } from '@/lib/smart-data';
-import { retrieveExemplars, formatExemplarsForPrompt } from '@/lib/smart-retrieval';
+import {
+  retrieveExemplars,
+  formatExemplarsForPrompt,
+  retrieveRejectedExemplars,
+  formatRejectedExemplarsForPrompt,
+} from '@/lib/smart-retrieval';
 import { rankActionsByRelevance } from '@/lib/relevance-checker';
 import { logDraftAnalytics } from '@/lib/draft-analytics';
+import {
+  PRIMARY_RELEVANCE_THRESHOLD,
+  createBarrierDraftContext,
+  selectAlternateActions,
+  selectPrimaryBarrierDraft,
+  type BarrierDraftSelection,
+} from '@/lib/barrier-draft';
 import {
   aiDraftNow,
   aiDraftFuture,
@@ -36,6 +48,34 @@ export interface UseAIDraftingOptions {
   };
 }
 
+interface DraftRequestContext {
+  input: RawUserInput;
+  barrier: string;
+  barrierId?: string;
+  forename: string;
+  timescale: string;
+}
+
+interface ApplyDraftActionOptions {
+  draftMode: 'primary' | 'alternates';
+  selectedIndex?: number;
+  draftMeta?: BarrierDraftSelection | null;
+  toastDescription: string;
+}
+
+interface DraftFeedbackContext {
+  currentActionText?: string;
+  currentRating?: FeedbackRating;
+  isRegenerate?: boolean;
+}
+
+function normaliseActionKey(text?: string): string {
+  return (text || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function useAIDrafting({
   mode,
   nowForm,
@@ -53,16 +93,16 @@ export function useAIDrafting({
 
   const { pack: promptPack, source: promptPackSource } = usePromptPack();
 
-  // AI Draft state
   const [aiDrafting, setAIDrafting] = useState(false);
   const [showLLMPicker, setShowLLMPicker] = useState(false);
   const pendingAIDraftRef = useRef(false);
 
-  // SmartPlanner plan picker state
   const [planResult, setPlanResult] = useState<SMARTPlan | null>(null);
   const [showPlanPicker, setShowPlanPicker] = useState(false);
+  const [barrierDraftResult, setBarrierDraftResult] = useState<BarrierDraftSelection | null>(null);
+  const [moreLikeThisLoading, setMoreLikeThisLoading] = useState(false);
+  const lastPlanMetadataRef = useRef<SMARTPlan['metadata'] | null>(null);
 
-  // Feedback state for AI-generated actions
   const [feedbackRating, setFeedbackRating] = useState<FeedbackRating>(null);
   const [currentFeedbackId, setCurrentFeedbackId] = useState<string | null>(null);
   const aiGeneratedActionRef = useRef<string>('');
@@ -75,7 +115,14 @@ export function useAIDrafting({
     aiGeneratedActionRef.current = '';
   }, []);
 
-  // Safari memory management — unload model after generation
+  const clearBarrierDraftState = useCallback(() => {
+    setBarrierDraftResult(null);
+    setPlanResult(null);
+    setShowPlanPicker(false);
+    setMoreLikeThisLoading(false);
+    lastPlanMetadataRef.current = null;
+  }, []);
+
   const safariAutoUnloadTimer = useRef<number | null>(null);
   const scheduleSafariModelUnload = useCallback((delayMs?: number) => {
     if (!llm.browserInfo.isSafari) return;
@@ -106,7 +153,6 @@ export function useAIDrafting({
     };
   }, []);
 
-  // Show toast when LLM encounters an error
   useEffect(() => {
     if (llm.classifiedError) {
       toast({
@@ -117,8 +163,13 @@ export function useAIDrafting({
     }
   }, [llm.classifiedError, toast]);
 
-  // Template-based fallback for AI Draft
+  useEffect(() => {
+    clearBarrierDraftState();
+    resetFeedbackState();
+  }, [clearBarrierDraftState, resetFeedbackState, mode, nowForm.barrier, nowForm.forename, taskBasedForm.task, taskBasedForm.forename]);
+
   const templateDraftNow = useCallback(() => {
+    clearBarrierDraftState();
     let timescale = nowForm.timescale;
     if (!timescale) {
       timescale = '2 weeks';
@@ -134,24 +185,197 @@ export function useAIDrafting({
     );
     setNowForm(prev => ({ ...prev, action, help }));
     toast({ title: 'Draft inserted', description: 'Template draft added. Edit as needed.' });
-  }, [nowForm, suggestQuery, setNowForm, toast]);
+  }, [clearBarrierDraftState, nowForm, suggestQuery, setNowForm, toast]);
 
   const templateDraftTaskBased = useCallback(() => {
+    clearBarrierDraftState();
     const outcome = aiDraftFuture(taskBasedForm.task, taskBasedForm.forename);
     setTaskBasedForm(prev => ({ ...prev, outcome }));
     toast({ title: 'Draft inserted', description: 'Template draft added. Edit as needed.' });
-  }, [taskBasedForm, setTaskBasedForm, toast]);
+  }, [clearBarrierDraftState, taskBasedForm, setTaskBasedForm, toast]);
 
-  // Handle feedback rating from the ActionFeedback component
   const handleFeedbackRate = useCallback((rating: FeedbackRating) => {
     setFeedbackRating(rating);
-    if (currentFeedbackId && rating) {
-      storage.updateFeedback(currentFeedbackId, { rating });
-    }
-  }, [currentFeedbackId, storage]);
+    if (!currentFeedbackId) return;
 
-  // Map a selected SMARTAction from the plan picker to form fields
-  const handleSelectPlanAction = useCallback((action: SMARTAction, selectedIndex?: number) => {
+    storage.updateFeedback(currentFeedbackId, { rating });
+
+    const signal = rating === 'relevant'
+      ? 'feedback_relevant'
+      : rating === 'not-relevant'
+        ? 'feedback_not_relevant'
+        : 'feedback_cleared';
+
+    logDraftAnalytics({
+      timestamp: new Date().toISOString(),
+      signal,
+      barrier: mode === 'now' ? nowForm.barrier : taskBasedForm.task || undefined,
+      barrier_type: barrierDraftResult?.barrierType,
+      generated_text: aiGeneratedActionRef.current || (mode === 'now' ? nowForm.action : taskBasedForm.outcome) || undefined,
+      feedback_rating: rating,
+      source: 'ai',
+    });
+  }, [
+    barrierDraftResult?.barrierType,
+    currentFeedbackId,
+    mode,
+    nowForm.action,
+    nowForm.barrier,
+    storage,
+    taskBasedForm.outcome,
+    taskBasedForm.task,
+  ]);
+
+  const buildFeedbackPromptContext = useCallback((
+    barrier: string,
+    forename: string,
+    targetDate: string,
+    feedback?: DraftFeedbackContext,
+  ) => {
+    const currentActionKey = normaliseActionKey(feedback?.currentActionText);
+
+    const exemplars = retrieveExemplars(barrier, storage.actionFeedback, 3)
+      .filter(example => !currentActionKey || normaliseActionKey(example.action) !== currentActionKey);
+    const rejectedExemplars = retrieveRejectedExemplars(barrier, storage.actionFeedback, 3)
+      .filter(example => !currentActionKey || normaliseActionKey(example.action) !== currentActionKey);
+
+    let currentFeedbackInstruction = '';
+    const currentActionText = feedback?.currentActionText?.trim();
+
+    if (feedback?.isRegenerate && currentActionText && feedback.currentRating === 'relevant') {
+      currentFeedbackInstruction = [
+        'CURRENT FEEDBACK:',
+        'The current action was marked relevant.',
+        `Keep the same level of barrier fit and specificity, but produce a genuinely different alternative from this action: "${currentActionText}".`,
+        'Do not lightly rephrase it or repeat the same task, metric, or support step.',
+      ].join('\n');
+    } else if (feedback?.isRegenerate && currentActionText && feedback.currentRating === 'not-relevant') {
+      currentFeedbackInstruction = [
+        'CURRENT FEEDBACK:',
+        'The current action was marked not relevant.',
+        `Do not repeat this action or a close variation: "${currentActionText}".`,
+        'Choose a materially different next step that addresses the barrier more directly.',
+      ].join('\n');
+    }
+
+    return {
+      currentFeedbackInstruction,
+      exemplarContext: formatExemplarsForPrompt(exemplars, forename, targetDate),
+      rejectedContext: formatRejectedExemplarsForPrompt(rejectedExemplars, forename, targetDate),
+    };
+  }, [storage.actionFeedback]);
+
+  const filterRegeneratedActions = useCallback((
+    actions: SMARTAction[],
+    request: DraftRequestContext,
+    feedback?: DraftFeedbackContext,
+  ): SMARTAction[] => {
+    if (!feedback?.isRegenerate || !feedback.currentActionText || !feedback.currentRating) {
+      return actions;
+    }
+
+    const distinctActions = selectAlternateActions(
+      actions,
+      request.barrier,
+      feedback.currentActionText,
+      request.forename,
+      request.timescale,
+    );
+
+    return distinctActions.length > 0 ? distinctActions : actions;
+  }, []);
+
+  const buildNowDraftRequest = useCallback((options?: {
+    draftMode?: 'primary' | 'alternates';
+    retryReason?: string;
+    primaryActionText?: string;
+    currentActionText?: string;
+    currentRating?: FeedbackRating;
+    isRegenerate?: boolean;
+  }): DraftRequestContext => {
+    const barrier = nowForm.barrier;
+    const forename = nowForm.forename;
+    const timescale = nowForm.timescale || '2 weeks';
+    const targetDate = formatDDMMMYY(parseTimescaleToTargetISO(nowForm.date, timescale));
+    const barrierContext = createBarrierDraftContext(barrier);
+    const {
+      currentFeedbackInstruction,
+      exemplarContext,
+      rejectedContext,
+    } = buildFeedbackPromptContext(barrier, forename, targetDate, options);
+
+    const focusInstruction = options?.draftMode === 'alternates'
+      ? `Generate alternate actions that still address the same barrier but avoid repeating this action: ${options.primaryActionText || 'the current action'}.`
+      : 'Generate options where the first action is the single best next step for this barrier.';
+
+    const retryInstruction = options?.retryReason
+      ? `Previous draft problem: ${options.retryReason}`
+      : '';
+
+    const input: RawUserInput = {
+      goal: `Barrier-first support for ${forename}: reduce ${barrierContext.barrierSummary}`,
+      barriers: barrier,
+      timeframe: timescale,
+      situation: [
+        `Employment advisor helping ${forename} with "${barrierContext.barrierSummary}".`,
+        `Barrier type: ${barrierContext.barrierType}.`,
+        focusInstruction,
+        'Keep the first action barrier-specific, small enough to start now, and stronger than generic job-search advice.',
+        retryInstruction,
+        currentFeedbackInstruction,
+        exemplarContext,
+        rejectedContext,
+      ].filter(Boolean).join('\n\n'),
+      participant_name: forename,
+      supporter: nowForm.responsible,
+      selected_barrier_id: barrier,
+      selected_barrier_label: barrier,
+    };
+
+    return {
+      input,
+      barrier,
+      barrierId: input.selected_barrier_id,
+      forename,
+      timescale,
+    };
+  }, [buildFeedbackPromptContext, nowForm]);
+
+  const buildFutureDraftRequest = useCallback((options?: DraftFeedbackContext): DraftRequestContext => {
+    const barrier = taskBasedForm.task || '';
+    const forename = taskBasedForm.forename;
+    const timescale = taskBasedForm.timescale || '4 weeks';
+    const targetDate = formatDDMMMYY(parseTimescaleToTargetISO(taskBasedForm.date, timescale));
+    const {
+      currentFeedbackInstruction,
+      exemplarContext,
+      rejectedContext,
+    } = buildFeedbackPromptContext(barrier, forename, targetDate, options);
+
+    const input: RawUserInput = {
+      goal: taskBasedForm.task,
+      timeframe: timescale,
+      situation: [
+        `Employment advisor helping ${forename} plan ahead.`,
+        'Keep the first action concrete and easy to review.',
+        currentFeedbackInstruction,
+        exemplarContext,
+        rejectedContext,
+      ].filter(Boolean).join('\n\n'),
+      participant_name: forename,
+      supporter: taskBasedForm.responsible,
+    };
+
+    return {
+      input,
+      barrier,
+      barrierId: input.selected_barrier_id,
+      forename,
+      timescale,
+    };
+  }, [buildFeedbackPromptContext, taskBasedForm]);
+
+  const applyDraftAction = useCallback((action: SMARTAction, options: ApplyDraftActionOptions) => {
     if (mode === 'now') {
       setNowForm(prev => ({
         ...prev,
@@ -166,13 +390,11 @@ export function useAIDrafting({
       }));
     }
 
-    // Track AI-generated text for feedback
     aiGeneratedActionRef.current = action.action;
     setFeedbackRating(null);
     setCurrentFeedbackId(null);
     setShowFeedbackUI(true);
 
-    // Create a pending feedback record
     const barrier = mode === 'now' ? nowForm.barrier : (taskBasedForm.task || '');
     const feedbackRecord = storage.addFeedback({
       barrier,
@@ -186,20 +408,189 @@ export function useAIDrafting({
     });
     setCurrentFeedbackId(feedbackRecord.id);
 
-    // Log analytics: action selected from plan
+    const signal = options.draftMode === 'primary' && options.selectedIndex === undefined
+      ? 'accepted'
+      : 'selected';
+
     logDraftAnalytics({
       timestamp: new Date().toISOString(),
-      signal: "selected",
+      signal,
       barrier: mode === 'now' ? nowForm.barrier : undefined,
-      selected_index: selectedIndex,
+      barrier_type: options.draftMeta?.barrierType,
+      selected_index: options.selectedIndex,
       generated_text: action.action,
-      source: "ai",
+      relevance_score: options.draftMeta?.relevanceScore,
+      draft_mode: options.draftMode,
+      source: 'ai',
     });
 
     setShowPlanPicker(false);
     setPlanResult(null);
-    toast({ title: 'Action applied', description: 'SMART action added to form. Edit as needed.' });
-  }, [mode, nowForm.barrier, nowForm.forename, nowForm.timescale, taskBasedForm.task, taskBasedForm.forename, taskBasedForm.timescale, setNowForm, setTaskBasedForm, storage, toast]);
+    toast({ title: 'Action applied', description: options.toastDescription });
+  }, [
+    mode,
+    nowForm.barrier,
+    nowForm.forename,
+    nowForm.timescale,
+    taskBasedForm.task,
+    taskBasedForm.forename,
+    taskBasedForm.timescale,
+    setNowForm,
+    setTaskBasedForm,
+    storage,
+    toast,
+  ]);
+
+  const handleSelectPlanAction = useCallback((action: SMARTAction, selectedIndex?: number) => {
+    const selectionMode = mode === 'now' ? 'alternates' : 'primary';
+    applyDraftAction(action, {
+      draftMode: selectionMode,
+      selectedIndex,
+      draftMeta: barrierDraftResult,
+      toastDescription: mode === 'now'
+        ? 'Alternative SMART action added. Edit as needed.'
+        : 'SMART action added to form. Edit as needed.',
+    });
+
+    if (mode === 'now') {
+      setBarrierDraftResult(prev => prev
+        ? {
+            ...prev,
+            primaryAction: action,
+            alternates: prev.alternates.filter(candidate => candidate.action !== action.action),
+          }
+        : prev);
+    }
+  }, [applyDraftAction, barrierDraftResult, mode]);
+
+  const resolvePrimaryBarrierDraft = useCallback(async (feedback?: DraftFeedbackContext): Promise<{
+    request: DraftRequestContext;
+    plan: SMARTPlan;
+    selection: BarrierDraftSelection;
+  }> => {
+    let request = buildNowDraftRequest({ draftMode: 'primary', ...feedback });
+    let plan = await llm.generatePlan(request.input);
+    let candidateActions = filterRegeneratedActions(plan.actions, request, feedback);
+    let selection = selectPrimaryBarrierDraft(candidateActions, request.barrier, request.forename, request.timescale);
+
+    if (!selection) {
+      throw new Error('Plan generation returned no actions.');
+    }
+
+    const needsRetry = !selection.relevance.isRelevant || selection.relevanceScore < PRIMARY_RELEVANCE_THRESHOLD;
+    if (needsRetry) {
+      const retryReason = selection.relevance.reason ||
+        `The first action must directly reduce "${selection.barrierSummary}" before general job-search steps.`;
+      request = buildNowDraftRequest({
+        draftMode: 'primary',
+        retryReason,
+        primaryActionText: selection.primaryAction.action,
+        ...feedback,
+      });
+      plan = await llm.generatePlan(request.input);
+      candidateActions = filterRegeneratedActions(plan.actions, request, feedback);
+      const retriedSelection = selectPrimaryBarrierDraft(candidateActions, request.barrier, request.forename, request.timescale);
+      if (retriedSelection) {
+        selection = retriedSelection;
+      }
+    }
+
+    if (!selection.relevance.isRelevant || selection.relevanceScore < PRIMARY_RELEVANCE_THRESHOLD) {
+      throw new Error(selection.relevance.reason || 'Generated action was not relevant enough after retry.');
+    }
+
+    return { request, plan, selection };
+  }, [buildNowDraftRequest, filterRegeneratedActions, llm]);
+
+  const handleMoreLikeThis = useCallback(async () => {
+    if (mode !== 'now' || !barrierDraftResult) return;
+
+    logDraftAnalytics({
+      timestamp: new Date().toISOString(),
+      signal: 'more_like_this',
+      barrier: nowForm.barrier,
+      barrier_type: barrierDraftResult.barrierType,
+      draft_mode: 'alternates',
+      source: 'ai',
+    });
+
+    const cachedAlternates = barrierDraftResult.alternates;
+    if (cachedAlternates.length >= 2 && lastPlanMetadataRef.current) {
+      setPlanResult({
+        actions: cachedAlternates,
+        metadata: lastPlanMetadataRef.current,
+      });
+      setShowPlanPicker(true);
+      return;
+    }
+
+    if (!llm.isReady) {
+      setShowLLMPicker(true);
+      return;
+    }
+
+    setMoreLikeThisLoading(true);
+    try {
+      const request = buildNowDraftRequest({
+        draftMode: 'alternates',
+        primaryActionText: barrierDraftResult.primaryAction.action,
+      });
+      const plan = await llm.generatePlan(request.input);
+      const alternates = selectAlternateActions(
+        plan.actions,
+        request.barrier,
+        barrierDraftResult.primaryAction.action,
+        request.forename,
+        request.timescale,
+      );
+
+      if (alternates.length === 0) {
+        toast({
+          title: 'No strong alternates found',
+          description: 'The AI could not find more relevant alternatives for this barrier yet.',
+          variant: 'destructive',
+        });
+        scheduleSafariModelUnload();
+        return;
+      }
+
+      lastPlanMetadataRef.current = plan.metadata;
+      setBarrierDraftResult(prev => prev ? { ...prev, alternates } : prev);
+      setPlanResult({ ...plan, actions: alternates });
+      setShowPlanPicker(true);
+
+      logDraftAnalytics({
+        timestamp: new Date().toISOString(),
+        signal: 'generated',
+        barrier: nowForm.barrier,
+        barrier_id: request.barrierId,
+        barrier_type: barrierDraftResult.barrierType,
+        actions_count: alternates.length,
+        draft_mode: 'alternates',
+        source: 'ai',
+      });
+
+      scheduleSafariModelUnload();
+    } catch (err) {
+      console.warn('Alternate AI draft generation failed:', err);
+      toast({
+        title: 'More like this failed',
+        description: 'Try AI Draft again to refresh the main suggestion.',
+        variant: 'destructive',
+      });
+      scheduleSafariModelUnload(0);
+    } finally {
+      setMoreLikeThisLoading(false);
+    }
+  }, [
+    barrierDraftResult,
+    buildNowDraftRequest,
+    llm,
+    mode,
+    nowForm.barrier,
+    scheduleSafariModelUnload,
+    toast,
+  ]);
 
   const handleAIDraft = useCallback(async () => {
     if (mode === 'now') {
@@ -207,21 +598,17 @@ export function useAIDrafting({
         toast({ title: 'Missing info', description: 'Add a forename and barrier first.', variant: 'destructive' });
         return;
       }
-    } else {
-      if (!taskBasedForm.forename.trim() || !taskBasedForm.task.trim()) {
-        toast({ title: 'Missing info', description: 'Add a forename and task first.', variant: 'destructive' });
-        return;
-      }
+    } else if (!taskBasedForm.forename.trim() || !taskBasedForm.task.trim()) {
+      toast({ title: 'Missing info', description: 'Add a forename and task first.', variant: 'destructive' });
+      return;
     }
 
-    // User preference: templates - use templates directly
     if (storage.aiDraftMode === 'template') {
       if (mode === 'now') templateDraftNow();
       else templateDraftTaskBased();
       return;
     }
 
-    // On mobile/iPad, use templates unless Experimental Local AI is enabled
     if (llm.isMobile && !llm.canUseLocalAI) {
       if (mode === 'now') templateDraftNow();
       else templateDraftTaskBased();
@@ -232,77 +619,90 @@ export function useAIDrafting({
       return;
     }
 
-    // If AI not ready, show model picker and mark draft as pending
     if (!llm.isReady) {
       pendingAIDraftRef.current = true;
       setShowLLMPicker(true);
       return;
     }
 
-    // Use SmartPlanner for plan generation
-    setAIDrafting(true);
-    try {
-      // Retrieve similar exemplars for context (RAG-style)
-      const barrier = mode === 'now' ? nowForm.barrier : (taskBasedForm.task || '');
-      const barrierCategory = classifyBarrier(barrier);
-      const exemplars = retrieveExemplars(barrier, storage.actionFeedback, 3);
-      const timescale = mode === 'now' ? (nowForm.timescale || '2 weeks') : (taskBasedForm.timescale || '4 weeks');
-      const targetDate = formatDDMMMYY(parseTimescaleToTargetISO(
-        mode === 'now' ? nowForm.date : taskBasedForm.date,
-        timescale,
-      ));
-      const exemplarContext = formatExemplarsForPrompt(
-        exemplars,
-        mode === 'now' ? nowForm.forename : taskBasedForm.forename,
-        targetDate,
-      );
+    const feedbackContext: DraftFeedbackContext | undefined = aiGeneratedActionRef.current
+      ? {
+          currentActionText: (mode === 'now' ? nowForm.action : taskBasedForm.outcome) || aiGeneratedActionRef.current,
+          currentRating: feedbackRating,
+          isRegenerate: true,
+        }
+      : undefined;
 
-      // Build RawUserInput with enriched context
-      const input: RawUserInput = mode === 'now'
-        ? {
-            goal: `Address ${nowForm.barrier} barrier (category: ${barrierCategory}) for ${nowForm.forename}`,
-            barriers: nowForm.barrier,
-            timeframe: timescale,
-            situation: `Employment advisor helping ${nowForm.forename} with ${nowForm.barrier}.${exemplarContext ? '\n\n' + exemplarContext : ''}`,
-            participant_name: nowForm.forename,
-            supporter: nowForm.responsible,
-            selected_barrier_id: nowForm.barrier,
-            selected_barrier_label: nowForm.barrier,
-          }
-        : {
-            goal: taskBasedForm.task,
-            timeframe: timescale,
-            situation: `Employment advisor helping ${taskBasedForm.forename} plan ahead.${exemplarContext ? '\n\n' + exemplarContext : ''}`,
-            participant_name: taskBasedForm.forename,
-            supporter: taskBasedForm.responsible,
-          };
-
-      const plan = await llm.generatePlan(input);
-
-      // Log analytics: plan generated
+    if (feedbackContext?.isRegenerate) {
       logDraftAnalytics({
         timestamp: new Date().toISOString(),
-        signal: "generated",
+        signal: 'regenerated',
         barrier: mode === 'now' ? nowForm.barrier : undefined,
-        barrier_id: input.selected_barrier_id,
+        barrier_type: barrierDraftResult?.barrierType,
+        feedback_rating: feedbackContext.currentRating ?? null,
+        draft_mode: 'primary',
+        source: 'ai',
+      });
+    }
+
+    setAIDrafting(true);
+    try {
+      if (mode === 'now') {
+        const { request, plan, selection } = await resolvePrimaryBarrierDraft(feedbackContext);
+        lastPlanMetadataRef.current = plan.metadata;
+        setBarrierDraftResult(selection);
+
+        logDraftAnalytics({
+          timestamp: new Date().toISOString(),
+          signal: 'generated',
+          barrier: nowForm.barrier,
+          barrier_id: request.barrierId,
+          barrier_type: selection.barrierType,
+          actions_count: selection.candidateCount,
+          generated_text: selection.primaryAction.action,
+          relevance_score: selection.relevanceScore,
+          draft_mode: 'primary',
+          source: 'ai',
+        });
+
+        applyDraftAction(selection.primaryAction, {
+          draftMode: 'primary',
+          draftMeta: selection,
+          toastDescription: selection.alternates.length > 0
+            ? 'Best-fit SMART action added. Use More like this for alternatives.'
+            : 'Best-fit SMART action added. Edit as needed.',
+        });
+
+        scheduleSafariModelUnload();
+        return;
+      }
+
+      const request = buildFutureDraftRequest(feedbackContext);
+      const plan = await llm.generatePlan(request.input);
+
+      logDraftAnalytics({
+        timestamp: new Date().toISOString(),
+        signal: 'generated',
         actions_count: plan.actions.length,
-        source: "ai",
+        draft_mode: 'primary',
+        source: 'ai',
       });
 
-      // Phase 2: Rank actions by relevance before presenting to user
+      const candidateActions = filterRegeneratedActions(plan.actions, request, feedbackContext);
       const rankedActions = rankActionsByRelevance(
-        plan.actions,
-        barrier,
-        mode === 'now' ? nowForm.forename : taskBasedForm.forename,
-        timescale,
+        candidateActions,
+        request.barrier,
+        request.forename,
+        request.timescale,
       );
       const rankedPlan = { ...plan, actions: rankedActions };
 
       if (rankedPlan.actions.length === 1) {
-        // Single action — apply directly
-        handleSelectPlanAction(rankedPlan.actions[0]);
+        applyDraftAction(rankedPlan.actions[0], {
+          draftMode: 'primary',
+          toastDescription: 'SMART action added to form. Edit as needed.',
+        });
       } else if (rankedPlan.actions.length > 1) {
-        // Multiple actions — show picker (best action is first)
         setPlanResult(rankedPlan);
         setShowPlanPicker(true);
       } else {
@@ -324,20 +724,23 @@ export function useAIDrafting({
       }
 
       console.warn('SmartPlanner draft failed, falling back to templates:', err);
+      clearBarrierDraftState();
       if (mode === 'now') {
         let timescale = nowForm.timescale;
         if (!timescale) timescale = '2 weeks';
         const { action, help } = aiDraftNow(
-          nowForm.barrier, nowForm.forename, nowForm.responsible,
-          timescale, nowForm.date, suggestQuery,
+          nowForm.barrier,
+          nowForm.forename,
+          nowForm.responsible,
+          timescale,
+          nowForm.date,
+          suggestQuery,
         );
         setNowForm(prev => ({ ...prev, action, help, timescale }));
       } else {
         const outcome = aiDraftFuture(taskBasedForm.task, taskBasedForm.forename);
         setTaskBasedForm(prev => ({ ...prev, outcome }));
       }
-      // Clear persisted error state so the UI doesn't keep showing the AI
-      // error after templates have been successfully applied.
       llm.clearError();
       toast({
         title: 'Using smart templates',
@@ -348,9 +751,29 @@ export function useAIDrafting({
     } finally {
       setAIDrafting(false);
     }
-  }, [mode, nowForm, taskBasedForm, llm, templateDraftNow, templateDraftTaskBased, toast, storage.aiDraftMode, storage.actionFeedback, scheduleSafariModelUnload, suggestQuery, handleSelectPlanAction, setNowForm, setTaskBasedForm]);
+  }, [
+    aiGeneratedActionRef,
+    applyDraftAction,
+    barrierDraftResult,
+    buildFutureDraftRequest,
+    clearBarrierDraftState,
+    feedbackRating,
+    filterRegeneratedActions,
+    llm,
+    mode,
+    nowForm,
+    resolvePrimaryBarrierDraft,
+    scheduleSafariModelUnload,
+    setNowForm,
+    setTaskBasedForm,
+    storage.aiDraftMode,
+    suggestQuery,
+    taskBasedForm,
+    templateDraftNow,
+    templateDraftTaskBased,
+    toast,
+  ]);
 
-  // Auto-trigger AI draft after model finishes loading
   useEffect(() => {
     if (llm.isReady && pendingAIDraftRef.current) {
       pendingAIDraftRef.current = false;
@@ -358,7 +781,6 @@ export function useAIDrafting({
     }
   }, [llm.isReady, handleAIDraft]);
 
-  // Build context for LLM chat based on current form inputs
   const buildLLMContext = useCallback(() => {
     if (mode === 'now') {
       const parts: string[] = [];
@@ -371,20 +793,19 @@ export function useAIDrafting({
       return parts.length > 0
         ? `Help me improve this SMART action for employment support:\n\n${parts.join('\n')}\n\nHow can I make this more specific, measurable, and actionable?`
         : 'Help me create a SMART action for employment support. The action should address a barrier to work.';
-    } else {
-      const parts: string[] = [];
-      if (taskBasedForm.forename) parts.push(`Participant: ${taskBasedForm.forename}`);
-      if (taskBasedForm.task) parts.push(`Activity/event: ${taskBasedForm.task}`);
-      if (taskBasedForm.responsible) parts.push(`Who is responsible: ${taskBasedForm.responsible}`);
-      if (taskBasedForm.outcome) parts.push(`Expected outcome: ${taskBasedForm.outcome}`);
-      if (taskBasedForm.timescale) parts.push(`Review in: ${taskBasedForm.timescale}`);
-      return parts.length > 0
-        ? `Help me improve this task-based SMART action:\n\n${parts.join('\n')}\n\nHow can I make this more specific and measurable?`
-        : 'Help me create a task-based SMART action for a future activity or event.';
     }
+
+    const parts: string[] = [];
+    if (taskBasedForm.forename) parts.push(`Participant: ${taskBasedForm.forename}`);
+    if (taskBasedForm.task) parts.push(`Activity/event: ${taskBasedForm.task}`);
+    if (taskBasedForm.responsible) parts.push(`Who is responsible: ${taskBasedForm.responsible}`);
+    if (taskBasedForm.outcome) parts.push(`Expected outcome: ${taskBasedForm.outcome}`);
+    if (taskBasedForm.timescale) parts.push(`Review in: ${taskBasedForm.timescale}`);
+    return parts.length > 0
+      ? `Help me improve this task-based SMART action:\n\n${parts.join('\n')}\n\nHow can I make this more specific and measurable?`
+      : 'Help me create a task-based SMART action for a future activity or event.';
   }, [mode, nowForm, taskBasedForm]);
 
-  // Handle wizard AI draft — uses SmartPlanner plan generation with template fallback
   const handleWizardAIDraft = useCallback(async (field: string, context: Record<string, string>): Promise<string> => {
     if (storage.aiDraftMode === 'ai' && !llm.isReady) {
       if (llm.canUseLocalAI) {
@@ -396,7 +817,6 @@ export function useAIDrafting({
       return '';
     }
 
-    // If AI is ready, use SmartPlanner
     if (llm.isReady) {
       try {
         const input: RawUserInput = {
@@ -410,11 +830,14 @@ export function useAIDrafting({
           selected_barrier_label: context.barrier,
         };
         const plan = await llm.generatePlan(input);
-        if (plan.actions.length > 0) {
-          const action = plan.actions[0];
-          if (field === 'action') return action.action;
-          if (field === 'help') return action.first_step || action.rationale;
-          if (field === 'outcome') return action.action;
+        const selected = context.barrier
+          ? selectPrimaryBarrierDraft(plan.actions, context.barrier, context.forename, context.timescale || '2 weeks')?.primaryAction
+          : plan.actions[0];
+
+        if (selected) {
+          if (field === 'action') return selected.action;
+          if (field === 'help') return selected.first_step || selected.rationale;
+          if (field === 'outcome') return selected.action;
         }
         scheduleSafariModelUnload();
       } catch (err) {
@@ -424,15 +847,20 @@ export function useAIDrafting({
       }
     }
 
-    // Template fallback
     if (mode === 'now') {
       const timescale = context.timescale || '2 weeks';
       if (field === 'action' || field === 'help') {
-        const { action, help } = aiDraftNow(context.barrier || '', context.forename || '', context.responsible || 'Advisor', timescale, nowForm.date);
+        const { action, help } = aiDraftNow(
+          context.barrier || '',
+          context.forename || '',
+          context.responsible || 'Advisor',
+          timescale,
+          nowForm.date,
+        );
         return field === 'action' ? action : help;
       }
-    } else {
-      if (field === 'outcome') return aiDraftFuture(context.task || '', context.forename || '');
+    } else if (field === 'outcome') {
+      return aiDraftFuture(context.task || '', context.forename || '');
     }
     return '';
   }, [mode, nowForm.date, llm, storage.aiDraftMode, toast, scheduleSafariModelUnload]);
@@ -447,6 +875,9 @@ export function useAIDrafting({
     setPlanResult,
     showPlanPicker,
     setShowPlanPicker,
+    barrierDraftResult,
+    moreLikeThisLoading,
+    canShowMoreLikeThis: mode === 'now' && !!barrierDraftResult,
     feedbackRating,
     currentFeedbackId,
     aiGeneratedActionRef,
@@ -457,6 +888,7 @@ export function useAIDrafting({
     handleFeedbackRate,
     handleSelectPlanAction,
     handleAIDraft,
+    handleMoreLikeThis,
     buildLLMContext,
     handleWizardAIDraft,
     promptPack,

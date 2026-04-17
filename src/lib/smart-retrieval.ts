@@ -5,9 +5,10 @@
  *   1. Classify the barrier to a category
  *   2. Search the curated EXEMPLAR_LIBRARY for matching barrier/category
  *   3. Search user-accepted feedback exemplars, ranked by success quality
- *   4. Rank by relevance (exact barrier > same category > keyword match)
+ *   4. Search user-rejected feedback to build "avoid" guidance
+ *   5. Rank by relevance (exact barrier > same category > keyword match)
  *      with quality weighting: accepted+rated > edited+rated > accepted > edited
- *   5. Return top N examples to inject into the prompt
+ *   6. Return top N examples to inject into the prompt
  *
  * Phase 2 enhancements:
  *   - Feedback records are scored by quality tier (accepted+relevant > edited > unrated)
@@ -18,7 +19,6 @@
 import {
   EXEMPLAR_LIBRARY,
   classifyBarrier,
-  type ActionExemplar,
 } from './smart-data';
 import type { ActionFeedback } from '@/hooks/useSmartStorage';
 
@@ -28,6 +28,13 @@ export interface RetrievedExample {
   barrier: string;
   source: 'library' | 'feedback';
   score: number;       // relevance score (higher = better)
+}
+
+export interface RetrievedRejectedExample {
+  action: string;
+  barrier: string;
+  score: number;
+  createdAt: string;
 }
 
 // ---- Phase 2: Acceptance rate tracking per barrier category ----
@@ -169,6 +176,10 @@ function overlapScore(a: Set<string>, b: Set<string>): number {
   return count;
 }
 
+function getFeedbackActionText(feedback: ActionFeedback): string {
+  return feedback.editedAction || feedback.generatedAction;
+}
+
 /**
  * Retrieve the most relevant exemplars for a given barrier/context.
  *
@@ -242,8 +253,8 @@ export function retrieveExemplars(
     const quality = computeFeedbackQuality(fb);
     const recency = recencyBonus(fb.createdAt);
 
-    // Use the edited action if available (advisor-improved version)
-    const actionText = fb.editedAction || fb.generatedAction;
+    // Use the saved/improved action when available.
+    const actionText = getFeedbackActionText(fb);
 
     let score = 0;
 
@@ -296,6 +307,68 @@ export function retrieveExemplars(
 }
 
 /**
+ * Retrieve recent rejected feedback so future drafts can avoid repeating it.
+ * Prioritises exact barrier matches, then category matches, with recency as a
+ * tie-breaker and slight keyword overlap weighting.
+ */
+export function retrieveRejectedExemplars(
+  barrier: string,
+  feedbackStore: ActionFeedback[] = [],
+  maxResults = 3,
+): RetrievedRejectedExample[] {
+  if (!barrier?.trim()) return [];
+
+  const category = classifyBarrier(barrier);
+  const barrierLower = barrier.toLowerCase();
+  const barrierTokens = tokenise(barrier);
+
+  const scored: RetrievedRejectedExample[] = [];
+
+  for (const fb of feedbackStore) {
+    if (fb.rating !== 'not-relevant') continue;
+
+    const actionText = getFeedbackActionText(fb);
+    let score = 0;
+
+    if (fb.barrier.toLowerCase() === barrierLower) {
+      score += 10;
+    } else if (fb.category === category && category !== 'unknown') {
+      score += 5;
+    }
+
+    const actionTokens = tokenise(actionText);
+    score += overlapScore(barrierTokens, actionTokens) * 0.5;
+    score += recencyBonus(fb.createdAt) * 2;
+
+    if (score > 0) {
+      scored.push({
+        action: actionText,
+        barrier: fb.barrier,
+        score,
+        createdAt: fb.createdAt,
+      });
+    }
+  }
+
+  scored.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  const seen = new Set<string>();
+  const results: RetrievedRejectedExample[] = [];
+  for (const item of scored) {
+    const key = item.action.toLowerCase().slice(0, 80);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    results.push(item);
+    if (results.length >= maxResults) break;
+  }
+
+  return results;
+}
+
+/**
  * Format retrieved examples into a prompt-ready string.
  * Used to inject examples before AI generation.
  */
@@ -315,6 +388,30 @@ export function formatExemplarsForPrompt(
 
   return [
     'SIMILAR SUCCESSFUL ACTIONS (use as guidance, do NOT copy verbatim):',
+    ...lines,
+  ].join('\n');
+}
+
+/**
+ * Format rejected examples into a prompt-ready "avoid" block.
+ */
+export function formatRejectedExemplarsForPrompt(
+  examples: RetrievedRejectedExample[],
+  forename: string,
+  targetDate: string,
+): string {
+  if (!examples.length) return '';
+
+  const lines = examples.map((ex, i) => {
+    const action = ex.action
+      .replace(/\{forename\}/g, forename || '[Name]')
+      .replace(/\{targetDate\}/g, targetDate || '[Date]');
+    return `${i + 1}. Avoid repeating "${action}" for this kind of barrier.`;
+  });
+
+  return [
+    'AVOID PREVIOUSLY REJECTED ACTIONS:',
+    'These actions were marked not relevant in similar situations. Do not reuse them or close variants.',
     ...lines,
   ].join('\n');
 }

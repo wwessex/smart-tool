@@ -13,6 +13,10 @@ export interface PlanPickerDialogProps {
   mode: Mode;
   barrier: string;
   onSelectAction: (action: SMARTAction, selectedIndex?: number) => void;
+  title?: string;
+  description?: string;
+  draftMode?: 'primary' | 'alternates';
+  barrierType?: string | null;
 }
 
 export function PlanPickerDialog({
@@ -23,6 +27,10 @@ export function PlanPickerDialog({
   mode,
   barrier,
   onSelectAction,
+  title,
+  description,
+  draftMode = 'primary',
+  barrierType,
 }: PlanPickerDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -30,12 +38,12 @@ export function PlanPickerDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5" />
-            Choose a SMART Action
+            {title || 'Choose a SMART Action'}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            The AI generated {planResult?.actions.length || 0} SMART actions. Select one to use.
+            {description || `The AI generated ${planResult?.actions.length || 0} SMART actions. Select one to use.`}
           </p>
           {planResult?.actions.map((action, idx) => (
             <button
@@ -67,7 +75,9 @@ export function PlanPickerDialog({
                 timestamp: new Date().toISOString(),
                 signal: "rejected",
                 barrier: mode === 'now' ? barrier : undefined,
+                barrier_type: barrierType || undefined,
                 actions_count: planResult?.actions.length,
+                draft_mode: draftMode,
                 source: "ai",
               });
               onOpenChange(false);

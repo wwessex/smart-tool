@@ -6,10 +6,16 @@
  *
  * Signal types:
  * - generated: AI produced actions for a barrier/context
+ * - accepted: best-fit action was applied automatically
  * - selected: advisor chose a specific action from the plan picker
  * - edited: advisor modified the AI-drafted text before saving
  * - saved: advisor saved the action to history (success signal)
  * - rejected: advisor dismissed the plan picker without selecting (failure signal)
+ * - more_like_this: advisor requested alternate relevant actions
+ * - regenerated: advisor asked the AI to try again from the current draft state
+ * - feedback_relevant: advisor marked the current AI draft as relevant
+ * - feedback_not_relevant: advisor marked the current AI draft as not relevant
+ * - feedback_cleared: advisor removed a previous feedback vote
  */
 
 const STORAGE_KEY = "smartTool.draftAnalytics";
@@ -19,11 +25,24 @@ export interface DraftAnalyticsEntry {
   /** ISO timestamp. */
   timestamp: string;
   /** Type of signal. */
-  signal: "generated" | "selected" | "edited" | "saved" | "rejected";
+  signal:
+    | "generated"
+    | "accepted"
+    | "selected"
+    | "edited"
+    | "saved"
+    | "rejected"
+    | "more_like_this"
+    | "regenerated"
+    | "feedback_relevant"
+    | "feedback_not_relevant"
+    | "feedback_cleared";
   /** The barrier selected in the dropdown (if any). */
   barrier?: string;
   /** Canonical barrier ID from the catalog (if resolved). */
   barrier_id?: string;
+  /** Internal barrier-to-action type used for relevance targeting. */
+  barrier_type?: string;
   /** Number of actions generated. */
   actions_count?: number;
   /** Index of the action chosen from the plan picker (0-based). */
@@ -34,6 +53,12 @@ export interface DraftAnalyticsEntry {
   final_text?: string;
   /** SMART score of the generated action (0-5). */
   smart_score?: number;
+  /** Relevance score for the selected/generated action (0-1). */
+  relevance_score?: number;
+  /** Rating currently attached to the feedback record. */
+  feedback_rating?: "relevant" | "not-relevant" | null;
+  /** Whether the draft was the primary best-fit action or alternates. */
+  draft_mode?: "primary" | "alternates";
   /** Whether the AI backend was used ("ai") or template fallback ("template"). */
   source?: "ai" | "template";
 }
