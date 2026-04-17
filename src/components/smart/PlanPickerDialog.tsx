@@ -32,18 +32,23 @@ export function PlanPickerDialog({
   draftMode = 'primary',
   barrierType,
 }: PlanPickerDialogProps) {
+  const draftSource =
+    (planResult?.metadata as { source?: string } | undefined)?.source === 'template_fallback'
+      ? 'template'
+      : 'ai';
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5" />
-            {title || 'Choose a SMART Action'}
+            {title || (mode === 'future' ? 'Choose an Outcome' : 'Choose a SMART Action')}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            {description || `The AI generated ${planResult?.actions.length || 0} SMART actions. Select one to use.`}
+            {description || `The AI generated ${planResult?.actions.length || 0} ${mode === 'future' ? 'outcomes' : 'SMART actions'}. Select one to use.`}
           </p>
           {planResult?.actions.map((action, idx) => (
             <button
@@ -78,7 +83,7 @@ export function PlanPickerDialog({
                 barrier_type: barrierType || undefined,
                 actions_count: planResult?.actions.length,
                 draft_mode: draftMode,
-                source: "ai",
+                source: draftSource,
               });
               onOpenChange(false);
               setPlanResult(null);

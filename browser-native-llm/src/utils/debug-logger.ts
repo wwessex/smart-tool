@@ -27,7 +27,7 @@ const _groupEnd = (_console.groupEnd ?? (() => {})).bind(_console);
 export interface ActionValidationEntry {
   actionText: string;
   score: number;
-  criteria: Record<string, { passed: boolean; score: number; reason: string }>;
+  criteria: Partial<Record<keyof SMARTCriteriaResult, { passed: boolean; score: number; reason: string }>>;
   passed: boolean;
   repaired: boolean;
 }

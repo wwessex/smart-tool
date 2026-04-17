@@ -13,6 +13,7 @@ const profile: UserProfile = {
   confidence_level: 2,
   participant_name: "Alex",
   supporter: "Advisor",
+  generation_mode: "action",
 };
 
 const retrieval: RetrievalResult = {

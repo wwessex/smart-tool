@@ -209,6 +209,7 @@ async function ensureInitialized(): Promise<void> {
   if (!initPromise) {
     initPromise = engine.initialize({}).catch((err) => {
       initPromise = null; // Allow retry on failure
+      engineInstance = null; // Reset engine so getEngine() creates a fresh instance
       throw err;
     });
   }

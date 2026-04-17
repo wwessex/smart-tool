@@ -415,3 +415,24 @@ export function formatRejectedExemplarsForPrompt(
     ...lines,
   ].join('\n');
 }
+
+/**
+ * Format task-based suggestions as outcome-focused exemplars for the prompt.
+ * Used in task-based (future) mode instead of barrier exemplars.
+ */
+export function formatTaskExemplarsForPrompt(
+  suggestions: Array<{ title: string; outcome: string }>,
+  forename: string,
+): string {
+  if (!suggestions.length) return '';
+
+  const lines = suggestions.map((s, i) => {
+    const outcome = s.outcome.replace(/\[Name\]/g, forename || '[Name]');
+    return `${i + 1}. "${outcome}"`;
+  });
+
+  return [
+    'SIMILAR SUCCESSFUL OUTCOMES (use as guidance, do NOT copy verbatim):',
+    ...lines,
+  ].join('\n');
+}

@@ -186,6 +186,13 @@ export function resolvePlaceholders(str: string, ctx: { targetPretty: string; n?
   return result;
 }
 
+/** Capitalize the first letter of a forename (e.g., "john" → "John"). */
+export function capitalizeForename(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return trimmed;
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+}
+
 function lowerFirstLetter(s: string): string {
   if (!s) return s;
   return s.charAt(0).toLowerCase() + s.slice(1);
@@ -230,7 +237,7 @@ export function pickTaskKey(taskDesc: string): string {
   const t = (taskDesc || "").trim().toLowerCase();
   if (!t) return "default";
   
-  if (/job\s*fair|careers?\s*fair|recruitment\s*(event|fair)/i.test(t)) return "job fair";
+  if (/job\s*fair|careers?\s*fair|recruitment\s*(event|fair|day)|hiring\s*(event|fair|day)|employer\s*event|open\s*day/i.test(t)) return "job fair";
   if (/workshop|session|group|course|training/i.test(t)) return "workshop";
   if (/interview|mock/i.test(t)) return "interview";
   if (/cv|resume|curriculum/i.test(t)) return "cv";
@@ -385,8 +392,15 @@ export function buildNowOutput(
   }
   const safeAction = formattedAction || "take agreed next steps";
   
-  // Strip trailing punctuation from help text too
-  const cleanHelp = stripTrailingPunctuation(help);
+  // Strip trailing punctuation from help text and normalise for template concatenation.
+  // The template reads "This action will help <help>." so the help text must:
+  //  - not start with a redundant verb like "Helps" / "Supports"
+  //  - start with a lowercase letter
+  let cleanHelp = stripTrailingPunctuation(help);
+  cleanHelp = cleanHelp.replace(/^\s*(helps?|supports?|will help|this will help|this action will help)\s+/i, '');
+  if (cleanHelp) {
+    cleanHelp = cleanHelp.charAt(0).toLowerCase() + cleanHelp.slice(1);
+  }
   const cleanBarrier = stripTrailingPunctuation(barrier);
   const cleanTimescale = stripTrailingPunctuation(timescale);
 
@@ -483,7 +497,7 @@ export function buildHistoryItem(opts: BuildHistoryItemOptions): HistoryItem {
 
   const baseMeta = mode === 'now'
     ? { date: nowForm.date, time: nowForm.time, forename: nowForm.forename, barrier: nowForm.barrier, timescale: nowForm.timescale, action: nowForm.action, responsible: nowForm.responsible, help: nowForm.help }
-    : { date: taskBasedForm.date, forename: taskBasedForm.forename, barrier: taskBasedForm.task, timescale: taskBasedForm.timescale, responsible: taskBasedForm.responsible, reason: taskBasedForm.outcome };
+    : { date: taskBasedForm.date, time: taskBasedForm.time, forename: taskBasedForm.forename, barrier: taskBasedForm.task, timescale: taskBasedForm.timescale, responsible: taskBasedForm.responsible, reason: taskBasedForm.outcome };
 
   return {
     id: createHistoryId(),

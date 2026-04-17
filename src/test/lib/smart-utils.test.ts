@@ -14,6 +14,7 @@ import {
   buildNowOutput,
   buildFutureOutput,
   buildHistoryItem,
+  capitalizeForename,
 } from "@/lib/smart-utils";
 
 describe("smart-utils", () => {
@@ -317,6 +318,10 @@ describe("smart-utils", () => {
       expect(pickTaskKey("Job Fair at Town Hall")).toBe("job fair");
       expect(pickTaskKey("careers fair")).toBe("job fair");
       expect(pickTaskKey("recruitment event")).toBe("job fair");
+      expect(pickTaskKey("hiring event")).toBe("job fair");
+      expect(pickTaskKey("employer event")).toBe("job fair");
+      expect(pickTaskKey("open day")).toBe("job fair");
+      expect(pickTaskKey("recruitment day")).toBe("job fair");
     });
 
     it("identifies workshop tasks", () => {
@@ -408,6 +413,11 @@ describe("smart-utils", () => {
     it("returns array of suggestions for known task type", () => {
       const result = getTaskSuggestions("workshop");
       expect(Array.isArray(result)).toBe(true);
+    });
+
+    it("returns 4 suggestions for job fair", () => {
+      const result = getTaskSuggestions("job fair");
+      expect(result).toHaveLength(4);
     });
 
     it("returns default suggestions for unknown task", () => {
@@ -624,6 +634,32 @@ describe("smart-utils", () => {
 
       expect(item.id).toMatch(/^hist-/);
       globalThis.crypto.randomUUID = original;
+    });
+  });
+
+  describe("capitalizeForename", () => {
+    it("capitalizes lowercase forename", () => {
+      expect(capitalizeForename("john")).toBe("John");
+    });
+
+    it("preserves already capitalized forename", () => {
+      expect(capitalizeForename("John")).toBe("John");
+    });
+
+    it("preserves rest of casing", () => {
+      expect(capitalizeForename("JOHN")).toBe("JOHN");
+    });
+
+    it("returns empty string for empty input", () => {
+      expect(capitalizeForename("")).toBe("");
+    });
+
+    it("trims whitespace and capitalizes", () => {
+      expect(capitalizeForename("  john  ")).toBe("John");
+    });
+
+    it("handles single character", () => {
+      expect(capitalizeForename("j")).toBe("J");
     });
   });
 

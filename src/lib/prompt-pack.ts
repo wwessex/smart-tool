@@ -492,7 +492,13 @@ export function sanitizeOnePhrase(text: string): string {
   t = t.replace(/^"+|"+$/g, "");
   // Strip common prefixes - the UI already adds "This action will help..."
   t = t.replace(/^\s*(this action will help|this will help|it will help)\s*/i, "");
+  // Also strip "Helps" / "helps" / "Supports" since the UI adds "will help" prefix
+  t = t.replace(/^\s*(helps?|supports?)\s+/i, "");
   t = t.replace(/^\s*(assistant:|<\|assistant\|>)\s*/i, "");
+  // Lowercase first character since this follows "...will help"
+  if (t) {
+    t = t.charAt(0).toLowerCase() + t.slice(1);
+  }
   // Remove trailing punctuation that makes it look like a sentence.
   t = t.replace(/[.!?]+$/, "").trim();
 

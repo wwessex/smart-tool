@@ -21,6 +21,12 @@ export interface RetryFailureSummary {
   planLevelIssues: string[];
   categories: string[];
   compact: string;
+  /** Barrier context for retry prompting (starter actions and guidance). */
+  barrierContext?: {
+    label: string;
+    starterActions: string[];
+    promptHints: string[];
+  };
 }
 
 /**
@@ -49,6 +55,16 @@ export function buildRetryInstructionBlock(
 
   if (summary.barrierFitFailures.length > 0) {
     lines.push(`- Barrier issues: ${summary.barrierFitFailures.join("; ")}.`);
+    // Include barrier starter actions and prompt hints so the model knows HOW to address the barrier
+    if (summary.barrierContext) {
+      const { label, starterActions, promptHints } = summary.barrierContext;
+      if (starterActions.length > 0) {
+        lines.push(`- Use these starter actions for the "${label}" barrier: ${starterActions.join("; ")}.`);
+      }
+      if (promptHints.length > 0) {
+        lines.push(`- Barrier guidance: ${promptHints.slice(0, 2).join("; ")}.`);
+      }
+    }
   }
 
   if (summary.planLevelIssues.length > 0) {
@@ -125,7 +141,7 @@ export function repairAction(
 
   // Fix relevance: add rationale connecting to goal
   if (!validationResult.criteria.relevant.passed) {
-    repaired.rationale = `This supports the goal of securing a ${profile.job_goal} role by ${repaired.rationale.toLowerCase()}`;
+    repaired.rationale = `support the goal of securing a ${profile.job_goal.toLowerCase()} role by ${repaired.rationale.toLowerCase()}`;
     changed = true;
   }
 
@@ -200,6 +216,25 @@ export function createFallbackActions(
       const action = templateToAction(template, profile, actions.length);
       actions.push(action);
     }
+  }
+
+  // Guarantee at least one action even if no templates matched
+  if (actions.length === 0) {
+    const deadline = new Date();
+    deadline.setDate(deadline.getDate() + profile.timeframe_weeks * 7);
+    actions.push({
+      action: `Update and tailor CV to highlight skills relevant to ${profile.job_goal || "target"} roles`,
+      metric: "Number of CV sections updated",
+      baseline: "Not yet started",
+      target: "All key sections reviewed and updated",
+      deadline: deadline.toISOString().split("T")[0],
+      rationale: profile.resolved_barrier
+        ? `address ${profile.resolved_barrier.label} by taking a concrete first step toward employment`
+        : "take a concrete first step toward the goal of finding suitable employment",
+      effort_estimate: "2 hours one-off",
+      first_step: `Review current CV and identify 3 sections to improve for ${profile.job_goal || "target"} roles`,
+      template_id: "__hardcoded_fallback__",
+    });
   }
 
   return actions;
@@ -416,7 +451,9 @@ function templateToAction(
     baseline: "Not yet started",
     target: inferTarget(template, profile),
     deadline: deadline.toISOString().split("T")[0],
-    rationale: `Supports the goal of finding a ${profile.job_goal} role.`,
+    rationale: profile.resolved_barrier
+      ? `address ${profile.resolved_barrier.label} and support the goal of finding a ${profile.job_goal.toLowerCase()} role`
+      : `support the goal of finding a ${profile.job_goal.toLowerCase()} role`,
     effort_estimate: template.effort_hint,
     first_step: inferFirstStep(template, profile),
     template_id: template.id,
@@ -453,8 +490,37 @@ function inferFirstStep(
   template: ActionTemplate,
   profile: UserProfile
 ): string {
-  const stage = template.stage;
+  // First, try to derive a first step from the action text itself
+  // This ensures coherence between the action and its first step
+  const actionText = substituteTemplateVars(template.action_template, profile).toLowerCase();
 
+  // Barrier-aware first steps take priority when a barrier is resolved
+  if (profile.resolved_barrier) {
+    const barrierLabel = profile.resolved_barrier.label.toLowerCase();
+    const barrierFirstSteps: Record<string, string> = {
+      "mental wellbeing": "Look up the agreed wellbeing or mental health service contact details",
+      "confidence": "Write down one small step that feels manageable to start with",
+      "transport": "Research available transport routes and timetables for the journey",
+      "digital skills": "Identify a quiet time to sit down and practise the specific digital task",
+      "literacy and/or numeracy": "Gather any materials or resources that will help with this task",
+      "interviews": "Write down one question you expect to be asked and practise answering it",
+      "caring responsibilities": "Check your schedule and arrange cover for your caring responsibilities",
+      "health condition": "Speak to your health professional about any adjustments needed",
+      "disability": "Identify any reasonable adjustments that would help with this task",
+      "autism": "Plan the steps for this task in a clear, structured order",
+      "adhd": "Break this task into smaller parts and set a timer for the first part",
+      "learning difficulties": "Ask for any support or adjustments needed before starting",
+    };
+
+    for (const [barrier, step] of Object.entries(barrierFirstSteps)) {
+      if (barrierLabel.includes(barrier) || barrier.includes(barrierLabel)) {
+        return step;
+      }
+    }
+  }
+
+  // Stage-based first steps as fallback
+  const stage = template.stage;
   const firstSteps: Record<string, string> = {
     cv_preparation: "Open your current CV document and review it against the target role requirements",
     online_presence: "Log in to LinkedIn and review your current profile headline",
@@ -462,11 +528,17 @@ function inferFirstStep(
     networking: "Identify 3 people in your network who work in or near your target field",
     interviewing: "Write down 3 strengths you would mention in an interview",
     upskilling: "Search for a free online course in your skill gap area",
-    discovery: "Spend 15 minutes reading about your target role on a careers website",
+    discovery: `Research what is involved in a ${profile.job_goal} role`,
     follow_up: "Create a simple spreadsheet or document to track your applications",
   };
 
-  return firstSteps[stage] ?? "Spend 15 minutes planning how to start this action";
+  // If the action text references wellbeing/mental health but barrier wasn't resolved,
+  // still provide a coherent first step
+  if (actionText.includes("wellbeing") || actionText.includes("mental health") || actionText.includes("counselling") || actionText.includes("therapy")) {
+    return "Look up the agreed wellbeing or mental health service contact details";
+  }
+
+  return firstSteps[stage] ?? "Identify the first small step needed to begin this action";
 }
 
 /**

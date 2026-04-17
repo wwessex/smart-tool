@@ -20,7 +20,7 @@ import { normalizeProfile } from "./profile-normalizer.js";
 import { assemblePrompt } from "./prompt-assembler.js";
 import { ActionLibrary } from "../retrieval/action-library.js";
 import { LocalRetriever } from "../retrieval/retriever.js";
-import { validateAction, validatePlan } from "../validators/smart-validator.js";
+import { validateAction, validatePlan, isFieldCoherent } from "../validators/smart-validator.js";
 import {
   repairAction,
   createFallbackActions,
@@ -58,7 +58,7 @@ const DEFAULT_PLANNER_CONFIG: PlannerConfig = {
   inference: DEFAULT_INFERENCE_CONFIG as InferenceConfig,
   retrieval_pack_url: "./retrieval-packs/job-search-actions.json",
   worker_url: "./worker.js",
-  max_repair_attempts: 3,
+  max_repair_attempts: 1,
   min_validation_score: 45,
   min_plan_validation_score: 55,
   template_only: false,
@@ -119,7 +119,11 @@ export class SmartPlanner {
   >();
 
   constructor(config: Partial<PlannerConfig> = {}) {
-    this.config = { ...DEFAULT_PLANNER_CONFIG, ...config };
+    this.config = {
+      ...DEFAULT_PLANNER_CONFIG,
+      ...config,
+      inference: { ...DEFAULT_PLANNER_CONFIG.inference, ...config.inference },
+    };
     this.library = new ActionLibrary();
   }
 
@@ -258,10 +262,36 @@ export class SmartPlanner {
     // Step 4: Generate with the LLM
     // The prompt primes the assistant with "[" so we prepend it to the output.
     const inferStart = performance.now();
-    let rawOutput = "[" + await this.runInference(
-      basePrompt,
-      callbacks?.onTokenGenerated
-    );
+    let rawOutput: string;
+    try {
+      rawOutput = "[" + await this.runInference(
+        basePrompt,
+        callbacks?.onTokenGenerated
+      );
+    } catch (inferenceError) {
+      // Inference failed (timeout, worker crash, etc.) — fall back to templates
+      // instead of throwing and letting the hook apply inferior aiDraftNow() templates.
+      console.warn("[smart-planner] Initial inference failed, using template fallback:", inferenceError);
+      debugLog.logRawOutput("", 0);
+      const fallbackActions = createFallbackActions(profile, retrieval.templates);
+      const endTime = performance.now();
+      debugLog.logOutcome("fallback_templates", endTime - startTime, fallbackActions.length);
+      const debugResult = debugLog.flush();
+      if (debugResult) callbacks?.onDebugLog?.(debugResult);
+      return {
+        actions: fallbackActions,
+        metadata: {
+          model_id: this.config.inference.model_id,
+          model_version: "0.1.0",
+          backend: this.activeBackend,
+          retrieval_pack_version: this.library.packVersion,
+          generated_at: new Date().toISOString(),
+          generation_time_ms: endTime - startTime,
+          tokens_generated: 0,
+          source: "template_fallback" as const,
+        },
+      };
+    }
     debugLog.logRawOutput(rawOutput, performance.now() - inferStart);
 
     // Step 5: Parse and validate output
@@ -298,11 +328,25 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
       // Use progressively higher temperature on retries to increase output diversity
       const retryTemperature = Math.min(0.7, this.config.inference.temperature + repairAttempts * 0.15);
       const repairInferStart = performance.now();
-      rawOutput = "[" + await this.runInference(
-        retryPrompt,
-        callbacks?.onTokenGenerated,
-        { temperature: retryTemperature },
-      );
+      try {
+        rawOutput = "[" + await this.runInference(
+          retryPrompt,
+          callbacks?.onTokenGenerated,
+          { temperature: retryTemperature },
+        );
+      } catch (repairInferenceError) {
+        console.warn(`[smart-planner] Repair attempt ${repairAttempts} inference failed:`, repairInferenceError);
+        debugLog.logRepairAttempt({
+          attempt: repairAttempts,
+          temperature: retryTemperature,
+          rawOutput: "",
+          jsonParseSuccess: false,
+          parsedActionCount: 0,
+          validationOutcome: "inference_error",
+          timeMs: performance.now() - repairInferStart,
+        });
+        break; // Fall through to Step 7 template fallback
+      }
       const repairInferTime = performance.now() - repairInferStart;
 
       validation = this.parseAndValidate(rawOutput, profile, callbacks, debugLog);
@@ -323,12 +367,10 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
 
     // Step 7: Fallback to template-based actions if repair loop exhausted
     const isFallback = actions === null;
-    if (isFallback) {
-      actions = createFallbackActions(
-        profile,
-        retrieval.templates
-      );
-    }
+    const finalActions = actions ?? createFallbackActions(
+      profile,
+      retrieval.templates
+    );
 
     const endTime = performance.now();
 
@@ -336,7 +378,7 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
     debugLog.logOutcome(
       isFallback ? "fallback_templates" : usedRepair ? "repair_success" : "llm_success",
       endTime - startTime,
-      actions.length,
+      finalActions.length,
     );
     const debugResult = debugLog.flush();
     if (debugResult) {
@@ -344,7 +386,7 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
     }
 
     return {
-      actions,
+      actions: finalActions,
       metadata: {
         model_id: this.config.inference.model_id,
         model_version: "0.1.0",
@@ -353,6 +395,7 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
         generated_at: new Date().toISOString(),
         generation_time_ms: endTime - startTime,
         tokens_generated: Math.ceil(rawOutput.length / 4),
+        source: isFallback ? "template_fallback" as const : usedRepair ? "repair" as const : "llm" as const,
       },
     };
   }
@@ -382,6 +425,7 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
         generated_at: new Date().toISOString(),
         generation_time_ms: performance.now() - startTime,
         tokens_generated: 0,
+        source: "template_fallback" as const,
       },
     };
   }
@@ -484,6 +528,11 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
         planLevelIssues: [rejectionReason],
         categories: ["json_parse"],
         compact: rejectionReason,
+        barrierContext: profile.resolved_barrier ? {
+          label: profile.resolved_barrier.label,
+          starterActions: profile.resolved_barrier.starter_actions ?? [],
+          promptHints: profile.resolved_barrier.prompt_hints,
+        } : undefined,
       };
       callbacks?.onPlanRejected?.(rejectionReason, 0, [rejectionReason]);
       return { actions: null, rejectionReason, failureSummary };
@@ -503,6 +552,55 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
     };
 
     for (const rawAction of parsed) {
+      // Fill reasonable defaults for missing non-critical fields so that
+      // partially-complete LLM output has a chance to pass schema validation.
+      if (rawAction && typeof rawAction === "object") {
+        const record = rawAction as Record<string, unknown>;
+        const defaultDeadline = (() => {
+          const d = new Date();
+          d.setDate(d.getDate() + Math.round(profile.timeframe_weeks * 7 * 0.75));
+          return d.toISOString().split("T")[0];
+        })();
+        if (!record.baseline || (typeof record.baseline === "string" && record.baseline.trim().length < 1)) {
+          record.baseline = "Not yet started";
+        }
+        if (!record.target || (typeof record.target === "string" && record.target.trim().length < 1)) {
+          record.target = "Completed";
+        }
+        if (!record.effort_estimate || (typeof record.effort_estimate === "string" && record.effort_estimate.trim().length < 3)) {
+          record.effort_estimate = "1-2 hours";
+        }
+        if (!record.rationale || (typeof record.rationale === "string" && record.rationale.trim().length < 5)) {
+          record.rationale = "Supports employment goal";
+        }
+        if (!record.first_step || (typeof record.first_step === "string" && record.first_step.trim().length < 5)) {
+          record.first_step = typeof record.action === "string" ? record.action : "Begin this action";
+        }
+        if (!record.metric || (typeof record.metric === "string" && record.metric.trim().length < 5)) {
+          record.metric = typeof record.action === "string"
+            ? `Completion of: ${(record.action as string).slice(0, 50)}`
+            : "Task completed";
+        }
+        if (!record.deadline || (typeof record.deadline === "string" && record.deadline.trim().length < 4)) {
+          record.deadline = defaultDeadline;
+        }
+
+        // Coherence post-check: replace incoherent first_step and rationale
+        if (typeof record.action === "string" && typeof record.first_step === "string") {
+          if (!isFieldCoherent(record.action, record.first_step)) {
+            record.first_step = record.action;
+          }
+        }
+        if (typeof record.action === "string" && typeof record.rationale === "string") {
+          if (!isFieldCoherent(record.action, record.rationale)) {
+            const barrierLabel = profile.resolved_barrier?.label;
+            record.rationale = barrierLabel
+              ? `Helps address ${barrierLabel} and supports the employment goal`
+              : "Supports employment goal";
+          }
+        }
+      }
+
       // Check schema compliance
       if (!SMART_ACTION_SCHEMA.validate(rawAction)) {
         allIssues.push(`Schema validation failed for action: ${sanitizeForLog(JSON.stringify(rawAction))}`);
@@ -603,6 +701,11 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
       planLevelIssues,
       categories: Array.from(failureCategories),
       compact: summaryParts.join(" | ") || "Validation failed",
+      barrierContext: profile.resolved_barrier ? {
+        label: profile.resolved_barrier.label,
+        starterActions: profile.resolved_barrier.starter_actions ?? [],
+        promptHints: profile.resolved_barrier.prompt_hints,
+      } : undefined,
     };
 
     callbacks?.onValidationResult?.(planResult.score, planResult.issues);
@@ -617,7 +720,9 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
     }
 
     const criticalPlanIssues = planResult.issues.filter((issue) =>
-      issue.includes("No actions directly address") ||
+      // Only treat "No actions directly address" as critical for larger plans;
+      // for 1-2 action barrier-focused plans, the plan score penalty is sufficient
+      (issue.includes("No actions directly address") && validatedActions.length >= 3) ||
       issue.includes("duplicate or very similar actions") ||
       issue.includes("Estimated total effort")
     );

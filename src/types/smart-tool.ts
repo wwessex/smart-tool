@@ -22,6 +22,7 @@ export interface NowForm {
 
 export interface TaskBasedForm {
   date: string;
+  time: string;
   forename: string;
   task: string;
   responsible: string;
@@ -38,6 +39,7 @@ export interface HistoryItem {
   text: string;
   meta: {
     date: string;
+    time?: string;
     forename: string;
     barrier: string;
     timescale: string;

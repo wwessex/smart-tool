@@ -155,6 +155,21 @@ describe("prompt-pack", () => {
       expect(result).toBe("increase confidence");
     });
 
+    it("strips 'Helps' prefix and lowercases", () => {
+      const result = sanitizeOnePhrase("Helps address Digital Hardware & Connectivity.");
+      expect(result).toBe("address Digital Hardware & Connectivity");
+    });
+
+    it("strips 'Supports' prefix and lowercases", () => {
+      const result = sanitizeOnePhrase("Supports the goal of finding employment.");
+      expect(result).toBe("the goal of finding employment");
+    });
+
+    it("lowercases first character after stripping", () => {
+      const result = sanitizeOnePhrase("This will help Increase confidence");
+      expect(result).toBe("increase confidence");
+    });
+
     it("de-duplicates repeated phrases", () => {
       const result = sanitizeOnePhrase("upload a CV by Friday upload a CV by Friday");
       expect(result).toBe("upload a CV by Friday");

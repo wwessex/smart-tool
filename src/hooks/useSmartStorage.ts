@@ -63,6 +63,7 @@ export function useSmartStorage() {
     recentNames?: string[];
     templates?: ActionTemplate[];
     settings?: SmartToolSettings;
+    actionFeedback?: ActionFeedback[];
   }) => {
     if (Array.isArray(data.history)) {
       historyHook.setHistory(data.history);
@@ -92,6 +93,10 @@ export function useSmartStorage() {
       templatesHook.setTemplates(data.templates);
       saveList(STORAGE_KEYS.templates, data.templates);
     }
+    if (Array.isArray(data.actionFeedback)) {
+      feedbackHook.setActionFeedback(data.actionFeedback);
+      safeSetItem(STORAGE_KEYS.actionFeedback, JSON.stringify(data.actionFeedback));
+    }
     if (data.settings && typeof data.settings === 'object') {
       if (typeof data.settings.minScoreEnabled === 'boolean') {
         settingsHook.setMinScoreEnabled(data.settings.minScoreEnabled);
@@ -103,12 +108,11 @@ export function useSmartStorage() {
         safeSetItem(STORAGE_KEYS.minScoreThreshold, String(clamped));
       }
       if (typeof data.settings.retentionEnabled === 'boolean') {
-        historyHook.setHistory(prev => prev); // trigger re-render
-        safeSetItem(STORAGE_KEYS.retentionEnabled, String(data.settings.retentionEnabled));
+        historyHook.updateRetentionEnabled(data.settings.retentionEnabled);
       }
       if (typeof data.settings.retentionDays === 'number') {
         const clamped = Math.max(7, Math.min(365, Math.round(data.settings.retentionDays)));
-        safeSetItem(STORAGE_KEYS.retentionDays, String(clamped));
+        historyHook.updateRetentionDays(clamped);
       }
       if (typeof data.settings.participantLanguage === 'string') {
         settingsHook.setParticipantLanguage(data.settings.participantLanguage);

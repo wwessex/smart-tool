@@ -140,8 +140,6 @@ interface HookState {
   lastDebugLog: PipelineDebugLog | null;
 }
 
-/** Maximum time (ms) to wait for plan generation before timing out. */
-const PLAN_GENERATION_TIMEOUT_MS = 180_000;
 
 const INITIAL_STATE: HookState = {
   isLoading: false,
@@ -308,18 +306,11 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
             model_id: BUILTIN_MODEL_ID,
             model_base_url: effectiveModelBaseUrl,
             preferred_backend: backend,
-            max_seq_length: 1024,
-            max_new_tokens: 512,
-            temperature: 0,
-            top_p: 1.0,
-            repetition_penalty: 1.1,
           },
           retrieval_pack_url: retrievalPackUrl,
           worker_url: "",
           worker,
           template_only: false,
-          max_repair_attempts: 2,
-          min_validation_score: 60,
           debug: isDebugEnabled(),
         });
 
@@ -438,40 +429,19 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
         },
       };
 
-      const runWithTimeout = async (): Promise<SMARTPlan> => {
-        return Promise.race([
-          planner.generatePlan(input, mergedCallbacks),
-          new Promise<never>((_, reject) => {
-            setTimeout(
-              () => reject(new Error("Plan generation timed out")),
-              PLAN_GENERATION_TIMEOUT_MS,
-            );
-          }),
-        ]);
-      };
-
       setState((prev) => ({ ...prev, isGenerating: true, error: null, classifiedError: null }));
       abortRef.current = false;
 
       try {
-        return await runWithTimeout();
+        // The planner now catches inference errors internally and falls back
+        // to retrieval-based templates, so it should always return a valid plan.
+        // Only initialization errors (programmer mistakes) should throw here.
+        return await planner.generatePlan(input, mergedCallbacks);
       } catch (err) {
-        let finalError: unknown = err;
-        const isTimeoutError = err instanceof Error && /timed out/i.test(err.message);
-        if (isTimeoutError) {
-          // First run can exceed timeout while runtime/JIT caches warm up.
-          // Retry once before surfacing a failure to the UI.
-          try {
-            return await runWithTimeout();
-          } catch (retryErr) {
-            finalError = retryErr;
-          }
-        }
-
         // On iOS, a worker crash during generation often manifests as a
         // generic "Worker error" or the promise hanging until timeout.
         // Provide a clear memory-related message for iOS devices.
-        const errMsg = finalError instanceof Error ? finalError.message : String(finalError);
+        const errMsg = err instanceof Error ? err.message : String(err);
         const isWorkerCrash = /Worker error|Worker crashed|memory|OOM/i.test(errMsg);
         if (isWorkerCrash && deviceInfo.isIOS) {
           const iosErr = new Error(
@@ -481,8 +451,8 @@ export function useBrowserNativeLLM(options: UseBrowserNativeLLMOptions = {}) {
           setError(iosErr);
           throw iosErr;
         }
-        setError(finalError);
-        throw finalError;
+        setError(err);
+        throw err;
       } finally {
         setState((prev) => ({ ...prev, isGenerating: false }));
       }

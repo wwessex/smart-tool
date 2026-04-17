@@ -35,6 +35,13 @@ export interface GenerateResult {
   backend: InferenceBackend;
 }
 
+export type LoadProgressCallback = (
+  loaded: number,
+  total: number,
+  phase?: string,
+  file?: string,
+) => void;
+
 /**
  * Abstract inference engine interface.
  * Concrete implementations handle WebGPU vs WASM specifics.
@@ -48,9 +55,7 @@ export abstract class InferenceEngine {
   }
 
   /** Load model weights and create inference session. */
-  abstract load(
-    onProgress?: (loaded: number, total: number) => void
-  ): Promise<void>;
+  abstract load(onProgress?: LoadProgressCallback): Promise<void>;
 
   /** Generate text from a prompt. */
   abstract generate(options: GenerateOptions): Promise<GenerateResult>;
@@ -82,7 +87,7 @@ export class OnnxInferenceEngine extends InferenceEngine {
   }
 
   async load(
-    onProgress?: (loaded: number, total: number) => void
+    onProgress?: LoadProgressCallback
   ): Promise<void> {
     // Dynamic import to avoid loading ONNX Runtime until needed
     const ort = await import("onnxruntime-web");
@@ -184,7 +189,7 @@ export class PuenteInferenceEngine extends InferenceEngine {
   }
 
   async load(
-    onProgress?: (loaded: number, total: number, phase?: string, file?: string) => void
+    onProgress?: LoadProgressCallback
   ): Promise<void> {
     const { TextGenerationPipeline, ModelCache } = await import(
       "@smart-tool/puente-engine"

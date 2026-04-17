@@ -275,6 +275,7 @@ export function SmartActionTool() {
     } else {
       setTaskBasedForm({
         date: item.meta.date || today,
+        time: item.meta.time || '',
         forename: item.meta.forename || '',
         task: item.meta.barrier || '',
         responsible: item.meta.responsible || '',
@@ -966,6 +967,19 @@ export function SmartActionTool() {
                     <WarningText show={!!taskBasedDateError} variant="error" id="future-date-error">
                       {taskBasedDateError}
                     </WarningText>
+
+                    <div className="space-y-2">
+                      <label htmlFor="scheduled-time" className="text-sm font-medium text-muted-foreground">
+                        Time (optional)
+                      </label>
+                      <Input
+                        id="scheduled-time"
+                        value={taskBasedForm.time}
+                        onChange={e => setTaskBasedForm(prev => ({ ...prev, time: e.target.value }))}
+                        placeholder="e.g. 11am"
+                        autoComplete="off"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2 flex-1 min-w-0">
                     <label htmlFor="future-participant-name" className="text-sm font-medium text-muted-foreground">Participant forename</label>

@@ -201,6 +201,7 @@ export function normalizeProfile(input: RawUserInput): UserProfile {
     participant_name: input.participant_name?.trim() || "",
     supporter: input.supporter?.trim() || "",
     resolved_barrier: resolvedBarrier ?? undefined,
+    generation_mode: input.generation_mode || 'action',
   };
 }
 
@@ -237,6 +238,7 @@ function barrierEntryToResolved(entry: {
   prompt_hints: string[];
   do_not_assume: string[];
   contraindicated_stages: string[];
+  starter_actions: string[];
 }): ResolvedBarrier {
   return {
     id: entry.id,
@@ -246,6 +248,7 @@ function barrierEntryToResolved(entry: {
     prompt_hints: entry.prompt_hints,
     do_not_assume: entry.do_not_assume,
     contraindicated_stages: entry.contraindicated_stages,
+    starter_actions: entry.starter_actions,
   };
 }
 

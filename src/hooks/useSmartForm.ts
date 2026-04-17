@@ -18,6 +18,7 @@ const INITIAL_NOW_FORM = (today: string): NowForm => ({
 
 const INITIAL_TASK_BASED_FORM = (today: string): TaskBasedForm => ({
   date: today,
+  time: '',
   forename: '',
   task: '',
   responsible: 'Participant',

@@ -164,27 +164,30 @@ export const DRAFT_HELP_PROMPT_COMPACT = `Action: "{action}"
 
 Job benefit for {subject}? One phrase:`;
 
-export const DRAFT_OUTCOME_PROMPT = `TASK: Write what {forename} will realistically achieve from this activity.
+export const DRAFT_OUTCOME_PROMPT = `TASK: Write what {forename} will realistically achieve DURING or AFTER this activity.
 
 Activity: {task}
 
 RULES:
 1. Start with "{forename} will"
-2. Focus on employment benefit (job skills, confidence, knowledge)
+2. Focus on employment benefit gained AT the activity (confidence, contacts, knowledge, job leads)
 3. One or two sentences max
 4. NEVER mention money, prizes, awards, or guaranteed job offers.
+5. Only describe what happens DURING or AFTER the activity, NOT preparation before it.
 
-WRONG: "complete the project", "learn new technologies", "be awarded £5000", "receive a prize"
+WRONG: "complete the project", "learn new technologies", "be awarded £5000", "write a cover letter", "update LinkedIn profile", "prepare interview answers", "practise networking", "hand out CVs", "gain exposure"
 RIGHT: "{forename} will gain interview skills and feel more confident meeting employers."
+RIGHT: "{forename} will speak to at least 3 employers and note down roles discussed and any next steps."
 
 OUTPUT: One sentence, no quotes.`;
 
 // Compact version
 export const DRAFT_OUTCOME_PROMPT_COMPACT = `Activity: {task}
 
-What will {forename} gain for job search?
+What will {forename} gain DURING this activity?
 Format: "{forename} will [employment benefit]."
 NOT: money, prizes, awards, job offers.
+NOT: preparation before the activity (CVs, cover letters, LinkedIn, research).
 
 One sentence:`;
 

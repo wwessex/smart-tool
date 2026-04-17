@@ -158,11 +158,29 @@ export function parseJsonOutput(rawOutput: string): unknown[] | null {
     return tryParseArray(text.slice(arrayStart, arrayEnd + 1));
   }
 
+  // Array opened but never closed (model ran out of tokens) —
+  // tryParseArray → cleanJsonString → truncateToLastCompleteObject
+  // will recover any complete objects.
+  if (arrayStart !== -1) {
+    const recovered = tryParseArray(text.slice(arrayStart));
+    if (recovered) return recovered;
+  }
+
   // Try finding a single JSON object and wrapping it
   const objStart = text.indexOf("{");
   const objEnd = text.lastIndexOf("}");
   if (objStart !== -1 && objEnd > objStart) {
     const objStr = text.slice(objStart, objEnd + 1);
+    const wrappedObject = tryParseArray(`[${objStr}]`);
+    if (
+      wrappedObject?.length === 1 &&
+      wrappedObject[0] !== null &&
+      typeof wrappedObject[0] === "object" &&
+      !Array.isArray(wrappedObject[0])
+    ) {
+      return wrappedObject;
+    }
+
     try {
       const obj = JSON.parse(cleanJsonString(objStr));
       if (typeof obj === "object" && !Array.isArray(obj)) {
@@ -220,6 +238,13 @@ function cleanJsonString(text: string): string {
   cleaned = truncateToLastCompleteObject(cleaned);
 
   return cleaned;
+}
+
+function isQuoteLikeChar(char: string): boolean {
+  return (
+    char === '"' ||
+    /[\u201C\u201D\u00AB\u00BB\u2039\u203A\u300C\u300D\u300E\u300F\uFF02]/.test(char)
+  );
 }
 
 function normalizeAndEscapeQuotes(text: string): string {
@@ -399,7 +424,7 @@ function fixNewlinesInStrings(text: string): string {
       continue;
     }
 
-    if (char === '"') {
+    if (isQuoteLikeChar(char)) {
       inString = !inString;
       result += char;
       continue;

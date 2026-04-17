@@ -42,6 +42,7 @@ vi.mock("@/lib/smart-retrieval", () => ({
   formatExemplarsForPrompt: () => "",
   retrieveRejectedExemplars: () => [],
   formatRejectedExemplarsForPrompt: () => "",
+  formatTaskExemplarsForPrompt: () => "",
 }));
 
 vi.mock("@/lib/draft-analytics", () => ({

@@ -1,212 +1,168 @@
 # smart-tool
 
-Smart Tool is a TypeScript-first toolkit that provides [short summary of primary purpose — e.g., a collection of utilities, CLI helpers, or domain-specific tooling]. It aims to be small, well-tested, and easy to integrate into TypeScript projects.
+`smart-tool` is a privacy-first React/TypeScript app for writing SMART job-support actions. It is aimed at employment advisors and coaches who need fast, structured action plans that stay specific, measurable, achievable, relevant, and time-bound.
 
-- Primary language: TypeScript (≈96% of the codebase)
-- Additional files: HTML, CSS, and a small amount of JavaScript
+The current app combines:
 
-## Features
+- a barrier-led SMART action workflow
+- local AI drafting through the in-repo browser AI package
+- on-device translation through the in-repo browser translation package
+- history, templates, GDPR export/delete, and local folder sync
+- a prompt-pack workflow for centrally curating AI guidance
+- static-host friendly deployment with PWA support
 
-- Core utilities for [describe main feature area, e.g., "data transformation", "project scaffolding", "API client helpers"]
-- Small, modular functions with strong TypeScript types
-- CLI entrypoint (if applicable) for common workflows
-- Well-structured tests and build pipeline
-- Extensible configuration and plugin-friendly design
+## Main Features
 
-> Replace the bracketed phrases above with project-specific descriptions if you want the README to reflect exact functionality.
+- Two authoring modes:
+  - `now`: barrier-to-action workflow
+  - `future`: task/outcome workflow
+- SMART scoring and guidance via `src/lib/smart-checker.ts`
+- Local AI drafting via `@smart-tool/browser-native-llm`
+- Browser translation via `@smart-tool/lengua-materna`
+- History, templates, recent names, and settings stored locally on-device
+- GDPR-style data export/import and delete-all flows
+- Optional desktop folder sync using the File System Access API
+- Hidden admin route for maintaining `prompt-pack.json`
+- PWA install/update prompts and offline-friendly deployment assets
 
-## Installation
+## Monorepo Layout
 
-Install from npm:
+The root app depends on three local workspace packages:
+
+- `browser-native-llm/` - browser-side SMART planning engine
+- `browser-translation/` - Lengua Materna translation engine
+- `puente-engine/` - lower-level inference/runtime support
+
+Key app folders:
+
+- `src/components/smart/` - main SMART tool UI
+- `src/hooks/` - app state, storage, AI, translation, sync, and PWA hooks
+- `src/lib/` - SMART logic, prompt-pack loading, portability, analytics, and helpers
+- `src/pages/` - app routes (`/`, `/privacy`, `/terms`, `/admin-playbook`)
+- `public/` - icons, manifest, service worker, retrieval pack, prompt pack
+- `supabase/` - Supabase config, migration, and the `custom-knowledge-base` Edge Function
+- `.github/workflows/` - CI and deployment workflows
+
+## Getting Started
+
+### Prerequisites
+
+- Bun is preferred because CI uses Bun
+- npm also works for the root app scripts
+- Python 3 is required for model download scripts
+
+### Install
 
 ```bash
-npm install --save smart-tool
-# or
-yarn add smart-tool
+bun install
 ```
 
-If this repository is intended to be used locally or as a dev tool, install dev dependencies and build:
+If you prefer npm:
 
 ```bash
-git clone https://github.com/wwessex/smart-tool.git
-cd smart-tool
 npm install
-npm run build
 ```
 
-
-## Local Translation Model Provisioning
-
-Lengua Materna translation runs against local files in `public/models/` when operating in offline/local-only mode.
+### Run the app
 
 ```bash
-npm run fetch-models
+bun run dev
 ```
 
-This command provisions:
-- `public/models/smart-planner-150m-q4/` (local planner model)
-- `public/models/<translation-model-id>/` for all translation models in `browser-translation/src/models/registry.ts`
+The Vite dev server runs on port `8080`.
 
-Shipped translation model IDs:
-`opus-mt-ar-en`, `opus-mt-bn-en`, `opus-mt-cy-en`, `opus-mt-de-en`, `opus-mt-en-ar`, `opus-mt-en-bn`, `opus-mt-en-cy`, `opus-mt-en-de`, `opus-mt-en-es`, `opus-mt-en-fr`, `opus-mt-en-hi`, `opus-mt-en-it`, `opus-mt-en-pa`, `opus-mt-en-pl`, `opus-mt-en-ps`, `opus-mt-en-pt`, `opus-mt-en-so`, `opus-mt-en-ti`, `opus-mt-en-ur`, `opus-mt-es-en`, `opus-mt-fr-en`, `opus-mt-hi-en`, `opus-mt-it-en`, `opus-mt-pa-en`, `opus-mt-pl-en`, `opus-mt-ps-en`, `opus-mt-pt-en`, `opus-mt-so-en`, `opus-mt-ti-en`, `opus-mt-ur-en`.
-
-Validate that every `MODEL_REGISTRY` entry has required local artifacts:
+### Build
 
 ```bash
-npm run validate:translation-models
-LOCAL_ONLY_MODELS=1 npm run validate:translation-models:offline
+bun run build
 ```
 
-Required per-model file layout is documented in `browser-translation/README.md`.
-
-### Translation environment variables
-
-The translation hook (`src/hooks/useTranslation.ts`) supports these Vite env vars:
-
-- `VITE_ALLOW_REMOTE_TRANSLATION_MODELS`
-  - `"true"` enables remote model fallback.
-  - `"false"` disables remote model fallback.
-  - If unset, remote model fallback defaults to disabled in production builds and enabled in non-production/test contexts.
-- `VITE_HF_TOKEN` (optional)
-  - If set, requests for remote translation models include `Authorization: Bearer <token>`.
-- `VITE_REMOTE_MODEL_BASE_PATH` (optional)
-  - Overrides the remote model host/base path used by the translation engine.
-
-Example:
+### Test and lint
 
 ```bash
-VITE_ALLOW_REMOTE_TRANSLATION_MODELS=true
-VITE_HF_TOKEN=hf_xxx
-VITE_REMOTE_MODEL_BASE_PATH=https://huggingface.co
+bun run test
+bun run lint
+bun run tsc --noEmit
 ```
 
-> Security note: Vite `VITE_*` variables are exposed to browser clients. Do not use sensitive long-lived/private tokens unless you explicitly accept the risk of browser exposure.
-
-## Quick start / Usage
-
-Example (importing from TypeScript):
-
-```ts
-import { exampleFunction } from 'smart-tool';
-
-const result = exampleFunction({ /* options */ });
-console.log(result);
-```
-
-If the project exposes a CLI:
+npm equivalents:
 
 ```bash
-npx smart-tool command --option value
-# or after building locally
-node ./dist/cli.js command --option value
-```
-
-Include a short, copy-pastable example showing the most common use-case for your users.
-
-## Configuration
-
-smart-tool supports configuration via:
-- config file (e.g., `smarttool.config.{ts,js,json}`)
-- environment variables (prefix SMART_TOOL_)
-- programmatic API (pass an options object to the initializer)
-
-Example config snippet:
-
-```js
-// smarttool.config.js
-module.exports = {
-  optionA: true,
-  apiKey: process.env.SMART_TOOL_API_KEY,
-};
-```
-
-## Development
-
-Scripts (add or adjust to match package.json):
-
-```bash
-# Install dependencies
-npm install
-
-# Build TypeScript
-npm run build
-
-# Run tests
-npm test
-
-# Run linter
+npm run test
 npm run lint
-
-# Run typecheck
-npm run typecheck
+npx tsc --noEmit
 ```
 
-Suggested package.json scripts (if not already present):
+## Environment Variables
 
-```json
-{
-  "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "test": "vitest",
-    "lint": "eslint . --ext .ts,.tsx",
-    "typecheck": "tsc --noEmit"
-  }
-}
+The app currently uses these environment variables:
+
+- `VITE_SUPABASE_URL`
+  - Supabase project URL for the authenticated client and Edge Functions
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+  - Supabase publishable key used by the browser client
+- `VITE_PROMPT_PACK_URL` (optional)
+  - Overrides the default `prompt-pack.json` location
+- `VITE_ALLOW_REMOTE_TRANSLATION_MODELS` (optional)
+  - Enables remote fallback for translation models
+- `VITE_HF_TOKEN` (optional)
+  - Bearer token for remote translation model requests
+- `VITE_REMOTE_MODEL_BASE_PATH` (optional)
+  - Overrides the remote translation model host/base path
+
+## Local Model Provisioning
+
+For fully local/offline deployments, download model artifacts into `public/models/`.
+
+Install the Python dependency first:
+
+```bash
+pip install huggingface_hub
 ```
 
-Adjust test runner and linters to match the repository's current setup (Jest, Vitest, ESLint, etc.).
+Then provision model files:
 
-## Contributing
+```bash
+bun run fetch-models
+```
 
-Contributions are welcome!
+This script downloads:
 
-- Open an issue describing the problem or feature
-- Fork the repo and create a feature branch
-- Run tests and linters before submitting a PR
-- Follow the existing code style and TypeScript conventions
-- Provide tests for new features and bug fixes
+- planner assets into `public/models/smart-planner-150m-q4/`
+- translation assets for every model listed in `browser-translation/src/models/registry.ts`
 
-Suggested branch / PR workflow:
-1. Create a branch: `git checkout -b feat/short-description`
-2. Make changes, run tests: `npm test`
-3. Open a PR with a clear description and link any related issues
+Validate the translation model layout with:
 
-## Testing & CI
+```bash
+bun run validate:translation-models
+LOCAL_ONLY_MODELS=1 bun run validate:translation-models:offline
+```
 
-- The repository is TypeScript-first; ensure changes pass `npm run typecheck`.
-- Tests should run in CI (GitHub Actions suggested). Example GitHub Actions job:
-  - install Node
-  - install dependencies
-  - run typecheck, lint, build, and tests
+## Development Notes
 
-If you want, I can draft a GitHub Actions workflow file for this repo.
+- The app uses `HashRouter` and Vite `base: './'` so the built site can be uploaded to subfolders and simple static hosts.
+- The prompt-pack system loads from `public/prompt-pack.json` by default, caches a copy in IndexedDB, and can be managed in the hidden admin route at `#/admin-playbook`.
+- The service worker and install/update prompts are enabled in the main app shell. Deployment notes live in `public/DEPLOYMENT.md`.
+- User data is designed to stay local by default. Supabase is currently used for the custom knowledge base backend and authenticated function access.
 
-## API / Reference
+## Testing Coverage
 
-Add a short API reference here or link to a docs folder. Example:
+Tests live under `src/test/` and cover:
 
-- `exampleFunction(options)` — do X, returns Y
-- `anotherUtility(input)` — does Z
+- UI components
+- storage/import-export behavior
+- prompt-pack loading
+- translation hook behavior
+- browser AI integration
+- SMART logic and retrieval helpers
+- custom knowledge base API wrapper
 
-## License
+## Deployment
 
-Specify the license (e.g., MIT). Example:
+Build a static bundle:
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+```bash
+bun run build
+```
 
-## Maintainers / Contact
-
-Maintainer: wwessex
-
-For questions or help, open an issue or contact the maintainer via GitHub.
-
-## Roadmap / TODO
-
-- Document public API in more detail
-- Add more examples and recipes in `/docs`
-- Improve test coverage for edge cases
-- (Replace with your project-specific roadmap items)
-
-## Acknowledgements
-
-Mention libraries, inspirations, or contributors.
+Then upload the contents of `dist/` to your static host. See `public/DEPLOYMENT.md` for cache-handling and service-worker troubleshooting notes.

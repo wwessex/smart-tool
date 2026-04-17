@@ -357,6 +357,77 @@ describe("smart-checker", () => {
     });
   });
 
+  describe("edge cases", () => {
+    it("handles very long text without crashing", () => {
+      const longText = "John will attend the workshop. ".repeat(500);
+      const result = checkSmart(longText, { forename: "John" });
+
+      expect(result).toBeDefined();
+      expect(typeof result.overallScore).toBe("number");
+    });
+
+    it("handles text with special characters", () => {
+      const text = "John will attend the café & résumé workshop — it's «great»!";
+      const result = checkSmart(text, { forename: "John" });
+
+      expect(result).toBeDefined();
+      expect(result.specific.met).toBe(true);
+    });
+
+    it("handles text with Unicode characters", () => {
+      const text = "Müller will attend the Zürich employment centre by 15-Jan-26.";
+      const result = checkSmart(text, { forename: "Müller" });
+
+      expect(result).toBeDefined();
+      expect(typeof result.overallScore).toBe("number");
+    });
+
+    it("handles text with only whitespace", () => {
+      const result = checkSmart("   \t\n  ");
+
+      expect(result.overallScore).toBe(0);
+    });
+
+    it("handles text with numbers only", () => {
+      const result = checkSmart("12345 67890");
+
+      expect(result).toBeDefined();
+      expect(typeof result.overallScore).toBe("number");
+    });
+
+    it("returns consistent scores for identical inputs (cache)", () => {
+      const text = "John will attend 3 workshops by next Friday.";
+      const meta = { forename: "John", barrier: "Training" };
+
+      const result1 = checkSmart(text, meta);
+      const result2 = checkSmart(text, meta);
+
+      expect(result1.overallScore).toBe(result2.overallScore);
+      expect(result1.specific.met).toBe(result2.specific.met);
+      expect(result1.measurable.met).toBe(result2.measurable.met);
+    });
+
+    it("gives partial score for partially SMART action", () => {
+      const text = "John will attend something.";
+      const result = checkSmart(text, { forename: "John" });
+
+      expect(result.overallScore).toBeGreaterThan(0);
+      expect(result.overallScore).toBeLessThan(5);
+    });
+
+    it("handles meta with empty string values", () => {
+      const text = "Complete the task by next week.";
+      const result = checkSmart(text, {
+        forename: "",
+        barrier: "",
+        timescale: "",
+      });
+
+      expect(result).toBeDefined();
+      expect(typeof result.overallScore).toBe("number");
+    });
+  });
+
   describe("date format detection", () => {
     const dateFormats = [
       "15-Jan-26",
