@@ -1,0 +1,450 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0A30BAFAF6E1AEB7E94E063A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB6646869EF567B88E92B513 /* AppDelegate.swift */; };
+		10A5FECD57A12ABE1996C5FD /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49CA9D6CF487962151F9556F /* AboutView.swift */; };
+		292193EA8192A6BEA4A0CF99 /* WorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D96D0EC4419F2950D445BAA7 /* WorkspaceView.swift */; };
+		2A0722EE90DBD0CC301F5286 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8975966008E6C56BA50333C1 /* AppModel.swift */; };
+		3B01EC4D90B5F6499B93E83D /* SmartToolCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BDD7EA10F1E32FC155CC120 /* SmartToolCommands.swift */; };
+		3CB129EA7FF16DC96625ADF1 /* AppTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8D55EDBD48543CFEF2B6A85 /* AppTelemetry.swift */; };
+		3E99B9C2424BC8CC24406C2D /* SMARTToolMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A18438E9EB69DC3D0D02F667 /* SMARTToolMacApp.swift */; };
+		45CEB4FC49E7816E95BF67A8 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33B5CB72065D4742EAFB2EFB /* SidebarView.swift */; };
+		4CBB62AD54103FFCBA9E7169 /* AppSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D2390303113D2C288C393C2 /* AppSection.swift */; };
+		4F02B4FD510569D78BA6A206 /* WebArchiveLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62419C252F0686BB98FB5909 /* WebArchiveLocator.swift */; };
+		A1B6AE7626E537BE661CD131 /* WebViewContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 852419A1C44DC576B806A7B6 /* WebViewContainer.swift */; };
+		B376D1DACF0704EE2C3B68BB /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 303E18326D9C4916CD8CA9B7 /* DiagnosticsView.swift */; };
+		C7B9C659B82E4D3BC927C035 /* BundledWebServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5DCDF4709A859B64CC03A4D /* BundledWebServer.swift */; };
+		D3E941670C96AC4C4D8D68BC /* SyncFolderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9886FB80064936BBA2B85B5 /* SyncFolderService.swift */; };
+		D75269098F0F7B3039C322FF /* SyncView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0EFDA614BCD3F89F24FC5E3 /* SyncView.swift */; };
+		E46AA0F2E985B6DE4301C264 /* InspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5403027A0BBD1D5DEB5BBBD5 /* InspectorView.swift */; };
+		F668FCD2E856093381AD2CC5 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F80A65C3350F701B48D5F52 /* ContentView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0BDD7EA10F1E32FC155CC120 /* SmartToolCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartToolCommands.swift; sourceTree = "<group>"; };
+		2F80A65C3350F701B48D5F52 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		303E18326D9C4916CD8CA9B7 /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
+		33B5CB72065D4742EAFB2EFB /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
+		49CA9D6CF487962151F9556F /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
+		5403027A0BBD1D5DEB5BBBD5 /* InspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorView.swift; sourceTree = "<group>"; };
+		5D2390303113D2C288C393C2 /* AppSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSection.swift; sourceTree = "<group>"; };
+		62419C252F0686BB98FB5909 /* WebArchiveLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebArchiveLocator.swift; sourceTree = "<group>"; };
+		852419A1C44DC576B806A7B6 /* WebViewContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewContainer.swift; sourceTree = "<group>"; };
+		8975966008E6C56BA50333C1 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		A18438E9EB69DC3D0D02F667 /* SMARTToolMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMARTToolMacApp.swift; sourceTree = "<group>"; };
+		A7AAFDD5B9193810D8754C2D /* SMARTToolMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SMARTToolMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B8D55EDBD48543CFEF2B6A85 /* AppTelemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTelemetry.swift; sourceTree = "<group>"; };
+		B9886FB80064936BBA2B85B5 /* SyncFolderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncFolderService.swift; sourceTree = "<group>"; };
+		C5DCDF4709A859B64CC03A4D /* BundledWebServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledWebServer.swift; sourceTree = "<group>"; };
+		CB6646869EF567B88E92B513 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		D0EFDA614BCD3F89F24FC5E3 /* SyncView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncView.swift; sourceTree = "<group>"; };
+		D96D0EC4419F2950D445BAA7 /* WorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		004B9EF8A88F7FC861772D4A /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				5D2390303113D2C288C393C2 /* AppSection.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		0BC3418173454579DE333B52 = {
+			isa = PBXGroup;
+			children = (
+				211B1D921E778AC0C3BFB94D /* Sources */,
+				BC3A42EE75CDDDB4589D0981 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		211B1D921E778AC0C3BFB94D /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				D1DCCCD6C319FAF50DFCB65A /* SMARTToolMac */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		52AE1B51EFB38252C0E7047B /* Stores */ = {
+			isa = PBXGroup;
+			children = (
+				8975966008E6C56BA50333C1 /* AppModel.swift */,
+			);
+			path = Stores;
+			sourceTree = "<group>";
+		};
+		7FFDC189709D371E8B10DB7A /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				B8D55EDBD48543CFEF2B6A85 /* AppTelemetry.swift */,
+				C5DCDF4709A859B64CC03A4D /* BundledWebServer.swift */,
+				B9886FB80064936BBA2B85B5 /* SyncFolderService.swift */,
+				62419C252F0686BB98FB5909 /* WebArchiveLocator.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		8A582F2CB25A601E52477257 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				CB6646869EF567B88E92B513 /* AppDelegate.swift */,
+				A18438E9EB69DC3D0D02F667 /* SMARTToolMacApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		8BDC9174EE8F3CAEA95203D2 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				49CA9D6CF487962151F9556F /* AboutView.swift */,
+				2F80A65C3350F701B48D5F52 /* ContentView.swift */,
+				303E18326D9C4916CD8CA9B7 /* DiagnosticsView.swift */,
+				5403027A0BBD1D5DEB5BBBD5 /* InspectorView.swift */,
+				33B5CB72065D4742EAFB2EFB /* SidebarView.swift */,
+				D0EFDA614BCD3F89F24FC5E3 /* SyncView.swift */,
+				852419A1C44DC576B806A7B6 /* WebViewContainer.swift */,
+				D96D0EC4419F2950D445BAA7 /* WorkspaceView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		BC3A42EE75CDDDB4589D0981 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A7AAFDD5B9193810D8754C2D /* SMARTToolMac.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C6858AE9B48AC237E67192DD /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				0BDD7EA10F1E32FC155CC120 /* SmartToolCommands.swift */,
+			);
+			path = Support;
+			sourceTree = "<group>";
+		};
+		D1DCCCD6C319FAF50DFCB65A /* SMARTToolMac */ = {
+			isa = PBXGroup;
+			children = (
+				8A582F2CB25A601E52477257 /* App */,
+				004B9EF8A88F7FC861772D4A /* Models */,
+				7FFDC189709D371E8B10DB7A /* Services */,
+				52AE1B51EFB38252C0E7047B /* Stores */,
+				C6858AE9B48AC237E67192DD /* Support */,
+				8BDC9174EE8F3CAEA95203D2 /* Views */,
+			);
+			path = SMARTToolMac;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0DE228EAA6EAD582BEE2013C /* SMARTToolMac */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 31522224758C281613A589C8 /* Build configuration list for PBXNativeTarget "SMARTToolMac" */;
+			buildPhases = (
+				E4DC07706755213D6E3D57F9 /* Sources */,
+				A07C3B0E09B617AECA459E34 /* Prepare Web Bundle */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SMARTToolMac;
+			packageProductDependencies = (
+			);
+			productName = SMARTToolMac;
+			productReference = A7AAFDD5B9193810D8754C2D /* SMARTToolMac.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		121453E4DD3159CA5F3F4BD8 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					0DE228EAA6EAD582BEE2013C = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 77D55FCA27B30CA0E98852C0 /* Build configuration list for PBXProject "SMARTToolMac" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 0BC3418173454579DE333B52;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = BC3A42EE75CDDDB4589D0981 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				0DE228EAA6EAD582BEE2013C /* SMARTToolMac */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A07C3B0E09B617AECA459E34 /* Prepare Web Bundle */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Prepare Web Bundle";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"$SRCROOT/Scripts/prepare_web_bundle.sh\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		E4DC07706755213D6E3D57F9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				10A5FECD57A12ABE1996C5FD /* AboutView.swift in Sources */,
+				0A30BAFAF6E1AEB7E94E063A /* AppDelegate.swift in Sources */,
+				2A0722EE90DBD0CC301F5286 /* AppModel.swift in Sources */,
+				4CBB62AD54103FFCBA9E7169 /* AppSection.swift in Sources */,
+				3CB129EA7FF16DC96625ADF1 /* AppTelemetry.swift in Sources */,
+				C7B9C659B82E4D3BC927C035 /* BundledWebServer.swift in Sources */,
+				F668FCD2E856093381AD2CC5 /* ContentView.swift in Sources */,
+				B376D1DACF0704EE2C3B68BB /* DiagnosticsView.swift in Sources */,
+				E46AA0F2E985B6DE4301C264 /* InspectorView.swift in Sources */,
+				3E99B9C2424BC8CC24406C2D /* SMARTToolMacApp.swift in Sources */,
+				45CEB4FC49E7816E95BF67A8 /* SidebarView.swift in Sources */,
+				3B01EC4D90B5F6499B93E83D /* SmartToolCommands.swift in Sources */,
+				D3E941670C96AC4C4D8D68BC /* SyncFolderService.swift in Sources */,
+				D75269098F0F7B3039C322FF /* SyncView.swift in Sources */,
+				4F02B4FD510569D78BA6A206 /* WebArchiveLocator.swift in Sources */,
+				A1B6AE7626E537BE661CD131 /* WebViewContainer.swift in Sources */,
+				292193EA8192A6BEA4A0CF99 /* WorkspaceView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		0B255D1DB2C68F6A3A28F6EB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				EXECUTABLE_NAME = SMARTToolMac;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Config/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = uk.smarttool.macos;
+				PRODUCT_NAME = "SMART Tool";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		19057CE01A06658F23FE6C75 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				EXECUTABLE_NAME = SMARTToolMac;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Config/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = uk.smarttool.macos;
+				PRODUCT_NAME = "SMART Tool";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		84B4A5B551A8DB8C58FED935 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				EXECUTABLE_NAME = SMARTToolMac;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Config/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = uk.smarttool.macos;
+				PRODUCT_NAME = "SMART Tool";
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		F6387E7F7B147B157EA52A8E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				EXECUTABLE_NAME = SMARTToolMac;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Config/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = uk.smarttool.macos;
+				PRODUCT_NAME = "SMART Tool";
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		31522224758C281613A589C8 /* Build configuration list for PBXNativeTarget "SMARTToolMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F6387E7F7B147B157EA52A8E /* Debug */,
+				84B4A5B551A8DB8C58FED935 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		77D55FCA27B30CA0E98852C0 /* Build configuration list for PBXProject "SMARTToolMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				19057CE01A06658F23FE6C75 /* Debug */,
+				0B255D1DB2C68F6A3A28F6EB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 121453E4DD3159CA5F3F4BD8 /* Project object */;
+}

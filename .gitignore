@@ -23,6 +23,12 @@ release
 *.njsproj
 *.sln
 *.sw?
+*.xcuserstate
+*.xcuserdatad
+*.xccheckout
+macos/.build/
+macos/.swiftpm/
+macos/Sources/SMARTToolMac/Smart Tool/
 
 # Self-hosted model downloads (large)
 public/models/
