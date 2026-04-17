@@ -66,7 +66,7 @@ async function handleInit(config: InferenceConfig): Promise<void> {
     // Create Puente Engine inference (custom ONNX Runtime backend with
     // full tokenization, KV cache, and generation loop).
     engine = new PuenteInferenceEngine(config, activeBackend);
-    await engine.load((loaded, total, phase, file) => {
+    await engine.load((loaded: number, total: number, phase?: string, file?: string) => {
       postMessage({
         type: "progress",
         progress: {

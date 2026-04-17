@@ -367,12 +367,10 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
 
     // Step 7: Fallback to template-based actions if repair loop exhausted
     const isFallback = actions === null;
-    if (isFallback) {
-      actions = createFallbackActions(
-        profile,
-        retrieval.templates
-      );
-    }
+    const finalActions = actions ?? createFallbackActions(
+      profile,
+      retrieval.templates
+    );
 
     const endTime = performance.now();
 
@@ -380,7 +378,7 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
     debugLog.logOutcome(
       isFallback ? "fallback_templates" : usedRepair ? "repair_success" : "llm_success",
       endTime - startTime,
-      actions.length,
+      finalActions.length,
     );
     const debugResult = debugLog.flush();
     if (debugResult) {
@@ -388,7 +386,7 @@ ${buildRetryInstructionBlock(validation.failureSummary, repairAttempts)}`
     }
 
     return {
-      actions,
+      actions: finalActions,
       metadata: {
         model_id: this.config.inference.model_id,
         model_version: "0.1.0",
