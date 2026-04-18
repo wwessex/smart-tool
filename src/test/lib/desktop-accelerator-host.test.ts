@@ -66,6 +66,36 @@ describe("desktop-accelerator-host", () => {
     });
   });
 
+  it("reports missing packaged runtimes before attempting to spawn", () => {
+    const host = new DesktopAcceleratorHost({
+      manifest: {
+        version: 1,
+        default_model_id: "smart-tool-planner-gguf-v1",
+        models: [
+          {
+            id: "smart-tool-planner-gguf-v1",
+            filename: "planner.gguf",
+            download_url: "https://example.com/model.gguf",
+            sha256: null,
+            size_bytes: null,
+            context_size: 4096,
+            runtime: {},
+          },
+        ],
+      },
+      fetchImpl: vi.fn(),
+      runtimeSearchRoots: [path.join(tempDir, "missing-runtime")],
+      telemetry: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    });
+
+    expect(host.health()).toMatchObject({
+      ok: false,
+      ready: false,
+      status: "not-installed",
+      message: "Desktop Accelerator could not find a bundled llama-server runtime.",
+    });
+  });
+
   it("downloads once, generates, unloads, and reloads without changing the contract", async () => {
     const modelBytes = Buffer.from("gguf-model");
     const modelSha = sha256(modelBytes);
@@ -231,5 +261,50 @@ describe("desktop-accelerator-host", () => {
       backend: "llama.cpp-cpu",
     });
     expect(spawnImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("prefers bundled runtime directories when packaging provided them", async () => {
+    const runtimeRoot = path.join(tempDir, "DesktopAccelerator");
+    const bundledRuntimeDir = path.join(runtimeRoot, "runtimes", "win32-x64");
+    await fs.mkdir(bundledRuntimeDir, { recursive: true });
+    await fs.writeFile(path.join(bundledRuntimeDir, "llama-server.exe"), "binary");
+
+    const spawnImpl = vi.fn(() => createFakeChild());
+    const host = new DesktopAcceleratorHost({
+      manifest: {
+        version: 1,
+        default_model_id: "smart-tool-planner-gguf-v1",
+        models: [
+          {
+            id: "smart-tool-planner-gguf-v1",
+            filename: "planner.gguf",
+            download_url: "https://example.com/model.gguf",
+            sha256: null,
+            size_bytes: null,
+            context_size: 4096,
+            runtime: {},
+          },
+        ],
+      },
+      fetchImpl: vi.fn(),
+      platform: "win32",
+      arch: "x64",
+      runtimeSearchRoots: [runtimeRoot],
+      spawnImpl,
+      telemetry: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    });
+
+    host.spawnServerProcess(path.join(tempDir, "planner.gguf"), "smart-tool-planner-gguf-v1", 0);
+
+    expect(spawnImpl).toHaveBeenCalledWith(
+      path.join(bundledRuntimeDir, "llama-server.exe"),
+      expect.any(Array),
+      expect.objectContaining({
+        cwd: bundledRuntimeDir,
+        env: expect.objectContaining({
+          PATH: expect.stringContaining(bundledRuntimeDir),
+        }),
+      }),
+    );
   });
 });

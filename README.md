@@ -78,13 +78,28 @@ The Vite dev server runs on port `8080`.
 bun run build
 ```
 
-### Run As A Desktop App
+### Install SMART Tool Desktop Apps
 
-The repo uses an Electron shell for desktop delivery. Electron is the right fit
-here because the app already depends on a Node-side desktop helper and a narrow
-preload bridge for native folder sync and local AI helper access.
+Use the published desktop installers if you want the plug-and-play Desktop
+Accelerator experience:
 
-Run it locally in desktop mode:
+- macOS (Apple Silicon): `https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-macOS-arm64.dmg`
+- Windows x64: `https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-Windows-x64-Setup.exe`
+- Windows arm64: `https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-Windows-arm64-Setup.exe`
+
+The desktop apps embed Desktop Accelerator directly. On first launch they
+download the local GGUF model into app data and reuse it on later launches.
+Normal browser users should use these installers instead of building from this
+repository.
+
+### Build The Desktop Apps Locally
+
+The repo uses two desktop shells:
+
+- Electron for Windows packaging and native folder sync
+- a native SwiftUI macOS shell under `macos/`
+
+Run the Electron shell locally in desktop mode:
 
 ```bash
 npm run desktop:dev
@@ -108,12 +123,14 @@ Notes:
 
 - the packaged desktop app loads the existing Vite build from `dist/`
 - Electron and Electron Builder are fetched on demand by the desktop scripts via `npx`
+- the Windows packaging scripts stage a pinned `llama.cpp` runtime into `desktop-helper/runtime/staged/` before packaging
 - Desktop Accelerator is embedded in the Electron shell through the preload bridge and shared accelerator host
 - folder sync uses the native folder picker and writes directly to the chosen Windows folder, including OneDrive-backed folders
 - on Windows, `npm run desktop:build` produces an unpacked executable at `release/win-unpacked/SMART Tool.exe`
 - on Windows, `npm run desktop:dist:win` produces x64 and ARM64 installer/portable artifacts under `release/`
 - `script/build_and_run.ps1` is the project-local Windows entrypoint for kill/build/run and verify flows
 - `.github/workflows/windows-desktop.yml` builds the Windows desktop artifacts on `windows-latest`, which is the supported verification path from non-Windows hosts
+- `.github/workflows/release-desktop.yml` is the signed tag-driven release workflow for public installers
 
 ### Native macOS shell
 
@@ -144,7 +161,8 @@ Notes:
   `~/Library/Developer/Xcode/DerivedData/SMARTToolMac-Codex` by default so the
   signed app bundle is built outside iCloud-synced `Documents` folders
 - the native Xcode target runs a build-phase script that rebuilds the Vite app
-  when needed and copies `dist/` into `SMART Tool.app/Contents/Resources/WebApp`
+  when needed, stages the pinned `llama.cpp` runtime, and copies both the web
+  bundle and accelerator resources into the app
 - the native shell serves the bundled web build over a local loopback server,
   then loads it in `WKWebView` so the app avoids `file://` restrictions
 - the native shell injects a desktop bridge into `WKWebView` so the React app
@@ -211,10 +229,11 @@ The app currently uses these environment variables:
 - `VITE_REMOTE_MODEL_BASE_PATH` (optional)
   - Overrides the remote translation model host/base path
 
-### Desktop Accelerator helper
+### Advanced Manual Desktop Setup
 
 Desktop builds now embed Desktop Accelerator directly. Browser and PWA builds
-can still talk to a loopback helper for development or compatibility testing.
+can still talk to a loopback helper for development or compatibility testing,
+but that is an advanced path rather than the recommended install experience.
 
 - `SMART_TOOL_HELPER_MODEL_URL`
   - Optional override for the bundled model manifest URL. Must point to a GGUF model file that `llama-server` can load.
@@ -243,9 +262,14 @@ Start the helper manually:
 npm run helper:start
 ```
 
-The shared manifest lives at `desktop-helper/desktop-accelerator.manifest.json`.
-Desktop builds download that GGUF model on first use into app data, then reuse
-the cached copy on later launches.
+The shared model manifest lives at `desktop-helper/desktop-accelerator.manifest.json`.
+The pinned runtime manifest for packaged `llama-server` bundles lives at
+`desktop-helper/runtime/runtime-manifest.json`. The staging script that prepares
+those packaged runtimes is `scripts/stage-desktop-accelerator-runtime.mjs`.
+
+Desktop builds download the GGUF model on first use into app data, then reuse
+the cached copy on later launches. The manual helper remains useful for local
+development, unsupported desktop platforms, and compatibility testing.
 
 If the embedded runtime or browser helper is unavailable, the app falls back to
 Browser AI or Smart Templates.

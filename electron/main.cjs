@@ -9,6 +9,22 @@ let mainWindow = null;
 let desktopHelper = null;
 let desktopSettings = { syncFolderPath: null };
 
+function getDesktopAcceleratorRoot() {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, "DesktopAccelerator");
+  }
+  return path.join(__dirname, "..", "desktop-helper", "runtime", "staged");
+}
+
+async function pathExists(targetPath) {
+  try {
+    await fs.stat(targetPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function getSettingsPath() {
   return path.join(app.getPath("userData"), SETTINGS_FILE);
 }
@@ -34,7 +50,15 @@ async function ensureDesktopHelper() {
   if (desktopHelper) return desktopHelper;
 
   const helperModule = await import(path.join(__dirname, "..", "desktop-helper", "src", "host.js"));
-  desktopHelper = helperModule.createDesktopAcceleratorHost();
+  const acceleratorRoot = getDesktopAcceleratorRoot();
+  const runtimeOptions = await pathExists(acceleratorRoot)
+    ? {
+        manifestPath: path.join(acceleratorRoot, "manifest.json"),
+        runtimeSearchRoots: [acceleratorRoot],
+      }
+    : {};
+
+  desktopHelper = helperModule.createDesktopAcceleratorHost(runtimeOptions);
   return desktopHelper;
 }
 

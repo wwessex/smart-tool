@@ -84,6 +84,10 @@ function uniqueNumbers(values) {
   return values.filter((value, index, list) => list.indexOf(value) === index);
 }
 
+function isPathLike(value) {
+  return typeof value === "string" && (path.isAbsolute(value) || value.includes("/") || value.includes("\\"));
+}
+
 function parseManifest(rawManifest, manifestPath) {
   if (!rawManifest || typeof rawManifest !== "object") {
     throw new Error(`Desktop accelerator manifest at ${manifestPath} must be a JSON object.`);
@@ -240,6 +244,13 @@ export class DesktopAcceleratorHost {
     this.modelDir = options.modelDir
       || process.env.SMART_TOOL_HELPER_MODEL_DIR
       || path.join(getDefaultAppDataDir(this.platform), "models");
+    this.runtimeSearchRoots = [
+      ...(options.runtimeSearchRoots || []),
+      options.runtimeSearchRoot,
+      process.env.SMART_TOOL_HELPER_RUNTIME_ROOT,
+    ]
+      .filter(Boolean)
+      .map((value) => path.resolve(String(value)));
     this.llamaServerBin = options.llamaServerBin || process.env.SMART_TOOL_LLAMA_SERVER_BIN || "llama-server";
     this.threads = numberOrNull(options.threads || process.env.SMART_TOOL_HELPER_THREADS)
       || Math.max(1, (os.availableParallelism?.() || 4) - 1);
@@ -279,10 +290,72 @@ export class DesktopAcceleratorHost {
       if (!model.download_url) {
         return `No download URL configured for ${model.id}.`;
       }
+      if (this.runtimeSearchRoots.length > 0 && !this.findBundledRuntimeDir()) {
+        return "Desktop Accelerator could not find a bundled llama-server runtime.";
+      }
       return null;
     } catch (error) {
       return error?.payload?.message || error.message || "Desktop Accelerator is not configured.";
     }
+  }
+
+  runtimeExecutableName() {
+    return this.platform === "win32" ? "llama-server.exe" : "llama-server";
+  }
+
+  findBundledRuntimeDir() {
+    const executableName = this.runtimeExecutableName();
+
+    for (const root of this.runtimeSearchRoots) {
+      const candidates = [
+        path.join(root, "runtimes", `${this.platform}-${this.arch}`),
+        path.join(root, `${this.platform}-${this.arch}`),
+        root,
+      ];
+
+      for (const candidate of candidates) {
+        if (existsSync(path.join(candidate, executableName))) {
+          return candidate;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  resolveLlamaServerBinary() {
+    if (isPathLike(this.llamaServerBin)) {
+      return this.llamaServerBin;
+    }
+
+    const bundledRuntimeDir = this.findBundledRuntimeDir();
+    if (bundledRuntimeDir) {
+      return path.join(bundledRuntimeDir, this.runtimeExecutableName());
+    }
+
+    return this.llamaServerBin;
+  }
+
+  runtimeEnvironmentFor(executablePath) {
+    if (!isPathLike(executablePath)) {
+      return process.env;
+    }
+
+    const runtimeDir = path.dirname(executablePath);
+    const separator = this.platform === "win32" ? ";" : ":";
+    return {
+      ...process.env,
+      PATH: process.env.PATH ? `${runtimeDir}${separator}${process.env.PATH}` : runtimeDir,
+      DYLD_LIBRARY_PATH: process.env.DYLD_LIBRARY_PATH
+        ? `${runtimeDir}:${process.env.DYLD_LIBRARY_PATH}`
+        : runtimeDir,
+      DYLD_FALLBACK_LIBRARY_PATH: process.env.DYLD_FALLBACK_LIBRARY_PATH
+        ? `${runtimeDir}:${process.env.DYLD_FALLBACK_LIBRARY_PATH}`
+        : runtimeDir,
+      LD_LIBRARY_PATH: process.env.LD_LIBRARY_PATH
+        ? `${runtimeDir}:${process.env.LD_LIBRARY_PATH}`
+        : runtimeDir,
+    };
   }
 
   runtimeSettingsFor(modelId = this.defaultModelId) {
@@ -505,6 +578,7 @@ export class DesktopAcceleratorHost {
   }
 
   spawnServerProcess(modelPath, modelId, gpuLayers) {
+    const llamaServerBinary = this.resolveLlamaServerBinary();
     const args = [
       "--host", this.host,
       "--port", String(this.internalPort),
@@ -515,9 +589,10 @@ export class DesktopAcceleratorHost {
       ...this.extraArgs,
     ];
 
-    const child = this.spawnImpl(this.llamaServerBin, args, {
+    const child = this.spawnImpl(llamaServerBinary, args, {
       stdio: ["ignore", "pipe", "pipe"],
-      env: process.env,
+      cwd: isPathLike(llamaServerBinary) ? path.dirname(llamaServerBinary) : undefined,
+      env: this.runtimeEnvironmentFor(llamaServerBinary),
     });
 
     this.child = child;

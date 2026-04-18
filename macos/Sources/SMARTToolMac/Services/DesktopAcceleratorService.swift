@@ -413,9 +413,12 @@ actor DesktopAcceleratorService {
             }
         }
 
+        let runtimeIdentifier = "\(platformIdentifier())-\(architectureIdentifier())"
         let bundledCandidates = [
             Bundle.main.resourceURL?.appendingPathComponent("DesktopAccelerator/llama-server", isDirectory: false),
             Bundle.main.resourceURL?.appendingPathComponent("DesktopAccelerator/llama-server.exe", isDirectory: false),
+            Bundle.main.resourceURL?.appendingPathComponent("DesktopAccelerator/runtimes/\(runtimeIdentifier)/llama-server", isDirectory: false),
+            Bundle.main.resourceURL?.appendingPathComponent("DesktopAccelerator/runtimes/\(runtimeIdentifier)/llama-server.exe", isDirectory: false),
         ]
 
         for candidate in bundledCandidates.compactMap({ $0 }) where FileManager.default.isExecutableFile(atPath: candidate.path) {

@@ -9,13 +9,18 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! command -v node >/dev/null 2>&1; then
+  echo "error: node is required to stage the Desktop Accelerator runtime for Xcode." >&2
+  exit 1
+fi
+
 REPO_ROOT="$(cd "${SRCROOT}/.." && pwd)"
 STAMP_DIR="${DERIVED_FILE_DIR:-${TARGET_TEMP_DIR:-/tmp}}"
 STAMP_FILE="${STAMP_DIR}/smart-tool-web-build.stamp"
 APP_BUNDLE="${TARGET_BUILD_DIR}/${WRAPPER_NAME}"
 WEB_DEST="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/WebApp"
 ACCELERATOR_DEST="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/DesktopAccelerator"
-ACCELERATOR_MANIFEST_SRC="$REPO_ROOT/desktop-helper/desktop-accelerator.manifest.json"
+ACCELERATOR_STAGE_DIR="$REPO_ROOT/desktop-helper/runtime/staged"
 
 mkdir -p "$STAMP_DIR"
 
@@ -51,12 +56,16 @@ else
   echo "Reusing existing SMART Tool web bundle."
 fi
 
+echo "Staging Desktop Accelerator runtime for macOS..."
+cd "$REPO_ROOT"
+node scripts/stage-desktop-accelerator-runtime.mjs --clean --targets darwin-arm64
+
 rm -rf "$WEB_DEST"
 mkdir -p "$WEB_DEST"
 /usr/bin/rsync -a --delete --exclude '.DS_Store' --exclude '._*' "$REPO_ROOT/dist/" "$WEB_DEST/"
 /bin/rm -rf "$ACCELERATOR_DEST"
 /bin/mkdir -p "$ACCELERATOR_DEST"
-/bin/cp "$ACCELERATOR_MANIFEST_SRC" "$ACCELERATOR_DEST/manifest.json"
+/usr/bin/rsync -a --delete --exclude '.DS_Store' --exclude '._*' "$ACCELERATOR_STAGE_DIR/" "$ACCELERATOR_DEST/"
 /usr/bin/find "$WEB_DEST" -name '.DS_Store' -delete
 if command -v xattr >/dev/null 2>&1; then
   xattr -cr "$WEB_DEST"
