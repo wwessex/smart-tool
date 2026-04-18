@@ -6,6 +6,12 @@ private struct DesktopAcceleratorManifest: Decodable {
     let version: Int
     let defaultModelId: String
     let models: [DesktopAcceleratorModel]
+
+    enum CodingKeys: String, CodingKey {
+        case version
+        case defaultModelId = "default_model_id"
+        case models
+    }
 }
 
 private struct DesktopAcceleratorModel: Decodable {
@@ -16,6 +22,16 @@ private struct DesktopAcceleratorModel: Decodable {
     let sizeBytes: Int?
     let contextSize: Int?
     let runtime: DesktopAcceleratorRuntime?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case filename
+        case downloadURL = "download_url"
+        case sha256
+        case sizeBytes = "size_bytes"
+        case contextSize = "context_size"
+        case runtime
+    }
 }
 
 private struct DesktopAcceleratorRuntime: Decodable {
@@ -23,6 +39,13 @@ private struct DesktopAcceleratorRuntime: Decodable {
     let gpuLayers: Int?
     let contextSize: Int?
     let platformOverrides: [String: DesktopAcceleratorRuntime]?
+
+    enum CodingKeys: String, CodingKey {
+        case threads
+        case gpuLayers = "gpu_layers"
+        case contextSize = "context_size"
+        case platformOverrides = "platform_overrides"
+    }
 }
 
 private struct DesktopAcceleratorState {
@@ -270,7 +293,6 @@ actor DesktopAcceleratorService {
 
         let manifestURL = try manifestFileURL()
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
         let manifest = try decoder.decode(DesktopAcceleratorManifest.self, from: Data(contentsOf: manifestURL))
         manifestCache = manifest
         return manifest

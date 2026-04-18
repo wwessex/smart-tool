@@ -16,6 +16,10 @@ import {
   Trash2, Download, FolderSync, FolderOpen, FileArchive, CloudOff,
 } from 'lucide-react';
 
+const SMART_TOOL_REPO_URL = 'https://github.com/wwessex/smart-tool';
+const NATIVE_MACOS_GUIDE_URL = `${SMART_TOOL_REPO_URL}#native-macos-shell`;
+const DESKTOP_HELPER_GUIDE_URL = `${SMART_TOOL_REPO_URL}#desktop-accelerator-helper`;
+
 function safeRemoveItem(key: string): boolean {
   try {
     localStorage.removeItem(key);
@@ -24,6 +28,13 @@ function safeRemoveItem(key: string): boolean {
     console.warn(`localStorage remove failed for key "${key}":`, error);
     return false;
   }
+}
+
+function openExternalLink(url: string): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 export interface SettingsPanelProps {
@@ -86,12 +97,12 @@ export const SettingsPanel = memo(function SettingsPanel({
   const helperUnavailableDescription = isDesktopShell
     ? 'Desktop Accelerator is built into this desktop app but is not ready yet.'
     : isMacBrowser
-      ? 'Desktop Accelerator is not installed. There is no one-click macOS installer yet.'
+      ? 'Desktop Accelerator is not running in this browser. Use the native macOS app for the embedded accelerator, or run the optional local helper.'
       : 'Desktop Accelerator is not installed or not running.';
   const helperSetupDescription = isDesktopShell
     ? 'This desktop build embeds Desktop Accelerator. It downloads its local model on first use and keeps Browser AI available as a fallback.'
     : isMacBrowser
-      ? 'This browser build cannot install Desktop Accelerator on macOS. Safari, Edge, and other macOS browsers can only connect to a manually configured helper started with `npm run helper:start` after the helper environment variables are set.'
+      ? 'Browser builds on macOS cannot install Desktop Accelerator directly. Use the native macOS shell from the repo guide for the embedded accelerator, or run the optional helper with `npm run helper:start` after setting the helper environment variables.'
       : 'This browser build can detect a running Desktop Accelerator, but it cannot install one for you. Local developer setup uses `npm run helper:start` after configuring the helper environment variables.';
   const helperStatusCopy = llm.helperStatus === 'ready'
     ? { label: 'Ready', description: llm.helperBackend ? `Desktop Accelerator is ready via ${llm.helperBackend}.` : 'Desktop Accelerator is ready.' }
@@ -352,7 +363,7 @@ export const SettingsPanel = memo(function SettingsPanel({
                   {isDesktopShell
                     ? 'Auto prefers the built-in Desktop Accelerator in this desktop app. Browser AI stays available as a fallback if the accelerator is unavailable.'
                     : isMacBrowser
-                    ? 'macOS browsers do not have a one-click Desktop Accelerator installer yet. Browser AI keeps everything in-browser, and Desktop Accelerator only works if you manually run the optional local helper.'
+                    ? 'On macOS, this browser build keeps Browser AI in-browser. Desktop Accelerator is available through the native macOS shell or an optional local helper.'
                     : 'Auto prefers Desktop Accelerator when a running helper is available on this computer. Browser AI keeps everything in-browser. Desktop Accelerator uses the optional local loopback helper.'}
                 </p>
 
@@ -375,13 +386,31 @@ export const SettingsPanel = memo(function SettingsPanel({
                           {isDesktopShell
                             ? 'Desktop Accelerator is unavailable in this desktop build.'
                             : isMacBrowser
-                              ? 'Desktop Accelerator has no macOS browser installer yet.'
+                              ? 'Desktop Accelerator needs the macOS app or manual helper.'
                               : 'No in-browser installer is available for Desktop Accelerator.'}
                         </p>
                         <p className="text-xs text-muted-foreground">{helperSetupDescription}</p>
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                      {isMacBrowser && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => openExternalLink(NATIVE_MACOS_GUIDE_URL)}
+                        >
+                          Open macOS setup guide
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => openExternalLink(DESKTOP_HELPER_GUIDE_URL)}
+                      >
+                        Open helper guide
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
