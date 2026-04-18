@@ -137,21 +137,21 @@ export function SmartActionTool() {
         ? llm.helperStatus === 'using-browser-fallback'
           ? 'Using browser fallback.'
           : 'Desktop Accelerator ready.'
-        : llm.isReady
-          ? 'Browser AI ready.'
-          : storage.aiDraftRuntime === 'auto'
-            ? isDesktopShell
-              ? 'Auto will use the built-in Desktop Accelerator when it is ready.'
-              : isMacBrowser
-                ? 'Browser AI will be used. Desktop Accelerator has no one-click macOS installer yet.'
-                : 'Auto will use Desktop Accelerator when available.'
-            : storage.aiDraftRuntime === 'desktop-helper'
+          : llm.isReady
+            ? 'Browser AI ready.'
+            : storage.aiDraftRuntime === 'auto'
               ? isDesktopShell
-                ? 'Desktop Accelerator is embedded in this app. Browser fallback will be used if it is unavailable.'
+                ? 'Auto will use the built-in Desktop Accelerator when it is ready.'
                 : isMacBrowser
-                  ? 'Desktop Accelerator needs manual helper setup on macOS. Browser fallback will be used when available.'
-                  : 'Desktop Accelerator not ready. Browser fallback will be used when available.'
-              : 'Browser AI will warm up when needed.';
+                  ? 'Browser AI will be used. On macOS, Desktop Accelerator comes from the native app or an optional helper.'
+                  : 'Auto will use Desktop Accelerator when available.'
+              : storage.aiDraftRuntime === 'desktop-helper'
+                ? isDesktopShell
+                  ? 'Desktop Accelerator is embedded in this app. Browser fallback will be used if it is unavailable.'
+                  : isMacBrowser
+                    ? 'Desktop Accelerator on macOS needs the native app or the optional local helper. Browser fallback will be used when available.'
+                    : 'Desktop Accelerator not ready. Browser fallback will be used when available.'
+                : 'Browser AI will warm up when needed.';
 
   // --- UI panel state (consolidated reducer) ---
   type PanelState = {

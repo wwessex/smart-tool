@@ -127,7 +127,9 @@ describe("SettingsPanel", () => {
     expect(updatePreferredLLMModel).toHaveBeenCalledWith("amor-inteligente-built-in");
   });
 
-  it("explains that macOS browsers have no one-click Desktop Accelerator installer", () => {
+  it("points macOS browsers to the native app and helper guides", async () => {
+    const user = userEvent.setup();
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
     const storage = {
       barriers: ["CV"],
       timescales: ["2 weeks"],
@@ -222,9 +224,26 @@ describe("SettingsPanel", () => {
       />,
     );
 
-    expect(screen.getByText("Desktop Accelerator has no macOS browser installer yet.")).toBeInTheDocument();
-    expect(screen.getByText(/cannot install desktop accelerator on macos/i)).toBeInTheDocument();
-    expect(screen.getByText(/safari, edge, and other macos browsers/i)).toBeInTheDocument();
+    expect(screen.getByText("Desktop Accelerator needs the macOS app or manual helper.")).toBeInTheDocument();
+    expect(screen.getByText(/native macos shell from the repo guide/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open macOS setup guide" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open helper guide" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Open macOS setup guide" }));
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://github.com/wwessex/smart-tool#native-macos-shell",
+      "_blank",
+      "noopener,noreferrer",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Open helper guide" }));
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://github.com/wwessex/smart-tool#desktop-accelerator-helper",
+      "_blank",
+      "noopener,noreferrer",
+    );
+
+    openSpy.mockRestore();
   });
 
   it("explains that desktop shells embed Desktop Accelerator and keep Browser AI as fallback", () => {
