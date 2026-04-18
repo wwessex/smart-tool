@@ -294,8 +294,12 @@ struct WebViewContainer: NSViewRepresentable {
             decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
         ) {
             guard navigationAction.navigationType == .linkActivated,
-                  let targetURL = navigationAction.request.url,
-                  !targetURL.isFileURL else {
+                  let targetURL = navigationAction.request.url else {
+                decisionHandler(.allow)
+                return
+            }
+
+            guard shouldOpenExternally(targetURL: targetURL, currentURL: webView.url ?? lastSource ?? parent.source) else {
                 decisionHandler(.allow)
                 return
             }
@@ -303,6 +307,55 @@ struct WebViewContainer: NSViewRepresentable {
             NSWorkspace.shared.open(targetURL)
             AppTelemetry.web.info("Opened external link in default browser: \(targetURL.absoluteString, privacy: .public)")
             decisionHandler(.cancel)
+        }
+
+        private func shouldOpenExternally(targetURL: URL, currentURL: URL?) -> Bool {
+            if targetURL.isFileURL {
+                return false
+            }
+
+            guard let targetScheme = targetURL.scheme?.lowercased() else {
+                return true
+            }
+
+            if targetScheme != "http" && targetScheme != "https" {
+                return true
+            }
+
+            guard let currentURL else {
+                return false
+            }
+
+            return !isSameOrigin(lhs: targetURL, rhs: currentURL)
+        }
+
+        private func isSameOrigin(lhs: URL, rhs: URL) -> Bool {
+            guard
+                let lhsComponents = URLComponents(url: lhs, resolvingAgainstBaseURL: false),
+                let rhsComponents = URLComponents(url: rhs, resolvingAgainstBaseURL: false),
+                let lhsScheme = lhsComponents.scheme?.lowercased(),
+                let rhsScheme = rhsComponents.scheme?.lowercased(),
+                let lhsHost = lhsComponents.host?.lowercased(),
+                let rhsHost = rhsComponents.host?.lowercased()
+            else {
+                return false
+            }
+
+            let lhsPort = lhsComponents.port ?? defaultPort(for: lhsScheme)
+            let rhsPort = rhsComponents.port ?? defaultPort(for: rhsScheme)
+
+            return lhsScheme == rhsScheme && lhsHost == rhsHost && lhsPort == rhsPort
+        }
+
+        private func defaultPort(for scheme: String) -> Int? {
+            switch scheme {
+            case "http":
+                return 80
+            case "https":
+                return 443
+            default:
+                return nil
+            }
         }
 
         private func handleBridgeMessage(_ body: Any) {
