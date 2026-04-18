@@ -1,4 +1,4 @@
-name: Windows Desktop
+name: macOS Desktop
 
 on:
   push:
@@ -11,8 +11,8 @@ permissions:
   contents: read
 
 jobs:
-  package-windows:
-    runs-on: windows-latest
+  build-macos:
+    runs-on: macos-14
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,19 +26,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Windows desktop artifacts
-        run: npm run desktop:dist:win
+      - name: Build and verify native macOS desktop app
+        run: ./script/build_and_run.sh --verify
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wuxvpkczhdeslbhwpnyd.supabase.co' }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1eHZwa2N6aGRlc2xiaHdwbnlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjQ3NzEsImV4cCI6MjA4NDAwMDc3MX0.ZCrDnhzH1TWYbtaIbvenYRJHMjOvOdL2P1b2-kHgV4c' }}
           VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID || 'wuxvpkczhdeslbhwpnyd' }}
 
-      - name: Upload Windows desktop artifacts
+      - name: Upload macOS desktop artifact
         uses: actions/upload-artifact@v4
         with:
-          name: windows-desktop-artifacts
-          path: |
-            release/*.exe
-            release/*.yml
-            release/*unpacked/**
+          name: macos-desktop-artifact
+          path: ~/Library/Developer/Xcode/DerivedData/SMARTToolMac-Codex/Build/Products/Debug/SMART Tool.app
           if-no-files-found: error

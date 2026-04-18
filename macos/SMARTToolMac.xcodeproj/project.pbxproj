@@ -17,6 +17,7 @@
 		45CEB4FC49E7816E95BF67A8 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33B5CB72065D4742EAFB2EFB /* SidebarView.swift */; };
 		4CBB62AD54103FFCBA9E7169 /* AppSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D2390303113D2C288C393C2 /* AppSection.swift */; };
 		4F02B4FD510569D78BA6A206 /* WebArchiveLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62419C252F0686BB98FB5909 /* WebArchiveLocator.swift */; };
+		6F53D0BD235971927968CE6B /* DesktopAcceleratorService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CDCE359C538E6FFC6CED1B6 /* DesktopAcceleratorService.swift */; };
 		A1B6AE7626E537BE661CD131 /* WebViewContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 852419A1C44DC576B806A7B6 /* WebViewContainer.swift */; };
 		B376D1DACF0704EE2C3B68BB /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 303E18326D9C4916CD8CA9B7 /* DiagnosticsView.swift */; };
 		C7B9C659B82E4D3BC927C035 /* BundledWebServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5DCDF4709A859B64CC03A4D /* BundledWebServer.swift */; };
@@ -37,6 +38,7 @@
 		62419C252F0686BB98FB5909 /* WebArchiveLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebArchiveLocator.swift; sourceTree = "<group>"; };
 		852419A1C44DC576B806A7B6 /* WebViewContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewContainer.swift; sourceTree = "<group>"; };
 		8975966008E6C56BA50333C1 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		8CDCE359C538E6FFC6CED1B6 /* DesktopAcceleratorService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopAcceleratorService.swift; sourceTree = "<group>"; };
 		A18438E9EB69DC3D0D02F667 /* SMARTToolMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMARTToolMacApp.swift; sourceTree = "<group>"; };
 		A7AAFDD5B9193810D8754C2D /* SMARTToolMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SMARTToolMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B8D55EDBD48543CFEF2B6A85 /* AppTelemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTelemetry.swift; sourceTree = "<group>"; };
@@ -85,6 +87,7 @@
 			children = (
 				B8D55EDBD48543CFEF2B6A85 /* AppTelemetry.swift */,
 				C5DCDF4709A859B64CC03A4D /* BundledWebServer.swift */,
+				8CDCE359C538E6FFC6CED1B6 /* DesktopAcceleratorService.swift */,
 				B9886FB80064936BBA2B85B5 /* SyncFolderService.swift */,
 				62419C252F0686BB98FB5909 /* WebArchiveLocator.swift */,
 			);
@@ -232,6 +235,7 @@
 				3CB129EA7FF16DC96625ADF1 /* AppTelemetry.swift in Sources */,
 				C7B9C659B82E4D3BC927C035 /* BundledWebServer.swift in Sources */,
 				F668FCD2E856093381AD2CC5 /* ContentView.swift in Sources */,
+				6F53D0BD235971927968CE6B /* DesktopAcceleratorService.swift in Sources */,
 				B376D1DACF0704EE2C3B68BB /* DiagnosticsView.swift in Sources */,
 				E46AA0F2E985B6DE4301C264 /* InspectorView.swift in Sources */,
 				3E99B9C2424BC8CC24406C2D /* SMARTToolMacApp.swift in Sources */,

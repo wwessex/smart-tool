@@ -108,10 +108,10 @@ Notes:
 
 - the packaged desktop app loads the existing Vite build from `dist/`
 - Electron and Electron Builder are fetched on demand by the desktop scripts via `npx`
-- Desktop Accelerator calls use an Electron preload bridge, so the packaged app does not need a separate loopback helper server
+- Desktop Accelerator is embedded in the Electron shell through the preload bridge and shared accelerator host
 - folder sync uses the native folder picker and writes directly to the chosen Windows folder, including OneDrive-backed folders
 - on Windows, `npm run desktop:build` produces an unpacked executable at `release/win-unpacked/SMART Tool.exe`
-- on Windows, `npm run desktop:dist:win` produces installer and portable artifacts under `release/`
+- on Windows, `npm run desktop:dist:win` produces x64 and ARM64 installer/portable artifacts under `release/`
 - `script/build_and_run.ps1` is the project-local Windows entrypoint for kill/build/run and verify flows
 - `.github/workflows/windows-desktop.yml` builds the Windows desktop artifacts on `windows-latest`, which is the supported verification path from non-Windows hosts
 
@@ -148,11 +148,11 @@ Notes:
 - the native shell serves the bundled web build over a local loopback server,
   then loads it in `WKWebView` so the app avoids `file://` restrictions
 - the native shell injects a desktop bridge into `WKWebView` so the React app
-  follows desktop paths instead of browser/PWA-only paths
+  can use native folder sync and the embedded Desktop Accelerator runtime
 - folder selection is intentionally kept behind a small `NSOpenPanel` service
   so SwiftUI remains the source of truth for desktop state
 - telemetry uses unified logging categories for windowing, sidebar, commands,
-  sync, and web loading
+  sync, web loading, and Desktop Accelerator state
 
 ### Xcode
 
@@ -213,14 +213,15 @@ The app currently uses these environment variables:
 
 ### Desktop Accelerator helper
 
-The browser build can talk to a Desktop Accelerator helper if one is already
-running on the same machine, but it does not install that helper for you.
-There is currently no one-click macOS installer for Desktop Accelerator, so
-Safari, Edge, and other macOS browsers can only connect to a helper you set up
-manually.
+Desktop builds now embed Desktop Accelerator directly. Browser and PWA builds
+can still talk to a loopback helper for development or compatibility testing.
 
 - `SMART_TOOL_HELPER_MODEL_URL`
-  - Required for the helper. Must point to a GGUF model file that `llama-server` can load.
+  - Optional override for the bundled model manifest URL. Must point to a GGUF model file that `llama-server` can load.
+- `SMART_TOOL_HELPER_MODEL_SHA256` (optional)
+  - Overrides the bundled model manifest checksum.
+- `SMART_TOOL_HELPER_MODEL_SIZE_BYTES` (optional)
+  - Overrides the bundled model manifest file size.
 - `SMART_TOOL_LLAMA_SERVER_BIN` (optional)
   - Overrides the `llama-server` executable path.
 - `SMART_TOOL_HELPER_MODEL_DIR` (optional)
@@ -242,8 +243,12 @@ Start the helper manually:
 npm run helper:start
 ```
 
-If the helper is missing, the app should fall back to Browser AI or Smart
-Templates.
+The shared manifest lives at `desktop-helper/desktop-accelerator.manifest.json`.
+Desktop builds download that GGUF model on first use into app data, then reuse
+the cached copy on later launches.
+
+If the embedded runtime or browser helper is unavailable, the app falls back to
+Browser AI or Smart Templates.
 
 ## Local Model Provisioning
 

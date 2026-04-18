@@ -10,6 +10,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         BundledWebServer.shared.stop()
+        Task {
+            await DesktopAcceleratorService.shared.shutdown()
+        }
         AppTelemetry.app.info("Application will terminate.")
     }
 }

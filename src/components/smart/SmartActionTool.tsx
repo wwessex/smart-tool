@@ -120,7 +120,7 @@ export function SmartActionTool() {
     buildLLMContext, handleWizardAIDraft, promptPack, promptPackSource,
   } = aiDraft;
   const desktopBridge = getDesktopBridge();
-  const isNativeMacShell = desktopBridge?.platform === 'darwin';
+  const isDesktopShell = Boolean(desktopBridge);
   const isMacBrowser = !desktopBridge && Boolean(llm.browserInfo.isMac);
 
   const aiDraftButtonLabel = aiDrafting || llm.isGenerating
@@ -140,14 +140,14 @@ export function SmartActionTool() {
         : llm.isReady
           ? 'Browser AI ready.'
           : storage.aiDraftRuntime === 'auto'
-            ? isNativeMacShell
-              ? 'Desktop Accelerator is unavailable in the native macOS shell. Browser AI will be used instead.'
+            ? isDesktopShell
+              ? 'Auto will use the built-in Desktop Accelerator when it is ready.'
               : isMacBrowser
                 ? 'Browser AI will be used. Desktop Accelerator has no one-click macOS installer yet.'
                 : 'Auto will use Desktop Accelerator when available.'
             : storage.aiDraftRuntime === 'desktop-helper'
-              ? isNativeMacShell
-                ? 'Desktop Accelerator is unavailable in the native macOS shell. Browser fallback will be used instead.'
+              ? isDesktopShell
+                ? 'Desktop Accelerator is embedded in this app. Browser fallback will be used if it is unavailable.'
                 : isMacBrowser
                   ? 'Desktop Accelerator needs manual helper setup on macOS. Browser fallback will be used when available.'
                   : 'Desktop Accelerator not ready. Browser fallback will be used when available.'

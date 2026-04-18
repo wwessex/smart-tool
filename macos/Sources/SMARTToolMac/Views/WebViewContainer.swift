@@ -7,6 +7,10 @@ struct WebViewContainer: NSViewRepresentable {
     let reloadToken: Int
     let platform: String
     let version: String
+    let onDesktopHelperHealth: @MainActor () async -> [String: Any]
+    let onDesktopHelperLoad: @MainActor (_ modelId: String) async throws -> [String: Any]
+    let onDesktopHelperGenerate: @MainActor (_ prompt: String, _ config: [String: Any]) async throws -> [String: Any]
+    let onDesktopHelperUnload: @MainActor () async -> [String: Any]
     let onSyncFolderState: () -> [String: Any]
     let onSyncFolderSelect: () -> [String: Any]?
     let onSyncFolderClear: () -> [String: Any]
@@ -103,7 +107,6 @@ struct WebViewContainer: NSViewRepresentable {
 
               const pending = new Map();
               let nextRequestId = 1;
-              const helperUnavailable = "Desktop helper is not available in the native macOS shell yet.";
 
               const invokeNative = (kind, args = []) => new Promise((resolve, reject) => {
                 const requestId = nextRequestId++;
@@ -130,10 +133,10 @@ struct WebViewContainer: NSViewRepresentable {
                 platform: "\(platform)",
                 version: "\(version)",
                 desktopHelper: Object.freeze({
-                  health: async () => ({ ok: false, status: "not-installed", ready: false, message: helperUnavailable }),
-                  load: async () => ({ ok: false, status: "error", ready: false, message: helperUnavailable }),
-                  generate: async () => { throw new Error(helperUnavailable); },
-                  unload: async () => ({ ok: true }),
+                  health: () => invokeNative("desktopHelper.health"),
+                  load: (modelId) => invokeNative("desktopHelper.load", [modelId]),
+                  generate: (prompt, config = {}) => invokeNative("desktopHelper.generate", [prompt, config]),
+                  unload: () => invokeNative("desktopHelper.unload"),
                 }),
                 syncFolder: Object.freeze({
                   getState: () => invokeNative("sync.getState"),
@@ -314,25 +317,42 @@ struct WebViewContainer: NSViewRepresentable {
                 return
             }
 
-            do {
-                switch kind {
-                case "sync.getState":
-                    respondSuccess(requestId: requestId, payload: parent.onSyncFolderState())
-                case "sync.selectFolder":
-                    respondSuccess(requestId: requestId, payload: parent.onSyncFolderSelect())
-                case "sync.clearFolder":
-                    respondSuccess(requestId: requestId, payload: parent.onSyncFolderClear())
-                case "sync.writeTextFile":
-                    let args = payload["args"] as? [Any] ?? []
-                    let filename = args.first as? String ?? ""
-                    let content = args.dropFirst().first as? String ?? ""
-                    let response = try parent.onSyncWriteFile(filename, content)
-                    respondSuccess(requestId: requestId, payload: response)
-                default:
-                    respondFailure(requestId: requestId, message: "Unsupported desktop bridge request: \(kind)")
+            Task { @MainActor in
+                do {
+                    switch kind {
+                    case "desktopHelper.health":
+                        respondSuccess(requestId: requestId, payload: await parent.onDesktopHelperHealth())
+                    case "desktopHelper.load":
+                        let args = payload["args"] as? [Any] ?? []
+                        let modelId = args.first as? String ?? ""
+                        let response = try await parent.onDesktopHelperLoad(modelId)
+                        respondSuccess(requestId: requestId, payload: response)
+                    case "desktopHelper.generate":
+                        let args = payload["args"] as? [Any] ?? []
+                        let prompt = args.first as? String ?? ""
+                        let config = args.dropFirst().first as? [String: Any] ?? [:]
+                        let response = try await parent.onDesktopHelperGenerate(prompt, config)
+                        respondSuccess(requestId: requestId, payload: response)
+                    case "desktopHelper.unload":
+                        respondSuccess(requestId: requestId, payload: await parent.onDesktopHelperUnload())
+                    case "sync.getState":
+                        respondSuccess(requestId: requestId, payload: parent.onSyncFolderState())
+                    case "sync.selectFolder":
+                        respondSuccess(requestId: requestId, payload: parent.onSyncFolderSelect())
+                    case "sync.clearFolder":
+                        respondSuccess(requestId: requestId, payload: parent.onSyncFolderClear())
+                    case "sync.writeTextFile":
+                        let args = payload["args"] as? [Any] ?? []
+                        let filename = args.first as? String ?? ""
+                        let content = args.dropFirst().first as? String ?? ""
+                        let response = try parent.onSyncWriteFile(filename, content)
+                        respondSuccess(requestId: requestId, payload: response)
+                    default:
+                        respondFailure(requestId: requestId, message: "Unsupported desktop bridge request: \(kind)")
+                    }
+                } catch {
+                    respondFailure(requestId: requestId, message: error.localizedDescription)
                 }
-            } catch {
-                respondFailure(requestId: requestId, message: error.localizedDescription)
             }
         }
 

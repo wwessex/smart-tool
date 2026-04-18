@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "default_model_id": "smart-tool-planner-gguf-v1",
+  "models": [
+    {
+      "id": "smart-tool-planner-gguf-v1",
+      "filename": "SmolLM2-360M-Instruct-Q4_K_M.gguf",
+      "download_url": "https://huggingface.co/bartowski/SmolLM2-360M-Instruct-GGUF/resolve/main/SmolLM2-360M-Instruct-Q4_K_M.gguf",
+      "sha256": "4788feabb1627cd4245b2bb0014c01f672a1c54b4d674d8fa3267ce0fd663acb",
+      "size_bytes": 270590880,
+      "context_size": 4096,
+      "runtime": {
+        "threads": "auto-minus-one",
+        "gpu_layers": 0,
+        "platform_overrides": {
+          "darwin-arm64": {
+            "gpu_layers": 0
+          },
+          "win32-arm64": {
+            "gpu_layers": 0
+          }
+        }
+      }
+    }
+  ]
+}

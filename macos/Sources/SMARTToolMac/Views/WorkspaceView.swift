@@ -9,8 +9,20 @@ struct WorkspaceView: View {
                 WebViewContainer(
                     source: launchURL,
                     reloadToken: model.reloadToken,
-                    platform: "macos",
+                    platform: "darwin",
                     version: model.desktopBridgeVersion,
+                    onDesktopHelperHealth: {
+                        await model.desktopHelperHealthPayload()
+                    },
+                    onDesktopHelperLoad: { modelId in
+                        try await model.loadDesktopHelperFromWebView(modelId: modelId)
+                    },
+                    onDesktopHelperGenerate: { prompt, config in
+                        try await model.generateWithDesktopHelperFromWebView(prompt: prompt, config: config)
+                    },
+                    onDesktopHelperUnload: {
+                        await model.unloadDesktopHelperFromWebView()
+                    },
                     onSyncFolderState: { model.desktopSyncStatePayload() },
                     onSyncFolderSelect: { model.selectSyncFolderFromWebView() },
                     onSyncFolderClear: { model.clearSyncFolderFromWebView() },

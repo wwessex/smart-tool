@@ -81,20 +81,15 @@ export const SettingsPanel = memo(function SettingsPanel({
 
   const effectivePromptPack = promptPack || DEFAULT_PROMPT_PACK;
   const desktopBridge = getDesktopBridge();
-  const desktopPlatform = desktopBridge?.platform ?? null;
-  const isNativeMacShell = desktopPlatform === 'darwin';
+  const isDesktopShell = Boolean(desktopBridge);
   const isMacBrowser = !desktopBridge && Boolean(llm.browserInfo?.isMac);
-  const helperUnavailableDescription = desktopBridge
-    ? isNativeMacShell
-      ? 'Desktop Accelerator is not available in the native macOS shell yet.'
-      : 'Desktop Accelerator is not available in this desktop build.'
+  const helperUnavailableDescription = isDesktopShell
+    ? 'Desktop Accelerator is built into this desktop app but is not ready yet.'
     : isMacBrowser
       ? 'Desktop Accelerator is not installed. There is no one-click macOS installer yet.'
       : 'Desktop Accelerator is not installed or not running.';
-  const helperSetupDescription = desktopBridge
-    ? isNativeMacShell
-      ? 'This native macOS shell does not bundle Desktop Accelerator yet, so there is nothing to install from Settings. Use Browser AI in this build instead.'
-      : 'This desktop build does not expose an in-app Desktop Accelerator installer. Use Browser AI in this build instead.'
+  const helperSetupDescription = isDesktopShell
+    ? 'This desktop build embeds Desktop Accelerator. It downloads its local model on first use and keeps Browser AI available as a fallback.'
     : isMacBrowser
       ? 'This browser build cannot install Desktop Accelerator on macOS. Safari, Edge, and other macOS browsers can only connect to a manually configured helper started with `npm run helper:start` after the helper environment variables are set.'
       : 'This browser build can detect a running Desktop Accelerator, but it cannot install one for you. Local developer setup uses `npm run helper:start` after configuring the helper environment variables.';
@@ -110,7 +105,7 @@ export const SettingsPanel = memo(function SettingsPanel({
             ? { label: 'Checking...', description: 'Looking for a running Desktop Accelerator on this computer.' }
             : llm.helperStatus === 'error'
               ? { label: 'Unavailable', description: llm.helperMessage || 'Desktop Accelerator returned an error.' }
-              : { label: desktopBridge ? 'Unavailable' : 'Not installed', description: llm.helperMessage || helperUnavailableDescription };
+              : { label: isDesktopShell ? 'Unavailable' : 'Not installed', description: llm.helperMessage || helperUnavailableDescription };
   const activeRuntimeLabel = llm.activeRuntime === 'desktop-helper'
     ? 'Desktop Accelerator'
     : llm.activeRuntime === 'browser'
@@ -118,7 +113,7 @@ export const SettingsPanel = memo(function SettingsPanel({
       : llm.activeRuntime === 'template'
         ? 'Smart Templates'
         : 'Not loaded';
-  const showHelperSetupCard = llm.supportsDesktopHelper && (llm.helperStatus === 'not-installed' || llm.helperStatus === 'error');
+  const showHelperSetupCard = !isDesktopShell && llm.supportsDesktopHelper && (llm.helperStatus === 'not-installed' || llm.helperStatus === 'error');
 
   const handleOpen = (isOpen: boolean) => {
     onOpenChange(isOpen);
@@ -277,8 +272,9 @@ export const SettingsPanel = memo(function SettingsPanel({
               <h3 className="font-bold">AI Draft</h3>
             </div>
             <p className="text-xs text-muted-foreground">
-              AI drafting stays local. Auto prefers Desktop Accelerator only when a running helper is
-              detected, then falls back to Browser AI. Smart Templates remain the no-download option.
+              AI drafting stays local. Desktop builds prefer the embedded Desktop Accelerator, browser
+              builds prefer a detected helper, and Browser AI remains the fallback. Smart Templates stay
+              available as the no-download option.
             </p>
 
             {/* Mode Toggle */}
@@ -348,12 +344,14 @@ export const SettingsPanel = memo(function SettingsPanel({
                   <SelectContent>
                     <SelectItem value="auto">Auto</SelectItem>
                     <SelectItem value="browser">Browser AI</SelectItem>
-                    <SelectItem value="desktop-helper" disabled={isNativeMacShell}>Desktop Accelerator</SelectItem>
+                    <SelectItem value="desktop-helper">Desktop Accelerator</SelectItem>
                   </SelectContent>
                 </Select>
 
                 <p className="text-xs text-muted-foreground">
-                  {isMacBrowser
+                  {isDesktopShell
+                    ? 'Auto prefers the built-in Desktop Accelerator in this desktop app. Browser AI stays available as a fallback if the accelerator is unavailable.'
+                    : isMacBrowser
                     ? 'macOS browsers do not have a one-click Desktop Accelerator installer yet. Browser AI keeps everything in-browser, and Desktop Accelerator only works if you manually run the optional local helper.'
                     : 'Auto prefers Desktop Accelerator when a running helper is available on this computer. Browser AI keeps everything in-browser. Desktop Accelerator uses the optional local loopback helper.'}
                 </p>
@@ -374,8 +372,8 @@ export const SettingsPanel = memo(function SettingsPanel({
                       <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                       <div className="space-y-1">
                         <p className="text-sm font-medium">
-                          {desktopBridge
-                            ? 'Desktop Accelerator is unavailable in this build.'
+                          {isDesktopShell
+                            ? 'Desktop Accelerator is unavailable in this desktop build.'
                             : isMacBrowser
                               ? 'Desktop Accelerator has no macOS browser installer yet.'
                               : 'No in-browser installer is available for Desktop Accelerator.'}

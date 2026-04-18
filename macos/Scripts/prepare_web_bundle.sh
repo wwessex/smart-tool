@@ -14,6 +14,8 @@ STAMP_DIR="${DERIVED_FILE_DIR:-${TARGET_TEMP_DIR:-/tmp}}"
 STAMP_FILE="${STAMP_DIR}/smart-tool-web-build.stamp"
 APP_BUNDLE="${TARGET_BUILD_DIR}/${WRAPPER_NAME}"
 WEB_DEST="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/WebApp"
+ACCELERATOR_DEST="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/DesktopAccelerator"
+ACCELERATOR_MANIFEST_SRC="$REPO_ROOT/desktop-helper/desktop-accelerator.manifest.json"
 
 mkdir -p "$STAMP_DIR"
 
@@ -52,9 +54,13 @@ fi
 rm -rf "$WEB_DEST"
 mkdir -p "$WEB_DEST"
 /usr/bin/rsync -a --delete --exclude '.DS_Store' --exclude '._*' "$REPO_ROOT/dist/" "$WEB_DEST/"
+/bin/rm -rf "$ACCELERATOR_DEST"
+/bin/mkdir -p "$ACCELERATOR_DEST"
+/bin/cp "$ACCELERATOR_MANIFEST_SRC" "$ACCELERATOR_DEST/manifest.json"
 /usr/bin/find "$WEB_DEST" -name '.DS_Store' -delete
 if command -v xattr >/dev/null 2>&1; then
   xattr -cr "$WEB_DEST"
+  xattr -cr "$ACCELERATOR_DEST"
   xattr -cr "$APP_BUNDLE" || true
 fi
 echo "Bundled web app copied to $WEB_DEST"

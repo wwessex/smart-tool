@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SettingsPanel } from "@/components/smart/SettingsPanel";
+import { getDesktopBridge } from "@/lib/desktop-bridge";
 
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({
@@ -224,5 +225,123 @@ describe("SettingsPanel", () => {
     expect(screen.getByText("Desktop Accelerator has no macOS browser installer yet.")).toBeInTheDocument();
     expect(screen.getByText(/cannot install desktop accelerator on macos/i)).toBeInTheDocument();
     expect(screen.getByText(/safari, edge, and other macos browsers/i)).toBeInTheDocument();
+  });
+
+  it("explains that desktop shells embed Desktop Accelerator and keep Browser AI as fallback", () => {
+    vi.mocked(getDesktopBridge).mockReturnValue({
+      isDesktopApp: true,
+      platform: "darwin",
+      version: "1.0.0",
+      desktopHelper: {
+        health: vi.fn(),
+        load: vi.fn(),
+        generate: vi.fn(),
+        unload: vi.fn(),
+      },
+      syncFolder: {
+        getState: vi.fn(),
+        selectFolder: vi.fn(),
+        clearFolder: vi.fn(),
+        writeTextFile: vi.fn(),
+      },
+    });
+
+    const storage = {
+      barriers: ["CV"],
+      timescales: ["2 weeks"],
+      resetBarriers: vi.fn(),
+      updateBarriers: vi.fn(),
+      resetTimescales: vi.fn(),
+      updateTimescales: vi.fn(),
+      minScoreEnabled: false,
+      updateMinScoreEnabled: vi.fn(),
+      minScoreThreshold: 4,
+      updateMinScoreThreshold: vi.fn(),
+      aiDraftMode: "ai",
+      updateAIDraftMode: vi.fn(),
+      aiDraftRuntime: "auto",
+      updateAIDraftRuntime: vi.fn(),
+      preferredLLMModel: "amor-inteligente-built-in",
+      updatePreferredLLMModel: vi.fn(),
+      allowMobileLLM: false,
+      updateAllowMobileLLM: vi.fn(),
+      safariWebGPUEnabled: false,
+      updateSafariWebGPUEnabled: vi.fn(),
+      keepSafariModelLoaded: false,
+      updateKeepSafariModelLoaded: vi.fn(),
+      history: [],
+      retentionEnabled: false,
+      updateRetentionEnabled: vi.fn(),
+      retentionDays: 30,
+      updateRetentionDays: vi.fn(),
+      exportAllData: vi.fn(),
+      deleteAllData: vi.fn(),
+    } as never;
+
+    const localSync = {
+      isSupported: false,
+      isConnected: false,
+      folderName: null,
+      lastSync: null,
+      selectFolder: vi.fn(),
+      disconnect: vi.fn(),
+      syncEnabled: false,
+      setSyncEnabled: vi.fn(),
+      isConnecting: false,
+      error: null,
+      downloadAllAsZip: vi.fn(),
+    } as never;
+
+    const llm = {
+      isReady: false,
+      isLoading: false,
+      isGenerating: false,
+      error: null,
+      classifiedError: null,
+      loadingStatus: "",
+      loadingProgress: 0,
+      selectedModel: null,
+      activeRuntime: null,
+      supportedModels: [
+        {
+          id: "amor-inteligente-built-in",
+          name: "Amor inteligente (Built-in)",
+          size: "Included",
+          description: "Built-in offline AI planner",
+        },
+      ],
+      canUseLocalAI: true,
+      isMobile: false,
+      supportsDesktopHelper: true,
+      browserInfo: { isSafari: false },
+      deviceInfo: { isIOS: false },
+      helperStatus: "not-installed",
+      helperMessage: "Desktop Accelerator could not find a local llama-server binary.",
+      helperBackend: null,
+      loadModel: vi.fn().mockResolvedValue(true),
+      unload: vi.fn(),
+      clearError: vi.fn(),
+      refreshHelperHealth: vi.fn(),
+    } as never;
+
+    render(
+      <SettingsPanel
+        open
+        onOpenChange={vi.fn()}
+        storage={storage}
+        localSync={localSync}
+        llm={llm}
+        promptPack={null}
+        promptPackSource={null}
+        wizardMode={false}
+        setWizardMode={vi.fn()}
+        privacySettingsOpen={false}
+        setPrivacySettingsOpen={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/auto prefers the built-in desktop accelerator/i)).toBeInTheDocument();
+    expect(screen.getByText(/desktop accelerator could not find a local llama-server binary/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no in-browser installer is available/i)).not.toBeInTheDocument();
   });
 });
