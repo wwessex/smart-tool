@@ -50,6 +50,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { cn } from '@/lib/utils';
 import { staggerContainer, slideInLeft, slideInRight, springTransition, softSpring } from '@/lib/animation-variants';
 import { ComboboxInput } from './ComboboxInput';
+import { getDesktopBridge } from '@/lib/desktop-bridge';
 
 export function SmartActionTool() {
   const { toast } = useToast();
@@ -118,6 +119,9 @@ export function SmartActionTool() {
     handleFeedbackRate, handleSelectPlanAction, handleAIDraft, handleMoreLikeThis,
     buildLLMContext, handleWizardAIDraft, promptPack, promptPackSource,
   } = aiDraft;
+  const desktopBridge = getDesktopBridge();
+  const isNativeMacShell = desktopBridge?.platform === 'darwin';
+  const isMacBrowser = !desktopBridge && Boolean(llm.browserInfo.isMac);
 
   const aiDraftButtonLabel = aiDrafting || llm.isGenerating
     ? 'Drafting...'
@@ -136,9 +140,17 @@ export function SmartActionTool() {
         : llm.isReady
           ? 'Browser AI ready.'
           : storage.aiDraftRuntime === 'auto'
-            ? 'Auto will use Desktop Accelerator when available.'
+            ? isNativeMacShell
+              ? 'Desktop Accelerator is unavailable in the native macOS shell. Browser AI will be used instead.'
+              : isMacBrowser
+                ? 'Browser AI will be used. Desktop Accelerator has no one-click macOS installer yet.'
+                : 'Auto will use Desktop Accelerator when available.'
             : storage.aiDraftRuntime === 'desktop-helper'
-              ? 'Desktop Accelerator not ready. Browser fallback will be used when available.'
+              ? isNativeMacShell
+                ? 'Desktop Accelerator is unavailable in the native macOS shell. Browser fallback will be used instead.'
+                : isMacBrowser
+                  ? 'Desktop Accelerator needs manual helper setup on macOS. Browser fallback will be used when available.'
+                  : 'Desktop Accelerator not ready. Browser fallback will be used when available.'
               : 'Browser AI will warm up when needed.';
 
   // --- UI panel state (consolidated reducer) ---

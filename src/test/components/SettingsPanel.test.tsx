@@ -125,4 +125,104 @@ describe("SettingsPanel", () => {
     });
     expect(updatePreferredLLMModel).toHaveBeenCalledWith("amor-inteligente-built-in");
   });
+
+  it("explains that macOS browsers have no one-click Desktop Accelerator installer", () => {
+    const storage = {
+      barriers: ["CV"],
+      timescales: ["2 weeks"],
+      resetBarriers: vi.fn(),
+      updateBarriers: vi.fn(),
+      resetTimescales: vi.fn(),
+      updateTimescales: vi.fn(),
+      minScoreEnabled: false,
+      updateMinScoreEnabled: vi.fn(),
+      minScoreThreshold: 4,
+      updateMinScoreThreshold: vi.fn(),
+      aiDraftMode: "ai",
+      updateAIDraftMode: vi.fn(),
+      aiDraftRuntime: "auto",
+      updateAIDraftRuntime: vi.fn(),
+      preferredLLMModel: "amor-inteligente-built-in",
+      updatePreferredLLMModel: vi.fn(),
+      allowMobileLLM: false,
+      updateAllowMobileLLM: vi.fn(),
+      safariWebGPUEnabled: false,
+      updateSafariWebGPUEnabled: vi.fn(),
+      keepSafariModelLoaded: false,
+      updateKeepSafariModelLoaded: vi.fn(),
+      history: [],
+      retentionEnabled: false,
+      updateRetentionEnabled: vi.fn(),
+      retentionDays: 30,
+      updateRetentionDays: vi.fn(),
+      exportAllData: vi.fn(),
+      deleteAllData: vi.fn(),
+    } as never;
+
+    const localSync = {
+      isSupported: false,
+      isConnected: false,
+      folderName: null,
+      lastSync: null,
+      selectFolder: vi.fn(),
+      disconnect: vi.fn(),
+      syncEnabled: false,
+      setSyncEnabled: vi.fn(),
+      isConnecting: false,
+      error: null,
+      downloadAllAsZip: vi.fn(),
+    } as never;
+
+    const llm = {
+      isReady: false,
+      isLoading: false,
+      isGenerating: false,
+      error: null,
+      classifiedError: null,
+      loadingStatus: "",
+      loadingProgress: 0,
+      selectedModel: null,
+      activeRuntime: "browser",
+      supportedModels: [
+        {
+          id: "amor-inteligente-built-in",
+          name: "Amor inteligente (Built-in)",
+          size: "Included",
+          description: "Built-in offline AI planner",
+        },
+      ],
+      canUseLocalAI: true,
+      isMobile: false,
+      supportsDesktopHelper: true,
+      browserInfo: { isSafari: true, isMac: true },
+      deviceInfo: { isIOS: false },
+      helperStatus: "not-installed",
+      helperMessage: "Desktop accelerator not installed or not running.",
+      helperBackend: null,
+      loadModel: vi.fn().mockResolvedValue(true),
+      unload: vi.fn(),
+      clearError: vi.fn(),
+      refreshHelperHealth: vi.fn(),
+    } as never;
+
+    render(
+      <SettingsPanel
+        open
+        onOpenChange={vi.fn()}
+        storage={storage}
+        localSync={localSync}
+        llm={llm}
+        promptPack={null}
+        promptPackSource={null}
+        wizardMode={false}
+        setWizardMode={vi.fn()}
+        privacySettingsOpen={false}
+        setPrivacySettingsOpen={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Desktop Accelerator has no macOS browser installer yet.")).toBeInTheDocument();
+    expect(screen.getByText(/cannot install desktop accelerator on macos/i)).toBeInTheDocument();
+    expect(screen.getByText(/safari, edge, and other macos browsers/i)).toBeInTheDocument();
+  });
 });
