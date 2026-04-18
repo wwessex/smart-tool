@@ -6,6 +6,8 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
+type InstallKind = 'prompt' | 'safari-add-to-dock' | 'safari-add-to-home-screen' | null;
+
 // Check if SW should be disabled (for debugging deployment issues)
 const getSWDisabled = (): boolean => {
   if (typeof window === 'undefined') return false;
@@ -19,6 +21,20 @@ const getSWDisabled = (): boolean => {
   }
 };
 
+function detectManualInstallKind(): Exclude<InstallKind, 'prompt' | null> | null {
+  if (typeof navigator === 'undefined') return null;
+
+  const ua = navigator.userAgent || '';
+  const isSafari = /Safari/i.test(ua) && !/Chrome|Chromium|CriOS|Edg|OPR|Firefox|FxiOS/i.test(ua);
+  if (!isSafari) return null;
+
+  const isIOS = /iPhone|iPad|iPod/i.test(ua);
+  if (isIOS) return 'safari-add-to-home-screen';
+
+  const isMac = /Macintosh|Mac OS X/i.test(ua);
+  return isMac ? 'safari-add-to-dock' : null;
+}
+
 export function usePWA() {
   const desktopApp = isDesktopApp();
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -26,6 +42,7 @@ export function usePWA() {
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
+  const manualInstallKind = detectManualInstallKind();
 
   useEffect(() => {
     if (desktopApp) {
@@ -181,8 +198,30 @@ export function usePWA() {
     window.location.reload();
   }, [registration]);
 
+  const installKind: InstallKind = isInstalled
+    ? null
+    : installPrompt
+      ? 'prompt'
+      : manualInstallKind;
+
+  const installTitle = installKind === 'safari-add-to-dock'
+    ? 'Install SMART Tool in Safari'
+    : installKind === 'safari-add-to-home-screen'
+      ? 'Install SMART Tool on iPhone or iPad'
+      : 'Install SMART Tool';
+
+  const installDescription = installKind === 'safari-add-to-dock'
+    ? 'Safari on macOS installs this app with File > Add to Dock or Share > Add to Dock.'
+    : installKind === 'safari-add-to-home-screen'
+      ? 'Safari on iPhone and iPad installs this app from the Share menu with Add to Home Screen.'
+      : 'Add to your home screen for quick access and offline use.';
+
   return {
     canInstall: !!installPrompt && !isInstalled,
+    hasInstallSurface: installKind !== null,
+    installKind,
+    installTitle,
+    installDescription,
     isInstalled,
     isOnline,
     updateAvailable,

@@ -24,6 +24,7 @@ The current app combines:
 - Optional desktop folder sync using the File System Access API
 - Hidden admin route for maintaining `prompt-pack.json`
 - PWA install/update prompts and offline-friendly deployment assets
+  - on macOS Safari, install uses `File > Add to Dock` / `Share > Add to Dock`
 
 ## Monorepo Layout
 
@@ -223,6 +224,14 @@ running on the same machine, but it does not install that helper for you.
   - Overrides where the helper caches downloaded GGUF models.
 - `SMART_TOOL_ALLOWED_ORIGINS` (optional)
   - Extra comma-separated web origins allowed to call the helper.
+
+By default the helper accepts requests from:
+
+- `http://localhost:8080`
+- `http://127.0.0.1:8080`
+- `https://wwessex.github.io`
+- `https://smartactiontool.app`
+- `https://www.smartactiontool.app`
 
 Start the helper manually:
 

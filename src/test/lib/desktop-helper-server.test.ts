@@ -90,6 +90,36 @@ describe("desktop-helper-server", () => {
     expect(engine.generate).not.toHaveBeenCalled();
   });
 
+  it("allows the production smartactiontool.app origin by default", async () => {
+    const defaultOriginApp = createDesktopHelperServer({
+      host: "127.0.0.1",
+      port: 0,
+      engine,
+    });
+
+    try {
+      const address = await defaultOriginApp.start();
+      if (!address || typeof address === "string") {
+        throw new Error("Expected TCP server address");
+      }
+
+      const response = await fetch(`http://127.0.0.1:${address.port}/health`, {
+        headers: {
+          Origin: "https://smartactiontool.app",
+        },
+      });
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        ok: true,
+        ready: true,
+        status: "ready",
+      });
+    } finally {
+      await defaultOriginApp.stop();
+    }
+  });
+
   it("supports unload and reload cycles without changing the contract", async () => {
     const loadResponse1 = await fetch(`${baseUrl}/load`, {
       method: "POST",
