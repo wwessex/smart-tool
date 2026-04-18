@@ -133,7 +133,7 @@
       "main": "electron/main.cjs"
     },
     "win": {
-      "icon": "public/favicon.ico",
+      "icon": "public/icon-512.png",
       "target": [
         "nsis",
         "portable"
