@@ -10,4 +10,5 @@ enum AppTelemetry {
     static let commands = Logger(subsystem: subsystem, category: "Commands")
     static let sync = Logger(subsystem: subsystem, category: "Sync")
     static let web = Logger(subsystem: subsystem, category: "WebView")
+    static let accelerator = Logger(subsystem: subsystem, category: "DesktopAccelerator")
 }

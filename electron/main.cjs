@@ -33,8 +33,8 @@ async function saveDesktopSettings() {
 async function ensureDesktopHelper() {
   if (desktopHelper) return desktopHelper;
 
-  const helperModule = await import(path.join(__dirname, "..", "desktop-helper", "src", "server.js"));
-  desktopHelper = helperModule.createDesktopHelperServer();
+  const helperModule = await import(path.join(__dirname, "..", "desktop-helper", "src", "host.js"));
+  desktopHelper = helperModule.createDesktopAcceleratorHost();
   return desktopHelper;
 }
 
@@ -117,22 +117,22 @@ function registerIpcHandlers() {
 
   ipcMain.handle("desktop-helper:health", async () => {
     const helper = await ensureDesktopHelper();
-    return helper.engine.health();
+    return helper.health();
   });
 
   ipcMain.handle("desktop-helper:load", async (_event, modelId) => {
     const helper = await ensureDesktopHelper();
-    return helper.engine.load(modelId);
+    return helper.load(modelId);
   });
 
   ipcMain.handle("desktop-helper:generate", async (_event, prompt, config) => {
     const helper = await ensureDesktopHelper();
-    return helper.engine.generate(prompt, config || {});
+    return helper.generate(prompt, config || {});
   });
 
   ipcMain.handle("desktop-helper:unload", async () => {
     const helper = await ensureDesktopHelper();
-    return helper.engine.unload();
+    return helper.unload();
   });
 
   ipcMain.handle("desktop-sync:get-state", async () => getSyncFolderState());
@@ -196,5 +196,5 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", async () => {
   if (!desktopHelper) return;
-  await desktopHelper.engine.unload().catch(() => undefined);
+  await desktopHelper.unload().catch(() => undefined);
 });

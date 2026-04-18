@@ -120,4 +120,54 @@ describe("desktop-helper-client", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(health.status).toBe("ready");
   });
+
+  it("uses the same desktop bridge contract on macOS shells", async () => {
+    const bridgeLoad = vi.fn().mockResolvedValue({
+      ok: true,
+      ready: true,
+      status: "ready",
+      backend: "llama.cpp-cpu",
+      model_id: "smart-tool-planner-gguf-v1",
+      message: "Ready",
+    });
+    const bridgeGenerate = vi.fn().mockResolvedValue({
+      text: "Generated text",
+      tokens_generated: 21,
+      time_ms: 8,
+      backend: "llama.cpp-cpu",
+    });
+
+    window.smartToolDesktop = {
+      isDesktopApp: true,
+      platform: "darwin",
+      version: "1.0.0",
+      desktopHelper: {
+        health: vi.fn(),
+        load: bridgeLoad,
+        generate: bridgeGenerate,
+        unload: vi.fn().mockResolvedValue({ ok: true }),
+      },
+      syncFolder: {
+        getState: vi.fn(),
+        selectFolder: vi.fn(),
+        clearFolder: vi.fn(),
+        writeTextFile: vi.fn(),
+      },
+    };
+
+    const loadResult = await loadDesktopHelper("smart-tool-planner-gguf-v1");
+    const generateResult = await generateWithDesktopHelper("Prompt", { temperature: 0 });
+
+    expect(loadResult).toMatchObject({
+      ok: true,
+      ready: true,
+      status: "ready",
+      backend: "llama.cpp-cpu",
+    });
+    expect(generateResult).toMatchObject({
+      text: "Generated text",
+      tokens_generated: 21,
+      backend: "llama.cpp-cpu",
+    });
+  });
 });

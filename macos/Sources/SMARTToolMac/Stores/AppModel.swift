@@ -4,6 +4,7 @@ import Foundation
 @MainActor
 final class AppModel: ObservableObject {
     private static let syncFolderDefaultsKey = "SMARTToolMac.syncFolderPath"
+    private let desktopAccelerator = DesktopAcceleratorService.shared
 
     @Published var reloadToken = 0
     @Published var syncFolderPath: String?
@@ -158,6 +159,23 @@ final class AppModel: ObservableObject {
         AppTelemetry.sync.info("Wrote sync export to \(targetURL.path, privacy: .public)")
         lastTelemetryEvent = "Wrote sync export."
         return ["path": targetURL.path]
+    }
+
+    func desktopHelperHealthPayload() async -> [String: Any] {
+        await desktopAccelerator.health().dictionary()
+    }
+
+    func loadDesktopHelperFromWebView(modelId: String) async throws -> [String: Any] {
+        try await desktopAccelerator.load(modelId: modelId).dictionary()
+    }
+
+    func generateWithDesktopHelperFromWebView(prompt: String, config: [String: Any]) async throws -> [String: Any] {
+        let request = DesktopAcceleratorGenerationConfig.from(dictionary: config)
+        return try await desktopAccelerator.generate(prompt: prompt, config: request).dictionary()
+    }
+
+    func unloadDesktopHelperFromWebView() async -> [String: Any] {
+        await desktopAccelerator.unload().dictionary()
     }
 
     private func configureLaunchURL() async {
