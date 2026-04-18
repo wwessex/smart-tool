@@ -11,7 +11,13 @@ import { fileURLToPath } from "node:url";
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 43117;
 const DEFAULT_INTERNAL_PORT = 43118;
-const DEFAULT_ALLOWED_ORIGINS = ["http://localhost:8080", "https://wwessex.github.io"];
+const DEFAULT_ALLOWED_ORIGINS = [
+  "http://localhost:8080",
+  "http://127.0.0.1:8080",
+  "https://wwessex.github.io",
+  "https://smartactiontool.app",
+  "https://www.smartactiontool.app",
+];
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
 const MODEL_ID = "smart-tool-planner-gguf-v1";
 

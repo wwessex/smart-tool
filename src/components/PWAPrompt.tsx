@@ -5,21 +5,34 @@ import { Button } from '@/components/ui/button';
 import { usePWA } from '@/hooks/usePWA';
 
 export function PWAPrompt() {
-  const { canInstall, isOnline, updateAvailable, promptInstall, applyUpdate } = usePWA();
+  const {
+    canInstall,
+    hasInstallSurface,
+    installKind,
+    installTitle,
+    installDescription,
+    isOnline,
+    updateAvailable,
+    promptInstall,
+    applyUpdate,
+  } = usePWA();
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    // Show install banner after 30 seconds if can install and not dismissed
-    if (canInstall && !dismissed) {
+    // Show install banner after 30 seconds when this browser has an install path.
+    if (hasInstallSurface && !dismissed) {
       const timer = setTimeout(() => {
         setShowInstallBanner(true);
       }, 30000);
       return () => clearTimeout(timer);
     }
-  }, [canInstall, dismissed]);
+  }, [dismissed, hasInstallSurface]);
 
   const handleInstall = async () => {
+    if (installKind !== 'prompt') {
+      return;
+    }
     const installed = await promptInstall();
     if (installed) {
       setShowInstallBanner(false);
@@ -97,18 +110,20 @@ export function PWAPrompt() {
                 S
               </div>
               <div className="flex-1 pr-4">
-                <p className="font-semibold text-sm">Install SMART Tool</p>
+                <p className="font-semibold text-sm">{installTitle}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Add to your home screen for quick access and offline use.
+                  {installDescription}
                 </p>
-                <Button
-                  size="sm"
-                  onClick={handleInstall}
-                  className="mt-3 w-full"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Install App
-                </Button>
+                {canInstall && (
+                  <Button
+                    size="sm"
+                    onClick={handleInstall}
+                    className="mt-3 w-full"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Install App
+                  </Button>
+                )}
               </div>
             </div>
           </motion.div>
