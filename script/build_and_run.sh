@@ -44,6 +44,18 @@ open_app() {
   /usr/bin/open -n "$APP_BUNDLE"
 }
 
+verify_built_app() {
+  if [[ ! -d "$APP_BUNDLE" ]]; then
+    echo "Expected app bundle at $APP_BUNDLE" >&2
+    exit 1
+  fi
+
+  if [[ ! -x "$APP_BINARY" ]]; then
+    echo "Expected app binary at $APP_BINARY" >&2
+    exit 1
+  fi
+}
+
 case "$MODE" in
   run)
     open_app
@@ -60,9 +72,16 @@ case "$MODE" in
     /usr/bin/log stream --info --style compact --predicate "subsystem == \"$BUNDLE_ID\""
     ;;
   --verify|verify)
-    open_app
-    sleep 2
-    pgrep -x "$PROCESS_NAME" >/dev/null
+    verify_built_app
+    if [[ -z "${CI:-}" ]]; then
+      open_app
+      for _ in 1 2 3 4 5; do
+        sleep 1
+        if pgrep -x "$PROCESS_NAME" >/dev/null; then
+          break
+        fi
+      done
+    fi
     echo "Verified macOS app bundle at $APP_BUNDLE"
     ;;
   *)

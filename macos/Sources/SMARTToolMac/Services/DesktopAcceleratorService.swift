@@ -580,8 +580,11 @@ actor DesktopAcceleratorService {
             guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else {
                 return
             }
+            guard let service = self else {
+                return
+            }
             Task {
-                await self?.appendStdout(text)
+                await service.appendStdout(text)
             }
         }
 
@@ -590,14 +593,20 @@ actor DesktopAcceleratorService {
             guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else {
                 return
             }
+            guard let service = self else {
+                return
+            }
             Task {
-                await self?.appendStderr(text)
+                await service.appendStderr(text)
             }
         }
 
         process.terminationHandler = { [weak self] terminatedProcess in
+            guard let service = self else {
+                return
+            }
             Task {
-                await self?.handleProcessExit(terminatedProcess, modelId: model.id, gpuLayers: gpuLayers)
+                await service.handleProcessExit(terminatedProcess, modelId: model.id, gpuLayers: gpuLayers)
             }
         }
 

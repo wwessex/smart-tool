@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build-macos:
-    runs-on: macos-14
+    runs-on: macos-26
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,9 +26,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Select Xcode 26.4
+        run: xcodebuild -version
+        env:
+          DEVELOPER_DIR: /Applications/Xcode_26.4.app/Contents/Developer
+
       - name: Build and verify native macOS desktop app
         run: ./script/build_and_run.sh --verify
         env:
+          DEVELOPER_DIR: /Applications/Xcode_26.4.app/Contents/Developer
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wuxvpkczhdeslbhwpnyd.supabase.co' }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1eHZwa2N6aGRlc2xiaHdwbnlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjQ3NzEsImV4cCI6MjA4NDAwMDc3MX0.ZCrDnhzH1TWYbtaIbvenYRJHMjOvOdL2P1b2-kHgV4c' }}
           VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID || 'wuxvpkczhdeslbhwpnyd' }}
