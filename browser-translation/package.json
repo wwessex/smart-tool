@@ -28,7 +28,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@smart-tool/puente-engine": "workspace:*",
+    "@smart-tool/puente-engine": "0.1.0",
     "onnxruntime-web": "^1.21.0"
   },
   "devDependencies": {

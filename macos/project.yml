@@ -1,0 +1,56 @@
+name: SMARTToolMac
+
+options:
+  createIntermediateGroups: true
+  deploymentTarget:
+    macOS: "14.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    PRODUCT_BUNDLE_IDENTIFIER: uk.smarttool.macos
+    PRODUCT_NAME: "SMART Tool"
+    EXECUTABLE_NAME: SMARTToolMac
+    MARKETING_VERSION: "0.1"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+    GENERATE_INFOPLIST_FILE: NO
+    INFOPLIST_FILE: Config/Info.plist
+
+targets:
+  SMARTToolMac:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    settings:
+      base:
+        EXECUTABLE_NAME: SMARTToolMac
+        PRODUCT_BUNDLE_IDENTIFIER: uk.smarttool.macos
+        PRODUCT_NAME: "SMART Tool"
+        MARKETING_VERSION: "0.1"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Config/Info.plist
+    sources:
+      - path: Sources/SMARTToolMac
+        excludes:
+          - "Smart Tool/**"
+          - "**/.DS_Store"
+    postBuildScripts:
+      - name: Prepare Web Bundle
+        basedOnDependencyAnalysis: false
+        script: |
+          "$SRCROOT/Scripts/prepare_web_bundle.sh"
+
+schemes:
+  SMARTToolMac:
+    build:
+      targets:
+        SMARTToolMac: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+    archive:
+      config: Release

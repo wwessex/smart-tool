@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MODE="${1:-run}"
+APP_NAME="SMART Tool"
+PROCESS_NAME="SMARTToolMac"
+BUNDLE_ID="uk.smarttool.macos"
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT_PATH="$ROOT_DIR/macos/SMARTToolMac.xcodeproj"
+SPEC_PATH="$ROOT_DIR/macos/project.yml"
+DERIVED_DATA_PATH="${SMART_TOOL_DERIVED_DATA_PATH:-$HOME/Library/Developer/Xcode/DerivedData/SMARTToolMac-Codex}"
+BUILD_ROOT="$DERIVED_DATA_PATH/Build/Products/Debug"
+APP_BUNDLE="$BUILD_ROOT/$APP_NAME.app"
+APP_BINARY="$APP_BUNDLE/Contents/MacOS/$PROCESS_NAME"
+
+cd "$ROOT_DIR"
+
+pkill -x "$PROCESS_NAME" >/dev/null 2>&1 || true
+
+if [[ ! -d "$PROJECT_PATH" || "$SPEC_PATH" -nt "$PROJECT_PATH/project.pbxproj" ]]; then
+  ./script/generate_xcode_project.sh
+fi
+
+xcodebuild \
+  -project "$PROJECT_PATH" \
+  -scheme SMARTToolMac \
+  -configuration Debug \
+  -derivedDataPath "$DERIVED_DATA_PATH" \
+  build
+
+open_app() {
+  /usr/bin/open -n "$APP_BUNDLE"
+}
+
+case "$MODE" in
+  run)
+    open_app
+    ;;
+  --debug|debug)
+    lldb -- "$APP_BINARY"
+    ;;
+  --logs|logs)
+    open_app
+    /usr/bin/log stream --info --style compact --predicate "process == \"$PROCESS_NAME\""
+    ;;
+  --telemetry|telemetry)
+    open_app
+    /usr/bin/log stream --info --style compact --predicate "subsystem == \"$BUNDLE_ID\""
+    ;;
+  --verify|verify)
+    open_app
+    sleep 2
+    pgrep -x "$PROCESS_NAME" >/dev/null
+    echo "Verified macOS app bundle at $APP_BUNDLE"
+    ;;
+  *)
+    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify]" >&2
+    exit 2
+    ;;
+esac

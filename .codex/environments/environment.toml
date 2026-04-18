@@ -8,4 +8,4 @@ script = ""
 [[actions]]
 name = "Run"
 icon = "run"
-command = "pwsh -NoProfile -ExecutionPolicy Bypass -File ./script/build_and_run.ps1"
+command = "./script/build_and_run.sh"

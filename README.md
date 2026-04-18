@@ -114,6 +114,69 @@ Notes:
 - `script/build_and_run.ps1` is the project-local Windows entrypoint for kill/build/run and verify flows
 - `.github/workflows/windows-desktop.yml` builds the Windows desktop artifacts on `windows-latest`, which is the supported verification path from non-Windows hosts
 
+### Native macOS shell
+
+The repo also includes a native SwiftUI macOS app under `macos/`. It keeps
+the existing web app as the main app surface, adds a narrow AppKit bridge for
+folder selection, and wraps the runtime in `OSLog` telemetry and a small set of
+desktop commands.
+
+Run the native shell on macOS:
+
+```bash
+./script/build_and_run.sh
+```
+
+Useful variants:
+
+```bash
+./script/build_and_run.sh --verify
+./script/build_and_run.sh --logs
+./script/build_and_run.sh --telemetry
+```
+
+Notes:
+
+- `script/build_and_run.sh` first builds the Vite app, then builds the Swift
+  macOS app target via `xcodebuild`
+- the script uses a derived-data location under
+  `~/Library/Developer/Xcode/DerivedData/SMARTToolMac-Codex` by default so the
+  signed app bundle is built outside iCloud-synced `Documents` folders
+- the native Xcode target runs a build-phase script that rebuilds the Vite app
+  when needed and copies `dist/` into `SMART Tool.app/Contents/Resources/WebApp`
+- the native shell serves the bundled web build over a local loopback server,
+  then loads it in `WKWebView` so the app avoids `file://` restrictions
+- the native shell injects a desktop bridge into `WKWebView` so the React app
+  follows desktop paths instead of browser/PWA-only paths
+- folder selection is intentionally kept behind a small `NSOpenPanel` service
+  so SwiftUI remains the source of truth for desktop state
+- telemetry uses unified logging categories for windowing, sidebar, commands,
+  sync, and web loading
+
+### Xcode
+
+Generate the project if needed:
+
+```bash
+./script/generate_xcode_project.sh
+```
+
+Then open:
+
+```text
+macos/SMARTToolMac.xcodeproj
+```
+
+The `SMARTToolMac` app target is Xcode-first:
+
+- building in Xcode also prepares the web bundle and copies it into app resources
+- the app sources live under `macos/Sources/SMARTToolMac`
+- the project definition is stored in `macos/project.yml` and regenerated with
+  `xcodegen`
+- Xcode's default DerivedData location is the preferred build location; if you
+  override it into a synced folder such as `Documents`, macOS file-provider
+  metadata can break codesign for the built `.app`
+
 ### Test and lint
 
 ```bash
@@ -146,6 +209,29 @@ The app currently uses these environment variables:
   - Bearer token for remote translation model requests
 - `VITE_REMOTE_MODEL_BASE_PATH` (optional)
   - Overrides the remote translation model host/base path
+
+### Desktop Accelerator helper
+
+The browser build can talk to a Desktop Accelerator helper if one is already
+running on the same machine, but it does not install that helper for you.
+
+- `SMART_TOOL_HELPER_MODEL_URL`
+  - Required for the helper. Must point to a GGUF model file that `llama-server` can load.
+- `SMART_TOOL_LLAMA_SERVER_BIN` (optional)
+  - Overrides the `llama-server` executable path.
+- `SMART_TOOL_HELPER_MODEL_DIR` (optional)
+  - Overrides where the helper caches downloaded GGUF models.
+- `SMART_TOOL_ALLOWED_ORIGINS` (optional)
+  - Extra comma-separated web origins allowed to call the helper.
+
+Start the helper manually:
+
+```bash
+npm run helper:start
+```
+
+If the helper is missing, the app should fall back to Browser AI or Smart
+Templates.
 
 ## Local Model Provisioning
 

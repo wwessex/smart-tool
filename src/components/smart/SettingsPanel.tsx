@@ -1,5 +1,5 @@
 import { useState, memo } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { WarningBox } from './WarningBox';
 import { cn } from '@/lib/utils';
 import { DEFAULT_PROMPT_PACK, type PromptPack } from '@/lib/prompt-pack';
+import { getDesktopBridge } from '@/lib/desktop-bridge';
 import type { useSmartStorage } from '@/hooks/useSmartStorage';
 import type { useLocalSync } from '@/hooks/useLocalSync';
 import {
@@ -79,6 +80,18 @@ export const SettingsPanel = memo(function SettingsPanel({
   const [settingsTimescales, setSettingsTimescales] = useState('');
 
   const effectivePromptPack = promptPack || DEFAULT_PROMPT_PACK;
+  const desktopBridge = getDesktopBridge();
+  const desktopPlatform = desktopBridge?.platform ?? null;
+  const helperUnavailableDescription = desktopBridge
+    ? desktopPlatform === 'darwin'
+      ? 'Desktop Accelerator is not available in the native macOS shell yet.'
+      : 'Desktop Accelerator is not available in this desktop build.'
+    : 'Desktop Accelerator is not installed or not running.';
+  const helperSetupDescription = desktopBridge
+    ? desktopPlatform === 'darwin'
+      ? 'This native macOS shell does not bundle Desktop Accelerator yet, so there is nothing to install from Settings. Use Browser AI in this build instead.'
+      : 'This desktop build does not expose an in-app Desktop Accelerator installer. Use Browser AI in this build instead.'
+    : 'This browser build can detect a running Desktop Accelerator, but it cannot install one for you. Local developer setup uses `npm run helper:start` after configuring the helper environment variables.';
   const helperStatusCopy = llm.helperStatus === 'ready'
     ? { label: 'Ready', description: llm.helperBackend ? `Desktop Accelerator is ready via ${llm.helperBackend}.` : 'Desktop Accelerator is ready.' }
     : llm.helperStatus === 'downloading-model'
@@ -91,7 +104,7 @@ export const SettingsPanel = memo(function SettingsPanel({
             ? { label: 'Checking...', description: 'Looking for a running Desktop Accelerator on this computer.' }
             : llm.helperStatus === 'error'
               ? { label: 'Unavailable', description: llm.helperMessage || 'Desktop Accelerator returned an error.' }
-              : { label: 'Not installed', description: llm.helperMessage || 'Desktop Accelerator is not installed or not running.' };
+              : { label: desktopBridge ? 'Unavailable' : 'Not installed', description: llm.helperMessage || helperUnavailableDescription };
   const activeRuntimeLabel = llm.activeRuntime === 'desktop-helper'
     ? 'Desktop Accelerator'
     : llm.activeRuntime === 'browser'
@@ -99,6 +112,7 @@ export const SettingsPanel = memo(function SettingsPanel({
       : llm.activeRuntime === 'template'
         ? 'Smart Templates'
         : 'Not loaded';
+  const showHelperSetupCard = llm.supportsDesktopHelper && (llm.helperStatus === 'not-installed' || llm.helperStatus === 'error');
 
   const handleOpen = (isOpen: boolean) => {
     onOpenChange(isOpen);
@@ -108,11 +122,27 @@ export const SettingsPanel = memo(function SettingsPanel({
     }
   };
 
+  const handleSwitchToBrowserAI = async () => {
+    storage.updateAIDraftRuntime('browser');
+    const modelId = llm.selectedModel || storage.preferredLLMModel || llm.supportedModels[0]?.id;
+    if (!modelId || (llm.isReady && llm.activeRuntime === 'browser')) {
+      return;
+    }
+
+    const success = await llm.loadModel(modelId);
+    if (success) {
+      storage.updatePreferredLLMModel?.(modelId);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
-      <DialogContent className="max-w-3xl max-h-[85vh] sm:max-h-[80vh] flex flex-col overflow-hidden">
+        <DialogContent className="max-w-3xl max-h-[85vh] sm:max-h-[80vh] flex flex-col overflow-hidden">
         <DialogHeader className="shrink-0">
           <DialogTitle>Settings</DialogTitle>
+          <DialogDescription>
+            Configure SMART Tool drafting, storage, sync, and privacy preferences.
+          </DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto pr-2 space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
@@ -327,6 +357,39 @@ export const SettingsPanel = memo(function SettingsPanel({
                       <span className="text-xs text-muted-foreground">{helperStatusCopy.label}</span>
                     </div>
                     <p className="text-xs text-muted-foreground">{helperStatusCopy.description}</p>
+                  </div>
+                )}
+
+                {showHelperSetupCard && (
+                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-3 space-y-3">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">
+                          {desktopBridge ? 'Desktop Accelerator is unavailable in this build.' : 'No in-browser installer is available for Desktop Accelerator.'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{helperSetupDescription}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => { void handleSwitchToBrowserAI(); }}
+                      >
+                        {storage.aiDraftRuntime === 'browser' ? 'Load Browser AI' : 'Switch to Browser AI'}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => { void llm.refreshHelperHealth(); }}
+                      >
+                        <RefreshCw className="w-3 h-3 mr-1" />
+                        Refresh helper check
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
