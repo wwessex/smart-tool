@@ -215,6 +215,9 @@ The app currently uses these environment variables:
 
 The browser build can talk to a Desktop Accelerator helper if one is already
 running on the same machine, but it does not install that helper for you.
+There is currently no one-click macOS installer for Desktop Accelerator, so
+Safari, Edge, and other macOS browsers can only connect to a helper you set up
+manually.
 
 - `SMART_TOOL_HELPER_MODEL_URL`
   - Required for the helper. Must point to a GGUF model file that `llama-server` can load.
