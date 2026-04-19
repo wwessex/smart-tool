@@ -1,7 +1,7 @@
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Privacy-first SMART action planner for employment advisors and coaches.",
   "author": "SMART Tool contributors",
   "main": "electron/main.cjs",

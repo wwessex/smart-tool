@@ -55,7 +55,7 @@ describe("desktop-installer", () => {
     expect(target).toMatchObject({
       platform: "windows",
       architecture: "arm64",
-      url: "https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-Windows-arm64-Setup.exe",
+      url: "https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-Windows-x64-Setup.exe",
     });
   });
 });

@@ -199,7 +199,6 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             release/SMART-Tool-Windows-x64-Setup.exe
-            release/SMART-Tool-Windows-arm64-Setup.exe
 
   macos-release:
     needs: [release-plan, create-release]

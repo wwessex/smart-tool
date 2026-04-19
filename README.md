@@ -85,7 +85,7 @@ Accelerator experience:
 
 - macOS (Apple Silicon): `https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-macOS-arm64.dmg`
 - Windows x64: `https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-Windows-x64-Setup.exe`
-- Windows arm64: `https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-Windows-arm64-Setup.exe`
+- Windows arm64: use the Windows x64 installer above under Windows on ARM emulation
 
 The desktop apps embed Desktop Accelerator directly. On first launch they
 download the local GGUF model into app data and reuse it on later launches.
@@ -132,7 +132,7 @@ Notes:
 - `.github/workflows/windows-desktop.yml` builds the Windows desktop artifacts on `windows-latest`, which is the supported verification path from non-Windows hosts
 - `.github/workflows/release-desktop.yml` is the signed tag-driven release workflow for public installers
 - the Electron packaging commands use `--publish never`; GitHub release uploads happen in `.github/workflows/release-desktop.yml`
-- when signing secrets are missing, `.github/workflows/release-desktop.yml` falls back to unsigned Windows installers and an ad-hoc signed macOS DMG so releases are still publishable
+- when signing secrets are missing, `.github/workflows/release-desktop.yml` falls back to an unsigned Windows x64 installer and an ad-hoc signed macOS DMG so releases are still publishable
 
 ### Native macOS shell
 

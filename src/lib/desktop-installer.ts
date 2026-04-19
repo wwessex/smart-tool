@@ -34,7 +34,7 @@ export interface DesktopInstallTarget {
 
 const WINDOWS_RELEASE_URLS = {
   x64: `${SMART_TOOL_RELEASES_DOWNLOAD_BASE_URL}/SMART-Tool-Windows-x64-Setup.exe`,
-  arm64: `${SMART_TOOL_RELEASES_DOWNLOAD_BASE_URL}/SMART-Tool-Windows-arm64-Setup.exe`,
+  arm64: `${SMART_TOOL_RELEASES_DOWNLOAD_BASE_URL}/SMART-Tool-Windows-x64-Setup.exe`,
 } as const;
 const MACOS_RELEASE_URL = `${SMART_TOOL_RELEASES_DOWNLOAD_BASE_URL}/SMART-Tool-macOS-arm64.dmg`;
 
@@ -99,7 +99,7 @@ export function resolveDesktopInstallTarget(snapshot: DesktopInstallSnapshot = {
       showAdvancedManualSetup: false,
       manualGuideUrl: SMART_TOOL_ADVANCED_SETUP_URL,
       description: resolvedArchitecture === "arm64"
-        ? "Download the latest Windows arm64 installer for the built-in Desktop Accelerator. The first launch downloads the local model automatically."
+        ? "Download the latest Windows x64 installer for the built-in Desktop Accelerator. Windows on ARM can run this build under x64 emulation, and the first launch downloads the local model automatically."
         : "Download the latest Windows x64 installer for the built-in Desktop Accelerator. The first launch downloads the local model automatically.",
     };
   }
