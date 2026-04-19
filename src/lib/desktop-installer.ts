@@ -1,4 +1,4 @@
-export const SMART_TOOL_RELEASES_BASE_URL = "https://github.com/wwessex/smart-tool/releases/latest/download";
+export const SMART_TOOL_RELEASES_PAGE_URL = "https://github.com/wwessex/smart-tool/releases/latest";
 export const SMART_TOOL_ADVANCED_SETUP_URL = "https://github.com/wwessex/smart-tool#advanced-manual-desktop-setup";
 
 export type DesktopInstallPlatform = "macos" | "windows" | "unsupported";
@@ -31,9 +31,8 @@ export interface DesktopInstallTarget {
   description: string;
 }
 
-const WINDOWS_X64_DOWNLOAD_URL = `${SMART_TOOL_RELEASES_BASE_URL}/SMART-Tool-Windows-x64-Setup.exe`;
-const WINDOWS_ARM64_DOWNLOAD_URL = `${SMART_TOOL_RELEASES_BASE_URL}/SMART-Tool-Windows-arm64-Setup.exe`;
-const MACOS_ARM64_DOWNLOAD_URL = `${SMART_TOOL_RELEASES_BASE_URL}/SMART-Tool-macOS-arm64.dmg`;
+const WINDOWS_RELEASE_URL = SMART_TOOL_RELEASES_PAGE_URL;
+const MACOS_RELEASE_URL = SMART_TOOL_RELEASES_PAGE_URL;
 
 function normalizePlatform(snapshot: DesktopInstallSnapshot): DesktopInstallPlatform {
   const platform = `${snapshot.platform || ""}`.toLowerCase();
@@ -90,12 +89,14 @@ export function resolveDesktopInstallTarget(snapshot: DesktopInstallSnapshot = {
       platform: "windows",
       architecture: resolvedArchitecture,
       platformLabel: "Windows",
-      label: "Download SMART Tool for Windows",
-      url: resolvedArchitecture === "arm64" ? WINDOWS_ARM64_DOWNLOAD_URL : WINDOWS_X64_DOWNLOAD_URL,
+      label: "Open SMART Tool Windows release",
+      url: WINDOWS_RELEASE_URL,
       canDirectDownload: true,
       showAdvancedManualSetup: false,
       manualGuideUrl: SMART_TOOL_ADVANCED_SETUP_URL,
-      description: "Install the Windows desktop app for the built-in Desktop Accelerator. The first launch downloads the local model automatically.",
+      description: resolvedArchitecture === "arm64"
+        ? "Open the latest SMART Tool GitHub release and download the Windows arm64 installer for the built-in Desktop Accelerator. The first launch downloads the local model automatically."
+        : "Open the latest SMART Tool GitHub release and download the Windows x64 installer for the built-in Desktop Accelerator. The first launch downloads the local model automatically.",
     };
   }
 
@@ -118,14 +119,14 @@ export function resolveDesktopInstallTarget(snapshot: DesktopInstallSnapshot = {
       platform: "macos",
       architecture,
       platformLabel: "macOS",
-      label: "Download SMART Tool for macOS",
-      url: MACOS_ARM64_DOWNLOAD_URL,
+      label: "Open SMART Tool macOS release",
+      url: MACOS_RELEASE_URL,
       canDirectDownload: true,
       showAdvancedManualSetup: false,
       manualGuideUrl: SMART_TOOL_ADVANCED_SETUP_URL,
       description: architecture === "arm64"
-        ? "Install the native macOS app for the built-in Desktop Accelerator. The first launch downloads the local model automatically."
-        : "Install the native macOS app for the built-in Desktop Accelerator. Apple Silicon is required for the one-click install.",
+        ? "Open the latest SMART Tool GitHub release and download the Apple Silicon DMG for the built-in Desktop Accelerator. The first launch downloads the local model automatically."
+        : "Open the latest SMART Tool GitHub release and download the Apple Silicon DMG for the built-in Desktop Accelerator. Apple Silicon is required for the one-click install.",
     };
   }
 

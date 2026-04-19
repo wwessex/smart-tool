@@ -235,14 +235,14 @@ describe("SettingsPanel", () => {
       />,
     );
 
-    expect(screen.getByText("Download SMART Tool for macOS to enable Desktop Accelerator.")).toBeInTheDocument();
+    expect(screen.getByText("Open SMART Tool macOS release to enable Desktop Accelerator.")).toBeInTheDocument();
     expect(screen.getByText(/apple silicon is required for the one-click install/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Download SMART Tool for macOS" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open SMART Tool macOS release" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Advanced manual setup" })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Download SMART Tool for macOS" }));
+    await user.click(screen.getByRole("button", { name: "Open SMART Tool macOS release" }));
     expect(openSpy).toHaveBeenCalledWith(
-      "https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-macOS-arm64.dmg",
+      "https://github.com/wwessex/smart-tool/releases/latest",
       "_blank",
       "noopener,noreferrer",
     );
@@ -348,12 +348,12 @@ describe("SettingsPanel", () => {
       />,
     );
 
-    expect(screen.getByText("Download SMART Tool for Windows to enable Desktop Accelerator.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Download SMART Tool for Windows" })).toBeInTheDocument();
+    expect(screen.getByText("Open SMART Tool Windows release to enable Desktop Accelerator.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open SMART Tool Windows release" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Download SMART Tool for Windows" }));
+    await user.click(screen.getByRole("button", { name: "Open SMART Tool Windows release" }));
     expect(openSpy).toHaveBeenCalledWith(
-      "https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-Windows-x64-Setup.exe",
+      "https://github.com/wwessex/smart-tool/releases/latest",
       "_blank",
       "noopener,noreferrer",
     );
