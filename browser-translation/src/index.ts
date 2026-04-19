@@ -72,6 +72,15 @@ export {
   getAttributions,
 } from "./models/registry.js";
 
+export {
+  TRANSLATION_SOURCE_MANIFEST,
+  SOURCE_MANIFEST_VERSION,
+  getTranslationSourcePair,
+  getTranslationSourceModel,
+  getRequiredModelFiles,
+  getUniqueTranslationModelIds,
+} from "./models/source-manifest.js";
+
 // ---- Pivot routing ----
 export {
   resolveRoute,
@@ -100,8 +109,8 @@ export { ModelCacheManager } from "./cache/model-cache.js";
 
 // ---- Rule-based translation ----
 export { RuleBasedTranslator } from "./engine/rule-translator.js";
-export { getDictionary, hasDictionary, getDictionaryPairs } from "./dictionaries/index.js";
-export type { PhraseDictionary, DictionaryEntry, TimePattern } from "./dictionaries/types.js";
+export { getDictionary, hasDictionary, getDictionaryPairs, GLOSSARY_VERSION } from "./dictionaries/index.js";
+export type { PhraseDictionary, DictionaryEntry, TimePattern, GlossaryMetadata, GlossaryTier } from "./dictionaries/types.js";
 
 // ---- RTL utilities ----
 export {
@@ -121,8 +130,12 @@ export type {
   LanguageInfo,
   ModelDtype,
   ModelInfo,
+  TranslationSourceModelEntry,
+  TranslationSourcePairEntry,
+  TranslationSourceManifest,
   TranslationRequest,
   TranslationResult,
+  TranslationDiagnostics,
   TranslationEngineConfig,
   InferenceBackend,
   BrowserCapabilities,

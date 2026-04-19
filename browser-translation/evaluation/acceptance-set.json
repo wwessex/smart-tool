@@ -1,0 +1,977 @@
+{
+  "version": "2026-04-19",
+  "generatedAt": "2026-04-19T00:30:50.861Z",
+  "targetLanguages": [
+    "de",
+    "fr",
+    "es",
+    "it",
+    "pt",
+    "pl",
+    "ar",
+    "hi",
+    "ur",
+    "cy",
+    "bn",
+    "pa",
+    "ps",
+    "so",
+    "ti"
+  ],
+  "cases": [
+    {
+      "id": "core-001",
+      "tier": "core_templates",
+      "source": "As discussed and agreed,",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "stable_connector_phrasing"
+      ]
+    },
+    {
+      "id": "core-002",
+      "tier": "core_templates",
+      "source": "As discussed and agreed, on",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "stable_connector_phrasing"
+      ]
+    },
+    {
+      "id": "core-003",
+      "tier": "core_templates",
+      "source": "During our meeting on",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "stable_connector_phrasing"
+      ]
+    },
+    {
+      "id": "core-004",
+      "tier": "core_templates",
+      "source": "This action will help",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "stable_connector_phrasing"
+      ]
+    },
+    {
+      "id": "core-005",
+      "tier": "core_templates",
+      "source": "This will be reviewed in our next meeting in",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "stable_connector_phrasing"
+      ]
+    },
+    {
+      "id": "core-006",
+      "tier": "core_templates",
+      "source": "This will be reviewed in our next review meeting in",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "stable_connector_phrasing"
+      ]
+    },
+    {
+      "id": "core-007",
+      "tier": "core_templates",
+      "source": "We have agreed today that this action is both realistic and achievable.",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "stable_connector_phrasing"
+      ]
+    },
+    {
+      "id": "core-008",
+      "tier": "core_templates",
+      "source": "and I",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "stable_connector_phrasing"
+      ]
+    },
+    {
+      "id": "core-009",
+      "tier": "core_templates",
+      "source": "has agreed to",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "stable_connector_phrasing"
+      ]
+    },
+    {
+      "id": "core-010",
+      "tier": "core_templates",
+      "source": "has confirmed",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "stable_connector_phrasing"
+      ]
+    },
+    {
+      "id": "core-011",
+      "tier": "core_templates",
+      "source": "has confirmed this action is both realistic and achievable",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "stable_connector_phrasing"
+      ]
+    },
+    {
+      "id": "core-012",
+      "tier": "core_templates",
+      "source": "has discussed and agreed to",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "stable_connector_phrasing"
+      ]
+    },
+    {
+      "id": "core-013",
+      "tier": "core_templates",
+      "source": "identified development areas around",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "stable_connector_phrasing"
+      ]
+    },
+    {
+      "id": "core-014",
+      "tier": "core_templates",
+      "source": "in our next meeting in",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "stable_connector_phrasing"
+      ]
+    },
+    {
+      "id": "core-015",
+      "tier": "core_templates",
+      "source": "will",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "stable_connector_phrasing"
+      ]
+    },
+    {
+      "id": "employment-001",
+      "tier": "employment_domain",
+      "source": "job search",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "employment_domain_term_present"
+      ]
+    },
+    {
+      "id": "employment-002",
+      "tier": "employment_domain",
+      "source": "job applications",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "employment_domain_term_present"
+      ]
+    },
+    {
+      "id": "employment-003",
+      "tier": "employment_domain",
+      "source": "digital skills",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "employment_domain_term_present"
+      ]
+    },
+    {
+      "id": "employment-004",
+      "tier": "employment_domain",
+      "source": "work experience",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "employment_domain_term_present"
+      ]
+    },
+    {
+      "id": "employment-005",
+      "tier": "employment_domain",
+      "source": "communication skills",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "employment_domain_term_present"
+      ]
+    },
+    {
+      "id": "employment-006",
+      "tier": "employment_domain",
+      "source": "support worker",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "employment_domain_term_present"
+      ]
+    },
+    {
+      "id": "employment-007",
+      "tier": "employment_domain",
+      "source": "careers adviser",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "employment_domain_term_present"
+      ]
+    },
+    {
+      "id": "employment-008",
+      "tier": "employment_domain",
+      "source": "childcare options",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "employment_domain_term_present"
+      ]
+    },
+    {
+      "id": "employment-009",
+      "tier": "employment_domain",
+      "source": "travel support",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "employment_domain_term_present"
+      ]
+    },
+    {
+      "id": "employment-010",
+      "tier": "employment_domain",
+      "source": "benefit entitlement",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "employment_domain_term_present"
+      ]
+    },
+    {
+      "id": "employment-011",
+      "tier": "employment_domain",
+      "source": "universal credit",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "employment_domain_term_present"
+      ]
+    },
+    {
+      "id": "employment-012",
+      "tier": "employment_domain",
+      "source": "council tax",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "employment_domain_term_present"
+      ]
+    },
+    {
+      "id": "employment-013",
+      "tier": "employment_domain",
+      "source": "application form",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "employment_domain_term_present"
+      ]
+    },
+    {
+      "id": "employment-014",
+      "tier": "employment_domain",
+      "source": "mock interview",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "no_untranslated_english_leakage_above_threshold",
+        "employment_domain_term_present"
+      ]
+    },
+    {
+      "id": "general-001",
+      "tier": "general_lexicon",
+      "source": "confirmed",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "general_lexicon_covered_or_model_translated"
+      ]
+    },
+    {
+      "id": "general-002",
+      "tier": "general_lexicon",
+      "source": "both",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "general_lexicon_covered_or_model_translated"
+      ]
+    },
+    {
+      "id": "general-003",
+      "tier": "general_lexicon",
+      "source": "on",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "general_lexicon_covered_or_model_translated"
+      ]
+    },
+    {
+      "id": "general-004",
+      "tier": "general_lexicon",
+      "source": "where",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "general_lexicon_covered_or_model_translated"
+      ]
+    },
+    {
+      "id": "general-005",
+      "tier": "general_lexicon",
+      "source": "how much",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "general_lexicon_covered_or_model_translated"
+      ]
+    },
+    {
+      "id": "general-006",
+      "tier": "general_lexicon",
+      "source": "who",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "general_lexicon_covered_or_model_translated"
+      ]
+    },
+    {
+      "id": "general-007",
+      "tier": "general_lexicon",
+      "source": "their",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "general_lexicon_covered_or_model_translated"
+      ]
+    },
+    {
+      "id": "general-008",
+      "tier": "general_lexicon",
+      "source": "our",
+      "targetLanguages": [
+        "de",
+        "fr",
+        "es",
+        "it",
+        "pt",
+        "pl",
+        "ar",
+        "hi",
+        "ur",
+        "cy",
+        "bn",
+        "pa",
+        "ps",
+        "so",
+        "ti"
+      ],
+      "invariants": [
+        "general_lexicon_covered_or_model_translated"
+      ]
+    }
+  ]
+}

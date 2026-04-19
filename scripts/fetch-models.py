@@ -12,44 +12,28 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import os
-import re
 import shutil
 from pathlib import Path
-from typing import Iterable
-from urllib.error import HTTPError, URLError
-from urllib.request import urlopen
 
 from huggingface_hub import snapshot_download
 
+from translation_sources import (
+  DEFAULT_MODELS_DIR,
+  get_models,
+  load_source_manifest,
+  write_local_bundle_manifest,
+)
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
-PUBLIC_MODELS_DIR = REPO_ROOT / "public" / "models"
-TRANSLATION_REGISTRY_PATH = REPO_ROOT / "browser-translation" / "src" / "models" / "registry.ts"
+PUBLIC_MODELS_DIR = DEFAULT_MODELS_DIR
 
 # LLM model for Amor inteligente (browser-native-llm)
 PLANNER_MODELS = {
   "HuggingFaceTB/SmolLM2-360M-Instruct": "smart-planner-150m-q4",
 }
 
-TRANSLATION_MODEL_HOST = "https://huggingface.co/Xenova"
-TRANSLATION_REQUIRED_FILES = [
-  "config.json",
-  "generation_config.json",
-  "tokenizer.json",
-  "tokenizer_config.json",
-  "special_tokens_map.json",
-  "onnx/encoder_model_quantized.onnx",
-  "onnx/decoder_model_merged_quantized.onnx",
-]
-
 HF_CACHE = os.environ.get("HF_HUB_CACHE", str(REPO_ROOT / ".hf-cache"))
-
-
-def parse_translation_model_ids(registry_path: Path) -> list[str]:
-  source = registry_path.read_text(encoding="utf-8")
-  model_ids = re.findall(r'modelId:\s*"([^"]+)"', source)
-  return sorted(set(model_ids))
 
 
 def download_planner_model(repo_id: str, dest: Path) -> None:
@@ -62,25 +46,26 @@ def download_planner_model(repo_id: str, dest: Path) -> None:
   )
 
 
-def download_translation_file(model_id: str, relative_path: str, destination_root: Path) -> None:
-  remote_url = f"{TRANSLATION_MODEL_HOST}/{model_id}/resolve/main/{relative_path}"
-  destination_path = destination_root / relative_path
-  destination_path.parent.mkdir(parents=True, exist_ok=True)
+def download_translation_models(output_dir: Path) -> None:
+  manifest = load_source_manifest()
+  models = get_models(manifest)
+  required_files = manifest["requiredFiles"]
+  model_ids = sorted(models.keys())
 
-  try:
-    with urlopen(remote_url) as response:
-      destination_path.write_bytes(response.read())
-  except (HTTPError, URLError) as exc:
-    raise RuntimeError(f"Failed to download {remote_url}: {exc}") from exc
+  for model_id in model_ids:
+    model = models[model_id]
+    destination = output_dir / model_id
+    print(f"Provisioning translation model bundle {model['browserRepoId']} -> {destination}")
+    snapshot_download(
+      repo_id=model["browserRepoId"],
+      local_dir=str(destination),
+      cache_dir=HF_CACHE,
+      allow_patterns=required_files,
+      resume_download=True,
+    )
 
-
-def write_translation_manifest(model_ids: Iterable[str], destination: Path) -> None:
-  payload = {
-    "source": "browser-translation/src/models/registry.ts",
-    "requiredFiles": TRANSLATION_REQUIRED_FILES,
-    "models": sorted(model_ids),
-  }
-  destination.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+  manifest_path = write_local_bundle_manifest(manifest, model_ids, output_dir)
+  print(f"Wrote translation manifest: {manifest_path}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -114,16 +99,7 @@ def main() -> None:
       download_planner_model(repo_id, destination)
 
   if not args.planner_only:
-    translation_model_ids = parse_translation_model_ids(TRANSLATION_REGISTRY_PATH)
-    for model_id in translation_model_ids:
-      model_root = PUBLIC_MODELS_DIR / model_id
-      print(f"Provisioning translation model assets for {model_id}")
-      for relative_file in TRANSLATION_REQUIRED_FILES:
-        download_translation_file(model_id, relative_file, model_root)
-
-    manifest_path = PUBLIC_MODELS_DIR / "translation-models.manifest.json"
-    write_translation_manifest(translation_model_ids, manifest_path)
-    print(f"Wrote translation manifest: {manifest_path}")
+    download_translation_models(PUBLIC_MODELS_DIR)
 
   if os.path.isdir(HF_CACHE):
     try:

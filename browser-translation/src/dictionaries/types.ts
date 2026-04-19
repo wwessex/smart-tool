@@ -7,6 +7,21 @@
  */
 
 /** A single dictionary entry mapping a source phrase to its translation. */
+export type GlossaryTier = "core_templates" | "employment_domain" | "general_lexicon";
+
+/** Summary metadata for a reviewed glossary bundle. */
+export interface GlossaryMetadata {
+  /** Version string used in runtime diagnostics. */
+  version: string;
+  /** Directional language pair the glossary belongs to. */
+  pair: string;
+  /** Reviewed sources used to build the glossary. */
+  sources: string[];
+  /** Entry counts by review tier. */
+  tierCounts: Record<GlossaryTier, number>;
+}
+
+/** A single dictionary entry mapping a source phrase to its translation. */
 export interface DictionaryEntry {
   /** Source phrase in English (lowercase for matching). */
   src: string;
@@ -14,6 +29,10 @@ export interface DictionaryEntry {
   tgt: string;
   /** Optional part-of-speech hint for future grammar handling. */
   pos?: "verb" | "noun" | "adjective" | "phrase" | "connector" | "time";
+  /** Review tier used by glossary tooling. */
+  tier?: GlossaryTier;
+  /** Optional reviewed provenance labels for this entry. */
+  sources?: string[];
 }
 
 /** Regex-based time expression pattern with a replacement template. */
@@ -28,6 +47,8 @@ export interface TimePattern {
 export interface PhraseDictionary {
   /** Language pair ID (e.g., "en-de"). */
   pair: string;
+  /** Reviewed glossary metadata injected at load time. */
+  metadata?: GlossaryMetadata;
   /** Multi-word phrases — matched FIRST (longest first). */
   phrases: DictionaryEntry[];
   /** Single words — matched AFTER phrases. */

@@ -34,6 +34,13 @@ describe('useTranslation', () => {
   });
 
   it('returns translated result and updates state on success', async () => {
+    const diagnostics = {
+      route: ['en-ar'],
+      usedRuleFallback: false,
+      sourceManifestVersion: '2026-04-19',
+      glossaryVersion: '2026-04-19',
+    };
+
     mockTranslate.mockResolvedValue({
       original: 'Hello',
       translated: 'مرحباً',
@@ -43,6 +50,7 @@ describe('useTranslation', () => {
       durationMs: 100,
       chunksTranslated: 1,
       modelsUsed: ['opus-mt-en-ar'],
+      diagnostics,
     });
 
     const { result } = renderHook(() => useTranslation({ enabled: true }));
@@ -62,6 +70,7 @@ describe('useTranslation', () => {
       translated: 'مرحباً',
       language: 'ar',
       languageName: 'Arabic',
+      diagnostics,
     });
     expect(result.current.result).toEqual(translated);
     expect(result.current.error).toBeNull();
@@ -283,7 +292,7 @@ describe('useTranslation', () => {
     );
   });
 
-  it('defaults allowRemoteModels to true in production when no explicit override is set', async () => {
+  it('defaults allowRemoteModels to false in production when no explicit override is set', async () => {
     vi.unstubAllEnvs();
     vi.stubEnv('MODE', 'production');
     vi.stubEnv('PROD', true);
@@ -297,7 +306,7 @@ describe('useTranslation', () => {
     expect(EngineCtor).toHaveBeenCalledTimes(1);
     expect(EngineCtor).toHaveBeenCalledWith(
       expect.objectContaining({
-        allowRemoteModels: true,
+        allowRemoteModels: false,
       }),
     );
   });

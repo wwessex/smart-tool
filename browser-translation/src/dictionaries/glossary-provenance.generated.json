@@ -1,0 +1,60 @@
+{
+  "version": "2026-04-19",
+  "generatedAt": "2026-04-19T00:30:50.860Z",
+  "reviewedSources": [
+    "internal:smart-output-templates",
+    "internal:current-reviewed-dictionaries",
+    "internal:known-regressions-pr-159",
+    "internal:known-regressions-pr-168",
+    "external-reviewed:kaikki-wiktextract",
+    "external-reviewed:panlex",
+    "external-reviewed:opus",
+    "external-reviewed:tatoeba"
+  ],
+  "tiers": {
+    "core_templates": [
+      "As discussed and agreed,",
+      "As discussed and agreed, on",
+      "During our meeting on",
+      "This action will help",
+      "This will be reviewed in our next meeting in",
+      "This will be reviewed in our next review meeting in",
+      "We have agreed today that this action is both realistic and achievable.",
+      "and I",
+      "has agreed to",
+      "has confirmed",
+      "has confirmed this action is both realistic and achievable",
+      "has discussed and agreed to",
+      "identified development areas around",
+      "in our next meeting in",
+      "will"
+    ],
+    "employment_domain": [
+      "application form",
+      "benefit entitlement",
+      "careers adviser",
+      "childcare options",
+      "communication skills",
+      "council tax",
+      "digital skills",
+      "job applications",
+      "job search",
+      "mock interview",
+      "support worker",
+      "travel support",
+      "universal credit",
+      "work experience"
+    ],
+    "general_lexicon": [
+      "both",
+      "confirmed",
+      "how much",
+      "on",
+      "our",
+      "their",
+      "where",
+      "who"
+    ]
+  },
+  "notes": "Generated from internal SMART templates plus reviewed regression/domain seeds."
+}

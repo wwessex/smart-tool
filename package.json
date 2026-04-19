@@ -27,11 +27,13 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "fetch-models": "python scripts/fetch-models.py",
-    "fetch-models:planner": "python scripts/fetch-models.py --planner-only",
-    "verify:planner-model": "python scripts/verify-local-models.py",
-    "validate:translation-models": "python scripts/validate-local-translation-models.py",
-    "validate:translation-models:offline": "LOCAL_ONLY_MODELS=1 python scripts/validate-local-translation-models.py --offline-only",
+    "fetch-models": "node scripts/run-python.mjs scripts/fetch-models.py",
+    "fetch-models:planner": "node scripts/run-python.mjs scripts/fetch-models.py --planner-only",
+    "verify:planner-model": "node scripts/run-python.mjs scripts/verify-local-models.py",
+    "validate:translation-sources": "node scripts/run-python.mjs scripts/validate-translation-sources.py --check-remote",
+    "validate:translation-models": "node scripts/run-python.mjs scripts/validate-local-translation-models.py",
+    "validate:translation-models:offline": "LOCAL_ONLY_MODELS=1 node scripts/run-python.mjs scripts/validate-local-translation-models.py --offline-only",
+    "generate:translation-glossary": "node scripts/generate-translation-glossary.mjs",
     "helper:start": "node desktop-helper/src/server.js"
   },
   "dependencies": {
@@ -160,8 +162,13 @@
             "arm64"
           ]
         }
-      ],
-      "artifactName": "SMART-Tool-Windows-${arch}-${target}.${ext}"
+      ]
+    },
+    "nsis": {
+      "artifactName": "SMART-Tool-Windows-${arch}-setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "SMART-Tool-Windows-${arch}-portable.${ext}"
     }
   }
 }

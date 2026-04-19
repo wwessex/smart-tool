@@ -34,6 +34,7 @@
 import type {
   TranslationRequest,
   TranslationResult,
+  TranslationDiagnostics,
   TranslationEngineConfig,
   TranslationEngineCallbacks,
   InferenceBackend,
@@ -48,6 +49,8 @@ import { getModelForPair, isRTL, getDirection, SUPPORTED_LANGUAGES } from "../mo
 import { TranslationCache } from "../cache/translation-cache.js";
 import { detectCapabilities, selectBackend } from "../runtime/backend-selector.js";
 import { RuleBasedTranslator } from "./rule-translator.js";
+import { SOURCE_MANIFEST_VERSION } from "../models/source-manifest.js";
+import { GLOSSARY_VERSION } from "../dictionaries/index.js";
 
 /** Default engine configuration. */
 const DEFAULT_CONFIG: TranslationEngineConfig = {
@@ -124,12 +127,22 @@ export class TranslationEngine {
     }
 
     if (sourceLang === targetLang) {
-      return this.buildResult(text, text, request, false, 0, []);
+      return this.buildResult(text, text, request, false, 0, [], 0, undefined, undefined, {
+        route: [],
+        usedRuleFallback: false,
+        sourceManifestVersion: SOURCE_MANIFEST_VERSION,
+        glossaryVersion: GLOSSARY_VERSION,
+      });
     }
 
     // In "prefer-rules" mode, skip pipeline entirely and use dictionaries
     if (this.config.ruleTranslationMode === "prefer-rules") {
-      return this.translateWithRules(text, request);
+      return this.translateWithRules(
+        text,
+        request,
+        [buildPairId(sourceLang, targetLang) as LanguagePairId],
+        "Rule-based translation forced by configuration."
+      );
     }
 
     // Resolve translation route (direct or pivot)
@@ -137,7 +150,12 @@ export class TranslationEngine {
     if (!route) {
       // If no model route exists, try rule-based as fallback
       if (this.config.ruleTranslationMode !== "disabled") {
-        return this.translateWithRules(text, request);
+        return this.translateWithRules(
+          text,
+          request,
+          [buildPairId(sourceLang, targetLang) as LanguagePairId],
+          "No direct or pivot model route exists for this language pair."
+        );
       }
       throw new Error(
         `No translation route available for ${sourceLang} → ${targetLang}. ` +
@@ -166,7 +184,13 @@ export class TranslationEngine {
       // Fall back to rule-based translation when ONNX pipeline fails
       if (this.config.ruleTranslationMode !== "disabled") {
         try {
-          return await this.translateWithRules(text, request);
+          const onnxMsg = pipelineError instanceof Error ? pipelineError.message : String(pipelineError);
+          return await this.translateWithRules(
+            text,
+            request,
+            route.steps,
+            `ONNX pipeline failed: ${onnxMsg}`
+          );
         } catch (ruleError) {
           // Both ONNX and rule-based failed — include both errors for debugging
           const onnxMsg = pipelineError instanceof Error ? pipelineError.message : String(pipelineError);
@@ -198,7 +222,13 @@ export class TranslationEngine {
       modelsUsed,
       totalChunks,
       route.isPivot ? "en" : undefined,
-      warning
+      warning,
+      {
+        route: route.steps,
+        usedRuleFallback: false,
+        sourceManifestVersion: SOURCE_MANIFEST_VERSION,
+        glossaryVersion: GLOSSARY_VERSION,
+      }
     );
   }
 
@@ -295,7 +325,9 @@ export class TranslationEngine {
    */
   private async translateWithRules(
     text: string,
-    request: TranslationRequest
+    request: TranslationRequest,
+    route: LanguagePairId[] = [],
+    fallbackReason?: string
   ): Promise<TranslationResult> {
     const { sourceLang, targetLang } = request;
 
@@ -349,7 +381,14 @@ export class TranslationEngine {
       ["rule-based"],
       contentChunks,
       undefined,
-      "Translated using rule-based dictionary. Quality may be lower than neural translation."
+      "Translated using rule-based dictionary. Quality may be lower than neural translation.",
+      {
+        route,
+        usedRuleFallback: true,
+        fallbackReason,
+        sourceManifestVersion: SOURCE_MANIFEST_VERSION,
+        glossaryVersion: GLOSSARY_VERSION,
+      }
     );
   }
 
@@ -422,7 +461,8 @@ export class TranslationEngine {
     modelsUsed: string[],
     chunksTranslated = 0,
     pivotLang?: LanguageCode,
-    warning?: string
+    warning?: string,
+    diagnostics?: TranslationDiagnostics
   ): TranslationResult {
     const result: TranslationResult = {
       original,
@@ -437,6 +477,9 @@ export class TranslationEngine {
     };
     if (warning) {
       result.warning = warning;
+    }
+    if (diagnostics) {
+      result.diagnostics = diagnostics;
     }
     return result;
   }

@@ -54,18 +54,31 @@ jobs:
       - name: Fetch planner model
         run: |
           pip install huggingface_hub
-          python scripts/fetch-models.py --planner-only
+          node scripts/run-python.mjs scripts/fetch-models.py --planner-only
         env:
           HF_HUB_CACHE: /tmp/hf-cache
 
       - name: Verify planner model assets
-        run: python scripts/verify-local-models.py --root public/models --label "source planner model assets"
+        run: node scripts/run-python.mjs scripts/verify-local-models.py --root public/models --label "source planner model assets"
+
+      - name: Validate translation source manifest
+        run: bun run validate:translation-sources
+
+      - name: Fetch translation models (priority)
+        run: node scripts/run-python.mjs scripts/fetch-translation-models.py --priority
+        env:
+          HF_HUB_CACHE: /tmp/hf-cache
+
+      - name: Verify local translation model bundles
+        run: node scripts/run-python.mjs scripts/validate-local-translation-models.py --models-dir public/models
 
       - name: Build app
         run: bun run build
 
       - name: Verify planner model assets in build output
-        run: python scripts/verify-local-models.py --root dist/models --label "artifact planner model assets"
+        run: |
+          node scripts/run-python.mjs scripts/verify-local-models.py --root dist/models --label "artifact planner model assets"
+          node scripts/run-python.mjs scripts/validate-local-translation-models.py --models-dir dist/models
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

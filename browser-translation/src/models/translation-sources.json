@@ -1,0 +1,459 @@
+{
+  "version": "2026-04-19",
+  "localRoot": "public/models",
+  "requiredFiles": [
+    "config.json",
+    "generation_config.json",
+    "tokenizer.json",
+    "tokenizer_config.json",
+    "special_tokens_map.json",
+    "onnx/encoder_model_quantized.onnx",
+    "onnx/decoder_model_merged_quantized.onnx"
+  ],
+  "pairs": {
+    "en-de": { "modelId": "opus-mt-en-de" },
+    "en-fr": { "modelId": "opus-mt-en-fr" },
+    "en-es": { "modelId": "opus-mt-en-es" },
+    "en-it": { "modelId": "opus-mt-en-it" },
+    "en-pt": { "modelId": "opus-mt-en-ROMANCE" },
+    "en-pl": { "modelId": "opus-mt-en-mul" },
+    "en-ar": { "modelId": "opus-mt-en-ar" },
+    "en-hi": { "modelId": "opus-mt-en-hi" },
+    "en-ur": { "modelId": "opus-mt-en-mul" },
+    "en-cy": { "modelId": "opus-mt-en-mul" },
+    "en-bn": { "modelId": "opus-mt-en-mul" },
+    "en-pa": { "modelId": "opus-mt-en-mul" },
+    "en-ps": { "modelId": "opus-mt-en-mul" },
+    "en-so": { "modelId": "opus-mt-en-mul" },
+    "en-ti": { "modelId": "opus-mt-en-mul" },
+    "de-en": { "modelId": "opus-mt-de-en" },
+    "fr-en": { "modelId": "opus-mt-fr-en" },
+    "es-en": { "modelId": "opus-mt-es-en" },
+    "ar-en": { "modelId": "opus-mt-ar-en" },
+    "pl-en": { "modelId": "opus-mt-pl-en" },
+    "cy-en": { "modelId": "opus-mt-mul-en" },
+    "ur-en": { "modelId": "opus-mt-mul-en" },
+    "bn-en": { "modelId": "opus-mt-mul-en" },
+    "pa-en": { "modelId": "opus-mt-mul-en" },
+    "ps-en": { "modelId": "opus-mt-mul-en" },
+    "so-en": { "modelId": "opus-mt-mul-en" },
+    "ti-en": { "modelId": "opus-mt-mul-en" },
+    "it-en": { "modelId": "opus-mt-it-en" },
+    "pt-en": { "modelId": "opus-mt-ROMANCE-en" },
+    "hi-en": { "modelId": "opus-mt-hi-en" }
+  },
+  "models": {
+    "opus-mt-en-de": {
+      "modelId": "opus-mt-en-de",
+      "localPath": "public/models/opus-mt-en-de",
+      "supportedPairs": ["en-de"],
+      "upstreamRepoId": "Helsinki-NLP/opus-mt-en-de",
+      "upstreamUrl": "https://huggingface.co/Helsinki-NLP/opus-mt-en-de",
+      "browserRepoId": "Xenova/opus-mt-en-de",
+      "browserUrl": "https://huggingface.co/Xenova/opus-mt-en-de",
+      "conversionStatus": "hosted_direct",
+      "checksums": {
+        "config.json": null,
+        "generation_config.json": null,
+        "tokenizer.json": null,
+        "tokenizer_config.json": null,
+        "special_tokens_map.json": null,
+        "onnx/encoder_model_quantized.onnx": null,
+        "onnx/decoder_model_merged_quantized.onnx": null
+      },
+      "lastVerifiedAccess": {
+        "date": "2026-04-19",
+        "upstreamStatus": "reachable",
+        "browserStatus": "reachable"
+      }
+    },
+    "opus-mt-en-fr": {
+      "modelId": "opus-mt-en-fr",
+      "localPath": "public/models/opus-mt-en-fr",
+      "supportedPairs": ["en-fr"],
+      "upstreamRepoId": "Helsinki-NLP/opus-mt-en-fr",
+      "upstreamUrl": "https://huggingface.co/Helsinki-NLP/opus-mt-en-fr",
+      "browserRepoId": "Xenova/opus-mt-en-fr",
+      "browserUrl": "https://huggingface.co/Xenova/opus-mt-en-fr",
+      "conversionStatus": "hosted_direct",
+      "checksums": {
+        "config.json": null,
+        "generation_config.json": null,
+        "tokenizer.json": null,
+        "tokenizer_config.json": null,
+        "special_tokens_map.json": null,
+        "onnx/encoder_model_quantized.onnx": null,
+        "onnx/decoder_model_merged_quantized.onnx": null
+      },
+      "lastVerifiedAccess": {
+        "date": "2026-04-19",
+        "upstreamStatus": "reachable",
+        "browserStatus": "reachable"
+      }
+    },
+    "opus-mt-en-es": {
+      "modelId": "opus-mt-en-es",
+      "localPath": "public/models/opus-mt-en-es",
+      "supportedPairs": ["en-es"],
+      "upstreamRepoId": "Helsinki-NLP/opus-mt-en-es",
+      "upstreamUrl": "https://huggingface.co/Helsinki-NLP/opus-mt-en-es",
+      "browserRepoId": "Xenova/opus-mt-en-es",
+      "browserUrl": "https://huggingface.co/Xenova/opus-mt-en-es",
+      "conversionStatus": "hosted_direct",
+      "checksums": {
+        "config.json": null,
+        "generation_config.json": null,
+        "tokenizer.json": null,
+        "tokenizer_config.json": null,
+        "special_tokens_map.json": null,
+        "onnx/encoder_model_quantized.onnx": null,
+        "onnx/decoder_model_merged_quantized.onnx": null
+      },
+      "lastVerifiedAccess": {
+        "date": "2026-04-19",
+        "upstreamStatus": "reachable",
+        "browserStatus": "reachable"
+      }
+    },
+    "opus-mt-en-it": {
+      "modelId": "opus-mt-en-it",
+      "localPath": "public/models/opus-mt-en-it",
+      "supportedPairs": ["en-it"],
+      "upstreamRepoId": "Helsinki-NLP/opus-mt-en-it",
+      "upstreamUrl": "https://huggingface.co/Helsinki-NLP/opus-mt-en-it",
+      "browserRepoId": "Xenova/opus-mt-en-it",
+      "browserUrl": "https://huggingface.co/Xenova/opus-mt-en-it",
+      "conversionStatus": "hosted_direct",
+      "checksums": {
+        "config.json": null,
+        "generation_config.json": null,
+        "tokenizer.json": null,
+        "tokenizer_config.json": null,
+        "special_tokens_map.json": null,
+        "onnx/encoder_model_quantized.onnx": null,
+        "onnx/decoder_model_merged_quantized.onnx": null
+      },
+      "lastVerifiedAccess": {
+        "date": "2026-04-19",
+        "upstreamStatus": "reachable",
+        "browserStatus": "reachable"
+      }
+    },
+    "opus-mt-en-ROMANCE": {
+      "modelId": "opus-mt-en-ROMANCE",
+      "localPath": "public/models/opus-mt-en-ROMANCE",
+      "supportedPairs": ["en-pt"],
+      "upstreamRepoId": "Helsinki-NLP/opus-mt-en-ROMANCE",
+      "upstreamUrl": "https://huggingface.co/Helsinki-NLP/opus-mt-en-ROMANCE",
+      "browserRepoId": "Xenova/opus-mt-en-ROMANCE",
+      "browserUrl": "https://huggingface.co/Xenova/opus-mt-en-ROMANCE",
+      "conversionStatus": "hosted_grouped",
+      "checksums": {
+        "config.json": null,
+        "generation_config.json": null,
+        "tokenizer.json": null,
+        "tokenizer_config.json": null,
+        "special_tokens_map.json": null,
+        "onnx/encoder_model_quantized.onnx": null,
+        "onnx/decoder_model_merged_quantized.onnx": null
+      },
+      "lastVerifiedAccess": {
+        "date": "2026-04-19",
+        "upstreamStatus": "reachable",
+        "browserStatus": "reachable",
+        "notes": "Shared Romance model currently supplies Portuguese."
+      }
+    },
+    "opus-mt-en-mul": {
+      "modelId": "opus-mt-en-mul",
+      "localPath": "public/models/opus-mt-en-mul",
+      "supportedPairs": ["en-pl", "en-ur", "en-cy", "en-bn", "en-pa", "en-ps", "en-so", "en-ti"],
+      "upstreamRepoId": "Helsinki-NLP/opus-mt-en-mul",
+      "upstreamUrl": "https://huggingface.co/Helsinki-NLP/opus-mt-en-mul",
+      "browserRepoId": "Xenova/opus-mt-en-mul",
+      "browserUrl": "https://huggingface.co/Xenova/opus-mt-en-mul",
+      "conversionStatus": "hosted_grouped",
+      "checksums": {
+        "config.json": null,
+        "generation_config.json": null,
+        "tokenizer.json": null,
+        "tokenizer_config.json": null,
+        "special_tokens_map.json": null,
+        "onnx/encoder_model_quantized.onnx": null,
+        "onnx/decoder_model_merged_quantized.onnx": null
+      },
+      "lastVerifiedAccess": {
+        "date": "2026-04-19",
+        "upstreamStatus": "reachable",
+        "browserStatus": "reachable",
+        "notes": "Shared multilingual model used for the current low-resource local-first bundle."
+      }
+    },
+    "opus-mt-en-ar": {
+      "modelId": "opus-mt-en-ar",
+      "localPath": "public/models/opus-mt-en-ar",
+      "supportedPairs": ["en-ar"],
+      "upstreamRepoId": "Helsinki-NLP/opus-mt-en-ar",
+      "upstreamUrl": "https://huggingface.co/Helsinki-NLP/opus-mt-en-ar",
+      "browserRepoId": "Xenova/opus-mt-en-ar",
+      "browserUrl": "https://huggingface.co/Xenova/opus-mt-en-ar",
+      "conversionStatus": "hosted_direct",
+      "checksums": {
+        "config.json": null,
+        "generation_config.json": null,
+        "tokenizer.json": null,
+        "tokenizer_config.json": null,
+        "special_tokens_map.json": null,
+        "onnx/encoder_model_quantized.onnx": null,
+        "onnx/decoder_model_merged_quantized.onnx": null
+      },
+      "lastVerifiedAccess": {
+        "date": "2026-04-19",
+        "upstreamStatus": "reachable",
+        "browserStatus": "reachable"
+      }
+    },
+    "opus-mt-en-hi": {
+      "modelId": "opus-mt-en-hi",
+      "localPath": "public/models/opus-mt-en-hi",
+      "supportedPairs": ["en-hi"],
+      "upstreamRepoId": "Helsinki-NLP/opus-mt-en-hi",
+      "upstreamUrl": "https://huggingface.co/Helsinki-NLP/opus-mt-en-hi",
+      "browserRepoId": "Xenova/opus-mt-en-hi",
+      "browserUrl": "https://huggingface.co/Xenova/opus-mt-en-hi",
+      "conversionStatus": "hosted_direct",
+      "checksums": {
+        "config.json": null,
+        "generation_config.json": null,
+        "tokenizer.json": null,
+        "tokenizer_config.json": null,
+        "special_tokens_map.json": null,
+        "onnx/encoder_model_quantized.onnx": null,
+        "onnx/decoder_model_merged_quantized.onnx": null
+      },
+      "lastVerifiedAccess": {
+        "date": "2026-04-19",
+        "upstreamStatus": "reachable",
+        "browserStatus": "reachable"
+      }
+    },
+    "opus-mt-de-en": {
+      "modelId": "opus-mt-de-en",
+      "localPath": "public/models/opus-mt-de-en",
+      "supportedPairs": ["de-en"],
+      "upstreamRepoId": "Helsinki-NLP/opus-mt-de-en",
+      "upstreamUrl": "https://huggingface.co/Helsinki-NLP/opus-mt-de-en",
+      "browserRepoId": "Xenova/opus-mt-de-en",
+      "browserUrl": "https://huggingface.co/Xenova/opus-mt-de-en",
+      "conversionStatus": "hosted_direct",
+      "checksums": {
+        "config.json": null,
+        "generation_config.json": null,
+        "tokenizer.json": null,
+        "tokenizer_config.json": null,
+        "special_tokens_map.json": null,
+        "onnx/encoder_model_quantized.onnx": null,
+        "onnx/decoder_model_merged_quantized.onnx": null
+      },
+      "lastVerifiedAccess": {
+        "date": "2026-04-19",
+        "upstreamStatus": "reachable",
+        "browserStatus": "reachable"
+      }
+    },
+    "opus-mt-fr-en": {
+      "modelId": "opus-mt-fr-en",
+      "localPath": "public/models/opus-mt-fr-en",
+      "supportedPairs": ["fr-en"],
+      "upstreamRepoId": "Helsinki-NLP/opus-mt-fr-en",
+      "upstreamUrl": "https://huggingface.co/Helsinki-NLP/opus-mt-fr-en",
+      "browserRepoId": "Xenova/opus-mt-fr-en",
+      "browserUrl": "https://huggingface.co/Xenova/opus-mt-fr-en",
+      "conversionStatus": "hosted_direct",
+      "checksums": {
+        "config.json": null,
+        "generation_config.json": null,
+        "tokenizer.json": null,
+        "tokenizer_config.json": null,
+        "special_tokens_map.json": null,
+        "onnx/encoder_model_quantized.onnx": null,
+        "onnx/decoder_model_merged_quantized.onnx": null
+      },
+      "lastVerifiedAccess": {
+        "date": "2026-04-19",
+        "upstreamStatus": "reachable",
+        "browserStatus": "reachable"
+      }
+    },
+    "opus-mt-es-en": {
+      "modelId": "opus-mt-es-en",
+      "localPath": "public/models/opus-mt-es-en",
+      "supportedPairs": ["es-en"],
+      "upstreamRepoId": "Helsinki-NLP/opus-mt-es-en",
+      "upstreamUrl": "https://huggingface.co/Helsinki-NLP/opus-mt-es-en",
+      "browserRepoId": "Xenova/opus-mt-es-en",
+      "browserUrl": "https://huggingface.co/Xenova/opus-mt-es-en",
+      "conversionStatus": "hosted_direct",
+      "checksums": {
+        "config.json": null,
+        "generation_config.json": null,
+        "tokenizer.json": null,
+        "tokenizer_config.json": null,
+        "special_tokens_map.json": null,
+        "onnx/encoder_model_quantized.onnx": null,
+        "onnx/decoder_model_merged_quantized.onnx": null
+      },
+      "lastVerifiedAccess": {
+        "date": "2026-04-19",
+        "upstreamStatus": "reachable",
+        "browserStatus": "reachable"
+      }
+    },
+    "opus-mt-ar-en": {
+      "modelId": "opus-mt-ar-en",
+      "localPath": "public/models/opus-mt-ar-en",
+      "supportedPairs": ["ar-en"],
+      "upstreamRepoId": "Helsinki-NLP/opus-mt-ar-en",
+      "upstreamUrl": "https://huggingface.co/Helsinki-NLP/opus-mt-ar-en",
+      "browserRepoId": "Xenova/opus-mt-ar-en",
+      "browserUrl": "https://huggingface.co/Xenova/opus-mt-ar-en",
+      "conversionStatus": "hosted_direct",
+      "checksums": {
+        "config.json": null,
+        "generation_config.json": null,
+        "tokenizer.json": null,
+        "tokenizer_config.json": null,
+        "special_tokens_map.json": null,
+        "onnx/encoder_model_quantized.onnx": null,
+        "onnx/decoder_model_merged_quantized.onnx": null
+      },
+      "lastVerifiedAccess": {
+        "date": "2026-04-19",
+        "upstreamStatus": "reachable",
+        "browserStatus": "reachable"
+      }
+    },
+    "opus-mt-pl-en": {
+      "modelId": "opus-mt-pl-en",
+      "localPath": "public/models/opus-mt-pl-en",
+      "supportedPairs": ["pl-en"],
+      "upstreamRepoId": "Helsinki-NLP/opus-mt-pl-en",
+      "upstreamUrl": "https://huggingface.co/Helsinki-NLP/opus-mt-pl-en",
+      "browserRepoId": "Xenova/opus-mt-pl-en",
+      "browserUrl": "https://huggingface.co/Xenova/opus-mt-pl-en",
+      "conversionStatus": "hosted_direct",
+      "checksums": {
+        "config.json": null,
+        "generation_config.json": null,
+        "tokenizer.json": null,
+        "tokenizer_config.json": null,
+        "special_tokens_map.json": null,
+        "onnx/encoder_model_quantized.onnx": null,
+        "onnx/decoder_model_merged_quantized.onnx": null
+      },
+      "lastVerifiedAccess": {
+        "date": "2026-04-19",
+        "upstreamStatus": "reachable",
+        "browserStatus": "reachable"
+      }
+    },
+    "opus-mt-mul-en": {
+      "modelId": "opus-mt-mul-en",
+      "localPath": "public/models/opus-mt-mul-en",
+      "supportedPairs": ["cy-en", "ur-en", "bn-en", "pa-en", "ps-en", "so-en", "ti-en"],
+      "upstreamRepoId": "Helsinki-NLP/opus-mt-mul-en",
+      "upstreamUrl": "https://huggingface.co/Helsinki-NLP/opus-mt-mul-en",
+      "browserRepoId": "Xenova/opus-mt-mul-en",
+      "browserUrl": "https://huggingface.co/Xenova/opus-mt-mul-en",
+      "conversionStatus": "hosted_grouped",
+      "checksums": {
+        "config.json": null,
+        "generation_config.json": null,
+        "tokenizer.json": null,
+        "tokenizer_config.json": null,
+        "special_tokens_map.json": null,
+        "onnx/encoder_model_quantized.onnx": null,
+        "onnx/decoder_model_merged_quantized.onnx": null
+      },
+      "lastVerifiedAccess": {
+        "date": "2026-04-19",
+        "upstreamStatus": "reachable",
+        "browserStatus": "reachable",
+        "notes": "Shared multilingual reverse-direction model for the current local-first bundle."
+      }
+    },
+    "opus-mt-it-en": {
+      "modelId": "opus-mt-it-en",
+      "localPath": "public/models/opus-mt-it-en",
+      "supportedPairs": ["it-en"],
+      "upstreamRepoId": "Helsinki-NLP/opus-mt-it-en",
+      "upstreamUrl": "https://huggingface.co/Helsinki-NLP/opus-mt-it-en",
+      "browserRepoId": "Xenova/opus-mt-it-en",
+      "browserUrl": "https://huggingface.co/Xenova/opus-mt-it-en",
+      "conversionStatus": "hosted_direct",
+      "checksums": {
+        "config.json": null,
+        "generation_config.json": null,
+        "tokenizer.json": null,
+        "tokenizer_config.json": null,
+        "special_tokens_map.json": null,
+        "onnx/encoder_model_quantized.onnx": null,
+        "onnx/decoder_model_merged_quantized.onnx": null
+      },
+      "lastVerifiedAccess": {
+        "date": "2026-04-19",
+        "upstreamStatus": "reachable",
+        "browserStatus": "reachable"
+      }
+    },
+    "opus-mt-ROMANCE-en": {
+      "modelId": "opus-mt-ROMANCE-en",
+      "localPath": "public/models/opus-mt-ROMANCE-en",
+      "supportedPairs": ["pt-en"],
+      "upstreamRepoId": "Helsinki-NLP/opus-mt-ROMANCE-en",
+      "upstreamUrl": "https://huggingface.co/Helsinki-NLP/opus-mt-ROMANCE-en",
+      "browserRepoId": "Xenova/opus-mt-ROMANCE-en",
+      "browserUrl": "https://huggingface.co/Xenova/opus-mt-ROMANCE-en",
+      "conversionStatus": "hosted_grouped",
+      "checksums": {
+        "config.json": null,
+        "generation_config.json": null,
+        "tokenizer.json": null,
+        "tokenizer_config.json": null,
+        "special_tokens_map.json": null,
+        "onnx/encoder_model_quantized.onnx": null,
+        "onnx/decoder_model_merged_quantized.onnx": null
+      },
+      "lastVerifiedAccess": {
+        "date": "2026-04-19",
+        "upstreamStatus": "reachable",
+        "browserStatus": "reachable",
+        "notes": "Shared Romance reverse-direction model currently supplies Portuguese."
+      }
+    },
+    "opus-mt-hi-en": {
+      "modelId": "opus-mt-hi-en",
+      "localPath": "public/models/opus-mt-hi-en",
+      "supportedPairs": ["hi-en"],
+      "upstreamRepoId": "Helsinki-NLP/opus-mt-hi-en",
+      "upstreamUrl": "https://huggingface.co/Helsinki-NLP/opus-mt-hi-en",
+      "browserRepoId": "Xenova/opus-mt-hi-en",
+      "browserUrl": "https://huggingface.co/Xenova/opus-mt-hi-en",
+      "conversionStatus": "hosted_direct",
+      "checksums": {
+        "config.json": null,
+        "generation_config.json": null,
+        "tokenizer.json": null,
+        "tokenizer_config.json": null,
+        "special_tokens_map.json": null,
+        "onnx/encoder_model_quantized.onnx": null,
+        "onnx/decoder_model_merged_quantized.onnx": null
+      },
+      "lastVerifiedAccess": {
+        "date": "2026-04-19",
+        "upstreamStatus": "reachable",
+        "browserStatus": "reachable"
+      }
+    }
+  }
+}

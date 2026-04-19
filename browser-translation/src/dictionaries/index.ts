@@ -6,6 +6,10 @@
  */
 
 import type { PhraseDictionary } from "./types.js";
+import {
+  annotateDictionaryWithGlossaryMetadata,
+  GLOSSARY_VERSION,
+} from "./glossary-metadata.js";
 
 type DictionaryLoader = () => Promise<{ dictionary: PhraseDictionary }>;
 
@@ -42,8 +46,9 @@ export async function getDictionary(pair: string): Promise<PhraseDictionary | nu
   const loader = loaders[pair];
 
   const mod = await loader();
-  cache.set(pair, mod.dictionary);
-  return mod.dictionary;
+  const annotated = annotateDictionaryWithGlossaryMetadata(mod.dictionary);
+  cache.set(pair, annotated);
+  return annotated;
 }
 
 /**
@@ -59,3 +64,5 @@ export function hasDictionary(pair: string): boolean {
 export function getDictionaryPairs(): string[] {
   return Object.keys(loaders);
 }
+
+export { GLOSSARY_VERSION };
