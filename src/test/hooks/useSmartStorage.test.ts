@@ -638,6 +638,18 @@ describe("useSmartStorage", () => {
       expect(result.current.allowMobileLLM).toBe(true);
     });
 
+    it("updates keepSafariModelLoaded setting", () => {
+      const { result } = renderHook(() => useSmartStorage());
+
+      expect(result.current.keepSafariModelLoaded).toBe(false);
+
+      act(() => {
+        result.current.updateKeepSafariModelLoaded(true);
+      });
+
+      expect(result.current.keepSafariModelLoaded).toBe(true);
+    });
+
     it("updates safariWebGPUEnabled setting", () => {
       const { result } = renderHook(() => useSmartStorage());
 
