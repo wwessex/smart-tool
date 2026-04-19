@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  MODEL_REGISTRY,
   getModelForPair,
   hasDirectModel,
   SUPPORTED_LANGUAGES,
   getSupportedLanguageCodes,
+  getRegisteredPairs,
 } from "./registry.js";
+import {
+  getTranslationSourceModel,
+  getTranslationSourcePair,
+} from "./source-manifest.js";
 
 const NEW_REVERSE_PAIRS = [
   "cy-en",
@@ -95,12 +101,27 @@ describe("MODEL_REGISTRY reverse language coverage", () => {
       expect(hasDirectModel(pair)).toBe(true);
 
       const model = getModelForPair(pair);
+      const manifestPair = getTranslationSourcePair(pair);
       expect(model).toBeDefined();
-      expect(model?.modelId).toBe(`opus-mt-${pair}`);
+      expect(manifestPair).toBeDefined();
+      expect(model?.modelId).toBe(manifestPair?.modelId);
       expect(model?.availableDtypes).toEqual(["fp32", "fp16", "int8", "q4"]);
       expect(model?.recommendedDtype).toBe("q4");
       expect(model?.approximateSizeBytes).toBeGreaterThan(0);
       expect(model?.attribution).toContain("OPUS-MT");
+    }
+  });
+
+  it("stays aligned with the checked-in translation source manifest", () => {
+    for (const pair of getRegisteredPairs()) {
+      const model = MODEL_REGISTRY[pair];
+      const manifestPair = getTranslationSourcePair(pair);
+      expect(manifestPair, `${pair} missing from source manifest`).toBeDefined();
+      expect(model.modelId, `${pair} modelId mismatch`).toBe(manifestPair?.modelId);
+
+      const manifestModel = getTranslationSourceModel(model.modelId);
+      expect(manifestModel, `${model.modelId} missing from source manifest`).toBeDefined();
+      expect(manifestModel?.supportedPairs).toContain(pair);
     }
   });
 });

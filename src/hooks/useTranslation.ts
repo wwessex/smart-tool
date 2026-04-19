@@ -3,6 +3,7 @@ import {
   TranslationEngine,
   SUPPORTED_LANGUAGES as ENGINE_LANGUAGES,
   isRTL as engineIsRTL,
+  type TranslationDiagnostics,
   type LanguageInfo,
 } from '@smart-tool/lengua-materna';
 
@@ -11,6 +12,7 @@ export interface TranslationResult {
   translated: string;
   language: string;
   languageName: string;
+  diagnostics?: TranslationDiagnostics;
 }
 
 type EngineTranslationResult = {
@@ -162,7 +164,7 @@ function getEngine(): TranslationEngine {
   if (!engineInstance) {
     const env = getEnv();
     const remoteModelsOverride = env.VITE_ALLOW_REMOTE_TRANSLATION_MODELS;
-    const allowRemoteModels = remoteModelsOverride == null ? true : remoteModelsOverride === 'true';
+    const allowRemoteModels = remoteModelsOverride === 'true';
     const authHeaders = buildAuthHeader(env.VITE_HF_TOKEN);
     const remoteModelBasePath = env.VITE_REMOTE_MODEL_BASE_PATH?.trim() || undefined;
 
@@ -289,6 +291,10 @@ export function useTranslation(options: UseTranslationOptions = {}) {
           translated: translatedText || text,
           language,
           languageName: langMeta.name,
+          diagnostics:
+            engineResult && typeof engineResult === 'object' && 'diagnostics' in engineResult
+              ? (engineResult as { diagnostics?: TranslationDiagnostics }).diagnostics
+              : undefined,
         };
 
         setState({

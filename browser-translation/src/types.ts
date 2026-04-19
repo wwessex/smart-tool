@@ -96,6 +96,58 @@ export interface ModelInfo {
   attribution: string;
 }
 
+/** Reachability state for an upstream or browser-ready model source. */
+export type TranslationSourceStatus = "reachable" | "auth_required" | "unknown";
+
+/** Per-model provenance and packaging metadata. */
+export interface TranslationSourceModelEntry {
+  /** Runtime artifact identifier and local bundle directory name. */
+  modelId: string;
+  /** Relative path to the bundled local model directory. */
+  localPath: string;
+  /** All directional language pairs served by this artifact. */
+  supportedPairs: LanguagePairId[];
+  /** Canonical upstream OPUS/Marian source repository. */
+  upstreamRepoId: string;
+  /** Browser-facing URL for the upstream source. */
+  upstreamUrl: string;
+  /** Browser-ready ONNX repository used for bundling or dev fallback. */
+  browserRepoId: string;
+  /** Browser-facing URL for the browser-ready source. */
+  browserUrl: string;
+  /** How this model artifact is produced. */
+  conversionStatus: "hosted_direct" | "hosted_grouped" | "self_host_required";
+  /** Generated after provisioning local bundles. */
+  checksums: Record<string, string | null>;
+  /** Last verified source reachability snapshot. */
+  lastVerifiedAccess: {
+    date: string;
+    upstreamStatus: TranslationSourceStatus;
+    browserStatus: TranslationSourceStatus;
+    notes?: string;
+  };
+}
+
+/** Directional pair metadata within the source manifest. */
+export interface TranslationSourcePairEntry {
+  /** Runtime artifact identifier used for this pair. */
+  modelId: string;
+}
+
+/** Checked-in manifest that maps pairs to bundled translation sources. */
+export interface TranslationSourceManifest {
+  /** Manifest schema/content version. */
+  version: string;
+  /** Relative root directory for bundled local models. */
+  localRoot: string;
+  /** Files required for each bundled model artifact. */
+  requiredFiles: string[];
+  /** Directional pair -> runtime artifact mapping. */
+  pairs: Record<LanguagePairId, TranslationSourcePairEntry>;
+  /** Runtime artifact -> source provenance metadata. */
+  models: Record<string, TranslationSourceModelEntry>;
+}
+
 // ---------------------------------------------------------------------------
 // Translation request / result
 // ---------------------------------------------------------------------------
@@ -136,6 +188,22 @@ export interface TranslationResult {
   modelsUsed: string[];
   /** Optional warning if the translation may need review (e.g. identical to original). */
   warning?: string;
+  /** Optional runtime diagnostics for packaging and fallback analysis. */
+  diagnostics?: TranslationDiagnostics;
+}
+
+/** Runtime diagnostics attached to translation results. */
+export interface TranslationDiagnostics {
+  /** Route that was attempted or used, in execution order. */
+  route: LanguagePairId[];
+  /** Whether dictionary fallback was used. */
+  usedRuleFallback: boolean;
+  /** Why a fallback or degraded path was used. */
+  fallbackReason?: string;
+  /** Checked-in source manifest version. */
+  sourceManifestVersion: string;
+  /** Glossary metadata version used by the rule-based dictionary layer. */
+  glossaryVersion?: string;
 }
 
 // ---------------------------------------------------------------------------

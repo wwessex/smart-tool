@@ -20,8 +20,10 @@ import type {
   ModelDtype,
   ModelLoadProgress,
   TranslationEngineConfig,
+  TranslationSourceModelEntry,
 } from "../types.js";
 import { getModelForPair } from "../models/registry.js";
+import { getTranslationSourceModel } from "../models/source-manifest.js";
 
 /** A loaded pipeline with metadata for LRU tracking. */
 interface LoadedPipeline {
@@ -178,13 +180,11 @@ export class PipelineManager {
   // -----------------------------------------------------------------------
 
   /**
-   * Default remote CDN for OPUS-MT ONNX models.
+   * Default remote host for browser-ready ONNX model repos.
    *
-   * Points to the Xenova HuggingFace Hub namespace which hosts
-   * ONNX-converted OPUS-MT models compatible with Puente Engine.
-   * Model files are resolved as: `{CDN}{modelId}/resolve/main/`.
+   * Resolved as: `{host}{repoId}/resolve/main/`.
    */
-  private static readonly DEFAULT_REMOTE_CDN = "https://huggingface.co/Xenova/";
+  private static readonly DEFAULT_REMOTE_HOST = "https://huggingface.co/";
 
   private async loadPipeline(
     pair: LanguagePairId,
@@ -192,6 +192,11 @@ export class PipelineManager {
     dtype: ModelDtype,
     cacheKey: string
   ): Promise<TranslationPipeline> {
+    const sourceModel = getTranslationSourceModel(modelId);
+    if (!sourceModel) {
+      throw new Error(`No translation source manifest entry exists for model "${modelId}".`);
+    }
+
     this.emitProgress(modelId, "downloading", 0, 0);
 
     // Evict LRU pipeline if at capacity
@@ -199,14 +204,14 @@ export class PipelineManager {
 
     // Try local model files first
     try {
-      const localPaths = this.buildModelPaths(modelId, /* remote */ false);
+      const localPaths = this.buildModelPaths(sourceModel, /* remote */ false);
       return await this.createPuentePipeline(pair, modelId, dtype, cacheKey, localPaths);
     } catch (localError) {
       // If local loading fails with 404 and remote models are allowed,
       // fall back to fetching from a remote CDN.
       if (this.config.allowRemoteModels && PipelineManager.is404Error(localError)) {
         try {
-          const remotePaths = this.buildModelPaths(modelId, /* remote */ true);
+          const remotePaths = this.buildModelPaths(sourceModel, /* remote */ true);
           return await this.createPuentePipeline(pair, modelId, dtype, cacheKey, remotePaths, this.config.remoteModelRequestHeaders);
         } catch (remoteError) {
           const rawMessage = remoteError instanceof Error ? remoteError.message : String(remoteError);
@@ -225,8 +230,9 @@ export class PipelineManager {
         : isMissingModel
           ? [
               `Translation model "${modelId}" was not found in local files.`,
-              `Expected model path: "${this.buildModelPaths(modelId, false).configPath}".`,
-              `Run \`npm run fetch-models\` to download local translation models, or set \`allowRemoteModels: true\` to enable automatic CDN fallback.`,
+              `Expected model path: "${this.buildModelPaths(sourceModel, false).configPath}".`,
+              `Source manifest repo: "${sourceModel.browserRepoId}".`,
+              `Run \`npm run fetch-models\` to bundle local translation models, or set \`allowRemoteModels: true\` for dev-only remote fallback.`,
             ].join(" ")
           : rawMessage;
 
@@ -239,29 +245,33 @@ export class PipelineManager {
    * Build config and model paths for a given model ID.
    *
    * Local layout:
-   *   configPath = {modelBasePath}{modelId}/
-   *   modelPath  = {modelBasePath}{modelId}/onnx/
+   *   configPath = {modelBasePath}{local artifact dir}/
+   *   modelPath  = {modelBasePath}{local artifact dir}/onnx/
    *
    * Remote (HuggingFace Hub) layout:
-   *   configPath = {remoteCDN}{modelId}/resolve/main/
-   *   modelPath  = {remoteCDN}{modelId}/resolve/main/onnx/
+   *   configPath = {remoteHost}{repoId}/resolve/main/
+   *   modelPath  = {remoteHost}{repoId}/resolve/main/onnx/
    */
   private buildModelPaths(
-    modelId: string,
+    sourceModel: TranslationSourceModelEntry,
     remote: boolean
   ): { configPath: string; modelPath: string } {
     if (remote) {
-      const cdnBase =
-        this.config.remoteModelBasePath ?? PipelineManager.DEFAULT_REMOTE_CDN;
-      const normalized = cdnBase.endsWith("/") ? cdnBase : `${cdnBase}/`;
-      const root = `${normalized}${modelId}/resolve/main/`;
+      const remoteHost =
+        this.config.remoteModelBasePath ?? PipelineManager.DEFAULT_REMOTE_HOST;
+      const normalized = remoteHost.endsWith("/") ? remoteHost : `${remoteHost}/`;
+      const root = `${normalized}${sourceModel.browserRepoId}/resolve/main/`;
       return { configPath: root, modelPath: `${root}onnx/` };
     }
 
     const basePath = this.config.modelBasePath ?? "./models/";
+    const relativeDir = sourceModel.localPath
+      .replace(/^public\/models\/?/u, "")
+      .replace(/\/+$/u, "");
+
     return {
-      configPath: `${basePath}${modelId}/`,
-      modelPath: `${basePath}${modelId}/onnx/`,
+      configPath: `${basePath}${relativeDir}/`,
+      modelPath: `${basePath}${relativeDir}/onnx/`,
     };
   }
 
@@ -364,13 +374,12 @@ export class PipelineManager {
  * Map a ModelDtype to the ONNX filename suffix used by OPUS-MT models.
  * - "fp32" → "" (no suffix, full precision)
  * - "fp16" → "" (same as fp32 for ONNX models that use fp16 in the base file)
- * - "int8" / "uint8" → "_quantized"
+ * - "int8" → "_quantized"
  * - "q4" → "_quantized" (4-bit quantized variants use the same suffix)
  */
 function getOnnxFileSuffix(dtype: ModelDtype): string {
   switch (dtype) {
     case "int8":
-    case "uint8":
     case "q4":
       return "_quantized";
     default:

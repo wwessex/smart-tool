@@ -9,38 +9,26 @@ from __future__ import annotations
 
 import argparse
 import os
-import re
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-REGISTRY_PATH = REPO_ROOT / "browser-translation" / "src" / "models" / "registry.ts"
-DEFAULT_MODELS_DIR = REPO_ROOT / "public" / "models"
-
-REQUIRED_FILES = [
-  "config.json",
-  "generation_config.json",
-  "tokenizer.json",
-  "tokenizer_config.json",
-  "special_tokens_map.json",
-  "onnx/encoder_model_quantized.onnx",
-  "onnx/decoder_model_merged_quantized.onnx",
-]
+from translation_sources import (
+  DEFAULT_MODELS_DIR,
+  get_models,
+  get_pairs,
+  get_required_files,
+  load_source_manifest,
+)
 
 
-def parse_model_ids() -> list[str]:
-  source = REGISTRY_PATH.read_text(encoding="utf-8")
-  return sorted(set(re.findall(r'modelId:\s*"([^"]+)"', source)))
-
-
-def validate_models(models_dir: Path, model_ids: list[str]) -> list[str]:
+def validate_models(models_dir: Path, model_ids: list[str], required_files: list[str]) -> list[str]:
   missing: list[str] = []
   for model_id in model_ids:
     model_root = models_dir / model_id
-    for relative in REQUIRED_FILES:
+    for relative in required_files:
       target = model_root / relative
       if not target.is_file():
-        missing.append(str(target.relative_to(REPO_ROOT)))
+        missing.append(str(target))
   return missing
 
 
@@ -60,8 +48,10 @@ def main() -> int:
     return 0
 
   models_dir = Path(args.models_dir)
-  model_ids = parse_model_ids()
-  missing = validate_models(models_dir, model_ids)
+  manifest = load_source_manifest()
+  model_ids = sorted(get_models(manifest).keys())
+  required_files = get_required_files(manifest)
+  missing = validate_models(models_dir, model_ids, required_files)
 
   if missing:
     print("Missing local translation model files:")
@@ -69,7 +59,10 @@ def main() -> int:
       print(f" - {path}")
     return 1
 
-  print(f"Validated {len(model_ids)} translation models in {models_dir}.")
+  print(
+    f"Validated {len(model_ids)} translation model bundles covering "
+    f"{len(get_pairs(manifest))} language pairs in {models_dir}."
+  )
   return 0
 
 

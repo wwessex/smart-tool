@@ -95,12 +95,15 @@ jobs:
       - name: Fetch planner model
         run: |
           pip install huggingface_hub
-          python scripts/fetch-models.py --planner-only
+          node scripts/run-python.mjs scripts/fetch-models.py --planner-only
         env:
           HF_HUB_CACHE: /tmp/hf-cache
 
       - name: Verify planner model assets
-        run: python scripts/verify-local-models.py --root public/models --label "source planner model assets"
+        run: node scripts/run-python.mjs scripts/verify-local-models.py --root public/models --label "source planner model assets"
+
+      - name: Validate translation source manifest
+        run: bun run validate:translation-sources
 
       - name: Cache translation models
         uses: actions/cache@v4
@@ -110,9 +113,12 @@ jobs:
 
       - name: Fetch translation models (priority)
         run: |
-          python scripts/fetch-translation-models.py --priority
+          node scripts/run-python.mjs scripts/fetch-translation-models.py --priority
         env:
           HF_HUB_CACHE: /tmp/hf-cache
+
+      - name: Verify local translation model bundles
+        run: node scripts/run-python.mjs scripts/validate-local-translation-models.py --models-dir public/models
 
       - name: Build static site
         run: bun run build
@@ -132,7 +138,9 @@ jobs:
           echo "=== Checking JS files exist ==="
           ls dist/assets/*.js && echo "✓ JS files exist" || exit 1
           echo "=== Checking planner model assets exist in artifact ==="
-          python scripts/verify-local-models.py --root dist/models --label "artifact planner model assets"
+          node scripts/run-python.mjs scripts/verify-local-models.py --root dist/models --label "artifact planner model assets"
+          echo "=== Checking translation model assets exist in artifact ==="
+          node scripts/run-python.mjs scripts/validate-local-translation-models.py --models-dir dist/models
       
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
