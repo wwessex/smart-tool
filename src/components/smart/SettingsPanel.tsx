@@ -464,7 +464,7 @@ export const SettingsPanel = memo(function SettingsPanel({
                   <div>
                     <span className="text-sm font-medium">Safari WebGPU (experimental)</span>
                     <p className="text-xs text-muted-foreground">
-                      Safari WebGPU can cause tab reloads on heavy models.
+                      Enable WebGPU acceleration for faster inference. May cause tab reloads on heavy models due to increased memory and GPU usage.
                     </p>
                   </div>
                 </label>
