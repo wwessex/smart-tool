@@ -4,52 +4,149 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing git tag to release, for example v0.1.0
+        required: true
+        type: string
 
 permissions:
   contents: write
 
+concurrency:
+  group: desktop-release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
-  verify-version:
+  release-plan:
     runs-on: ubuntu-latest
     outputs:
-      package_version: ${{ steps.version.outputs.package_version }}
+      tag_name: ${{ steps.plan.outputs.tag_name }}
+      package_version: ${{ steps.plan.outputs.package_version }}
+      windows_signing_mode: ${{ steps.plan.outputs.windows_signing_mode }}
+      macos_signing_mode: ${{ steps.plan.outputs.macos_signing_mode }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Enforce tag and package version parity
-        id: version
+      - name: Plan release
+        id: plan
         shell: bash
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_DEVELOPER_ID_APPLICATION: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_NOTARY_APPLE_ID: ${{ secrets.APPLE_NOTARY_APPLE_ID }}
+          APPLE_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD }}
         run: |
-          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          if [[ "$PACKAGE_VERSION" != "$TAG_VERSION" ]]; then
-            echo "package.json version ($PACKAGE_VERSION) does not match tag ($TAG_VERSION)." >&2
+          TAG_NAME="${GITHUB_REF_NAME}"
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            TAG_NAME="${{ inputs.tag }}"
+          fi
+
+          if [[ ! "$TAG_NAME" =~ ^v[0-9].* ]]; then
+            echo "Release tags must start with v, got: $TAG_NAME" >&2
             exit 1
           fi
-          echo "package_version=$PACKAGE_VERSION" >> "$GITHUB_OUTPUT"
+
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          TAG_VERSION="${TAG_NAME#v}"
+          if [[ "$PACKAGE_VERSION" != "$TAG_VERSION" ]]; then
+            echo "package.json version ($PACKAGE_VERSION) does not match tag ($TAG_NAME)." >&2
+            exit 1
+          fi
+
+          WINDOWS_SIGNING_MODE="unsigned"
+          if [[ -n "${CSC_LINK:-}" && -n "${CSC_KEY_PASSWORD:-}" ]]; then
+            WINDOWS_SIGNING_MODE="signed"
+          fi
+
+          MACOS_SIGNING_MODE="unsigned"
+          if [[ -n "${APPLE_CERTIFICATE_P12_BASE64:-}" && -n "${APPLE_CERTIFICATE_PASSWORD:-}" && -n "${APPLE_DEVELOPER_ID_APPLICATION:-}" && -n "${APPLE_TEAM_ID:-}" && -n "${APPLE_NOTARY_APPLE_ID:-}" && -n "${APPLE_NOTARY_PASSWORD:-}" ]]; then
+            MACOS_SIGNING_MODE="signed"
+          fi
+
+          {
+            echo "tag_name=$TAG_NAME"
+            echo "package_version=$PACKAGE_VERSION"
+            echo "windows_signing_mode=$WINDOWS_SIGNING_MODE"
+            echo "macos_signing_mode=$MACOS_SIGNING_MODE"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Write release notes
+        shell: bash
+        env:
+          WINDOWS_SIGNING_MODE: ${{ steps.plan.outputs.windows_signing_mode }}
+          MACOS_SIGNING_MODE: ${{ steps.plan.outputs.macos_signing_mode }}
+          PACKAGE_VERSION: ${{ steps.plan.outputs.package_version }}
+        run: |
+          cat > release-notes.md <<EOF
+          SMART Tool ${PACKAGE_VERSION} ships the desktop app with the built-in Desktop Accelerator runtime bundled for local AI use.
+
+          Installer status:
+          - Windows: ${WINDOWS_SIGNING_MODE}
+          - macOS: ${MACOS_SIGNING_MODE}
+          EOF
+
+          if [[ "$WINDOWS_SIGNING_MODE" != "signed" ]]; then
+            cat >> release-notes.md <<'EOF'
+
+          Windows note:
+          - This build is unsigned. SmartScreen may warn on first launch.
+          EOF
+          fi
+
+          if [[ "$MACOS_SIGNING_MODE" != "signed" ]]; then
+            cat >> release-notes.md <<'EOF'
+
+          macOS note:
+          - This DMG is ad-hoc signed and not notarized. If Gatekeeper blocks it, open it from Finder with Right Click > Open or allow it in System Settings > Privacy & Security.
+          EOF
+          fi
+
+      - name: Upload release notes
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-release-notes
+          path: release-notes.md
+          if-no-files-found: error
 
   create-release:
-    needs: verify-version
+    needs: release-plan
     runs-on: ubuntu-latest
     steps:
-      - name: Create GitHub release
+      - name: Download release notes
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-release-notes
+
+      - name: Create or update GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ needs.release-plan.outputs.tag_name }}
           generate_release_notes: true
+          append_body: true
+          body_path: release-notes.md
 
   windows-release:
-    needs: [verify-version, create-release]
+    needs: [release-plan, create-release]
     runs-on: windows-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ needs.release-plan.outputs.tag_name }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -60,16 +157,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Require Windows signing secrets
+      - name: Report Windows signing mode
         shell: pwsh
         run: |
-          if (-not $env:CSC_LINK) { throw 'Missing CSC_LINK secret.' }
-          if (-not $env:CSC_KEY_PASSWORD) { throw 'Missing CSC_KEY_PASSWORD secret.' }
+          Write-Host "Windows release packaging mode: $env:WINDOWS_SIGNING_MODE"
         env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          WINDOWS_SIGNING_MODE: ${{ needs.release-plan.outputs.windows_signing_mode }}
 
-      - name: Build signed Windows installers
+      - name: Build Windows installers
         run: npm run desktop:dist:win
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -97,28 +192,25 @@ jobs:
             }
           }
 
-      - name: Normalize Windows release filenames
-        shell: pwsh
-        run: |
-          Copy-Item 'release/SMART-Tool-Windows-x64-nsis.exe' 'release/SMART-Tool-Windows-x64-Setup.exe'
-          Copy-Item 'release/SMART-Tool-Windows-arm64-nsis.exe' 'release/SMART-Tool-Windows-arm64-Setup.exe'
-
       - name: Publish Windows release assets
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ needs.release-plan.outputs.tag_name }}
+          fail_on_unmatched_files: true
           files: |
             release/SMART-Tool-Windows-x64-Setup.exe
             release/SMART-Tool-Windows-arm64-Setup.exe
 
   macos-release:
-    needs: [verify-version, create-release]
+    needs: [release-plan, create-release]
     runs-on: macos-26
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.4.app/Contents/Developer
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ needs.release-plan.outputs.tag_name }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -129,57 +221,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Require macOS signing and notarization secrets
+      - name: Report macOS signing mode
         shell: bash
         run: |
-          required_vars=(
-            APPLE_CERTIFICATE_P12_BASE64
-            APPLE_CERTIFICATE_PASSWORD
-            APPLE_DEVELOPER_ID_APPLICATION
-            APPLE_TEAM_ID
-            APPLE_NOTARY_APPLE_ID
-            APPLE_NOTARY_PASSWORD
-          )
-          for var_name in "${required_vars[@]}"; do
-            if [[ -z "${!var_name:-}" ]]; then
-              echo "Missing required secret: $var_name" >&2
-              exit 1
-            fi
-          done
+          echo "macOS release packaging mode: $MACOS_SIGNING_MODE"
         env:
-          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_DEVELOPER_ID_APPLICATION: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_NOTARY_APPLE_ID: ${{ secrets.APPLE_NOTARY_APPLE_ID }}
-          APPLE_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD }}
+          MACOS_SIGNING_MODE: ${{ needs.release-plan.outputs.macos_signing_mode }}
 
-      - name: Import Developer ID certificate
-        shell: bash
-        env:
-          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-        run: |
-          KEYCHAIN_PATH="$RUNNER_TEMP/smart-tool-release.keychain-db"
-          KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
-          CERT_PATH="$RUNNER_TEMP/smart-tool-release.p12"
-
-          echo "$APPLE_CERTIFICATE_P12_BASE64" | base64 --decode > "$CERT_PATH"
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security import "$CERT_PATH" -k "$KEYCHAIN_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
-          security list-keychains -d user -s "$KEYCHAIN_PATH"
-          security default-keychain -s "$KEYCHAIN_PATH"
-          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-
-      - name: Build notarized macOS release
+      - name: Build macOS release DMG
         run: ./script/package_macos_release.sh
         env:
+          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_DEVELOPER_ID_APPLICATION: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_NOTARY_APPLE_ID: ${{ secrets.APPLE_NOTARY_APPLE_ID }}
           APPLE_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD }}
-          SMART_TOOL_VERSION: ${{ needs.verify-version.outputs.package_version }}
+          SMART_TOOL_VERSION: ${{ needs.release-plan.outputs.package_version }}
           SMART_TOOL_BUILD_NUMBER: ${{ github.run_number }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://wuxvpkczhdeslbhwpnyd.supabase.co' }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1eHZwa2N6aGRlc2xiaHdwbnlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjQ3NzEsImV4cCI6MjA4NDAwMDc3MX0.ZCrDnhzH1TWYbtaIbvenYRJHMjOvOdL2P1b2-kHgV4c' }}
@@ -188,5 +246,6 @@ jobs:
       - name: Publish macOS release asset
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ needs.release-plan.outputs.tag_name }}
+          fail_on_unmatched_files: true
           files: release/SMART-Tool-macOS-arm64.dmg

@@ -12,7 +12,7 @@ settings:
     PRODUCT_BUNDLE_IDENTIFIER: uk.smarttool.macos
     PRODUCT_NAME: "SMART Tool"
     EXECUTABLE_NAME: SMARTToolMac
-    MARKETING_VERSION: "0.0.0"
+    MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
     CODE_SIGN_STYLE: Automatic
     ENABLE_DEBUG_DYLIB: NO
@@ -29,7 +29,7 @@ targets:
         EXECUTABLE_NAME: SMARTToolMac
         PRODUCT_BUNDLE_IDENTIFIER: uk.smarttool.macos
         PRODUCT_NAME: "SMART Tool"
-        MARKETING_VERSION: "0.0.0"
+        MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Config/Info.plist
