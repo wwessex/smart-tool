@@ -235,14 +235,14 @@ describe("SettingsPanel", () => {
       />,
     );
 
-    expect(screen.getByText("Open SMART Tool macOS release to enable Desktop Accelerator.")).toBeInTheDocument();
+    expect(screen.getByText("Download SMART Tool for macOS to enable Desktop Accelerator.")).toBeInTheDocument();
     expect(screen.getByText(/apple silicon is required for the one-click install/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open SMART Tool macOS release" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Download SMART Tool for macOS" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Advanced manual setup" })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Open SMART Tool macOS release" }));
+    await user.click(screen.getByRole("button", { name: "Download SMART Tool for macOS" }));
     expect(openSpy).toHaveBeenCalledWith(
-      "https://github.com/wwessex/smart-tool/releases/latest",
+      "https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-macOS-arm64.dmg",
       "_blank",
       "noopener,noreferrer",
     );
@@ -348,12 +348,12 @@ describe("SettingsPanel", () => {
       />,
     );
 
-    expect(screen.getByText("Open SMART Tool Windows release to enable Desktop Accelerator.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open SMART Tool Windows release" })).toBeInTheDocument();
+    expect(screen.getByText("Download SMART Tool for Windows to enable Desktop Accelerator.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Download SMART Tool for Windows" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Open SMART Tool Windows release" }));
+    await user.click(screen.getByRole("button", { name: "Download SMART Tool for Windows" }));
     expect(openSpy).toHaveBeenCalledWith(
-      "https://github.com/wwessex/smart-tool/releases/latest",
+      "https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-Windows-x64-Setup.exe",
       "_blank",
       "noopener,noreferrer",
     );

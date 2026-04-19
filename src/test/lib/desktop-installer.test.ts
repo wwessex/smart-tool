@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolveDesktopInstallTarget } from "@/lib/desktop-installer";
 
 describe("desktop-installer", () => {
-  it("maps Apple Silicon macOS to the latest GitHub release page", () => {
+  it("maps Apple Silicon macOS to the direct DMG download", () => {
     const target = resolveDesktopInstallTarget({
       platform: "macOS",
       architecture: "arm64",
@@ -12,8 +12,8 @@ describe("desktop-installer", () => {
       platform: "macos",
       architecture: "arm64",
       canDirectDownload: true,
-      label: "Open SMART Tool macOS release",
-      url: "https://github.com/wwessex/smart-tool/releases/latest",
+      label: "Download SMART Tool for macOS",
+      url: "https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-macOS-arm64.dmg",
     });
   });
 
@@ -41,8 +41,8 @@ describe("desktop-installer", () => {
       platform: "windows",
       architecture: "x64",
       canDirectDownload: true,
-      label: "Open SMART Tool Windows release",
-      url: "https://github.com/wwessex/smart-tool/releases/latest",
+      label: "Download SMART Tool for Windows",
+      url: "https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-Windows-x64-Setup.exe",
     });
   });
 
@@ -55,7 +55,7 @@ describe("desktop-installer", () => {
     expect(target).toMatchObject({
       platform: "windows",
       architecture: "arm64",
-      url: "https://github.com/wwessex/smart-tool/releases/latest",
+      url: "https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-Windows-arm64-Setup.exe",
     });
   });
 });

@@ -1,7 +1,7 @@
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Privacy-first SMART action planner for employment advisors and coaches.",
   "author": "SMART Tool contributors",
   "main": "electron/main.cjs",
@@ -19,9 +19,9 @@
     "desktop:dev": "npx -y concurrently@9.2.1 -k \"vite\" \"npx -y wait-on@8.0.5 tcp:8080 && npx -y electron@37.2.4 .\"",
     "desktop:stage-runtime": "node scripts/stage-desktop-accelerator-runtime.mjs --clean --targets darwin-arm64,win32-x64,win32-arm64",
     "desktop:stage-runtime:win": "node scripts/stage-desktop-accelerator-runtime.mjs --clean --targets win32-x64,win32-arm64",
-    "desktop:build": "npm run desktop:stage-runtime && vite build && npx -y electron-builder@26.0.12 --dir",
+    "desktop:build": "npm run desktop:stage-runtime && vite build && npx -y electron-builder@26.0.12 --dir --publish never",
     "desktop:dist": "npm run desktop:dist:win",
-    "desktop:dist:win": "npm run desktop:stage-runtime:win && vite build && npx -y electron-builder@26.0.12 --win nsis portable",
+    "desktop:dist:win": "npm run desktop:stage-runtime:win && vite build && npx -y electron-builder@26.0.12 --win nsis portable --publish never",
     "dist:win": "npm run desktop:dist:win",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -165,10 +165,10 @@
       ]
     },
     "nsis": {
-      "artifactName": "SMART-Tool-Windows-${arch}-setup.${ext}"
+      "artifactName": "SMART-Tool-Windows-${arch}-Setup.${ext}"
     },
     "portable": {
-      "artifactName": "SMART-Tool-Windows-${arch}-portable.${ext}"
+      "artifactName": "SMART-Tool-Windows-${arch}-Portable.${ext}"
     }
   }
 }

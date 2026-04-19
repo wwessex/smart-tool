@@ -80,12 +80,12 @@ bun run build
 
 ### Install SMART Tool Desktop Apps
 
-Use the latest GitHub release page if you want the plug-and-play Desktop
+Use the latest GitHub release asset if you want the plug-and-play Desktop
 Accelerator experience:
 
-- GitHub Releases: `https://github.com/wwessex/smart-tool/releases/latest`
-- macOS: download `SMART-Tool-macOS-arm64.dmg` on Apple Silicon
-- Windows: download the installer that matches your architecture (`x64` or `arm64`)
+- macOS (Apple Silicon): `https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-macOS-arm64.dmg`
+- Windows x64: `https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-Windows-x64-Setup.exe`
+- Windows arm64: `https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-Windows-arm64-Setup.exe`
 
 The desktop apps embed Desktop Accelerator directly. On first launch they
 download the local GGUF model into app data and reuse it on later launches.
@@ -131,6 +131,8 @@ Notes:
 - `script/build_and_run.ps1` is the project-local Windows entrypoint for kill/build/run and verify flows
 - `.github/workflows/windows-desktop.yml` builds the Windows desktop artifacts on `windows-latest`, which is the supported verification path from non-Windows hosts
 - `.github/workflows/release-desktop.yml` is the signed tag-driven release workflow for public installers
+- the Electron packaging commands use `--publish never`; GitHub release uploads happen in `.github/workflows/release-desktop.yml`
+- when signing secrets are missing, `.github/workflows/release-desktop.yml` falls back to unsigned Windows installers and an ad-hoc signed macOS DMG so releases are still publishable
 
 ### Native macOS shell
 
