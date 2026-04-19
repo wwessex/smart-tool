@@ -33,6 +33,26 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1eHZwa2N6aGRlc2xiaHdwbnlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjQ3NzEsImV4cCI6MjA4NDAwMDc3MX0.ZCrDnhzH1TWYbtaIbvenYRJHMjOvOdL2P1b2-kHgV4c' }}
           VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID || 'wuxvpkczhdeslbhwpnyd' }}
 
+      - name: Verify packaged Desktop Accelerator runtime
+        shell: pwsh
+        run: |
+          $acceleratorRoots = Get-ChildItem release -Directory | Where-Object { $_.Name -like '*unpacked*' } | ForEach-Object { Join-Path $_.FullName 'resources/DesktopAccelerator' }
+          if (-not $acceleratorRoots) {
+            throw 'Expected unpacked desktop artifacts under release/.'
+          }
+
+          foreach ($root in $acceleratorRoots) {
+            if (-not (Test-Path (Join-Path $root 'manifest.json'))) {
+              throw "Missing Desktop Accelerator manifest in $root"
+            }
+            if (-not (Test-Path (Join-Path $root 'runtimes/win32-x64/llama-server.exe'))) {
+              throw "Missing x64 llama-server runtime in $root"
+            }
+            if (-not (Test-Path (Join-Path $root 'runtimes/win32-arm64/llama-server.exe'))) {
+              throw "Missing arm64 llama-server runtime in $root"
+            }
+          }
+
       - name: Upload Windows desktop artifacts
         uses: actions/upload-artifact@v4
         with:

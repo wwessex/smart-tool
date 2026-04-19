@@ -51,6 +51,7 @@ import { cn } from '@/lib/utils';
 import { staggerContainer, slideInLeft, slideInRight, springTransition, softSpring } from '@/lib/animation-variants';
 import { ComboboxInput } from './ComboboxInput';
 import { getDesktopBridge } from '@/lib/desktop-bridge';
+import { useDesktopInstallTarget } from '@/hooks/useDesktopInstallTarget';
 
 export function SmartActionTool() {
   const { toast } = useToast();
@@ -121,7 +122,7 @@ export function SmartActionTool() {
   } = aiDraft;
   const desktopBridge = getDesktopBridge();
   const isDesktopShell = Boolean(desktopBridge);
-  const isMacBrowser = !desktopBridge && Boolean(llm.browserInfo.isMac);
+  const installTarget = useDesktopInstallTarget(llm.browserInfo);
 
   const aiDraftButtonLabel = aiDrafting || llm.isGenerating
     ? 'Drafting...'
@@ -142,14 +143,14 @@ export function SmartActionTool() {
             : storage.aiDraftRuntime === 'auto'
               ? isDesktopShell
                 ? 'Auto will use the built-in Desktop Accelerator when it is ready.'
-                : isMacBrowser
-                  ? 'Browser AI will be used. On macOS, Desktop Accelerator comes from the native app or an optional helper.'
+                : installTarget.canDirectDownload
+                  ? `Browser AI will be used. ${installTarget.label} for the built-in Desktop Accelerator.`
                   : 'Auto will use Desktop Accelerator when available.'
               : storage.aiDraftRuntime === 'desktop-helper'
                 ? isDesktopShell
                   ? 'Desktop Accelerator is embedded in this app. Browser fallback will be used if it is unavailable.'
-                  : isMacBrowser
-                    ? 'Desktop Accelerator on macOS needs the native app or the optional local helper. Browser fallback will be used when available.'
+                  : installTarget.canDirectDownload
+                    ? `${installTarget.label} to switch from Browser AI to the built-in Desktop Accelerator.`
                     : 'Desktop Accelerator not ready. Browser fallback will be used when available.'
                 : 'Browser AI will warm up when needed.';
 

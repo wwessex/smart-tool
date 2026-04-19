@@ -14,6 +14,10 @@ DERIVED_DATA_PATH="${SMART_TOOL_DERIVED_DATA_PATH:-$HOME/Library/Developer/Xcode
 BUILD_ROOT="$DERIVED_DATA_PATH/Build/Products/Debug"
 APP_BUNDLE="$BUILD_ROOT/$APP_NAME.app"
 APP_BINARY="$APP_BUNDLE/Contents/MacOS/$PROCESS_NAME"
+PACKAGE_VERSION="${SMART_TOOL_VERSION:-$(node -p "require('./package.json').version")}"
+BUILD_NUMBER="${SMART_TOOL_BUILD_NUMBER:-${GITHUB_RUN_NUMBER:-1}}"
+NODE_BINARY_PATH="$(command -v node)"
+NPM_BINARY_PATH="$(command -v npm)"
 
 cd "$ROOT_DIR"
 
@@ -33,11 +37,15 @@ fi
 
 normalize_project_format
 
+NODE_BINARY="$NODE_BINARY_PATH" \
+NPM_BINARY="$NPM_BINARY_PATH" \
 xcodebuild \
   -project "$PROJECT_PATH" \
   -scheme SMARTToolMac \
   -configuration Debug \
   -derivedDataPath "$DERIVED_DATA_PATH" \
+  MARKETING_VERSION="$PACKAGE_VERSION" \
+  CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
   build
 
 open_app() {

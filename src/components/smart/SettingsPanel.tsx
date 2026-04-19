@@ -8,6 +8,7 @@ import { WarningBox } from './WarningBox';
 import { cn } from '@/lib/utils';
 import { DEFAULT_PROMPT_PACK, type PromptPack } from '@/lib/prompt-pack';
 import { getDesktopBridge } from '@/lib/desktop-bridge';
+import { useDesktopInstallTarget } from '@/hooks/useDesktopInstallTarget';
 import type { useSmartStorage } from '@/hooks/useSmartStorage';
 import type { useLocalSync } from '@/hooks/useLocalSync';
 import {
@@ -15,10 +16,6 @@ import {
   Sparkles, Check, RefreshCw, Loader2, Shield, FileDown, Clock,
   Trash2, Download, FolderSync, FolderOpen, FileArchive, CloudOff,
 } from 'lucide-react';
-
-const SMART_TOOL_REPO_URL = 'https://github.com/wwessex/smart-tool';
-const NATIVE_MACOS_GUIDE_URL = `${SMART_TOOL_REPO_URL}#native-macos-shell`;
-const DESKTOP_HELPER_GUIDE_URL = `${SMART_TOOL_REPO_URL}#desktop-accelerator-helper`;
 
 function safeRemoveItem(key: string): boolean {
   try {
@@ -56,7 +53,7 @@ export interface SettingsPanelProps {
     canUseLocalAI: boolean;
     isMobile: boolean;
     supportsDesktopHelper: boolean;
-    browserInfo: { isSafari: boolean; isMac?: boolean };
+    browserInfo: { isSafari: boolean; isMac?: boolean; isWindows?: boolean; isLinux?: boolean };
     deviceInfo: { isIOS: boolean } | null;
     helperStatus: 'checking' | 'not-installed' | 'downloading-model' | 'warming-up' | 'ready' | 'using-browser-fallback' | 'error';
     helperMessage: string | null;
@@ -93,17 +90,15 @@ export const SettingsPanel = memo(function SettingsPanel({
   const effectivePromptPack = promptPack || DEFAULT_PROMPT_PACK;
   const desktopBridge = getDesktopBridge();
   const isDesktopShell = Boolean(desktopBridge);
-  const isMacBrowser = !desktopBridge && Boolean(llm.browserInfo?.isMac);
+  const installTarget = useDesktopInstallTarget(llm.browserInfo);
   const helperUnavailableDescription = isDesktopShell
     ? 'Desktop Accelerator is built into this desktop app but is not ready yet.'
-    : isMacBrowser
-      ? 'Desktop Accelerator is not running in this browser. Use the native macOS app for the embedded accelerator, or run the optional local helper.'
+    : installTarget.canDirectDownload
+      ? `Desktop Accelerator is not running in this browser. ${installTarget.label} to use the built-in accelerator.`
       : 'Desktop Accelerator is not installed or not running.';
   const helperSetupDescription = isDesktopShell
     ? 'This desktop build embeds Desktop Accelerator. It downloads its local model on first use and keeps Browser AI available as a fallback.'
-    : isMacBrowser
-      ? 'Browser builds on macOS cannot install Desktop Accelerator directly. Use the native macOS shell from the repo guide for the embedded accelerator, or run the optional helper with `npm run helper:start` after setting the helper environment variables.'
-      : 'This browser build can detect a running Desktop Accelerator, but it cannot install one for you. Local developer setup uses `npm run helper:start` after configuring the helper environment variables.';
+    : installTarget.description;
   const helperStatusCopy = llm.helperStatus === 'ready'
     ? { label: 'Ready', description: llm.helperBackend ? `Desktop Accelerator is ready via ${llm.helperBackend}.` : 'Desktop Accelerator is ready.' }
     : llm.helperStatus === 'downloading-model'
@@ -362,9 +357,9 @@ export const SettingsPanel = memo(function SettingsPanel({
                 <p className="text-xs text-muted-foreground">
                   {isDesktopShell
                     ? 'Auto prefers the built-in Desktop Accelerator in this desktop app. Browser AI stays available as a fallback if the accelerator is unavailable.'
-                    : isMacBrowser
-                    ? 'On macOS, this browser build keeps Browser AI in-browser. Desktop Accelerator is available through the native macOS shell or an optional local helper.'
-                    : 'Auto prefers Desktop Accelerator when a running helper is available on this computer. Browser AI keeps everything in-browser. Desktop Accelerator uses the optional local loopback helper.'}
+                    : installTarget.canDirectDownload
+                      ? `On ${installTarget.platformLabel}, Browser AI stays available in-browser. ${installTarget.label} to switch to the built-in Desktop Accelerator.`
+                      : 'Auto prefers Desktop Accelerator when a running helper is available on this computer. Browser AI keeps everything in-browser. Advanced manual setup remains available for unsupported devices.'}
                 </p>
 
                 {llm.supportsDesktopHelper && (
@@ -385,32 +380,34 @@ export const SettingsPanel = memo(function SettingsPanel({
                         <p className="text-sm font-medium">
                           {isDesktopShell
                             ? 'Desktop Accelerator is unavailable in this desktop build.'
-                            : isMacBrowser
-                              ? 'Desktop Accelerator needs the macOS app or manual helper.'
-                              : 'No in-browser installer is available for Desktop Accelerator.'}
+                            : installTarget.canDirectDownload
+                              ? `${installTarget.label} to enable Desktop Accelerator.`
+                              : 'No one-click Desktop Accelerator installer is available on this device.'}
                         </p>
                         <p className="text-xs text-muted-foreground">{helperSetupDescription}</p>
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {isMacBrowser && (
+                      {installTarget.canDirectDownload && installTarget.url && (
                         <Button
                           variant="outline"
                           size="sm"
                           className="h-7 text-xs"
-                          onClick={() => openExternalLink(NATIVE_MACOS_GUIDE_URL)}
+                          onClick={() => openExternalLink(installTarget.url)}
                         >
-                          Open macOS setup guide
+                          {installTarget.label}
                         </Button>
                       )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={() => openExternalLink(DESKTOP_HELPER_GUIDE_URL)}
-                      >
-                        Open helper guide
-                      </Button>
+                      {!installTarget.canDirectDownload && installTarget.showAdvancedManualSetup && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => openExternalLink(installTarget.manualGuideUrl)}
+                        >
+                          Advanced manual setup
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"

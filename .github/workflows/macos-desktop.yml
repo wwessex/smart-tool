@@ -39,6 +39,12 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1eHZwa2N6aGRlc2xiaHdwbnlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjQ3NzEsImV4cCI6MjA4NDAwMDc3MX0.ZCrDnhzH1TWYbtaIbvenYRJHMjOvOdL2P1b2-kHgV4c' }}
           VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID || 'wuxvpkczhdeslbhwpnyd' }}
 
+      - name: Verify packaged Desktop Accelerator runtime
+        run: |
+          APP_ROOT="$HOME/Library/Developer/Xcode/DerivedData/SMARTToolMac-Codex/Build/Products/Debug/SMART Tool.app/Contents/Resources/DesktopAccelerator"
+          test -f "$APP_ROOT/manifest.json"
+          test -x "$APP_ROOT/runtimes/darwin-arm64/llama-server"
+
       - name: Upload macOS desktop artifact
         uses: actions/upload-artifact@v4
         with:

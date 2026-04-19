@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "source": {
+    "repository": "ggml-org/llama.cpp",
+    "release_tag": "b8840"
+  },
+  "targets": [
+    {
+      "id": "darwin-arm64",
+      "platform": "darwin",
+      "arch": "arm64",
+      "archive": {
+        "type": "tar.gz",
+        "url": "https://github.com/ggml-org/llama.cpp/releases/download/b8840/llama-b8840-bin-macos-arm64.tar.gz",
+        "sha256": "0ff55818254506f59f88804815007d66e7abc5eaa59ee26144b55c9e6f1a505f"
+      },
+      "bundle_subpath": "llama-b8840",
+      "executable": "llama-server"
+    },
+    {
+      "id": "win32-x64",
+      "platform": "win32",
+      "arch": "x64",
+      "archive": {
+        "type": "zip",
+        "url": "https://github.com/ggml-org/llama.cpp/releases/download/b8840/llama-b8840-bin-win-cpu-x64.zip",
+        "sha256": "29f020e87cef66f978f19d72ab9306edad19237a85f02bcc53555196c4ee5baa"
+      },
+      "bundle_subpath": "",
+      "executable": "llama-server.exe"
+    },
+    {
+      "id": "win32-arm64",
+      "platform": "win32",
+      "arch": "arm64",
+      "archive": {
+        "type": "zip",
+        "url": "https://github.com/ggml-org/llama.cpp/releases/download/b8840/llama-b8840-bin-win-cpu-arm64.zip",
+        "sha256": "52c76ff94f79fdf94d55e6dde212710346fc7e9778c6120607f87c3e12420d6e"
+      },
+      "bundle_subpath": "",
+      "executable": "llama-server.exe"
+    }
+  ]
+}

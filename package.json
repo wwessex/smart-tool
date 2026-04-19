@@ -17,9 +17,11 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "desktop:dev": "npx -y concurrently@9.2.1 -k \"vite\" \"npx -y wait-on@8.0.5 tcp:8080 && npx -y electron@37.2.4 .\"",
-    "desktop:build": "vite build && npx -y electron-builder@26.0.12 --dir",
+    "desktop:stage-runtime": "node scripts/stage-desktop-accelerator-runtime.mjs --clean --targets darwin-arm64,win32-x64,win32-arm64",
+    "desktop:stage-runtime:win": "node scripts/stage-desktop-accelerator-runtime.mjs --clean --targets win32-x64,win32-arm64",
+    "desktop:build": "npm run desktop:stage-runtime && vite build && npx -y electron-builder@26.0.12 --dir",
     "desktop:dist": "npm run desktop:dist:win",
-    "desktop:dist:win": "vite build && npx -y electron-builder@26.0.12 --win nsis portable",
+    "desktop:dist:win": "npm run desktop:stage-runtime:win && vite build && npx -y electron-builder@26.0.12 --win nsis portable",
     "dist:win": "npm run desktop:dist:win",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -122,6 +124,15 @@
     "directories": {
       "output": "release"
     },
+    "extraResources": [
+      {
+        "from": "desktop-helper/runtime/staged",
+        "to": "DesktopAccelerator",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
     "files": [
       "dist/**/*",
       "electron/**/*",
@@ -150,7 +161,7 @@
           ]
         }
       ],
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "SMART-Tool-Windows-${arch}-${target}.${ext}"
     }
   }
 }

@@ -15,8 +15,9 @@ vi.mock("@/lib/desktop-bridge", () => ({
 }));
 
 describe("SettingsPanel", () => {
-  it("explains that the browser build has no Desktop Accelerator installer and offers Browser AI fallback", async () => {
+  it("keeps Browser AI available and links unsupported platforms to advanced manual setup", async () => {
     const user = userEvent.setup();
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
     const updateAIDraftRuntime = vi.fn();
     const updatePreferredLLMModel = vi.fn();
     const loadModel = vi.fn().mockResolvedValue(true);
@@ -88,7 +89,7 @@ describe("SettingsPanel", () => {
       canUseLocalAI: true,
       isMobile: false,
       supportsDesktopHelper: true,
-      browserInfo: { isSafari: false },
+      browserInfo: { isSafari: false, isLinux: true },
       deviceInfo: { isIOS: false },
       helperStatus: "not-installed",
       helperMessage: "Desktop accelerator not installed or not running.",
@@ -115,8 +116,9 @@ describe("SettingsPanel", () => {
       />,
     );
 
-    expect(screen.getByText("No in-browser installer is available for Desktop Accelerator.")).toBeInTheDocument();
-    expect(screen.getByText(/this browser build can detect a running desktop accelerator/i)).toBeInTheDocument();
+    expect(screen.getByText("No one-click Desktop Accelerator installer is available on this device.")).toBeInTheDocument();
+    expect(screen.getByText(/manual setup is still documented for advanced use/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Advanced manual setup" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Switch to Browser AI" }));
 
@@ -125,9 +127,18 @@ describe("SettingsPanel", () => {
       expect(loadModel).toHaveBeenCalledWith("amor-inteligente-built-in");
     });
     expect(updatePreferredLLMModel).toHaveBeenCalledWith("amor-inteligente-built-in");
+
+    await user.click(screen.getByRole("button", { name: "Advanced manual setup" }));
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://github.com/wwessex/smart-tool#advanced-manual-desktop-setup",
+      "_blank",
+      "noopener,noreferrer",
+    );
+
+    openSpy.mockRestore();
   });
 
-  it("points macOS browsers to the native app and helper guides", async () => {
+  it("points macOS browsers to the one-click desktop download", async () => {
     const user = userEvent.setup();
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
     const storage = {
@@ -224,21 +235,125 @@ describe("SettingsPanel", () => {
       />,
     );
 
-    expect(screen.getByText("Desktop Accelerator needs the macOS app or manual helper.")).toBeInTheDocument();
-    expect(screen.getByText(/native macos shell from the repo guide/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open macOS setup guide" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open helper guide" })).toBeInTheDocument();
+    expect(screen.getByText("Download SMART Tool for macOS to enable Desktop Accelerator.")).toBeInTheDocument();
+    expect(screen.getByText(/apple silicon is required for the one-click install/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Download SMART Tool for macOS" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Advanced manual setup" })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Open macOS setup guide" }));
+    await user.click(screen.getByRole("button", { name: "Download SMART Tool for macOS" }));
     expect(openSpy).toHaveBeenCalledWith(
-      "https://github.com/wwessex/smart-tool#native-macos-shell",
+      "https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-macOS-arm64.dmg",
       "_blank",
       "noopener,noreferrer",
     );
 
-    await user.click(screen.getByRole("button", { name: "Open helper guide" }));
+    openSpy.mockRestore();
+  });
+
+  it("defaults Windows desktop downloads to the installer for the detected architecture", async () => {
+    const user = userEvent.setup();
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    const storage = {
+      barriers: ["CV"],
+      timescales: ["2 weeks"],
+      resetBarriers: vi.fn(),
+      updateBarriers: vi.fn(),
+      resetTimescales: vi.fn(),
+      updateTimescales: vi.fn(),
+      minScoreEnabled: false,
+      updateMinScoreEnabled: vi.fn(),
+      minScoreThreshold: 4,
+      updateMinScoreThreshold: vi.fn(),
+      aiDraftMode: "ai",
+      updateAIDraftMode: vi.fn(),
+      aiDraftRuntime: "auto",
+      updateAIDraftRuntime: vi.fn(),
+      preferredLLMModel: "amor-inteligente-built-in",
+      updatePreferredLLMModel: vi.fn(),
+      allowMobileLLM: false,
+      updateAllowMobileLLM: vi.fn(),
+      safariWebGPUEnabled: false,
+      updateSafariWebGPUEnabled: vi.fn(),
+      keepSafariModelLoaded: false,
+      updateKeepSafariModelLoaded: vi.fn(),
+      history: [],
+      retentionEnabled: false,
+      updateRetentionEnabled: vi.fn(),
+      retentionDays: 30,
+      updateRetentionDays: vi.fn(),
+      exportAllData: vi.fn(),
+      deleteAllData: vi.fn(),
+    } as never;
+
+    const localSync = {
+      isSupported: false,
+      isConnected: false,
+      folderName: null,
+      lastSync: null,
+      selectFolder: vi.fn(),
+      disconnect: vi.fn(),
+      syncEnabled: false,
+      setSyncEnabled: vi.fn(),
+      isConnecting: false,
+      error: null,
+      downloadAllAsZip: vi.fn(),
+    } as never;
+
+    const llm = {
+      isReady: false,
+      isLoading: false,
+      isGenerating: false,
+      error: null,
+      classifiedError: null,
+      loadingStatus: "",
+      loadingProgress: 0,
+      selectedModel: null,
+      activeRuntime: "browser",
+      supportedModels: [
+        {
+          id: "amor-inteligente-built-in",
+          name: "Amor inteligente (Built-in)",
+          size: "Included",
+          description: "Built-in offline AI planner",
+        },
+      ],
+      canUseLocalAI: true,
+      isMobile: false,
+      supportsDesktopHelper: true,
+      browserInfo: { isSafari: false, isWindows: true },
+      deviceInfo: { isIOS: false },
+      helperStatus: "not-installed",
+      helperMessage: "Desktop accelerator not installed or not running.",
+      helperBackend: null,
+      loadModel: vi.fn().mockResolvedValue(true),
+      unload: vi.fn(),
+      clearError: vi.fn(),
+      refreshHelperHealth: vi.fn(),
+    } as never;
+
+    render(
+      <SettingsPanel
+        open
+        onOpenChange={vi.fn()}
+        storage={storage}
+        localSync={localSync}
+        llm={llm}
+        promptPack={null}
+        promptPackSource={null}
+        wizardMode={false}
+        setWizardMode={vi.fn()}
+        privacySettingsOpen={false}
+        setPrivacySettingsOpen={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Download SMART Tool for Windows to enable Desktop Accelerator.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Download SMART Tool for Windows" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Download SMART Tool for Windows" }));
     expect(openSpy).toHaveBeenCalledWith(
-      "https://github.com/wwessex/smart-tool#desktop-accelerator-helper",
+      "https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-Windows-x64-Setup.exe",
       "_blank",
       "noopener,noreferrer",
     );
