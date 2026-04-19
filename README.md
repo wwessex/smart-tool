@@ -80,12 +80,12 @@ bun run build
 
 ### Install SMART Tool Desktop Apps
 
-Use the published desktop installers if you want the plug-and-play Desktop
+Use the latest GitHub release page if you want the plug-and-play Desktop
 Accelerator experience:
 
-- macOS (Apple Silicon): `https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-macOS-arm64.dmg`
-- Windows x64: `https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-Windows-x64-Setup.exe`
-- Windows arm64: `https://github.com/wwessex/smart-tool/releases/latest/download/SMART-Tool-Windows-arm64-Setup.exe`
+- GitHub Releases: `https://github.com/wwessex/smart-tool/releases/latest`
+- macOS: download `SMART-Tool-macOS-arm64.dmg` on Apple Silicon
+- Windows: download the installer that matches your architecture (`x64` or `arm64`)
 
 The desktop apps embed Desktop Accelerator directly. On first launch they
 download the local GGUF model into app data and reuse it on later launches.
