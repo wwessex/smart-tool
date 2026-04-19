@@ -15,6 +15,8 @@ APP_BUNDLE="$ARCHIVE_PATH/Products/Applications/$APP_NAME.app"
 OUTPUT_DMG="$OUTPUT_DIR/SMART-Tool-macOS-arm64.dmg"
 PACKAGE_VERSION="${SMART_TOOL_VERSION:-$(node -p "require('./package.json').version")}"
 BUILD_NUMBER="${SMART_TOOL_BUILD_NUMBER:-${GITHUB_RUN_NUMBER:-1}}"
+NODE_BINARY_PATH="$(command -v node)"
+NPM_BINARY_PATH="$(command -v npm)"
 
 required_env_vars=(
   APPLE_DEVELOPER_ID_APPLICATION
@@ -50,6 +52,8 @@ normalize_project_format
 /bin/mkdir -p "$OUTPUT_DIR"
 /bin/rm -f "$OUTPUT_DMG"
 
+NODE_BINARY="$NODE_BINARY_PATH" \
+NPM_BINARY="$NPM_BINARY_PATH" \
 xcodebuild \
   -project "$PROJECT_PATH" \
   -scheme SMARTToolMac \

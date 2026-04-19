@@ -4,15 +4,27 @@ set -euo pipefail
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
 export COPYFILE_DISABLE=1
 
-if ! command -v npm >/dev/null 2>&1; then
+NPM_BIN="${NPM_BINARY:-}"
+if [[ -z "$NPM_BIN" ]]; then
+  NPM_BIN="$(command -v npm || true)"
+fi
+
+NODE_BIN="${NODE_BINARY:-}"
+if [[ -z "$NODE_BIN" ]]; then
+  NODE_BIN="$(command -v node || true)"
+fi
+
+if [[ -z "$NPM_BIN" || ! -x "$NPM_BIN" ]]; then
   echo "error: npm is required to build the SMART Tool web bundle for Xcode." >&2
   exit 1
 fi
 
-if ! command -v node >/dev/null 2>&1; then
+if [[ -z "$NODE_BIN" || ! -x "$NODE_BIN" ]]; then
   echo "error: node is required to stage the Desktop Accelerator runtime for Xcode." >&2
   exit 1
 fi
+
+export PATH="$(dirname "$NODE_BIN"):$(dirname "$NPM_BIN"):${PATH}"
 
 REPO_ROOT="$(cd "${SRCROOT}/.." && pwd)"
 STAMP_DIR="${DERIVED_FILE_DIR:-${TARGET_TEMP_DIR:-/tmp}}"
@@ -50,7 +62,7 @@ fi
 if [[ "$needs_build" -eq 1 ]]; then
   echo "Building SMART Tool web bundle for Xcode..."
   cd "$REPO_ROOT"
-  npm run build
+  "$NPM_BIN" run build
   touch "$STAMP_FILE"
 else
   echo "Reusing existing SMART Tool web bundle."
@@ -58,7 +70,7 @@ fi
 
 echo "Staging Desktop Accelerator runtime for macOS..."
 cd "$REPO_ROOT"
-node scripts/stage-desktop-accelerator-runtime.mjs --clean --targets darwin-arm64
+"$NODE_BIN" scripts/stage-desktop-accelerator-runtime.mjs --clean --targets darwin-arm64
 
 rm -rf "$WEB_DEST"
 mkdir -p "$WEB_DEST"
@@ -68,8 +80,8 @@ mkdir -p "$WEB_DEST"
 /usr/bin/rsync -a --delete --exclude '.DS_Store' --exclude '._*' "$ACCELERATOR_STAGE_DIR/" "$ACCELERATOR_DEST/"
 /usr/bin/find "$WEB_DEST" -name '.DS_Store' -delete
 if command -v xattr >/dev/null 2>&1; then
-  xattr -cr "$WEB_DEST"
-  xattr -cr "$ACCELERATOR_DEST"
-  xattr -cr "$APP_BUNDLE" || true
+  xattr -cr "$WEB_DEST" >/dev/null 2>&1 || true
+  xattr -cr "$ACCELERATOR_DEST" >/dev/null 2>&1 || true
+  xattr -cr "$APP_BUNDLE" >/dev/null 2>&1 || true
 fi
 echo "Bundled web app copied to $WEB_DEST"
