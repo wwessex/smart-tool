@@ -162,8 +162,13 @@
             "arm64"
           ]
         }
-      ],
-      "artifactName": "SMART-Tool-Windows-${arch}-${target}.${ext}"
+      ]
+    },
+    "nsis": {
+      "artifactName": "SMART-Tool-Windows-${arch}-setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "SMART-Tool-Windows-${arch}-portable.${ext}"
     }
   }
 }
